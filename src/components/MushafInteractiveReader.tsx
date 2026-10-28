@@ -297,6 +297,7 @@ export const MushafInteractiveReader: React.FC = () => {
       pageNumber: currentPageNum,
       timestamp: Date.now(),
       textSnippet: activeAyah.plainText.substring(0, 70) + '...',
+      status: 'memorizing',
     };
     saveBookmark(item);
     setBookmarks(getSavedBookmarks());
