@@ -6,3 +6,26 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# — أماكن عمل الساندبوكس (مش جزء من الريفو) —
+/download/
+/scripts/
+/skills/
+/upload/
+/db/
+/.noor.git/
+/android-sdk/
+/keystore/
+/dev.log
+/Caddyfile
+/noor-*.apk
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/*.keystore
+android/keystore*
+*.jks
+/jdk21/
+/public/downloads/
+/public/version.json

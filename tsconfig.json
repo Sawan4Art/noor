@@ -24,5 +24,20 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "exclude": ["dist"]
+  "include": [
+    "src",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "skills",
+    "scripts",
+    "download",
+    "upload",
+    "db",
+    "android",
+    "android-sdk",
+    ".noor.git"
+  ]
 }

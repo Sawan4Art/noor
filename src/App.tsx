@@ -11,7 +11,9 @@ import { AdhkarSection } from './components/AdhkarSection';
 import { TasbihSection } from './components/TasbihSection';
 import { WidgetsStudioSection } from './components/WidgetsStudioSection';
 import { AndroidKotlinTab } from './components/AndroidKotlinTab';
+import { UpdateBanner } from './components/UpdateBanner';
 import { Coordinates, getHijriDate } from './utils/prayerMath';
+import { APP_VERSION } from './utils/otaUpdate';
 import {
   getSavedTheme,
   saveTheme,
@@ -125,6 +127,9 @@ export default function App() {
         {currentTab === 'kotlin' && <AndroidKotlinTab />}
       </main>
 
+      {/* بانر التحديث الهوائي (OTA) */}
+      <UpdateBanner />
+
       {/* Footer */}
       <footer
         className={`border-t py-6 text-center text-xs transition-colors ${
@@ -140,7 +145,7 @@ export default function App() {
               style={{ backgroundColor: currentTheme.primaryColor }}
             />
             <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>
-              نور المسلم • تطبيق أندرويد متكامل بلغة Kotlin • تصميم احترافي
+              نور المسلم • تطبيق أندرويد متكامل بلغة Kotlin • تصميم احترافي • إصدار {APP_VERSION}
             </span>
           </div>
 
