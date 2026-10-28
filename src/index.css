@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+  }
+}
+
+.font-quran {
+  font-family: 'Amiri Quran', 'Amiri', serif;
+}
+
+.font-arabic {
+  font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+}
+
+/* Custom smooth scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.3);
+  border-radius: 9999px;
+}
+
+/* Authentic Arabic Mushaf 3D Book Page Flip Animations */
+@keyframes bookFlipForward {
+  0% {
+    transform: perspective(1400px) rotateY(0deg);
+    opacity: 1;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+  }
+  45% {
+    transform: perspective(1400px) rotateY(-22deg) scale(0.98);
+    opacity: 0.88;
+    box-shadow: -20px 15px 35px rgba(0,0,0,0.5);
+  }
+  100% {
+    transform: perspective(1400px) rotateY(0deg) scale(1);
+    opacity: 1;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+  }
+}
+
+@keyframes bookFlipBackward {
+  0% {
+    transform: perspective(1400px) rotateY(0deg);
+    opacity: 1;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+  }
+  45% {
+    transform: perspective(1400px) rotateY(22deg) scale(0.98);
+    opacity: 0.88;
+    box-shadow: 20px 15px 35px rgba(0,0,0,0.5);
+  }
+  100% {
+    transform: perspective(1400px) rotateY(0deg) scale(1);
+    opacity: 1;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+  }
+}
+
+.book-flip-forward {
+  animation: bookFlipForward 0.32s cubic-bezier(0.25, 1, 0.5, 1);
+  transform-origin: right center;
+}
+
+.book-flip-backward {
+  animation: bookFlipBackward 0.32s cubic-bezier(0.25, 1, 0.5, 1);
+  transform-origin: left center;
+}
+
+/* Realistic page book spine and paper depth */
+.book-spine-shadow {
+  box-shadow: 
+    inset 25px 0 35px -15px rgba(0, 0, 0, 0.15),
+    inset -25px 0 35px -15px rgba(0, 0, 0, 0.15),
+    0 25px 50px -12px rgba(0, 0, 0, 0.7);
+}
+
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.6);
+}
+
