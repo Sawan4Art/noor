@@ -11,6 +11,12 @@ if [ -z "${JAVA_HOME:-}" ] && [ -d jdk21 ]; then
   export PATH="$JAVA_HOME/bin:$PATH"
 fi
 
+# Android SDK المحلي لو موجود (بيئة الساندبوكس) — على جهاز المالك يُقرأ من local.properties
+if [ -z "${ANDROID_HOME:-}" ] && [ -d android-sdk ]; then
+  export ANDROID_HOME="$(pwd)/android-sdk"
+  export PATH="$ANDROID_HOME/platform-tools:$PATH"
+fi
+
 echo "1/4) بناء نسخة الويب (يكتب version.json تلقائياً)…"
 npm run build
 
