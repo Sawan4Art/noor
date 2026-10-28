@@ -31,3 +31,14 @@ android/keystore*
 /public/version.json
 
 /tool-results/
+.secrets-repo/
+
+# بيئة البناء المؤقتة — لا تُرفع أبداً (مئات الميجابايتات)
+.setup-tmp/
+cmdtools.zip
+jdk21/
+android-sdk/
+.secrets-repo/
+# الـ APK يُرفع كأصل Release مش داخل الجيت
+download/*.apk
+public/downloads/*.apk

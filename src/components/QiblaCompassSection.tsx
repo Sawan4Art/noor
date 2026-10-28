@@ -20,7 +20,6 @@ import {
   calculateDistanceToKaaba,
   computePrayerTimes,
 } from '../utils/prayerMath';
-import { LocationPickerModal } from './LocationPickerModal';
 import { AppTheme, ColorMode } from '../utils/themeData';
 
 interface QiblaCompassSectionProps {
@@ -38,7 +37,6 @@ export const QiblaCompassSection: React.FC<QiblaCompassSectionProps> = ({
   colorMode = 'dark',
   onNavigateToTab,
 }) => {
-  const [showLocationModal, setShowLocationModal] = useState<boolean>(false);
   const [deviceHeading, setDeviceHeading] = useState<number>(0);
   const [hasCompassSensor, setHasCompassSensor] = useState<boolean | null>(null);
   const [permissionState, setPermissionState] = useState<'prompt' | 'granted' | 'denied'>('prompt');
@@ -132,14 +130,17 @@ export const QiblaCompassSection: React.FC<QiblaCompassSectionProps> = ({
   // مستشعر الاتجاه — قراءة الحقيقة الأرضية (true heading)
   const smoothHeadingRef = useRef<number | null>(null);
   const lastEmittedRef = useRef<number | null>(null);
+  const lastEmitTimeRef = useRef<number>(0);
 
   /**
-   * جذر إصلاح البوصلة (2026-10): كانت لا تشير للقبلة لسببين:
-   * 1) على أندرويد كروم حدث deviceorientation يعطي alpha *نسبياً* (نقطة صفر عشوائية)
-   *    وليس الشمال الجغرافي — الحل: الاستماع لـ deviceorientationabsolute أولاً،
-   *    مع fallback لـ webkitCompassHeading (iOS) ثم deviceorientation.
-   * 2) عدم تعويض دوران الشاشة (landscape) — الحل: إضافة زاوية الشاشة للقراءة.
-   * مع تنعيم متحرك (low-pass) لمنع ارتجاف السهم.
+   * إصلاح ارتجاف البوصلة (2026-10، الدفعة الثالثة):
+   * 1) الاستماع للحدثين معاً: deviceorientationabsolute (مرجعي بالشمال)
+   *    له الأولوية فور وصوله، وdeviceorientation fallback مؤقت فقط —
+   *    بعض الويبفيوهات لا تعرّف ondeviceorientationabsolute لكنها تطلقه.
+   * 2) تنعيم تكيفي: حركة سريعة (أكبر من 12°) تتبع فوراً، والاهتزاز
+   *    الصغير يُبتلع بمعامل تنعيم قوي (0.12).
+   * 3) منطقة ميتة: لا تحديث للحالة إلا بعد 1.2° فرق أو 150ms —
+   *    هذا اللي يوقف الارتعاش المرئي نهائياً.
    */
   useEffect(() => {
     const getScreenAngle = (): number => {
@@ -154,31 +155,35 @@ export const QiblaCompassSection: React.FC<QiblaCompassSectionProps> = ({
       return 0;
     };
 
+    let hasAbsoluteSource = false;
+
     const applyHeading = (rawHeading: number) => {
       const screenAngle = getScreenAngle();
-      const compensated = (rawHeading + screenAngle % 360 + 360) % 360;
+      const compensated = ((rawHeading + (screenAngle % 360) + 360) % 360);
 
-      // تنعيم: متوسط متحرك أسي (alpha صغير = استقرار أعلى)
+      // تنعيم تكيفي: فرق كبير = استجابة فورية، فرق صغير (ضوضاء) = تنعيم قوي
       const prev = smoothHeadingRef.current;
-      const smoothed =
-        prev === null
-          ? compensated
-          : (() => {
-              // أقصر مسار دائري بين القراءتين
-              let delta = compensated - prev;
-              if (delta > 180) delta -= 360;
-              if (delta < -180) delta += 360;
-              return prev + delta * 0.35;
-            })();
-      smoothHeadingRef.current = smoothed;
+      if (prev === null) {
+        smoothHeadingRef.current = compensated;
+      } else {
+        let delta = compensated - prev;
+        if (delta > 180) delta -= 360;
+        if (delta < -180) delta += 360;
+        const alpha = Math.abs(delta) > 12 ? 0.6 : 0.12;
+        smoothHeadingRef.current = (prev + delta * alpha + 360) % 360;
+      }
 
-      // تحديث الحالة فقط لو التغيير ملموس (> 0.4 درجة) لتقليل إعادة الرسم
+      // منطقة ميتة + تحديد معدل التحديث: هذا ما يمنع الارتعاش
+      const now = Date.now();
       const last = lastEmittedRef.current;
-      const moved =
-        last === null || Math.abs(((smoothed - last + 540) % 360) - 180) > 0.4;
-      if (moved) {
-        const rounded = Math.round(((smoothed % 360) + 360) % 360);
+      const diff =
+        last === null
+          ? 999
+          : Math.abs(((smoothHeadingRef.current - last + 540) % 360) - 180);
+      if (diff >= 1.2 || now - lastEmitTimeRef.current >= 150) {
+        const rounded = Math.round(((smoothHeadingRef.current % 360) + 360) % 360);
         lastEmittedRef.current = rounded;
+        lastEmitTimeRef.current = now;
         setDeviceHeading(rounded);
       }
     };
@@ -188,57 +193,44 @@ export const QiblaCompassSection: React.FC<QiblaCompassSectionProps> = ({
       let absolute = false;
 
       // iOS Safari: webkitCompassHeading مرجعي بالشمال الحقيقي مباشرة
-      const webkitHeading = (e as unknown as { webkitCompassHeading?: number }).webkitCompassHeading;
+      const webkitHeading = (e as unknown as { webkitCompassHeading?: number })
+        .webkitCompassHeading;
       if (typeof webkitHeading === 'number' && !isNaN(webkitHeading)) {
         heading = webkitHeading;
         absolute = true;
       } else if (typeof e.alpha === 'number' && !isNaN(e.alpha)) {
         heading = (360 - e.alpha) % 360;
-        // deviceorientationabsolute أو e.absolute=true → مرجعي بالشمال
         absolute = e.type === 'deviceorientationabsolute' || e.absolute === true;
       }
 
-      if (heading !== null) {
-        if (absolute) {
-          setHasCompassSensor(true);
-          setCompassCalibrated(true);
-          applyHeading(heading);
-        } else {
-          // مستشعر موجود لكن قراءته غير مرجعية — نعرضها مع تحذير المعايرة
-          setHasCompassSensor(true);
-          setCompassCalibrated(false);
-          applyHeading(heading);
-        }
+      if (heading === null) return;
+
+      // الحدث المطلق له الأولوية: أول وصول له نتجاهل النسبي نهائياً
+      if (absolute) {
+        if (!hasAbsoluteSource) hasAbsoluteSource = true;
+        setHasCompassSensor(true);
+        setCompassCalibrated(true);
+        applyHeading(heading);
+      } else if (!hasAbsoluteSource) {
+        // مستشعر موجود لكن قراءته غير مرجعية — نعرضها مع تحذير المعايرة
+        setHasCompassSensor(true);
+        setCompassCalibrated(false);
+        applyHeading(heading);
       }
     };
 
     const attach = (eventName: string) => {
       window.addEventListener(eventName, handleOrientation as EventListener, true);
-      return () => window.removeEventListener(eventName, handleOrientation as EventListener, true);
+      return () =>
+        window.removeEventListener(eventName, handleOrientation as EventListener, true);
     };
 
     const cleanups: Array<() => void> = [];
 
     if (typeof window !== 'undefined' && window.DeviceOrientationEvent) {
-      // 1) الأولوية: الحدث المطلق المرجعي بالشمال (أندرويد كروم)
-      const absoluteSupported =
-        'DeviceOrientationEvent' in window &&
-        typeof (window as unknown as { ondeviceorientationabsolute?: unknown }).ondeviceorientationabsolute !== 'undefined';
-
-      if (absoluteSupported) {
-        cleanups.push(attach('deviceorientationabsolute'));
-      } else {
-        // 2) iOS عبر webkitCompassHeading داخل deviceorientation
-        cleanups.push(attach('deviceorientation'));
-      }
-
-      // مراقب مساعد: لو المطلق ماوصلش خلال ثانيتين نسمع للنسبي كاحتياط
-      const fallbackTimer = window.setTimeout(() => {
-        if (absoluteSupported) {
-          cleanups.push(attach('deviceorientation'));
-        }
-      }, 2000);
-      cleanups.push(() => window.clearTimeout(fallbackTimer));
+      // الاستماع للحدثين معاً — المطلق أولوية فور وصول أول حدث منه
+      cleanups.push(attach('deviceorientationabsolute'));
+      cleanups.push(attach('deviceorientation'));
     } else {
       setHasCompassSensor(false);
       setUseManualMode(true);
@@ -297,22 +289,22 @@ export const QiblaCompassSection: React.FC<QiblaCompassSectionProps> = ({
             </p>
           </div>
 
-          {/* Quick city info button */}
+          {/* معلومات الموقع — التغيير من الإعدادات */}
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setShowLocationModal(true)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-medium border transition-all shadow-sm ${
+            <div
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-medium border shadow-sm ${
                 isDark
-                  ? 'bg-slate-900/90 hover:bg-slate-800 border-emerald-700/50 text-slate-200'
-                  : 'bg-white hover:bg-slate-50 border-emerald-200 text-slate-800'
+                  ? 'bg-slate-900/90 border-emerald-700/50 text-slate-200'
+                  : 'bg-white border-emerald-200 text-slate-800'
               }`}
+              title="تغيير الموقع من الإعدادات ← الموقع"
             >
               <MapPin className="w-4 h-4 text-emerald-500" />
               <span>{coordinates.city}</span>
               <span className="text-[11px] text-slate-400 font-mono">
                 ({coordinates.latitude.toFixed(2)}°, {coordinates.longitude.toFixed(2)}°)
               </span>
-            </button>
+            </div>
 
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
@@ -695,15 +687,7 @@ export const QiblaCompassSection: React.FC<QiblaCompassSectionProps> = ({
         </div>
       </div>
 
-      {/* Location Picker Modal */}
-      {setCoordinates && (
-        <LocationPickerModal
-          isOpen={showLocationModal}
-          onClose={() => setShowLocationModal(false)}
-          currentCoords={coordinates}
-          onSelectCoords={(coords) => setCoordinates(coords)}
-        />
-      )}
+
     </div>
   );
 };

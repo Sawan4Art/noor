@@ -1,8 +1,31 @@
 import { SURAHS_LIST } from './quranData';
 
+/**
+ * قواعد التجويد القياسية — نفس ترميز مصحف التجويد من alquran.cloud
+ * (المبني على مصحف مجمع الملك فهد) بألوان المصاحف التجويدية المعتمدة.
+ */
+export type TajweedRule =
+  | 'hamzat_wasl' // همزة وصل (رمادي)
+  | 'silent' // حرف لا يُلفظ (رمادي)
+  | 'laam_shamsiyah' // لام شمسية (رمادي)
+  | 'madda_normal' // مد طبيعي حركتان
+  | 'madda_permissible' // مد جائز 2/4/6
+  | 'madda_necessary' // مد لازم 6
+  | 'madda_obligatory' // مد واجب 4/5
+  | 'qalaqalah' // قلقلة
+  | 'ikhafa_shafawi' // إخفاء شفوي
+  | 'ikhafa' // إخفاء
+  | 'idgham_shafawi' // إدغام شفوي
+  | 'iqlab' // إقلاب
+  | 'idgham_ghunnah' // إدغام بغنة
+  | 'idgham_wo_ghunnah' // إدغام بغير غنة
+  | 'idgham_mutajanisayn' // إدغام متجانسين
+  | 'idgham_mutaqaribayn' // إدغام متقاربين
+  | 'ghunnah'; // غنة
+
 export interface TajweedSegment {
   text: string;
-  rule?: 'madd_6' | 'madd_wajib' | 'madd_jaiz' | 'madd_2' | 'ghunnah' | 'idgham' | 'qalqalah' | 'tafkheem';
+  rule?: TajweedRule;
 }
 
 export interface TajweedAyah {
@@ -23,16 +46,108 @@ export interface MushafPage {
   ayahs: TajweedAyah[];
 }
 
-export const TAJWEED_COLORS: Record<string, { label: string; color: string; bg: string }> = {
-  madd_6: { label: 'مد 6 حركات لزوماً', color: '#db2777', bg: 'rgba(219, 39, 119, 0.15)' },
-  madd_wajib: { label: 'مد واجب 4 أو 5 حركات', color: '#dc2626', bg: 'rgba(220, 38, 38, 0.15)' },
-  madd_jaiz: { label: 'مد 2 أو 4 أو 6 جوازاً', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' },
-  madd_2: { label: 'مد حركتان', color: '#eab308', bg: 'rgba(234, 179, 8, 0.15)' },
-  ghunnah: { label: 'إخفاء ، ومواقع الغُنّة (حركتان)', color: '#16a34a', bg: 'rgba(22, 163, 74, 0.15)' },
-  idgham: { label: 'إدغام ، وما لا يُلفظ', color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.15)' },
-  qalqalah: { label: 'قلقلة', color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.15)' },
-  tafkheem: { label: 'تفخيم', color: '#0284c7', bg: 'rgba(2, 132, 199, 0.15)' },
+export interface TajweedRuleStyle {
+  label: string;
+  /** لون الحبر في الطبعات الفاتحة */
+  color: string;
+  /** لون الحبر في المصحف الليلي (أفتح للقراءة على الداكن) */
+  nightColor: string;
+  bg: string;
+  group: 'madd' | 'ghunnah_hide' | 'idgham' | 'qalqalah' | 'not_pronounced';
+}
+
+/** لوحة ألوان المصاحف التجويدية المعتمدة + درجات ليلية مريحة */
+export const TAJWEED_RULES: Record<TajweedRule, TajweedRuleStyle> = {
+  hamzat_wasl: { label: 'همزة وصل', color: '#9e9e9e', nightColor: '#9aa4b2', bg: 'rgba(158,158,158,0.15)', group: 'not_pronounced' },
+  silent: { label: 'حرف لا يُلفظ', color: '#9e9e9e', nightColor: '#9aa4b2', bg: 'rgba(158,158,158,0.15)', group: 'not_pronounced' },
+  laam_shamsiyah: { label: 'لام شمسية', color: '#9e9e9e', nightColor: '#9aa4b2', bg: 'rgba(158,158,158,0.15)', group: 'not_pronounced' },
+  madda_normal: { label: 'مد طبيعي (حركتان)', color: '#537fff', nightColor: '#8fb0ff', bg: 'rgba(83,127,255,0.12)', group: 'madd' },
+  madda_permissible: { label: 'مد جائز (2/4/6)', color: '#4050ff', nightColor: '#8091ff', bg: 'rgba(64,80,255,0.12)', group: 'madd' },
+  madda_necessary: { label: 'مد لازم (6 حركات)', color: '#000ebc', nightColor: '#6d7dff', bg: 'rgba(0,14,188,0.10)', group: 'madd' },
+  madda_obligatory: { label: 'مد واجب (4/5 حركات)', color: '#2144c1', nightColor: '#7f9bff', bg: 'rgba(33,68,193,0.12)', group: 'madd' },
+  qalaqalah: { label: 'قلقلة', color: '#dd0008', nightColor: '#ff6b6f', bg: 'rgba(221,0,8,0.10)', group: 'qalqalah' },
+  ikhafa_shafawi: { label: 'إخفاء شفوي', color: '#d500b7', nightColor: '#ff7ae0', bg: 'rgba(213,0,183,0.10)', group: 'ghunnah_hide' },
+  ikhafa: { label: 'إخفاء', color: '#9400a8', nightColor: '#d878ea', bg: 'rgba(148,0,168,0.10)', group: 'ghunnah_hide' },
+  idgham_shafawi: { label: 'إدغام شفوي', color: '#58b800', nightColor: '#8ee02e', bg: 'rgba(88,184,0,0.12)', group: 'idgham' },
+  iqlab: { label: 'إقلاب', color: '#26bffd', nightColor: '#6fd8ff', bg: 'rgba(38,191,253,0.12)', group: 'idgham' },
+  idgham_ghunnah: { label: 'إدغام بغنة', color: '#169777', nightColor: '#4fd1ac', bg: 'rgba(22,151,119,0.12)', group: 'idgham' },
+  idgham_wo_ghunnah: { label: 'إدغام بغير غنة', color: '#169200', nightColor: '#6ee02e', bg: 'rgba(22,146,0,0.12)', group: 'idgham' },
+  idgham_mutajanisayn: { label: 'إدغام متجانسين', color: '#a1a1a1', nightColor: '#b0b6bf', bg: 'rgba(161,161,161,0.12)', group: 'idgham' },
+  idgham_mutaqaribayn: { label: 'إدغام متقاربين', color: '#a1a1a1', nightColor: '#b0b6bf', bg: 'rgba(161,161,161,0.12)', group: 'idgham' },
+  ghunnah: { label: 'غنة (حركتان)', color: '#ff7e1e', nightColor: '#ffa45c', bg: 'rgba(255,126,30,0.12)', group: 'ghunnah_hide' },
 };
+
+/** خريطة مفاتيح الطبعة القديمة إلى القواعد القياسية الجديدة */
+const LEGACY_RULE_MAP: Record<string, TajweedRule> = {
+  madd_6: 'madda_necessary',
+  madd_wajib: 'madda_obligatory',
+  madd_jaiz: 'madda_permissible',
+  madd_2: 'madda_normal',
+  ghunnah: 'ghunnah',
+  idgham: 'idgham_ghunnah',
+  qalqalah: 'qalaqalah',
+  tafkheem: 'laam_shamsiyah',
+};
+
+/** حروف ترميز alquran.cloud إلى قواعدنا */
+const MARKUP_CODES: Record<string, TajweedRule> = {
+  h: 'hamzat_wasl',
+  s: 'silent',
+  l: 'laam_shamsiyah',
+  n: 'madda_normal',
+  p: 'madda_permissible',
+  m: 'madda_necessary',
+  q: 'qalaqalah',
+  o: 'madda_obligatory',
+  c: 'ikhafa_shafawi',
+  f: 'ikhafa',
+  w: 'idgham_shafawi',
+  i: 'iqlab',
+  a: 'idgham_ghunnah',
+  u: 'idgham_wo_ghunnah',
+  d: 'idgham_mutajanisayn',
+  b: 'idgham_mutaqaribayn',
+  g: 'ghunnah',
+};
+
+const MARKUP_RE = /\[([a-z]*):?[0-9]*\[([^\]]*)\]/g;
+
+/**
+ * تحليل نص الآية بترميز التجويد [o[َٓ]] إلى مقاطع ملونة قابلة للعرض.
+ * النص الخالي من الترميز يرجع كمقطع واحد بلا قاعدة.
+ */
+export function parseTajweedMarkup(text: string): TajweedSegment[] {
+  if (!text || !text.includes('[')) {
+    return text ? [{ text }] : [];
+  }
+  const segments: TajweedSegment[] = [];
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  MARKUP_RE.lastIndex = 0;
+  while ((m = MARKUP_RE.exec(text)) !== null) {
+    if (m.index > lastIndex) {
+      segments.push({ text: text.slice(lastIndex, m.index) });
+    }
+    const code = m[1];
+    const rule = code ? MARKUP_CODES[code] : undefined;
+    if (m[2]) {
+      segments.push(rule ? { text: m[2], rule } : { text: m[2] });
+    }
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < text.length) {
+    segments.push({ text: text.slice(lastIndex) });
+  }
+  return segments;
+}
+
+/** توحيد أي مفتاح قاعدة قديم/جديد — يرجّع null لو مش معروف */
+export function normalizeTajweedRule(raw: string | undefined): TajweedRule | null {
+  if (!raw) return null;
+  if (raw in TAJWEED_RULES) return raw as TajweedRule;
+  const mapped = LEGACY_RULE_MAP[raw];
+  return mapped ?? null;
+}
 
 export interface AyahReciter {
   id: string;
@@ -75,7 +190,17 @@ export function getAyahAudioUrl(folder: string, surahNumber: number, ayahNumber:
 /**
  * Pre-cached authentic Mushaf Pages (including Page 4 matching user screenshot)
  */
-export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
+/** مقاطع بطبعة قديمة — تُرقّى للقواعد القياسية عند التحميل */
+interface LegacySegment {
+  text: string;
+  rule?: string;
+}
+
+type MushafPageLegacy = Omit<MushafPage, 'ayahs'> & {
+  ayahs: Array<Omit<TajweedAyah, 'segments'> & { segments: LegacySegment[] }>;
+};
+
+const MUSHAF_PAGES_DATA_LEGACY: Record<number, MushafPageLegacy> = {
   // Page 4 - Exactly from User Screenshot!
   4: {
     pageNumber: 4,
@@ -102,7 +227,7 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
           { text: ' يُ' },
           { text: 'بْ', rule: 'qalqalah' },
           { text: 'صِ' },
-          { text: 'رُونَ', rule: 'madd_jaiz' },
+          { text: 'رُونَ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -118,7 +243,7 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
           { text: ' بُ' },
           { text: 'كْمٌ', rule: 'ghunnah' },
           { text: ' عُمْيٌ فَهُمْ لَا يَرْ' },
-          { text: 'جِعُونَ', rule: 'madd_jaiz' },
+          { text: 'جِعُونَ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -140,13 +265,13 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
           { text: 'بَرْ' },
           { text: 'قٌ يَ', rule: 'idgham' },
           { text: 'جْعَلُونَ أَصَابِعَهُمْ فِ' },
-          { text: 'ي آ', rule: 'madd_jaiz' },
+          { text: 'ي آ', rule: 'madda_permissible' },
           { text: 'ذَانِهِم ' },
           { text: 'مِّ', rule: 'ghunnah' },
           { text: 'نَ الصَّوَاعِقِ حَذَرَ الْمَوْتِ ۚ وَاللَّهُ مُحِي' },
           { text: 'طٌ بِ', rule: 'ghunnah' },
           { text: 'الْكَافِ' },
-          { text: 'رِينَ', rule: 'madd_jaiz' },
+          { text: 'رِينَ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -158,12 +283,12 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
         page: 4,
         segments: [
           { text: 'يَكَادُ الْبَرْقُ يَخْطَفُ أَبْصَارَهُمْ ۖ كُلَّ' },
-          { text: 'مَا أَ', rule: 'madd_jaiz' },
+          { text: 'مَا أَ', rule: 'madda_permissible' },
           { text: 'ضَاءَ', rule: 'madd_wajib' },
           { text: ' لَهُم ' },
           { text: 'مَّ', rule: 'ghunnah' },
           { text: 'شَوْا فِيهِ وَإِ' },
-          { text: 'ذَا أَ', rule: 'madd_jaiz' },
+          { text: 'ذَا أَ', rule: 'madda_permissible' },
           { text: 'ظْلَمَ عَلَيْهِمْ قَامُوا ۚ وَلَوْ ' },
           { text: 'شَاءَ', rule: 'madd_wajib' },
           { text: ' اللَّهُ لَذَهَبَ بِسَمْعِهِمْ وَأَبْصَارِهِمْ ۚ إِ' },
@@ -171,7 +296,7 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
           { text: ' اللَّهَ عَلَىٰ كُلِّ شَيْءٍ ' },
           { text: 'قَ', rule: 'tafkheem' },
           { text: 'دِ' },
-          { text: 'يرٌ', rule: 'madd_jaiz' },
+          { text: 'يرٌ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -183,14 +308,14 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
         page: 4,
         segments: [
           { text: 'يَ' },
-          { text: 'ا أَيُّ', rule: 'madd_jaiz' },
+          { text: 'ا أَيُّ', rule: 'madda_permissible' },
           { text: 'هَا النَّ' },
           { text: 'اسُ', rule: 'ghunnah' },
           { text: ' اعْبُدُوا رَبَّكُمُ الَّذِي خَلَقَكُمْ وَالَّذِينَ ' },
           { text: 'مِن قَ', rule: 'ghunnah' },
           { text: 'بْ', rule: 'qalqalah' },
           { text: 'لِكُمْ لَعَلَّكُمْ تَتَّ' },
-          { text: 'قُونَ', rule: 'madd_jaiz' },
+          { text: 'قُونَ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -219,7 +344,7 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
           { text: 'أَ' },
           { text: 'نتُمْ', rule: 'ghunnah' },
           { text: ' تَعْلَ' },
-          { text: 'مُونَ', rule: 'madd_jaiz' },
+          { text: 'مُونَ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -246,7 +371,7 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
           { text: 'ونِ اللَّهِ إِ' },
           { text: 'ن كُ', rule: 'ghunnah' },
           { text: 'نتُمْ صَادِ' },
-          { text: 'قِينَ', rule: 'madd_jaiz' },
+          { text: 'قِينَ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -266,7 +391,7 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
           { text: ' الَّتِي وَقُودُهَا النَّ' },
           { text: 'اسُ', rule: 'ghunnah' },
           { text: ' وَالْحِجَارَةُ ۖ أُعِدَّتْ لِلْكَافِ' },
-          { text: 'رِينَ', rule: 'madd_jaiz' },
+          { text: 'رِينَ', rule: 'madda_permissible' },
         ],
       },
     ],
@@ -287,7 +412,7 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
         page: 1,
         segments: [
           { text: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّ' },
-          { text: 'حِيمِ', rule: 'madd_jaiz' },
+          { text: 'حِيمِ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -299,7 +424,7 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
         page: 1,
         segments: [
           { text: 'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِ' },
-          { text: 'ينَ', rule: 'madd_jaiz' },
+          { text: 'ينَ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -311,7 +436,7 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
         page: 1,
         segments: [
           { text: 'الرَّحْمَٰنِ الرَّ' },
-          { text: 'حِيمِ', rule: 'madd_jaiz' },
+          { text: 'حِيمِ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -323,7 +448,7 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
         page: 1,
         segments: [
           { text: 'مَالِكِ يَوْمِ الدِّ' },
-          { text: 'ينِ', rule: 'madd_jaiz' },
+          { text: 'ينِ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -335,7 +460,7 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
         page: 1,
         segments: [
           { text: 'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِ' },
-          { text: 'ينُ', rule: 'madd_jaiz' },
+          { text: 'ينُ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -347,7 +472,7 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
         page: 1,
         segments: [
           { text: 'اهْدِنَا الصِّرَاطَ الْمُسْتَقِ' },
-          { text: 'يمَ', rule: 'madd_jaiz' },
+          { text: 'يمَ', rule: 'madda_permissible' },
         ],
       },
       {
@@ -360,28 +485,71 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
         segments: [
           { text: 'صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا ' },
           { text: 'الضَّالِّ', rule: 'madd_6' },
-          { text: 'ينَ', rule: 'madd_jaiz' },
+          { text: 'ينَ', rule: 'madda_permissible' },
         ],
       },
     ],
   },
 };
 
+/** الصفحات المنتقاة — تُرقّى قواعدها القديمة للقواعد القياسية (fallback قبل اكتمال التحميل) */
+export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = Object.fromEntries(
+  Object.entries(MUSHAF_PAGES_DATA_LEGACY).map(([num, page]) => [
+    Number(num),
+    {
+      ...page,
+      ayahs: page.ayahs.map((a) => ({
+        ...a,
+        segments: a.segments.map((seg) => {
+          const rule = normalizeTajweedRule(seg.rule);
+          return rule ? { text: seg.text, rule } : { text: seg.text };
+        }),
+      })),
+    },
+  ]),
+);
+
 /**
- * تحميل نص المصحف كامل (604 صفحة بنص عثماني) من public/data/quran-pages.json
- * — بيُهيّئ كاش داخلي مرة واحدة، وأي فشل شبكة = صمت والرجوع للصفحات المنتقاة
- * والمولّدة (قاعدة الميثاق: fallback دايماً).
+ * تحميل نص المصحف كامل (604 صفحة) + مصحف التجويد الملون (6236 آية)
+ * — الاثنان يُدمجان: نص الصفحات للبنية والنص العثماني، وترميز التجويد للتلوين.
+ * أي فشل شبكة = صمت والرجوع للصفحات المنتقاة المدمجة (fallback دايماً).
  */
 let quranPagesCache: Record<number, MushafPage> | null = null;
 let quranPagesPromise: Promise<void> | null = null;
+let tajweedCache: Record<string, string[]> | null = null;
+
+interface RawQuranPage {
+  j: number;
+  h: number;
+  sur: number;
+  a: Array<{ s: number; a: number; t: string }>;
+}
+
+/** بناء مقاطع التجويد لآية من كاش مصحف التجويد (لو محمّل) */
+function buildSegments(surahNumber: number, ayahNumber: number): TajweedSegment[] | null {
+  if (!tajweedCache) return null;
+  const markup = tajweedCache[String(surahNumber)]?.[ayahNumber - 1];
+  if (typeof markup !== 'string') return null;
+  return parseTajweedMarkup(markup);
+}
 
 export function loadQuranPages(): Promise<void> {
   if (quranPagesCache) return Promise.resolve();
   if (quranPagesPromise) return quranPagesPromise;
 
-  quranPagesPromise = fetch('/data/quran-pages.json')
-    .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
-    .then((data: { pages: Record<string, { j: number; h: number; sur: number; a: Array<{ s: number; a: number; t: string }> }> }) => {
+  const pagesPromise = fetch('/data/quran-pages.json').then((res) =>
+    res.ok
+      ? (res.json() as Promise<{ pages: Record<string, RawQuranPage> }>)
+      : Promise.reject(new Error(String(res.status))),
+  );
+  // مصحف التجويد يُحمَّل بالتوازي — فشله لا يمنع الصفحات (تظهر بلا تلوين فقط)
+  const tajweedPromise = fetch('/data/quran-tajweed.json')
+    .then((res) => (res.ok ? (res.json() as Promise<Record<string, string[]>>) : null))
+    .catch(() => null);
+
+  quranPagesPromise = Promise.all([pagesPromise, tajweedPromise])
+    .then(([data, tajweed]) => {
+      tajweedCache = tajweed;
       const hydrated: Record<number, MushafPage> = {};
       for (const [num, p] of Object.entries(data.pages)) {
         const pageNumber = Number(num);
@@ -394,11 +562,10 @@ export function loadQuranPages(): Promise<void> {
             surahNumber: x.s,
             ayahNumber: x.a,
             plainText: x.t,
-            // التفسير متاح للصفحات المنتقاة يدوياً — الباقي يعرض رسالة لطيفة من المودال
             tafseer: '',
             juz: p.j,
             page: pageNumber,
-            segments: [{ text: x.t }],
+            segments: buildSegments(x.s, x.a) ?? [{ text: x.t }],
           })),
         };
       }
@@ -428,15 +595,21 @@ export function getSurahForPage(pageNumber: number) {
 }
 
 /**
- * جلب صفحة المصحف: النص الكامل المحمّل أولاً، ثم الصفحات المنتقاة بالتلوين التجويدي،
- * ثم مولّد احتياطي للصفحات قبل اكتمال التحميل.
+ * جلب صفحة المصحف: النص المدمج بالتجويد أولاً، ثم الصفحات المنتقاة
+ * مع ترقية تلوينها من مصحف التجويد لو محمّل، ثم مولّد احتياطي قبل اكتمال التحميل.
  */
 export function getOrCreateMushafPage(pageNumber: number): MushafPage {
   if (quranPagesCache?.[pageNumber]) {
     return quranPagesCache[pageNumber];
   }
   if (MUSHAF_PAGES_DATA[pageNumber]) {
-    return MUSHAF_PAGES_DATA[pageNumber];
+    const page = MUSHAF_PAGES_DATA[pageNumber];
+    // لو مصحف التجويد محمّل — نستبدل المقاطع اليدوية بالتلوين المعتمد الكامل
+    const upgraded = page.ayahs.map((ayah) => ({
+      ...ayah,
+      segments: buildSegments(ayah.surahNumber, ayah.ayahNumber) ?? ayah.segments,
+    }));
+    return { ...page, ayahs: upgraded };
   }
 
   const surah = getSurahForPage(pageNumber);
@@ -458,9 +631,9 @@ export function getOrCreateMushafPage(pageNumber: number): MushafPage {
         page: pageNumber,
         segments: [
           { text: 'بِسْمِ اللَّهِ الرَّ' },
-          { text: 'حْمَٰ', rule: 'madd_2' },
+          { text: 'حْمَٰ', rule: 'madda_normal' },
           { text: 'نِ الرَّ' },
-          { text: 'حِيمِ', rule: 'madd_jaiz' },
+          { text: 'حِيمِ', rule: 'madda_permissible' },
           { text: ` - تلاوة خاشعة من سورة ${surah.name} صفحة ${pageNumber}` },
         ],
       },

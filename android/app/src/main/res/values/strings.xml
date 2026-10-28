@@ -4,4 +4,5 @@
     <string name="title_activity_main">نور المسلم</string>
     <string name="package_name">com.sawan4art.noor</string>
     <string name="custom_url_scheme">com.sawan4art.noor</string>
+    <string name="widget_description">مواقيت الصلاة والصلاة القادمة مع عداد تنازلي حي</string>
 </resources>

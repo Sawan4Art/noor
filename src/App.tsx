@@ -2,18 +2,26 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { App as CapApp } from '@capacitor/app';
 import { Navbar, ActiveTab } from './components/Navbar';
 import { PrayerTimesSection } from './components/PrayerTimesSection';
 import { QuranSection } from './components/QuranSection';
 import { QiblaCompassSection } from './components/QiblaCompassSection';
 import { AdhkarSection } from './components/AdhkarSection';
 import { TasbihSection } from './components/TasbihSection';
-import { WidgetsStudioSection } from './components/WidgetsStudioSection';
 import { SettingsSection } from './components/SettingsSection';
 import { SplashDua } from './components/SplashDua';
 import { UpdateBanner } from './components/UpdateBanner';
-import { Coordinates, getHijriDate } from './utils/prayerMath';
+import {
+  Coordinates,
+  getHijriDate,
+  computePrayerTimes,
+  getNextPrayer,
+  CalculationMethod,
+  PRAYER_NAMES_AR,
+  PrayerTimeKey,
+} from './utils/prayerMath';
 import { APP_VERSION } from './utils/otaUpdate';
 import {
   getSavedTheme,
@@ -24,23 +32,62 @@ import {
   AppTheme,
   ColorMode,
 } from './utils/themeData';
+import {
+  getSavedLocation,
+  saveLocation,
+  getSavedMethod,
+  saveMethod,
+  getSavedMadhab,
+  saveMadhab,
+  getSavedAdhanVoice,
+  saveAdhanVoice,
+  getSavedAdhanEnabled,
+  saveAdhanEnabled,
+  getSavedPrayerAlerts,
+  savePrayerAlerts,
+  getPermissionsAsked,
+  savePermissionsAsked,
+  PrayerAlerts,
+} from './utils/appSettings';
+import {
+  scheduleAdhanAlarms,
+  cancelAdhanAlarms,
+  updateWidget,
+  requestAllPermissions,
+  isNativeApp,
+  buildAlarmsFromAlerts,
+} from './utils/nativeBridge';
+import { initAndroidBack } from './utils/backButton';
+
+const PRAYER_ORDER: PrayerTimeKey[] = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<ActiveTab>('prayer');
   const [showSplash, setShowSplash] = useState<boolean>(true);
 
-  const [coordinates, setCoordinates] = useState<Coordinates>({
-    city: 'القاهرة، مصر',
-    latitude: 30.0444,
-    longitude: 31.2357,
-  });
+  // ===== الإعدادات المشتركة (المصدر الوحيد للحقيقة) =====
+  const [coordinates, setCoordinates] = useState<Coordinates>(getSavedLocation);
+  const [method, setMethod] = useState<CalculationMethod>(getSavedMethod);
+  const [isHanafi, setIsHanafi] = useState<boolean>(() => getSavedMadhab() === 'hanafi');
+  const [adhanVoiceId, setAdhanVoiceId] = useState<string>(() => getSavedAdhanVoice().id);
+  const [adhanEnabled, setAdhanEnabled] = useState<boolean>(getSavedAdhanEnabled);
+  const [prayerAlerts, setPrayerAlerts] = useState<PrayerAlerts>(getSavedPrayerAlerts);
 
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [hijriDate, setHijriDate] = useState<string>('');
 
   // Theme & Color Mode State
   const [currentTheme, setCurrentTheme] = useState<AppTheme>(getSavedTheme);
   const [colorMode, setColorMode] = useState<ColorMode>(getSavedColorMode);
+
+  // دقيقة حالية (لإعادة الجدولة عند تغير اليوم بدون نبضة كل ثانية)
+  const [minuteTick, setMinuteTick] = useState<number>(() => Math.floor(Date.now() / 60000));
+  useEffect(() => {
+    const t = setInterval(
+      () => setMinuteTick(Math.floor(Date.now() / 60000)),
+      30 * 1000,
+    );
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const h = getHijriDate(new Date());
@@ -52,7 +99,6 @@ export default function App() {
     applyThemePalette(currentTheme, colorMode);
   }, [currentTheme, colorMode]);
 
-  // Sync theme changes with localStorage and root HTML classes
   const handleSelectTheme = (theme: AppTheme) => {
     setCurrentTheme(theme);
     saveTheme(theme.id);
@@ -65,12 +111,153 @@ export default function App() {
 
   useEffect(() => {
     const root = document.documentElement;
-    if (colorMode === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    if (colorMode === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
   }, [colorMode]);
+
+  // ===== معالجات تغيير الإعدادات (تحفظ فوراً) =====
+  const handleSetCoordinates = useCallback((coords: Coordinates) => {
+    setCoordinates(coords);
+    saveLocation(coords);
+  }, []);
+
+  const handleSetMethod = useCallback((m: CalculationMethod) => {
+    setMethod(m);
+    saveMethod(m);
+  }, []);
+
+  const handleSetIsHanafi = useCallback((h: boolean) => {
+    setIsHanafi(h);
+    saveMadhab(h ? 'hanafi' : 'shafi');
+  }, []);
+
+  const handleSetAdhanVoiceId = useCallback((id: string) => {
+    setAdhanVoiceId(id);
+    saveAdhanVoice(id);
+  }, []);
+
+  const handleSetAdhanEnabled = useCallback((on: boolean) => {
+    setAdhanEnabled(on);
+    saveAdhanEnabled(on);
+  }, []);
+
+  const handleSetPrayerAlerts = useCallback((alerts: PrayerAlerts) => {
+    setPrayerAlerts(alerts);
+    savePrayerAlerts(alerts);
+  }, []);
+
+  // ===== أذونات أول تشغيل: تطلب تلقائياً بعد زر «متابعة» في السبلاش =====
+  const permissionsRequestedRef = useRef(false);
+  useEffect(() => {
+    if (showSplash) return;
+    if (permissionsRequestedRef.current) return;
+    if (getPermissionsAsked()) {
+      permissionsRequestedRef.current = true;
+      return;
+    }
+    permissionsRequestedRef.current = true;
+    savePermissionsAsked();
+    // طلب كل الأذونات: الموقع للمواقيت + الإشعارات والمنبهات للأذان في الخلفية
+    void requestAllPermissions().then(() => {
+      // بعد منح الموقع: حدّث الموقع تلقائياً لو ما زال الافتراضي
+      const saved = getSavedLocation();
+      if (saved.city === 'القاهرة، مصر' && isNativeApp()) {
+        navigator.geolocation?.getCurrentPosition(
+          (pos) => {
+            handleSetCoordinates({
+              city: 'موقعي الحالي',
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          },
+          () => {
+            // المستخدم رفض الموقع أو غير متاح — يظل الموقع المختار يدوياً
+          },
+          { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
+        );
+      }
+    });
+  }, [showSplash, handleSetCoordinates]);
+
+  // ===== جدولة الأذان النيتِفية + تحديث الويدجت عند تغير الإعدادات/اليوم =====
+  const scheduleKey = `${coordinates.latitude},${coordinates.longitude}|${method}|${isHanafi}|${adhanVoiceId}|${adhanEnabled}|${JSON.stringify(prayerAlerts)}|${minuteTick}`;
+  useEffect(() => {
+    if (showSplash) return;
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 3600 * 1000);
+
+    const todayTimes = computePrayerTimes(
+      now,
+      coordinates.latitude,
+      coordinates.longitude,
+      method,
+      isHanafi,
+    );
+    const tomorrowTimes = computePrayerTimes(
+      tomorrow,
+      coordinates.latitude,
+      coordinates.longitude,
+      method,
+      isHanafi,
+    );
+
+    // الصلوات القادمة: المتبقي اليوم + صلوات الغد (لضمان الأذان حتى لو التطبيق ما فتحش)
+    const upcoming: Array<{ key: string; name: string; ts: number }> = [];
+    for (const key of PRAYER_ORDER) {
+      const t = todayTimes.rawTimes[key].getTime();
+      if (t > now.getTime()) {
+        upcoming.push({ key, name: PRAYER_NAMES_AR[key], ts: t });
+      }
+    }
+    for (const key of PRAYER_ORDER) {
+      upcoming.push({ key, name: PRAYER_NAMES_AR[key], ts: tomorrowTimes.rawTimes[key].getTime() });
+    }
+
+    // جدولة منبهات الأذان (تعمل والشاشة مطفية)
+    if (adhanEnabled) {
+      const alarms = buildAlarmsFromAlerts(upcoming, prayerAlerts);
+      void scheduleAdhanAlarms(alarms, adhanVoiceId, coordinates.city);
+    } else {
+      void cancelAdhanAlarms();
+    }
+
+    // تحديث ويدجت الشاشة الرئيسية ببيانات اليوم
+    const next = getNextPrayer(todayTimes, now);
+    void updateWidget({
+      city: coordinates.city,
+      hijri: hijriDate,
+      times: Object.fromEntries(PRAYER_ORDER.map((k) => [k, todayTimes[k]])),
+      order: PRAYER_ORDER.map((k) => ({
+        key: k,
+        name: PRAYER_NAMES_AR[k],
+        time: todayTimes[k],
+      })),
+      next: {
+        key: next.name,
+        name: next.arabicName,
+        ts: next.targetDate.getTime(),
+        time: next.timeStr,
+      },
+      tzOffsetMinutes: -now.getTimezoneOffset(),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleKey, showSplash]);
+
+  // ===== زر الرجوع في أندرويد: منطق التبويبات =====
+  useEffect(() => {
+    initAndroidBack(() => {
+      if (currentTab !== 'prayer') {
+        setCurrentTab('prayer');
+        return;
+      }
+      // أصلاً في الرئيسية — سلوك أندرويد الافتراضي: تصغير/خروج
+      try {
+        CapApp.exitApp();
+      } catch {
+        // ويب — لا شيء
+      }
+    });
+  }, [currentTab]);
 
   const isDark = colorMode === 'dark';
 
@@ -95,13 +282,8 @@ export default function App() {
       <Navbar
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
-        coordinates={coordinates}
-        setCoordinates={setCoordinates}
-        soundEnabled={soundEnabled}
-        setSoundEnabled={setSoundEnabled}
         hijriString={hijriDate}
         currentTheme={currentTheme}
-        setCurrentTheme={handleSelectTheme}
         colorMode={colorMode}
         setColorMode={handleToggleColorMode}
       />
@@ -111,10 +293,8 @@ export default function App() {
         {currentTab === 'prayer' && (
           <PrayerTimesSection
             coordinates={coordinates}
-            setCoordinates={setCoordinates}
-            soundEnabled={soundEnabled}
-            onOpenAdhkarAfterPrayer={() => setCurrentTab('adhkar')}
-            onOpenQibla={() => setCurrentTab('qibla')}
+            method={method}
+            isHanafi={isHanafi}
           />
         )}
 
@@ -123,10 +303,8 @@ export default function App() {
         {currentTab === 'qibla' && (
           <QiblaCompassSection
             coordinates={coordinates}
-            setCoordinates={setCoordinates}
             theme={currentTheme}
             colorMode={colorMode}
-            onNavigateToTab={(tab) => setCurrentTab(tab)}
           />
         )}
 
@@ -134,20 +312,24 @@ export default function App() {
 
         {currentTab === 'tasbih' && <TasbihSection />}
 
-        {currentTab === 'widgets' && (
-          <WidgetsStudioSection
-            coordinates={coordinates}
-            onNavigateToTab={(tab) => setCurrentTab(tab)}
-          />
-        )}
-
         {currentTab === 'settings' && (
           <SettingsSection
             currentTheme={currentTheme}
             setCurrentTheme={handleSelectTheme}
             colorMode={colorMode}
             setColorMode={handleToggleColorMode}
-            onOpenWidgets={() => setCurrentTab('widgets')}
+            coordinates={coordinates}
+            setCoordinates={handleSetCoordinates}
+            method={method}
+            setMethod={handleSetMethod}
+            isHanafi={isHanafi}
+            setIsHanafi={handleSetIsHanafi}
+            adhanVoiceId={adhanVoiceId}
+            setAdhanVoiceId={handleSetAdhanVoiceId}
+            adhanEnabled={adhanEnabled}
+            setAdhanEnabled={handleSetAdhanEnabled}
+            prayerAlerts={prayerAlerts}
+            setPrayerAlerts={handleSetPrayerAlerts}
           />
         )}
       </main>

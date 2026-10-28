@@ -4,18 +4,12 @@ import {
   Compass,
   Moon,
   Sun,
-  Volume2,
-  VolumeX,
-  MapPin,
   Clock,
   BookOpen,
   Sparkles,
   CircleDot,
   Settings,
 } from 'lucide-react';
-import { Coordinates } from '../utils/prayerMath';
-import { LocationPickerModal } from './LocationPickerModal';
-import { ThemeSelectorModal } from './ThemeSelectorModal';
 import { AppTheme, ColorMode } from '../utils/themeData';
 
 export type ActiveTab =
@@ -30,21 +24,16 @@ export type ActiveTab =
 interface NavbarProps {
   currentTab: ActiveTab;
   setCurrentTab: (tab: ActiveTab) => void;
-  coordinates: Coordinates;
-  setCoordinates: (coords: Coordinates) => void;
-  soundEnabled: boolean;
-  setSoundEnabled: (enabled: boolean) => void;
   hijriString: string;
   currentTheme: AppTheme;
-  setCurrentTheme: (theme: AppTheme) => void;
   colorMode: ColorMode;
   setColorMode: (mode: ColorMode) => void;
 }
 
 /**
  * عناصر شريط التنقل السفلي — خمسة أقسام رئيسية + الإعدادات.
- * (بطلب المالك 2026-10: زر إعدادات واضح بدل قائمة «المزيد» المخفية —
- *  استوديو الويدجتس أصبح داخل الإعدادات).
+ * (الدفعة الثالثة 2026-10: الألوان والموقع انتقلوا للإعدادات —
+ * الهيدر: الشعار والتاريخ ووضع الإضاءة فقط.)
  */
 const NAV_ITEMS: Array<{ key: ActiveTab; label: string; Icon: React.FC<{ className?: string }> }> = [
   { key: 'prayer', label: 'المواقيت', Icon: Clock },
@@ -58,19 +47,11 @@ const NAV_ITEMS: Array<{ key: ActiveTab; label: string; Icon: React.FC<{ classNa
 export const Navbar: React.FC<NavbarProps> = ({
   currentTab,
   setCurrentTab,
-  coordinates,
-  setCoordinates,
-  soundEnabled,
-  setSoundEnabled,
   hijriString,
   currentTheme,
-  setCurrentTheme,
   colorMode,
   setColorMode,
 }) => {
-  const [showLocationModal, setShowLocationModal] = React.useState<boolean>(false);
-  const [showThemeModal, setShowThemeModal] = React.useState<boolean>(false);
-
   const isDark = colorMode === 'dark';
 
   return (
@@ -111,48 +92,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   نور المسلم
                 </h1>
-                <p className="text-[10px] truncate hidden sm:block" style={{ color: 'var(--noor-n-500)' }}>
+                <p
+                  className="text-[10px] truncate hidden sm:block"
+                  style={{ color: 'var(--noor-n-500)' }}
+                >
                   {hijriString}
                 </p>
               </div>
             </div>
 
-            {/* أدوات التحكم: الموقع، اللون، الإضاءة (أيقونة)، الصوت */}
+            {/* أدوات التحكم: وضع الإضاءة (أيقونة) — الألوان والموقع من الإعدادات */}
             <div className="flex items-center gap-1 sm:gap-1.5">
-              <button
-                onClick={() => setShowLocationModal(true)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs transition-colors shadow-sm ${
-                  isDark ? 'hover:brightness-125' : 'hover:brightness-105'
-                }`}
-                style={{
-                  backgroundColor: 'color-mix(in srgb, var(--noor-n-800) 55%, transparent)',
-                  borderColor: 'color-mix(in srgb, var(--noor-p-500) 25%, transparent)',
-                  color: 'var(--noor-n-100)',
-                }}
-                title="تحديد الموقع عبر GPS أو باختيار البلد والمدينة"
-              >
-                <MapPin className="w-3.5 h-3.5" style={{ color: currentTheme.primaryColor }} />
-                <span className="max-w-[90px] sm:max-w-[140px] truncate">{coordinates.city}</span>
-              </button>
-
-              <button
-                onClick={() => setShowThemeModal(true)}
-                className={`p-2 rounded-xl border transition-all shadow-sm ${isDark ? 'hover:brightness-125' : 'hover:brightness-105'}`}
-                style={{
-                  backgroundColor: 'color-mix(in srgb, var(--noor-n-800) 55%, transparent)',
-                  borderColor: 'color-mix(in srgb, var(--noor-p-500) 25%, transparent)',
-                }}
-                title={`اللون الحالي: ${currentTheme.name} — اضغط لتغييره`}
-                aria-label="اختيار لون التطبيق"
-              >
-                <div
-                  className="w-3.5 h-3.5 rounded-full border border-white/50 shadow-inner"
-                  style={{
-                    background: `linear-gradient(135deg, ${currentTheme.primaryColor}, ${currentTheme.accentColor})`,
-                  }}
-                />
-              </button>
-
               <motion.button
                 whileTap={{ scale: 0.88, rotate: 15 }}
                 onClick={() => setColorMode(isDark ? 'light' : 'dark')}
@@ -167,44 +117,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </motion.button>
-
-              <motion.button
-                whileTap={{ scale: 0.88 }}
-                onClick={() => setSoundEnabled(!soundEnabled)}
-                className="p-2 rounded-xl border transition-colors"
-                style={{
-                  backgroundColor: soundEnabled
-                    ? 'color-mix(in srgb, var(--noor-p-500) 20%, transparent)'
-                    : 'color-mix(in srgb, var(--noor-n-800) 55%, transparent)',
-                  borderColor: soundEnabled
-                    ? 'color-mix(in srgb, var(--noor-p-500) 40%, transparent)'
-                    : 'color-mix(in srgb, var(--noor-p-500) 25%, transparent)',
-                  color: soundEnabled ? 'var(--noor-p-400)' : 'var(--noor-n-400)',
-                }}
-                title={soundEnabled ? 'صوت الأذان والتنبيهات مفعّل' : 'صامت'}
-                aria-label="تبديل صوت التنبيهات"
-              >
-                {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-              </motion.button>
             </div>
           </div>
         </div>
-
-        <LocationPickerModal
-          isOpen={showLocationModal}
-          onClose={() => setShowLocationModal(false)}
-          currentCoords={coordinates}
-          onSelectCoords={(coords) => setCoordinates(coords)}
-        />
-
-        <ThemeSelectorModal
-          isOpen={showThemeModal}
-          onClose={() => setShowThemeModal(false)}
-          currentTheme={currentTheme}
-          onSelectTheme={(theme) => setCurrentTheme(theme)}
-          colorMode={colorMode}
-          onToggleColorMode={(mode) => setColorMode(mode)}
-        />
       </header>
 
       {/* ================= شريط التنقل السفلي العصري ================= */}

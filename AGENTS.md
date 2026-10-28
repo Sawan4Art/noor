@@ -52,3 +52,25 @@
    - **GitHub Release** بنفس الوسم `v<النسخة>` وفيه ملف `noor-almuslim-v<النسخة>.apk` — لأن بنر التحديث OTA بيقرا آخر release من `api.github.com/repos/Sawan4Art/noor/releases/latest` ومش هيشتغل من غير ريليز مرفوع.
    - لو الـ push فشل (توكن منتهي/شبكة): بلّغ المالك فوراً — ممنوع تعتبر الإصدار «مكتمل» وهو محلي بس.
 5. worklog في الرسالة الأخيرة للمالك + رابط الـ release.
+
+## 7) دروس الدفعة الثالثة (2026-10-29، النسخة 0.2.2)
+
+### بيئة الساندبوكس تُعاد تهيئتها وتفقد الملفات المحلية!
+- **الـ Keystore احتياطي دائم**: الريبو الخاص `Sawan4Art/noor-secrets` فيه مفتاح التوقيع + كلمات السر في README. أي بيئة جديدة تُستعاد منه فوراً بالتعليمات المكتوبة هناك — قبل أي بناء release. (بدونه يتغير التوقيع ويضطر المستخدم لحذف التطبيق القديم).
+- استرجاع البيئة كامل (JDK21 + Android SDK 36 + مرايا Aliyun + keystore): `bash scripts/setup-env.sh` بعد تنزيل JDK/cmdline-tools في `.setup-tmp/` (أوامر التنزيل في أول السكريبت).
+- البروسيسات الخلفية العادية (`nohup ... &`) بتقتلها البيئة — استخدم `setsid nohup ... < /dev/null > log 2>&1 &`.
+
+### بنية الإصدار 0.2.2
+- **مصحف التجويد الحقيقي**: `public/data/quran-tajweed.json` (1.67MB، 6236 آية، ترميز alquran.cloud `[o[َٓ]]`) — المحلل: `parseTajweedMarkup()` في `quranTajweedData.ts`. الألوان: `TAJWEED_RULES` (17 قاعدة قياسية بدرجة ليلية لكل قاعدة).
+- **تلاوة بلا تقطع**: مشغل بقائمة انتظار + تحميل مسبق للآية التالية (`nextAudioRef`) + كاش أوفلاين حقيقي (`ayahAudioCache.ts` يستخدم Cache API). التنزيل من الإعدادات حقيقي مش وهمي.
+- **الأذان في الخلفية**: `NoorNativePlugin.java` (بلجن كاباسيتور) يجدول منبهات دقيقة `setExactAndAllowWhileIdle` → `AdhanAlarmReceiver` → `AdhanService` (خدمة أمامية mediaPlayback + WakeLock + USAGE_ALARM). `BootReceiver` يعيد الجدولة بعد إعادة التشغيل. الأصوات مدمجة في `res/raw/adhan_*.mp3|ogg` (المصدر: ويكيميديا كومنز — تسجيلات حرة).
+- **ويدجت حقيقي 4×2**: `NoorWidgetProvider` + `widget_noor.xml` مع Chronometer تنازلي حي — يظهر أخيراً في قائمة ويدجتات النظام. البيانات تُدفع من JS عبر `updateWidget()`.
+- **زر الرجوع في أندرويد**: مكدس معالجات `backButton.ts` — المصحف والمودالات وصفحات الإعدادات الفرعية تسجّل نفسها، والباقي: رجوع للتبويب الرئيسي ثم خروج (`App.exitApp()`).
+- **الريبو أصبح عاماً** (قرار مشترك مع فحص التاريخ نظيف 100%): عشان الـ OTA يقرا `releases/latest` بدون توكن وروابط تحميل الـ APK تشتغل لأي مستخدم. مفتاح التوقيع في الريبو الخاص المنفصل.
+
+### فحوصات ما قبل الإصدار (بالترتيب)
+1. `npx tsc --noEmit` نظيف.
+2. `bun test` — كل الاختبارات خضراء.
+3. `./build-apk.sh` → `download/noor-almuslim-v<النسخة>.apk`.
+4. `apksigner verify --print-certs` — التوقيع CN=Noor AlMuslim.
+5. push + Release + APK (القاعدة الإلزامية في القسم 6).

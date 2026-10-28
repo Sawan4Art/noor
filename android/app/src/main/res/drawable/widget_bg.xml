@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- خلفية الويدجت: بطاقة داكنة بزوايا منحنية وحد أخضر ناعم -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#E601160f" />
+    <corners android:radius="18dp" />
+    <stroke
+        android:width="1dp"
+        android:color="#4006b981" />
+</shape>
