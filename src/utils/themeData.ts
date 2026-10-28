@@ -8,8 +8,6 @@ export type ColorMode = 'dark' | 'light';
 export interface AppTheme {
   id: string;
   name: string;
-  englishName: string;
-  description: string;
   primaryColor: string;
   accentColor: string;
   bgGradientDark: string;
@@ -29,9 +27,7 @@ export interface AppTheme {
 export const APP_THEMES: AppTheme[] = [
   {
     id: 'emerald',
-    name: 'زمردي ملكي',
-    englishName: 'Royal Emerald',
-    description: 'اللون الكلاسيكي للعمارة والمآذن الإسلامية مع لمسات الذهب',
+    name: 'أخضر',
     primaryColor: '#059669',
     accentColor: '#10b981',
     bgGradientDark: 'from-slate-950 via-[#041a14] to-slate-950',
@@ -49,9 +45,7 @@ export const APP_THEMES: AppTheme[] = [
   },
   {
     id: 'sapphire',
-    name: 'أزرق أندلسي',
-    englishName: 'Andalusian Sapphire',
-    description: 'مستوحى من قباب قصر الحمراء والفسيفساء الأندلسية والزليج المغربي',
+    name: 'أزرق',
     primaryColor: '#2563eb',
     accentColor: '#06b6d4',
     bgGradientDark: 'from-slate-950 via-[#08182b] to-slate-950',
@@ -69,9 +63,7 @@ export const APP_THEMES: AppTheme[] = [
   },
   {
     id: 'kaaba',
-    name: 'عنبر الكعبة وكسوتها',
-    englishName: 'Kaaba Kiswa & Amber',
-    description: 'هيبة سواد كسوة الكعبة المشرفة المطرزة بأسلاك الذهب والفضة الخالصة',
+    name: 'ذهبي',
     primaryColor: '#d97706',
     accentColor: '#f59e0b',
     bgGradientDark: 'from-stone-950 via-[#1c1407] to-stone-950',
@@ -89,9 +81,7 @@ export const APP_THEMES: AppTheme[] = [
   },
   {
     id: 'indigo',
-    name: 'نيلي ليلي متهجد',
-    englishName: 'Midnight Indigo',
-    description: 'سكينة قيام الليل والتهجد تحت سماء صامتة مرصعة بنجوم السماء',
+    name: 'بنفسجي',
     primaryColor: '#6366f1',
     accentColor: '#a855f7',
     bgGradientDark: 'from-slate-950 via-[#140b2b] to-slate-950',
@@ -109,9 +99,7 @@ export const APP_THEMES: AppTheme[] = [
   },
   {
     id: 'ruby',
-    name: 'ياقوت أندلسي قرمزي',
-    englishName: 'Crimson Ruby',
-    description: 'ألوان المخمل والياقوت مع لمسات من الذهب الوردي الدافئ الفاخر',
+    name: 'أحمر',
     primaryColor: '#e11d48',
     accentColor: '#f43f5e',
     bgGradientDark: 'from-stone-950 via-[#260a12] to-stone-950',
@@ -129,9 +117,7 @@ export const APP_THEMES: AppTheme[] = [
   },
   {
     id: 'sage',
-    name: 'واحة الزيتون والمسك',
-    englishName: 'Olive Oasis',
-    description: 'درجات الزيتون والواحات الهادئة المريحة للعين للقراءة والتلاوة الطويلة',
+    name: 'زيتوني',
     primaryColor: '#65a30d',
     accentColor: '#84cc16',
     bgGradientDark: 'from-zinc-950 via-[#151f0b] to-zinc-950',

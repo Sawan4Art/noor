@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Check, Palette, Moon, Sun, Sparkles } from 'lucide-react';
+import { X, Check, Palette, Moon, Sun } from 'lucide-react';
 import { APP_THEMES, AppTheme, ColorMode } from '../utils/themeData';
 
 interface ThemeSelectorModalProps {
@@ -105,19 +105,19 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
             </div>
           </div>
 
-          {/* Theme Palettes Selection */}
+          {/* Theme Palettes Selection — أسماء ألوان بسيطة بدون شروحات */}
           <div>
             <label className="text-xs font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider block mb-3">
-              الأنماط اللونية الإسلامية الفاخرة
+              لون التطبيق
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
               {APP_THEMES.map((t) => {
                 const isSelected = currentTheme.id === t.id;
                 return (
                   <button
                     key={t.id}
                     onClick={() => onSelectTheme(t)}
-                    className={`flex items-center gap-3.5 p-4 rounded-2xl border text-right transition-all group ${
+                    className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all group ${
                       isSelected
                         ? isDark
                           ? 'bg-slate-800/90 border-emerald-500 ring-2 ring-emerald-500/30'
@@ -126,26 +126,17 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
                         ? 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40'
                         : 'bg-slate-50/80 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60'
                     }`}
+                    title={t.name}
                   >
-                    {/* Color Swatch Circle */}
                     <div
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-md flex-shrink-0 relative overflow-hidden"
+                      className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-md flex-shrink-0 relative overflow-hidden"
                       style={{
                         background: `linear-gradient(135deg, ${t.primaryColor}, ${t.accentColor})`,
                       }}
                     >
-                      <Sparkles className="w-5 h-5 text-white/90 drop-shadow" />
+                      {isSelected && <Check className="w-5 h-5 text-white drop-shadow" />}
                     </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-sm">{t.name}</span>
-                        {isSelected && <Check className="w-4 h-4 text-emerald-500" />}
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                        {t.description}
-                      </p>
-                    </div>
+                    <span className="text-xs font-bold">{t.name}</span>
                   </button>
                 );
               })}

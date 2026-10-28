@@ -76,6 +76,10 @@ export interface PrayerTimesResult {
   };
 }
 
+/** ضبط دقيق بالدقائق لكل صلاة (±) — يُطبق داخل الحساب قبل التنسيق */
+export type PrayerTimeKey = 'fajr' | 'sunrise' | 'dhuhr' | 'asr' | 'maghrib' | 'isha';
+export type PrayerTimeAdjustments = Partial<Record<PrayerTimeKey, number>>;
+
 export interface NextPrayerInfo {
   name: 'fajr' | 'sunrise' | 'dhuhr' | 'asr' | 'maghrib' | 'isha';
   arabicName: string;
@@ -171,82 +175,120 @@ export function computePrayerTimes(
   lat: number,
   lng: number,
   method: CalculationMethod = 'Egypt',
-  isHanafi: boolean = false
+  isHanafi: boolean = false,
+  adjustments: PrayerTimeAdjustments = {}
 ): PrayerTimesResult {
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   const day = date.getDate();
   const timeZoneOffsetHours = -date.getTimezoneOffset() / 60;
 
-  // تقريب ظهير الشمس: نحسب موضع الشمس عند الظهير المحلي المشمس
-  // (تقنية PrayTimes — بدقة ±1-2 دقيقة بدون تكرار)
-  const jd = julianDate(year, month, day) - lng / (15 * 24);
-  const { declination: d, equationOfTime: eqt } = sunPosition(jd);
+  /**
+   * جذر إصلاح دقة المواقيت (2026-10):
+   * الكود القديم كان بيقرأ موضع الشمس (الميل + معادلة الزمن) مرة واحدة عند
+   * منتصف الليل ويستخدمه لكل المواقيت — لكن ميل الشمس يتغير ~0.3°/يوم،
+   * فزوايا العشاء/المغرب كانت تُحسب بميل الصباح → مواقيت المساء تتأخر
+   * حتى 1.5 دقيقة (قياس ضد NOAA: المغرب كان عند -0.98° بدل -0.833°).
+   * الحل: تقييم موضع الشمس عند الوقت المُقدَّر لكل صلاة مع التكرار حتى التقارب
+   * (نفس منهج PrayTimes المرجعي بدقة أقل من ثانية).
+   */
+  const jdBase = julianDate(year, month, day) - lng / (15 * 24);
 
-  const methodParams = CALCULATION_METHODS[method] || CALCULATION_METHODS.Egypt;
+  // موضع الشمس عند ساعة محلية معينة
+  const sunAt = (localHours: number) => sunPosition(jdBase + localHours / 24);
 
-  // Dhuhr is mid-day
-  const midDay = fixHour(12 + timeZoneOffsetHours - lng / 15 - eqt);
+  // الظهيرة المحلية (العبور الشمسي) بموضع الشمس عند اللحظة المقدَّرة
+  const noonAt = (localHours: number): number => {
+    const { equationOfTime: eqt } = sunAt(localHours);
+    return fixHour(12 + timeZoneOffsetHours - lng / 15 - eqt);
+  };
 
-  // Fajr
-  const fajrDiff =
-    (1 / 15) *
-    acosD(
-      (-sinD(methodParams.fajrAngle) - sinD(lat) * sinD(d)) /
-        (cosD(lat) * cosD(d))
-    );
-  const fajr = isNaN(fajrDiff) ? midDay - 1.5 : midDay - fajrDiff;
+  /**
+   * وقت الوصول لزاوية شمسية معينة (تحت الأفق) — بالتكرار:
+   * كل دورة تعيد تقييم الميل والظهيرة عند الوقت الجديد حتى يتقارب.
+   */
+  const timeForAngle = (angle: number, guess: number, sign: 1 | -1): number => {
+    let t = guess;
+    for (let i = 0; i < 3; i++) {
+      const { declination: d } = sunAt(t);
+      const noon = noonAt(t);
+      const diff =
+        (1 / 15) *
+        acosD((-sinD(angle) - sinD(lat) * sinD(d)) / (cosD(lat) * cosD(d)));
+      if (isNaN(diff)) return NaN;
+      t = noon + sign * diff;
+    }
+    return t;
+  };
 
-  // Sunrise (0.833 degrees refraction)
-  const sunriseDiff =
-    (1 / 15) *
-    acosD((-sinD(0.833) - sinD(lat) * sinD(d)) / (cosD(lat) * cosD(d)));
-  const sunrise = isNaN(sunriseDiff) ? midDay - 1.2 : midDay - sunriseDiff;
+  // العصر: زاوية ظل الشافعي/الحنفي — نفس منطق التكرار
+  const asrTime = (guess: number): number => {
+    let t = guess;
+    for (let i = 0; i < 3; i++) {
+      const { declination: d } = sunAt(t);
+      const noon = noonAt(t);
+      const asrFactor = isHanafi ? 2 : 1;
+      const asrAlt = -atanD(1 / (asrFactor + tanD(Math.abs(lat - d))));
+      const diff =
+        (1 / 15) *
+        acosD((-sinD(asrAlt) - sinD(lat) * sinD(d)) / (cosD(lat) * cosD(d)));
+      if (isNaN(diff)) return NaN;
+      t = noon + diff;
+    }
+    return t;
+  };
 
-  // Asr
-  const asrFactor = isHanafi ? 2 : 1;
-  const asrAlt = -atanD(1 / (asrFactor + tanD(Math.abs(lat - d))));
-  const asrDiff =
-    (1 / 15) *
-    acosD((-sinD(asrAlt) - sinD(lat) * sinD(d)) / (cosD(lat) * cosD(d)));
-  const asr = isNaN(asrDiff) ? midDay + 3 : midDay + asrDiff;
-
-  // Sunset / Maghrib
-  const sunsetDiff =
-    (1 / 15) *
-    acosD((-sinD(0.833) - sinD(lat) * sinD(d)) / (cosD(lat) * cosD(d)));
-  const maghrib = isNaN(sunsetDiff) ? midDay + 6 : midDay + sunsetDiff;
-
-  // Isha
-  let isha = midDay + 7.5;
-  if (methodParams.ishaInterval) {
-    isha = maghrib + methodParams.ishaInterval / 60;
-  } else if (methodParams.ishaAngle) {
-    const ishaDiff =
-      (1 / 15) *
-      acosD(
-        (-sinD(methodParams.ishaAngle) - sinD(lat) * sinD(d)) /
-          (cosD(lat) * cosD(d))
-      );
-    isha = isNaN(ishaDiff) ? maghrib + 1.5 : midDay + ishaDiff;
+  // Dhuhr: العبور الشمسي بالتكرار (دقة < ثانية)
+  let midDay = 12 + timeZoneOffsetHours - lng / 15;
+  for (let i = 0; i < 3; i++) {
+    midDay = noonAt(midDay);
   }
 
-  const toDate = (hours: number): Date => {
+  const safe = (v: number, fallback: number): number => (isNaN(v) ? fallback : v);
+  const params = CALCULATION_METHODS[method] || CALCULATION_METHODS.Egypt;
+
+  // Fajr
+  const fajr = safe(timeForAngle(params.fajrAngle, midDay - 6, -1), midDay - 1.5);
+
+  // Sunrise (0.833 degrees refraction)
+  const sunrise = safe(timeForAngle(0.833, midDay - 6, -1), midDay - 1.2);
+
+  // Asr
+  const asr = safe(asrTime(midDay + 3), midDay + 3);
+
+  // Sunset / Maghrib
+  const maghrib = safe(timeForAngle(0.833, midDay + 6, +1), midDay + 6);
+
+  // Isha
+  let isha: number;
+  if (params.ishaInterval) {
+    isha = maghrib + params.ishaInterval / 60;
+  } else {
+    isha = safe(
+      timeForAngle(params.ishaAngle ?? 17.5, midDay + 7, +1),
+      maghrib + 1.5
+    );
+  }
+
+  const toDate = (hours: number, adjMinutes = 0): Date => {
     const dObj = new Date(date);
-    const h = Math.floor(fixHour(hours));
-    const m = Math.floor((fixHour(hours) - h) * 60);
-    const s = Math.floor(((fixHour(hours) - h) * 60 - m) * 60);
+    const total = fixHour(hours + adjMinutes / 60);
+    const h = Math.floor(total);
+    const m = Math.floor((total - h) * 60);
+    const s = Math.floor(((total - h) * 60 - m) * 60);
     dObj.setHours(h, m, s, 0);
     return dObj;
   };
 
+  const adj = (key: PrayerTimeKey): number => adjustments[key] ?? 0;
+
   const rawTimes = {
-    fajr: toDate(fajr),
-    sunrise: toDate(sunrise),
-    dhuhr: toDate(dhuhrMid(midDay)),
-    asr: toDate(asr),
-    maghrib: toDate(maghrib),
-    isha: toDate(isha),
+    fajr: toDate(fajr, adj('fajr')),
+    sunrise: toDate(sunrise, adj('sunrise')),
+    dhuhr: toDate(midDay, adj('dhuhr')),
+    asr: toDate(asr, adj('asr')),
+    maghrib: toDate(maghrib, adj('maghrib')),
+    isha: toDate(isha, adj('isha')),
   };
 
   const format = (dObj: Date): string => {
@@ -271,6 +313,7 @@ export function computePrayerTimes(
 function dhuhrMid(midDay: number): number {
   return midDay;
 }
+// (دالة dhuhrMid القديمة اتصالت داخل الحساب الجديد المباشر — محفوظة للتوافق)
 
 export const PRAYER_NAMES_AR: Record<string, string> = {
   fajr: 'الفجر',

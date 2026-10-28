@@ -17,6 +17,7 @@ import {
   Coordinates,
   PrayerTimesResult,
   NextPrayerInfo,
+  PrayerTimeAdjustments,
   computePrayerTimes,
   getNextPrayer,
   calculateQibla,
@@ -24,6 +25,7 @@ import {
   CALCULATION_METHODS,
   PRAYER_NAMES_AR,
 } from '../utils/prayerMath';
+import { getSavedPrayerAdjustments } from '../utils/appSettings';
 
 import { LocationPickerModal } from './LocationPickerModal';
 import { MapPin, Globe2 } from 'lucide-react';
@@ -98,6 +100,14 @@ export const PrayerTimesSection: React.FC<PrayerTimesSectionProps> = ({
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // الضبط الدقيق للمواقيت (±دقائق لكل صلاة) — من الإعدادات
+  const [prayerAdjustments, setPrayerAdjustments] = useState<PrayerTimeAdjustments>(getSavedPrayerAdjustments);
+
+  // إعادة قراءة الضبط عند رجوع المستخدم من الإعدادات للتبويب
+  useEffect(() => {
+    setPrayerAdjustments(getSavedPrayerAdjustments());
+  }, []);
+
   // Update clock every second
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -109,7 +119,8 @@ export const PrayerTimesSection: React.FC<PrayerTimesSectionProps> = ({
     coordinates.latitude,
     coordinates.longitude,
     method,
-    isHanafi
+    isHanafi,
+    prayerAdjustments
   );
 
   const nextPrayer: NextPrayerInfo = getNextPrayer(prayerTimes, now);

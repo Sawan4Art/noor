@@ -16,16 +16,21 @@ interface TasbihPreset {
   defaultTarget: number;
 }
 
-const PRESETS: TasbihPreset[] = [
+/** الإعدادات المسبقة — التصحيح السني: كل من سبحان الله والحمد لله والله أكبر 33 مرة
+ *  (كان الله أكبر 34 بالخطأ — حديث مسلم: «وَكَبِّرْ ثَلاَثًا وَثَلاَثِينَ») */
+export const TASBIH_PRESETS: TasbihPreset[] = [
   { id: '1', arabic: 'سُبْحَانَ اللهِ', defaultTarget: 33 },
   { id: '2', arabic: 'الحَمْدُ للهِ', defaultTarget: 33 },
-  { id: '3', arabic: 'اللهُ أَكْبَرُ', defaultTarget: 34 },
+  { id: '3', arabic: 'اللهُ أَكْبَرُ', defaultTarget: 33 },
   { id: '4', arabic: 'لَا إِلَهَ إِلَّا اللهُ', defaultTarget: 100 },
   { id: '5', arabic: 'أَسْتَغْفِرُ اللهَ وَأَتُوبُ إِلَيْهِ', defaultTarget: 100 },
   { id: '6', arabic: 'اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ', defaultTarget: 100 },
   { id: '7', arabic: 'سُبْحَانَ اللهِ وَبِحَمْدِهِ سُبْحَانَ اللهِ العَظِيمِ', defaultTarget: 100 },
   { id: '8', arabic: 'لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللهِ العَلِيِّ العَظِيمِ', defaultTarget: 100 },
 ];
+
+// للتوافق مع أي استخدام داخلي قديم
+const PRESETS = TASBIH_PRESETS;
 
 export const TasbihSection: React.FC = () => {
   const [selectedPreset, setSelectedPreset] = useState<TasbihPreset>(PRESETS[0]);

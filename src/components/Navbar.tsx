@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React from 'react';
+import { motion } from 'motion/react';
 import {
   Compass,
   Moon,
@@ -11,16 +11,12 @@ import {
   BookOpen,
   Sparkles,
   CircleDot,
-  LayoutGrid,
-  Smartphone,
-  HeartHandshake,
-  X,
+  Settings,
 } from 'lucide-react';
 import { Coordinates } from '../utils/prayerMath';
 import { LocationPickerModal } from './LocationPickerModal';
 import { ThemeSelectorModal } from './ThemeSelectorModal';
 import { AppTheme, ColorMode } from '../utils/themeData';
-import { APP_VERSION } from '../utils/otaUpdate';
 
 export type ActiveTab =
   | 'prayer'
@@ -28,7 +24,8 @@ export type ActiveTab =
   | 'qibla'
   | 'adhkar'
   | 'tasbih'
-  | 'widgets';
+  | 'widgets'
+  | 'settings';
 
 interface NavbarProps {
   currentTab: ActiveTab;
@@ -44,13 +41,18 @@ interface NavbarProps {
   setColorMode: (mode: ColorMode) => void;
 }
 
-/** عناصر شريط التنقل السفلي — خمسة أقسام رئيسية + زر «المزيد» */
+/**
+ * عناصر شريط التنقل السفلي — خمسة أقسام رئيسية + الإعدادات.
+ * (بطلب المالك 2026-10: زر إعدادات واضح بدل قائمة «المزيد» المخفية —
+ *  استوديو الويدجتس أصبح داخل الإعدادات).
+ */
 const NAV_ITEMS: Array<{ key: ActiveTab; label: string; Icon: React.FC<{ className?: string }> }> = [
   { key: 'prayer', label: 'المواقيت', Icon: Clock },
   { key: 'quran', label: 'المصحف', Icon: BookOpen },
   { key: 'qibla', label: 'القبلة', Icon: Compass },
   { key: 'adhkar', label: 'الأذكار', Icon: Sparkles },
   { key: 'tasbih', label: 'المسبحة', Icon: CircleDot },
+  { key: 'settings', label: 'الإعدادات', Icon: Settings },
 ];
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -66,9 +68,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   colorMode,
   setColorMode,
 }) => {
-  const [showLocationModal, setShowLocationModal] = useState<boolean>(false);
-  const [showThemeModal, setShowThemeModal] = useState<boolean>(false);
-  const [showMoreSheet, setShowMoreSheet] = useState<boolean>(false);
+  const [showLocationModal, setShowLocationModal] = React.useState<boolean>(false);
+  const [showThemeModal, setShowThemeModal] = React.useState<boolean>(false);
 
   const isDark = colorMode === 'dark';
 
@@ -116,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* أدوات التحكم: الموقع، الثيم، الإضاءة، الصوت */}
+            {/* أدوات التحكم: الموقع، اللون، الإضاءة (أيقونة)، الصوت */}
             <div className="flex items-center gap-1 sm:gap-1.5">
               <button
                 onClick={() => setShowLocationModal(true)}
@@ -128,7 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   borderColor: 'color-mix(in srgb, var(--noor-p-500) 25%, transparent)',
                   color: 'var(--noor-n-100)',
                 }}
-                title="تحديد مواقيت الصلاة عبر GPS أو باختيار البلد ثم المدينة"
+                title="تحديد الموقع عبر GPS أو باختيار البلد والمدينة"
               >
                 <MapPin className="w-3.5 h-3.5" style={{ color: currentTheme.primaryColor }} />
                 <span className="max-w-[90px] sm:max-w-[140px] truncate">{coordinates.city}</span>
@@ -141,8 +142,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   backgroundColor: 'color-mix(in srgb, var(--noor-n-800) 55%, transparent)',
                   borderColor: 'color-mix(in srgb, var(--noor-p-500) 25%, transparent)',
                 }}
-                title={`الثيم الحالي: ${currentTheme.name} — اضغط لتغييره`}
-                aria-label="اختيار النمط اللوني للتطبيق"
+                title={`اللون الحالي: ${currentTheme.name} — اضغط لتغييره`}
+                aria-label="اختيار لون التطبيق"
               >
                 <div
                   className="w-3.5 h-3.5 rounded-full border border-white/50 shadow-inner"
@@ -161,7 +162,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   borderColor: 'color-mix(in srgb, var(--noor-p-500) 25%, transparent)',
                   color: isDark ? 'var(--noor-a-400)' : 'var(--noor-n-300)',
                 }}
-                title={isDark ? 'التبديل إلى الوضع النهاري (الفاتح)' : 'التبديل إلى الوضع الليلي (الداكن)'}
+                title={isDark ? 'التبديل إلى الوضع الفاتح' : 'التبديل إلى الوضع المظلم'}
                 aria-label="تبديل وضع الإضاءة"
               >
                 {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -214,9 +215,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         aria-label="أقسام التطبيق"
         className="fixed bottom-0 inset-x-0 z-50"
       >
-        <div
-          className="mx-auto max-w-2xl sm:max-w-3xl px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2"
-        >
+        <div className="mx-auto max-w-2xl sm:max-w-3xl px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
           <div
             className="relative flex items-stretch justify-between rounded-3xl border shadow-2xl backdrop-blur-xl overflow-hidden"
             style={{
@@ -230,10 +229,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               return (
                 <button
                   key={key}
-                  onClick={() => {
-                    setCurrentTab(key);
-                    setShowMoreSheet(false);
-                  }}
+                  onClick={() => setCurrentTab(key)}
                   className="relative flex-1 flex flex-col items-center gap-0.5 py-2.5 px-1 group"
                   title={label}
                   aria-current={active ? 'page' : undefined}
@@ -252,11 +248,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
 
                   <motion.span
-                    animate={
-                      active
-                        ? { scale: 1.18, y: -1.5 }
-                        : { scale: 1, y: 0 }
-                    }
+                    animate={active ? { scale: 1.18, y: -1.5 } : { scale: 1, y: 0 }}
                     transition={{ type: 'spring', stiffness: 420, damping: 20 }}
                     className="relative z-10"
                     style={{ color: active ? currentTheme.accentColor : 'var(--noor-n-400)' }}
@@ -280,135 +272,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               );
             })}
-
-            {/* زر المزيد: الويدجتس + عن التطبيق */}
-            <button
-              onClick={() => setShowMoreSheet((s) => !s)}
-              className="relative flex-1 flex flex-col items-center gap-0.5 py-2.5 px-1 group"
-              title="المزيد — الويدجتس وعن التطبيق"
-            >
-              <motion.span
-                animate={
-                  showMoreSheet
-                    ? { scale: 1.14, rotate: 90 }
-                    : { scale: 1, rotate: 0 }
-                }
-                transition={{ type: 'spring', stiffness: 420, damping: 20 }}
-                className="relative z-10"
-                style={{
-                  color: showMoreSheet || currentTab === 'widgets' ? currentTheme.accentColor : 'var(--noor-n-400)',
-                }}
-              >
-                <LayoutGrid className="w-5 h-5 sm:w-[22px] sm:h-[22px]" />
-              </motion.span>
-              <span
-                className="relative z-10 text-[10px] sm:text-[11px] font-bold transition-colors"
-                style={{
-                  color:
-                    showMoreSheet || currentTab === 'widgets'
-                      ? 'var(--noor-n-50)'
-                      : 'var(--noor-n-400)',
-                }}
-              >
-                المزيد
-              </span>
-            </button>
           </div>
         </div>
       </motion.nav>
-
-      {/* ================= قائمة «المزيد» المنبثقة فوق الشريط ================= */}
-      <AnimatePresence>
-        {showMoreSheet && (
-          <>
-            <motion.div
-              key="more-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowMoreSheet(false)}
-              className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px]"
-            />
-            <motion.div
-              key="more-sheet"
-              initial={{ y: 60, opacity: 0, scale: 0.97 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 60, opacity: 0, scale: 0.97 }}
-              transition={{ type: 'spring', stiffness: 340, damping: 30 }}
-              className="fixed bottom-[4.6rem] inset-x-3 sm:inset-x-auto sm:right-4 sm:left-auto sm:w-96 z-50 rounded-3xl border shadow-2xl overflow-hidden backdrop-blur-2xl"
-              style={{
-                backgroundColor: 'color-mix(in srgb, var(--noor-n-900) 92%, transparent)',
-                borderColor: 'color-mix(in srgb, var(--noor-p-500) 30%, transparent)',
-              }}
-            >
-              <div className="flex items-center justify-between px-5 pt-4 pb-2">
-                <h3 className="text-sm font-extrabold" style={{ color: 'var(--noor-n-50)' }}>
-                  المزيد من نور المسلم
-                </h3>
-                <button
-                  onClick={() => setShowMoreSheet(false)}
-                  className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
-                  style={{ color: 'var(--noor-n-400)' }}
-                  aria-label="إغلاق"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="px-3 pb-3 space-y-1.5">
-                <button
-                  onClick={() => {
-                    setCurrentTab('widgets');
-                    setShowMoreSheet(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-colors hover:bg-white/[0.06] text-right"
-                >
-                  <span
-                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                    style={{
-                      background: `linear-gradient(135deg, ${currentTheme.primaryColor}, ${currentTheme.accentColor})`,
-                    }}
-                  >
-                    <Smartphone className="w-5 h-5 text-white" />
-                  </span>
-                  <span className="flex-1">
-                    <span className="block text-xs font-bold" style={{ color: 'var(--noor-n-100)' }}>
-                      استوديو ويدجتس أندرويد
-                    </span>
-                    <span className="block text-[10px] mt-0.5" style={{ color: 'var(--noor-n-400)' }}>
-                      صمّم ويدجت المواقيت والأذكار لشاشة هاتفك
-                    </span>
-                  </span>
-                </button>
-
-                {/* عن التطبيق: المطور + الإصدار + الصدقة الجارية */}
-                <div
-                  className="mx-1 rounded-2xl p-3.5 border"
-                  style={{
-                    backgroundColor: `color-mix(in srgb, ${currentTheme.primaryColor} 10%, transparent)`,
-                    borderColor: `color-mix(in srgb, ${currentTheme.primaryColor} 30%, transparent)`,
-                  }}
-                >
-                  <div className="flex items-center gap-2 text-[11px] font-bold" style={{ color: currentTheme.accentColor }}>
-                    <HeartHandshake className="w-4 h-4" />
-                    <span>هذا التطبيق صدقة جارية على روح المرحوم بأذن الله أبي</span>
-                  </div>
-                  <div
-                    className="mt-2 pt-2 border-t text-[10px] flex items-center justify-between"
-                    style={{
-                      borderColor: 'color-mix(in srgb, var(--noor-n-500) 35%, transparent)',
-                      color: 'var(--noor-n-400)',
-                    }}
-                  >
-                    <span>تطوير: Yousef Sawan</span>
-                    <span>الإصدار {APP_VERSION}</span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </>
   );
 };

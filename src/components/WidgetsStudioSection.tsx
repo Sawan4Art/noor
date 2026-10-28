@@ -1,18 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Smartphone,
-  Sliders,
-  Palette,
-  Eye,
-  Code,
-  Copy,
-  Check,
-  Sparkles,
   Clock,
-  Compass,
   BookOpen,
-  Volume2,
-  RefreshCw,
   SunMedium,
 } from 'lucide-react';
 import {
@@ -36,8 +25,6 @@ export const WidgetsStudioSection: React.FC<WidgetsStudioProps> = ({
   const [widgets, setWidgets] = useState<WidgetConfig[]>(DEFAULT_WIDGETS);
   const [activeWidgetId, setActiveWidgetId] = useState<string>('w-next');
   const [wallpaper, setWallpaper] = useState<'mosque' | 'starry' | 'minimal' | 'gold'>('mosque');
-  const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
-  const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [simTasbihCount, setSimTasbihCount] = useState<number>(14);
 
   const activeWidget = widgets.find((w) => w.id === activeWidgetId) || widgets[0];
@@ -64,109 +51,7 @@ export const WidgetsStudioSection: React.FC<WidgetsStudioProps> = ({
     gold: 'bg-gradient-to-b from-amber-950 via-stone-950 to-zinc-950',
   };
 
-  // Generate dynamic Glance Kotlin code based on customized widget
-  const generateGlanceCode = () => {
-    return `// ==========================================================
-// كود Jetpack Compose Glance AppWidget المخصص لنظام Android
-// تم التوليد بنجاح لـ: ${activeWidget.title} (${activeWidget.sizeLabel})
-// ==========================================================
-
-package com.nour.muslim.glance
-
-import android.content.Context
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Color
-import androidx.glance.GlanceId
-import androidx.glance.GlanceModifier
-import androidx.glance.GlanceTheme
-import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.cornerRadius
-import androidx.glance.appwidget.provideContent
-import androidx.glance.background
-import androidx.glance.layout.*
-import androidx.glance.text.*
-import androidx.glance.unit.ColorProvider
-
-class CustomIslamicGlanceWidget : GlanceAppWidget() {
-
-    override suspend fun provideGlance(context: Context, id: GlanceId) {
-        provideContent {
-            GlanceTheme {
-                Box(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .background(Color(${getGlanceHexColor(activeWidget.theme)}))
-                        .cornerRadius(${activeWidget.borderRadius}.dp)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        modifier = GlanceModifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        ${activeWidget.showHijriDate ? `// شريط التاريخ الهجري
-                        Row(modifier = GlanceModifier.fillMaxWidth()) {
-                            Text(
-                                text = "🕌 ${activeWidget.arabicName}",
-                                style = TextStyle(color = ColorProvider(Color(0xFF34D399)), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            )
-                            Spacer(modifier = GlanceModifier.defaultWeight())
-                            Text(
-                                text = "${hijri.formatted}",
-                                style = TextStyle(color = ColorProvider(Color(0xFF94A3B8)), fontSize = 11.sp)
-                            )
-                        }
-                        Spacer(modifier = GlanceModifier.height(8.dp))` : ''}
-
-                        // المحتوى الرئيسي
-                        Text(
-                            text = "صلاة ${nextPrayer.arabicName}",
-                            style = TextStyle(color = ColorProvider(Color.White), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            text = "${nextPrayer.timeStr}",
-                            style = TextStyle(color = ColorProvider(Color(0xFF6EE7B7)), fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                        )
-
-                        ${activeWidget.showCountdown ? `// العداد التنازلي
-                        Spacer(modifier = GlanceModifier.height(6.dp))
-                        Text(
-                            text = "متبقي: ${nextPrayer.formattedRemaining}",
-                            style = TextStyle(color = ColorProvider(Color(0xFFA7F3D0)), fontSize = 12.sp)
-                        )` : ''}
-                    }
-                }
-            }
-        }
-    }
-}
-`;
-  };
-
-  const getGlanceHexColor = (theme: WidgetTheme) => {
-    switch (theme) {
-      case 'emerald':
-        return '0xFF064E3B';
-      case 'glass':
-        return '0x33FFFFFF';
-      case 'amoled':
-        return '0xFF09090B';
-      case 'material_teal':
-        return '0xFF042F2E';
-      case 'gold':
-        return '0xFF451A03';
-      case 'paper_light':
-        return '0xFFF8FAFC';
-    }
-  };
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(generateGlanceCode());
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2500);
-  };
+;
 
   // Render Widget Preview by Type
   const renderWidgetPreview = (w: WidgetConfig) => {
@@ -369,37 +254,12 @@ class CustomIslamicGlanceWidget : GlanceAppWidget() {
           <div className="flex items-center gap-2">
             <span className="text-xl">📱</span>
             <h2 className="text-xl font-bold text-white">
-              استوديو ومحاكي ويدجتس أندرويد القابلة للتخصيص
+              استوديو ويدجتس الشاشة الرئيسية
             </h2>
-            <span className="px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 text-xs border border-teal-500/30 font-medium">
-              Glance AppWidgets
-            </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            خصص مظهر الويدجت وشفافيته وألوانه وعاينه حياً على شاشة هاتف أندرويد، مع تصدير كود Jetpack Compose Glance
+            خصص مظهر الويدجت وشفافيته وألوانه — المعاينة لحظية على شاشة هاتف أندرويد
           </p>
-        </div>
-
-        {/* View Switcher */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800">
-          <button
-            onClick={() => setActiveTab('preview')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              activeTab === 'preview' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>معاينة حية ومحاكي أندرويد</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('code')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              activeTab === 'code' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Code className="w-3.5 h-3.5" />
-            <span>كود Glance Kotlin المولد</span>
-          </button>
         </div>
       </div>
 
@@ -546,9 +406,9 @@ class CustomIslamicGlanceWidget : GlanceAppWidget() {
           </div>
         </div>
 
-        {/* Right Column: Interactive Android Simulator OR Kotlin Code */}
+        {/* Right Column: Interactive Android Simulator — معاينة لحظية دائماً */}
         <div className="lg:col-span-7">
-          {activeTab === 'preview' ? (
+          {(
             <div className="p-5 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl flex flex-col items-center">
               {/* Wallpaper Switcher */}
               <div className="w-full flex items-center justify-between mb-4 pb-3 border-b border-slate-800 text-xs">
@@ -660,34 +520,6 @@ class CustomIslamicGlanceWidget : GlanceAppWidget() {
                     <div className="w-28 h-1 rounded-full bg-white/40 mx-auto mt-4" />
                   </div>
                 </div>
-              </div>
-            </div>
-          ) : (
-            /* Glance Kotlin Code Generator View */
-            <div className="p-5 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Code className="w-4 h-4 text-teal-400" />
-                    <span>كود Jetpack Compose Glance المولد تلقائياً</span>
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    جاهز للصق في ملف كوتلن داخل مشروع أندرويد ستوديو
-                  </p>
-                </div>
-
-                <button
-                  onClick={copyToClipboard}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-all shadow-md"
-                >
-                  {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedCode ? 'تم النسخ!' : 'نسخ الكود'}</span>
-                </button>
-              </div>
-
-              {/* Code Box */}
-              <div className="relative rounded-2xl bg-slate-950 p-4 border border-slate-800 font-mono text-xs text-slate-300 max-h-[500px] overflow-y-auto leading-relaxed dir-ltr text-left">
-                <pre>{generateGlanceCode()}</pre>
               </div>
             </div>
           )}

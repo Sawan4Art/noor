@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MoonStar, HeartHandshake } from 'lucide-react';
 import { APP_VERSION } from '../utils/otaUpdate';
@@ -7,7 +7,7 @@ import { AppTheme, ColorMode } from '../utils/themeData';
 /**
  * شاشة السبلاش — صفحة دعاء لأبي المرحوم (يوسف: طلبها تكون أول ما التطبيق يفتح)
  * وتنتهي بجملة الصدقة الجارية اللي طلبها المالك حرفياً.
- * بتقفل لوحدها بعد ~7 ثوان أو بزر المتابعة أو الضغط في أي مكان.
+ * بطلب المالك: لا تُغلق إلا بزر «متابعة» فقط — لا إغلاق تلقائي ولا إغلاق باللمس.
  */
 
 interface SplashDuaProps {
@@ -25,15 +25,7 @@ const DUA_TEXT =
 export const SplashDua: React.FC<SplashDuaProps> = ({ onDone, currentTheme }) => {
   const [leaving, setLeaving] = useState<boolean>(false);
 
-  // إغلاق تلقائي بعد 7 ثوان — مع مهلة قصيرة لحركة الخروج
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLeaving(true);
-      setTimeout(onDone, 450);
-    }, 7000);
-    return () => clearTimeout(timer);
-  }, [onDone]);
-
+  // بطلب المالك: مفيش إغلاق تلقائي — الزر بس هو اللي يقفل
   const finish = (): void => {
     setLeaving(true);
     setTimeout(onDone, 450);
@@ -48,8 +40,7 @@ export const SplashDua: React.FC<SplashDuaProps> = ({ onDone, currentTheme }) =>
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, scale: 1.04 }}
           transition={{ duration: 0.45, ease: 'easeInOut' }}
-          onClick={finish}
-          className="fixed inset-0 z-[100] flex flex-col items-center justify-between overflow-y-auto cursor-pointer"
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-between overflow-y-auto"
           style={{
             background: `radial-gradient(1200px 800px at 50% -10%, color-mix(in srgb, ${currentTheme.primaryColor} 26%, #020509), #020509 62%)`,
           }}
@@ -152,17 +143,18 @@ export const SplashDua: React.FC<SplashDuaProps> = ({ onDone, currentTheme }) =>
             </div>
 
             <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 2.2 }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 2.2, type: 'spring', stiffness: 260, damping: 18 }}
               onClick={(e) => {
                 e.stopPropagation();
                 finish();
               }}
               whileTap={{ scale: 0.95 }}
-              className="px-6 py-2.5 rounded-2xl text-xs font-bold text-white shadow-lg transition-colors"
+              className="px-10 py-3.5 rounded-2xl text-sm font-extrabold text-white shadow-2xl transition-transform animate-pulse"
               style={{
                 background: `linear-gradient(135deg, ${currentTheme.primaryColor}, ${currentTheme.accentColor})`,
+                boxShadow: `0 10px 36px ${currentTheme.glowColor}`,
               }}
             >
               متابعة إلى التطبيق

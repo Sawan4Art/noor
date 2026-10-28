@@ -129,37 +129,125 @@ export const QiblaCompassSection: React.FC<QiblaCompassSectionProps> = ({
     }
   };
 
-  // Device orientation event listener
+  // مستشعر الاتجاه — قراءة الحقيقة الأرضية (true heading)
+  const smoothHeadingRef = useRef<number | null>(null);
+  const lastEmittedRef = useRef<number | null>(null);
+
+  /**
+   * جذر إصلاح البوصلة (2026-10): كانت لا تشير للقبلة لسببين:
+   * 1) على أندرويد كروم حدث deviceorientation يعطي alpha *نسبياً* (نقطة صفر عشوائية)
+   *    وليس الشمال الجغرافي — الحل: الاستماع لـ deviceorientationabsolute أولاً،
+   *    مع fallback لـ webkitCompassHeading (iOS) ثم deviceorientation.
+   * 2) عدم تعويض دوران الشاشة (landscape) — الحل: إضافة زاوية الشاشة للقراءة.
+   * مع تنعيم متحرك (low-pass) لمنع ارتجاف السهم.
+   */
   useEffect(() => {
-    const handleOrientation = (e: DeviceOrientationEvent) => {
-      let heading: number | null = null;
-
-      // iOS Safari provides webkitCompassHeading directly (0 is true magnetic North)
-      const webkitHeading = (e as unknown as { webkitCompassHeading?: number }).webkitCompassHeading;
-      if (typeof webkitHeading === 'number' && !isNaN(webkitHeading)) {
-        heading = webkitHeading;
-        setHasCompassSensor(true);
-      } else if (typeof e.alpha === 'number') {
-        // Android Chrome uses alpha (counter-clockwise angle)
-        heading = (360 - e.alpha) % 360;
-        setHasCompassSensor(true);
+    const getScreenAngle = (): number => {
+      try {
+        const so = (screen as Screen & { orientation?: { angle?: number } }).orientation;
+        if (so && typeof so.angle === 'number') return so.angle;
+        const wo = (window as unknown as { orientation?: number }).orientation;
+        if (typeof wo === 'number') return wo;
+      } catch {
+        // تجاهل
       }
+      return 0;
+    };
 
-      if (heading !== null) {
-        setDeviceHeading(Math.round(heading));
+    const applyHeading = (rawHeading: number) => {
+      const screenAngle = getScreenAngle();
+      const compensated = (rawHeading + screenAngle % 360 + 360) % 360;
+
+      // تنعيم: متوسط متحرك أسي (alpha صغير = استقرار أعلى)
+      const prev = smoothHeadingRef.current;
+      const smoothed =
+        prev === null
+          ? compensated
+          : (() => {
+              // أقصر مسار دائري بين القراءتين
+              let delta = compensated - prev;
+              if (delta > 180) delta -= 360;
+              if (delta < -180) delta += 360;
+              return prev + delta * 0.35;
+            })();
+      smoothHeadingRef.current = smoothed;
+
+      // تحديث الحالة فقط لو التغيير ملموس (> 0.4 درجة) لتقليل إعادة الرسم
+      const last = lastEmittedRef.current;
+      const moved =
+        last === null || Math.abs(((smoothed - last + 540) % 360) - 180) > 0.4;
+      if (moved) {
+        const rounded = Math.round(((smoothed % 360) + 360) % 360);
+        lastEmittedRef.current = rounded;
+        setDeviceHeading(rounded);
       }
     };
 
-    if (window.DeviceOrientationEvent) {
-      window.addEventListener('deviceorientation', handleOrientation, true);
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      let heading: number | null = null;
+      let absolute = false;
+
+      // iOS Safari: webkitCompassHeading مرجعي بالشمال الحقيقي مباشرة
+      const webkitHeading = (e as unknown as { webkitCompassHeading?: number }).webkitCompassHeading;
+      if (typeof webkitHeading === 'number' && !isNaN(webkitHeading)) {
+        heading = webkitHeading;
+        absolute = true;
+      } else if (typeof e.alpha === 'number' && !isNaN(e.alpha)) {
+        heading = (360 - e.alpha) % 360;
+        // deviceorientationabsolute أو e.absolute=true → مرجعي بالشمال
+        absolute = e.type === 'deviceorientationabsolute' || e.absolute === true;
+      }
+
+      if (heading !== null) {
+        if (absolute) {
+          setHasCompassSensor(true);
+          setCompassCalibrated(true);
+          applyHeading(heading);
+        } else {
+          // مستشعر موجود لكن قراءته غير مرجعية — نعرضها مع تحذير المعايرة
+          setHasCompassSensor(true);
+          setCompassCalibrated(false);
+          applyHeading(heading);
+        }
+      }
+    };
+
+    const attach = (eventName: string) => {
+      window.addEventListener(eventName, handleOrientation as EventListener, true);
+      return () => window.removeEventListener(eventName, handleOrientation as EventListener, true);
+    };
+
+    const cleanups: Array<() => void> = [];
+
+    if (typeof window !== 'undefined' && window.DeviceOrientationEvent) {
+      // 1) الأولوية: الحدث المطلق المرجعي بالشمال (أندرويد كروم)
+      const absoluteSupported =
+        'DeviceOrientationEvent' in window &&
+        typeof (window as unknown as { ondeviceorientationabsolute?: unknown }).ondeviceorientationabsolute !== 'undefined';
+
+      if (absoluteSupported) {
+        cleanups.push(attach('deviceorientationabsolute'));
+      } else {
+        // 2) iOS عبر webkitCompassHeading داخل deviceorientation
+        cleanups.push(attach('deviceorientation'));
+      }
+
+      // مراقب مساعد: لو المطلق ماوصلش خلال ثانيتين نسمع للنسبي كاحتياط
+      const fallbackTimer = window.setTimeout(() => {
+        if (absoluteSupported) {
+          cleanups.push(attach('deviceorientation'));
+        }
+      }, 2000);
+      cleanups.push(() => window.clearTimeout(fallbackTimer));
     } else {
       setHasCompassSensor(false);
       setUseManualMode(true);
     }
 
     return () => {
-      window.removeEventListener('deviceorientation', handleOrientation, true);
+      cleanups.forEach((fn) => fn());
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Cardinal direction text description for Qibla
@@ -254,7 +342,7 @@ export const QiblaCompassSection: React.FC<QiblaCompassSectionProps> = ({
         >
           {/* Alignment status alert banner */}
           <div
-            className={`w-full mb-6 py-2.5 px-4 rounded-2xl border text-center font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
+            className={`w-full mb-3 py-2.5 px-4 rounded-2xl border text-center font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
               isAligned
                 ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/50 ring-2 ring-emerald-500/30 animate-pulse'
                 : isDark
@@ -280,6 +368,18 @@ export const QiblaCompassSection: React.FC<QiblaCompassSectionProps> = ({
               </>
             )}
           </div>
+
+          {/* تحذير المعايرة — يظهر لو قراءة البوصلة غير مرجعية بالشمال */}
+          {!useManualMode && hasCompassSensor && !compassCalibrated && (
+            <div className="w-full mb-4 py-2 px-4 rounded-2xl border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] leading-relaxed flex items-start gap-2 text-right">
+              <Info className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                قراءة البوصلة قد تكون غير دقيقة على هذا الجهاز — حرّك هاتفك في الهواء على شكل رقم 8
+                عدة مرات لمعايرة المستشعر، أو استخدم زر «نحو القبلة 🕋» أسفل القرص كمقياس يدوي
+                (وجّه أعلى الجهاز نحو اتجاه القبلة بالسمت {Math.round(qiblaAngle)}° من الشمال).
+              </span>
+            </div>
+          )}
 
           {/* Compass Dial Container */}
           <div className="relative w-72 h-72 sm:w-88 sm:h-88 my-4 flex items-center justify-center">

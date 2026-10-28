@@ -10,6 +10,7 @@ import { QiblaCompassSection } from './components/QiblaCompassSection';
 import { AdhkarSection } from './components/AdhkarSection';
 import { TasbihSection } from './components/TasbihSection';
 import { WidgetsStudioSection } from './components/WidgetsStudioSection';
+import { SettingsSection } from './components/SettingsSection';
 import { SplashDua } from './components/SplashDua';
 import { UpdateBanner } from './components/UpdateBanner';
 import { Coordinates, getHijriDate } from './utils/prayerMath';
@@ -137,6 +138,16 @@ export default function App() {
           <WidgetsStudioSection
             coordinates={coordinates}
             onNavigateToTab={(tab) => setCurrentTab(tab)}
+          />
+        )}
+
+        {currentTab === 'settings' && (
+          <SettingsSection
+            currentTheme={currentTheme}
+            setCurrentTheme={handleSelectTheme}
+            colorMode={colorMode}
+            setColorMode={handleToggleColorMode}
+            onOpenWidgets={() => setCurrentTab('widgets')}
           />
         )}
       </main>
