@@ -54,6 +54,12 @@ test('fetchWebManifest returns null on network failure (fallback)', async () => 
 });
 
 test('fetchLatestRelease returns null on network failure (fallback)', async () => {
+  // فشل الـ API + فشل المصدر البديل = null (قاعدة الـ fallback المزدوج)
   const result = await fetchLatestRelease('http://localhost:9/nope', 500);
-  assert.equal(result, null);
+  // المسار البديل يقرأ raw.githubusercontent — لو الشبكة شغالة في بيئة الاختبار
+  // يرجّع بيانات صحيحة (سلوك مقبول)، ولو مقطوعة يرجّع null. الاتنين نتيجة سليمة.
+  assert.ok(result === null || /^\d+\.\d+\.\d+$/.test(result.version));
+  if (result) {
+    assert.ok(result.apkUrl?.includes('releases/download'), 'fallback builds standard apk url');
+  }
 });

@@ -13,6 +13,11 @@
 
 export const RELEASES_API_URL = 'https://api.github.com/repos/Sawan4Art/noor/releases/latest';
 export const RELEASES_PAGE_URL = 'https://github.com/Sawan4Art/noor/releases/latest';
+/** مصدر بديل بلا حدود معدل: نسخة package.json على main (raw.githubusercontent يسمح CORS) */
+const MAIN_PACKAGE_URL = 'https://raw.githubusercontent.com/Sawan4Art/noor/main/package.json';
+/** نمط رابط الـ APK في الإصدارات — ثابت بحكم القاعدة الإلزامية للتسمية */
+const APK_URL_PATTERN = (tag: string, version: string) =>
+  `https://github.com/Sawan4Art/noor/releases/download/${tag}/noor-almuslim-v${version}.apk`;
 
 export interface OtaManifest {
   version: string;
@@ -165,12 +170,13 @@ export async function fetchWebManifest(
 
 /**
  * جلب أحدث إصدار من GitHub Releases. أي فشل = null (fallback).
- * ملاحظة: الريفو خاص لكن الـ Releases API للريفو الخاص يظل مطلوب توكن —
- * لو فشل (404/401/rate limit) نرجّع null والبانر يظهر لما يتوفر بديل.
+ * مساران: الـ API الرسمي أولاً، ولو انضرب بحد المعدل (403) أو فشل —
+ * نجيب النسخة من package.json على main عبر raw.githubusercontent
+ * (يسمح CORS وبلا حدود معدل) ونركّب رابط الـ APK من نمط التسمية الثابت.
  */
 export async function fetchLatestRelease(
   releasesApiUrl = RELEASES_API_URL,
-  timeoutMs = 5000,
+  timeoutMs = 8000,
 ): Promise<GithubReleaseInfo | null> {
   try {
     const controller = new AbortController();
@@ -181,24 +187,50 @@ export async function fetchLatestRelease(
       headers: { Accept: 'application/vnd.github+json' },
     });
     clearTimeout(timer);
+    if (res.ok) {
+      const data = (await res.json()) as {
+        tag_name?: string;
+        html_url?: string;
+        assets?: Array<{ name?: string; browser_download_url?: string }>;
+      };
+      if (typeof data?.tag_name === 'string' && data.tag_name) {
+        const apkAsset = (data.assets ?? []).find(
+          (a) => typeof a?.browser_download_url === 'string' && /\.apk$/i.test(a.name ?? ''),
+        );
+        return {
+          tag: data.tag_name,
+          version: data.tag_name.replace(/^v/i, ''),
+          apkUrl: apkAsset?.browser_download_url ?? null,
+          htmlUrl:
+            typeof data.html_url === 'string' && data.html_url
+              ? data.html_url
+              : RELEASES_PAGE_URL,
+        };
+      }
+    }
+    // 403 = حد المعدل أو مشكلة مؤقتة → نكمل للمصدر البديل بدل الرجوع بلا شيء
+    return await fetchLatestFromMain(timeoutMs);
+  } catch {
+    return await fetchLatestFromMain(timeoutMs).catch(() => null);
+  }
+}
+
+/** المصدر البديل: نسخة main من package.json — بلا حدود معدل */
+async function fetchLatestFromMain(timeoutMs = 6000): Promise<GithubReleaseInfo | null> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(MAIN_PACKAGE_URL, { cache: 'no-store', signal: controller.signal });
+    clearTimeout(timer);
     if (!res.ok) return null;
-    const data = (await res.json()) as {
-      tag_name?: string;
-      html_url?: string;
-      assets?: Array<{ name?: string; browser_download_url?: string }>;
-    };
-    if (typeof data?.tag_name !== 'string' || !data.tag_name) return null;
-    const apkAsset = (data.assets ?? []).find(
-      (a) => typeof a?.browser_download_url === 'string' && /\.apk$/i.test(a.name ?? ''),
-    );
+    const pkg = (await res.json()) as { version?: string };
+    if (typeof pkg?.version !== 'string' || !/^\d+(\.\d+)*$/.test(pkg.version)) return null;
+    const tag = `v${pkg.version}`;
     return {
-      tag: data.tag_name,
-      version: data.tag_name.replace(/^v/i, ''),
-      apkUrl: apkAsset?.browser_download_url ?? null,
-      htmlUrl:
-        typeof data.html_url === 'string' && data.html_url
-          ? data.html_url
-          : RELEASES_PAGE_URL,
+      tag,
+      version: pkg.version,
+      apkUrl: APK_URL_PATTERN(tag, pkg.version),
+      htmlUrl: `https://github.com/Sawan4Art/noor/releases/tag/${tag}`,
     };
   } catch {
     return null;
