@@ -1,20 +1,25 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# نور المسلم — مؤذن، مصحف، أذكار وويدجت أندرويد
 
-# Run and deploy your AI Studio app
+تطبيق إسلامي شامل مبني بـ React + TypeScript + Tailwind CSS (مشروع Google AI Studio).
 
-This contains everything you need to run your app locally.
+## المميزات
+- 🕌 **مؤذن دقيق** — مواقيت الصلاة مع أذان وإشعارات
+- 📖 **مصحف شريف** — قارئ تفاعلي بالتشكيل الملون (تجويد) وتنزيل صوتي للقراء
+- 🤲 **أذكار** — أذكار الصلاة واليوم كاملة
+- 📿 **مسبحة إلكترونية** — عداد التسبيح
+- 🧭 **قبلة** — بوصلة دقيقة لاتجاه القبلة
+- ⚙️ **ويدجت أندرويد** — استوديو ويدجت كوتلن قابل للتخصيص بالكامل
+- 🎨 **ثيمات متعددة** — وضع نهاري وليلي وألوان قابلة للتغيير
 
-View your app in AI Studio: https://ai.studio/apps/6cadcdf9-56ea-4ea7-bd35-639da2912111
+## التشغيل
+```bash
+npm install
+npm run dev
+```
 
-## Run Locally
+> ملاحظة: التطبيق يستخدم Gemini API — انسخ `.env.example` إلى `.env` وضع مفتاحك الخاص.
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## البناء
+```bash
+npm run build
+```
