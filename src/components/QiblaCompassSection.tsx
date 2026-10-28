@@ -28,7 +28,7 @@ interface QiblaCompassSectionProps {
   setCoordinates?: (coords: Coordinates) => void;
   theme?: AppTheme;
   colorMode?: ColorMode;
-  onNavigateToTab?: (tab: 'prayer' | 'quran' | 'adhkar' | 'tasbih' | 'widgets' | 'kotlin') => void;
+  onNavigateToTab?: (tab: 'prayer' | 'quran' | 'adhkar' | 'tasbih' | 'widgets') => void;
 }
 
 export const QiblaCompassSection: React.FC<QiblaCompassSectionProps> = ({
@@ -591,49 +591,7 @@ export const QiblaCompassSection: React.FC<QiblaCompassSectionProps> = ({
             </ul>
           </div>
 
-          {/* Android Kotlin Native Code Snippet Preview */}
-          <div
-            className={`rounded-3xl p-5 border ${
-              isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-emerald-500" />
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  كود كوتلن لمستشعر القبلة (Android Native)
-                </span>
-              </div>
-              {onNavigateToTab && (
-                <button
-                  onClick={() => onNavigateToTab('kotlin')}
-                  className="text-[11px] text-emerald-500 hover:underline"
-                >
-                  عرض المشروع الكامل ⮜
-                </button>
-              )}
-            </div>
-            <pre
-              className={`p-3 rounded-xl font-mono text-[11px] overflow-x-auto leading-relaxed ${
-                isDark ? 'bg-slate-950 text-emerald-300' : 'bg-slate-900 text-emerald-200'
-              }`}
-            >
-{`// Sensor fusion in Kotlin for Android
-val sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
-val rotationVector = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-
-fun calculateQibla(lat: Double, lng: Double): Float {
-    val kaabaLat = Math.toRadians(21.4225)
-    val kaabaLng = Math.toRadians(39.8262)
-    val userLat = Math.toRadians(lat)
-    val userLng = Math.toRadians(lng)
-    val deltaLng = kaabaLng - userLng
-    val y = Math.sin(deltaLng)
-    val x = Math.cos(userLat) * Math.tan(kaabaLat) - Math.sin(userLat) * Math.cos(deltaLng)
-    return ((Math.toDegrees(Math.atan2(y, x)) + 360) % 360).toFloat()
-}`}
-            </pre>
-          </div>
+          {/* Android Kotlin Native Code Snippet Preview — اتحذف بطلب المالك (خانات ملهاش لازمه) */}
         </div>
       </div>
 

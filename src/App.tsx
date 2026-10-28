@@ -10,7 +10,7 @@ import { QiblaCompassSection } from './components/QiblaCompassSection';
 import { AdhkarSection } from './components/AdhkarSection';
 import { TasbihSection } from './components/TasbihSection';
 import { WidgetsStudioSection } from './components/WidgetsStudioSection';
-import { AndroidKotlinTab } from './components/AndroidKotlinTab';
+import { SplashDua } from './components/SplashDua';
 import { UpdateBanner } from './components/UpdateBanner';
 import { Coordinates, getHijriDate } from './utils/prayerMath';
 import { APP_VERSION } from './utils/otaUpdate';
@@ -19,12 +19,14 @@ import {
   saveTheme,
   getSavedColorMode,
   saveColorMode,
+  applyThemePalette,
   AppTheme,
   ColorMode,
 } from './utils/themeData';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<ActiveTab>('prayer');
+  const [showSplash, setShowSplash] = useState<boolean>(true);
 
   const [coordinates, setCoordinates] = useState<Coordinates>({
     city: 'القاهرة، مصر',
@@ -43,6 +45,11 @@ export default function App() {
     const h = getHijriDate(new Date());
     setHijriDate(h.formatted);
   }, []);
+
+  // الثيم الشامل: توليد طيف الألوان وحقنه في متغيرات CSS مع كل تغيير
+  useEffect(() => {
+    applyThemePalette(currentTheme, colorMode);
+  }, [currentTheme, colorMode]);
 
   // Sync theme changes with localStorage and root HTML classes
   const handleSelectTheme = (theme: AppTheme) => {
@@ -70,11 +77,20 @@ export default function App() {
     <div
       className={`min-h-screen flex flex-col font-arabic transition-colors duration-300 ${
         isDark
-          ? `bg-gradient-to-br ${currentTheme.bgGradientDark} text-slate-100 selection:bg-emerald-500 selection:text-white`
-          : `bg-gradient-to-br ${currentTheme.bgGradientLight} text-slate-900 selection:bg-emerald-600 selection:text-white`
+          ? `bg-gradient-to-br ${currentTheme.bgGradientDark} text-slate-100`
+          : `bg-gradient-to-br ${currentTheme.bgGradientLight} text-slate-900`
       }`}
     >
-      {/* Top Navigation Bar */}
+      {/* شاشة السبلاش — دعاء لأبي المرحوم + الصدقة الجارية */}
+      {showSplash && (
+        <SplashDua
+          onDone={() => setShowSplash(false)}
+          currentTheme={currentTheme}
+          colorMode={colorMode}
+        />
+      )}
+
+      {/* الهيدر العلوي + شريط التنقل السفلي */}
       <Navbar
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
@@ -89,8 +105,8 @@ export default function App() {
         setColorMode={handleToggleColorMode}
       />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Main Container — padding سفلي عشان شريط التنقل الثابت */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-32">
         {currentTab === 'prayer' && (
           <PrayerTimesSection
             coordinates={coordinates}
@@ -123,52 +139,34 @@ export default function App() {
             onNavigateToTab={(tab) => setCurrentTab(tab)}
           />
         )}
-
-        {currentTab === 'kotlin' && <AndroidKotlinTab />}
       </main>
 
       {/* بانر التحديث الهوائي (OTA) */}
       <UpdateBanner />
 
-      {/* Footer */}
+      {/* Footer — الصدقة الجارية + اسم المطور */}
       <footer
-        className={`border-t py-6 text-center text-xs transition-colors ${
-          isDark
-            ? 'border-slate-800/80 bg-slate-950/80 text-slate-500'
-            : 'border-slate-200/80 bg-white/70 text-slate-500'
-        }`}
+        className="border-t py-5 text-center text-xs transition-colors"
+        style={{
+          borderColor: isDark
+            ? 'color-mix(in srgb, var(--noor-p-500) 18%, transparent)'
+            : 'color-mix(in srgb, var(--noor-p-500) 14%, transparent)',
+          color: 'var(--noor-n-500)',
+        }}
       >
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="max-w-7xl mx-auto px-4 space-y-1.5">
+          <p className="font-bold" style={{ color: currentTheme.accentColor }}>
+            هذا التطبيق صدقة جارية على روح المرحوم بأذن الله أبي
+          </p>
+          <div className="flex items-center justify-center gap-2 text-[11px]">
             <span
-              className="w-2.5 h-2.5 rounded-full"
+              className="w-2 h-2 rounded-full inline-block"
               style={{ backgroundColor: currentTheme.primaryColor }}
             />
-            <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>
-              نور المسلم • تطبيق أندرويد متكامل بلغة Kotlin • تصميم احترافي • إصدار {APP_VERSION}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 text-[11px]">
-            <button
-              onClick={() => setCurrentTab('qibla')}
-              className="hover:underline"
-              style={{ color: currentTheme.primaryColor }}
-            >
-              🧭 بوصلة القبلة
-            </button>
-            <button
-              onClick={() => setCurrentTab('widgets')}
-              className="text-teal-600 dark:text-teal-400 hover:underline"
-            >
-              استوديو الويدجتس
-            </button>
-            <button
-              onClick={() => setCurrentTab('kotlin')}
-              className="text-amber-600 dark:text-amber-400 hover:underline"
-            >
-              مشروع أندرويد كوتلن (ZIP)
-            </button>
+            <span>نور المسلم • تطوير: Yousef Sawan</span>
+            <span className="opacity-50">•</span>
+            <span>إصدار {APP_VERSION}</span>
+            <span className="opacity-50">•</span>
             <span>{hijriDate}</span>
           </div>
         </div>

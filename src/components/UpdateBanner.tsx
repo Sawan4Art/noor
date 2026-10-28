@@ -89,7 +89,7 @@ export const UpdateBanner: React.FC = () => {
   return (
     <div
       role="alert"
-      className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-50 max-w-md"
+      className="fixed bottom-24 inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-50 max-w-md"
       dir="rtl"
     >
       <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-950/95 text-emerald-50 shadow-2xl backdrop-blur px-4 py-3">

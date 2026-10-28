@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { ADHKAR_LIST, ADHKAR_CATEGORIES } from './adhkarData';
 import { SURAHS_LIST, RECITERS, getSurahAudioUrl, getOfflineStorageKey } from './quranData';
 import { DEFAULT_WIDGETS, WIDGET_THEMES } from './widgetsData';
-import { ANDROID_KOTLIN_PROJECT_FILES } from './androidKotlinCode';
 
 test('after_prayer adhkar items exist and have authentic counts', () => {
   const afterPrayer = ADHKAR_LIST.filter((i) => i.category === 'after_prayer');
@@ -47,11 +46,4 @@ test('widgets have complete themes and configs', () => {
     assert.ok(WIDGET_THEMES[w.theme], `Theme ${w.theme} must exist`);
     assert.ok(w.borderRadius > 0);
   }
-});
-
-test('android kotlin project files are complete', () => {
-  assert.ok(ANDROID_KOTLIN_PROJECT_FILES.length >= 5);
-  const glanceWidget = ANDROID_KOTLIN_PROJECT_FILES.find((f) => f.filename === 'PrayerGlanceWidget.kt');
-  assert.ok(glanceWidget);
-  assert.ok(glanceWidget!.content.includes('GlanceAppWidget'));
 });

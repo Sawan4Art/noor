@@ -367,6 +367,54 @@ export const MUSHAF_PAGES_DATA: Record<number, MushafPage> = {
   },
 };
 
+/**
+ * تحميل نص المصحف كامل (604 صفحة بنص عثماني) من public/data/quran-pages.json
+ * — بيُهيّئ كاش داخلي مرة واحدة، وأي فشل شبكة = صمت والرجوع للصفحات المنتقاة
+ * والمولّدة (قاعدة الميثاق: fallback دايماً).
+ */
+let quranPagesCache: Record<number, MushafPage> | null = null;
+let quranPagesPromise: Promise<void> | null = null;
+
+export function loadQuranPages(): Promise<void> {
+  if (quranPagesCache) return Promise.resolve();
+  if (quranPagesPromise) return quranPagesPromise;
+
+  quranPagesPromise = fetch('/data/quran-pages.json')
+    .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+    .then((data: { pages: Record<string, { j: number; h: number; sur: number; a: Array<{ s: number; a: number; t: string }> }> }) => {
+      const hydrated: Record<number, MushafPage> = {};
+      for (const [num, p] of Object.entries(data.pages)) {
+        const pageNumber = Number(num);
+        hydrated[pageNumber] = {
+          pageNumber,
+          juzNumber: p.j,
+          hizbQuarter: `الحزب ${p.h}`,
+          surahName: `سورة ${SURAHS_LIST[p.sur - 1]?.name ?? ''}`,
+          ayahs: p.a.map((x) => ({
+            surahNumber: x.s,
+            ayahNumber: x.a,
+            plainText: x.t,
+            // التفسير متاح للصفحات المنتقاة يدوياً — الباقي يعرض رسالة لطيفة من المودال
+            tafseer: '',
+            juz: p.j,
+            page: pageNumber,
+            segments: [{ text: x.t }],
+          })),
+        };
+      }
+      quranPagesCache = hydrated;
+    })
+    .catch(() => {
+      // fallback: نص المصحف المدمج مش متاح — الصفحات المنتقاة/المولّدة تكفي
+      quranPagesPromise = null;
+    });
+  return quranPagesPromise;
+}
+
+export function isQuranPagesLoaded(): boolean {
+  return quranPagesCache !== null;
+}
+
 export function getSurahForPage(pageNumber: number) {
   let matched = SURAHS_LIST[0];
   for (const s of SURAHS_LIST) {
@@ -380,9 +428,13 @@ export function getSurahForPage(pageNumber: number) {
 }
 
 /**
- * Fallback synthesizer for pages that are not preloaded
+ * جلب صفحة المصحف: النص الكامل المحمّل أولاً، ثم الصفحات المنتقاة بالتلوين التجويدي،
+ * ثم مولّد احتياطي للصفحات قبل اكتمال التحميل.
  */
 export function getOrCreateMushafPage(pageNumber: number): MushafPage {
+  if (quranPagesCache?.[pageNumber]) {
+    return quranPagesCache[pageNumber];
+  }
   if (MUSHAF_PAGES_DATA[pageNumber]) {
     return MUSHAF_PAGES_DATA[pageNumber];
   }

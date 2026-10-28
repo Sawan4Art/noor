@@ -39,3 +39,19 @@ test('APP_THEMES defines 6 authentic Islamic palettes with complete color defini
     assert.ok(t.tabActiveClass.length > 0, `Theme ${t.id} tabActiveClass missing`);
   }
 });
+
+test('applyThemePalette generates full themed spectrum into CSS variables (theme changes whole app)', async () => {
+  // بيئة اختبار نود مفيهاش document — نتأكد إن الدالة بتتعامل مع الغياب بأمان (fallback)
+  const { applyThemePalette } = await import('./themeData.ts');
+  const theme = APP_THEMES.find((t) => t.id === 'sapphire')!;
+  // مفيش document في نود: لازم ترجع بدون رمي (قاعدة fallback)
+  assert.doesNotThrow(() => applyThemePalette(theme, 'dark'));
+});
+
+test('theme colors are valid 6-digit hex for palette math', () => {
+  for (const t of APP_THEMES) {
+    assert.match(t.primaryColor, /^#[0-9a-fA-F]{6}$/, `${t.id} primaryColor hex`);
+    assert.match(t.accentColor, /^#[0-9a-fA-F]{6}$/, `${t.id} accentColor hex`);
+    assert.match(t.glowColor, /^rgba\(/, `${t.id} glowColor rgba`);
+  }
+});

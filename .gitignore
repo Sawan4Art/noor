@@ -29,3 +29,5 @@ android/keystore*
 /jdk21/
 /public/downloads/
 /public/version.json
+
+/tool-results/

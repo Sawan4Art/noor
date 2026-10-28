@@ -187,3 +187,97 @@ export function saveColorMode(mode: ColorMode): void {
     // localStorage unavailable
   }
 }
+
+/* ============================================================================
+ * نظام الثيم الشامل — الثيم يغيّر لون التطبيق *كله*
+ * ============================================================================
+ * الفكرة (الجذر): كل مكوّنات التطبيق بتستخدم عائلات Tailwind الثابتة
+ * (slate/emerald/amber…) — فبدل ما نعدّل كل ملف، بنولّد طيف لوني كامل
+ * (50→950) من ألوان الثيم ونحقنه في متغيرات CSS، وindex.css بيربط
+ * عائلات Tailwood دي كله على المتغيرات دي عبر @theme inline.
+ * النتيجة: تغيير الثيم = تغيير كل خلفيات وحدود ونصوص وأزرار التطبيق.
+ */
+
+type Shade = '50' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900' | '950';
+export type ColorScale = Record<Shade, string>;
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const num = parseInt(full, 16);
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+  return `#${((1 << 24) + (clamp(r) << 16) + (clamp(g) << 8) + clamp(b)).toString(16).slice(1)}`;
+}
+
+/** مزج لونين: t=0 يرجّع a كامل، t=1 يرجّع b كامل */
+function mix(a: string, b: string, t: number): string {
+  const [r1, g1, b1] = hexToRgb(a);
+  const [r2, g2, b2] = hexToRgb(b);
+  return rgbToHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
+}
+
+const WHITE = '#ffffff';
+const BLACK = '#000000';
+
+/**
+ * طيف لوني مرتكز على 600 = اللون الأساسي للثيم (زي أطياف Tailwind):
+ * الفاتح (50-500) متجاه الأبيض، والغامق (700-950) متجاه الأسود.
+ */
+function buildScale(base: string): ColorScale {
+  const SHIFT: Record<Shade, number> = {
+    '50': 0.92, '100': 0.82, '200': 0.66, '300': 0.48, '400': 0.30, '500': 0.12,
+    '600': 0, '700': -0.16, '800': -0.34, '900': -0.50, '950': -0.66,
+  };
+  const out = {} as ColorScale;
+  for (const shade of VAR_SHADES) {
+    const t = SHIFT[shade];
+    out[shade] = t >= 0 ? mix(base, WHITE, t) : mix(base, BLACK, -t);
+  }
+  return out;
+}
+
+/** درجات Tailwind الرمادية الأصلية — نُلوّنها بلون الثيم بشكل واضح */
+const BASE_NEUTRAL: ColorScale = {
+  '50': '#f8fafc', '100': '#f1f5f9', '200': '#e2e8f0', '300': '#cbd5e1', '400': '#94a3b8',
+  '500': '#64748b', '600': '#475569', '700': '#334155', '800': '#1e293b', '900': '#0f172a',
+  '950': '#020617',
+};
+
+/** درجة تلويح الرمادي بلون الثيم — الأطراف (خلفيات) أعلى علشان الثيم باين */
+const NEUTRAL_TINT: Record<Shade, number> = {
+  '50': 0.14, '100': 0.14, '200': 0.13, '300': 0.11, '400': 0.09, '500': 0.08,
+  '600': 0.08, '700': 0.10, '800': 0.14, '900': 0.16, '950': 0.20,
+};
+
+function buildNeutral(primary: string): ColorScale {
+  const out = {} as ColorScale;
+  for (const shade of Object.keys(BASE_NEUTRAL) as Shade[]) {
+    out[shade] = mix(BASE_NEUTRAL[shade], primary, NEUTRAL_TINT[shade]);
+  }
+  return out;
+}
+
+const VAR_SHADES: Shade[] = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'];
+
+/**
+ * حقن طيف الثيم الحالي في متغيرات CSS على مستوى الوثيقة.
+ * p = اللون الأساسي (emerald/teal/blue…) • a = اللون الثانوي الذهبي (amber…) • n = الرمادي الملوّن (slate…)
+ */
+export function applyThemePalette(theme: AppTheme, _mode: ColorMode): void {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  const p = buildScale(theme.primaryColor);
+  const a = buildScale(theme.accentColor);
+  const n = buildNeutral(theme.primaryColor);
+
+  for (const shade of VAR_SHADES) {
+    root.style.setProperty(`--noor-p-${shade}`, p[shade]);
+    root.style.setProperty(`--noor-a-${shade}`, a[shade]);
+    root.style.setProperty(`--noor-n-${shade}`, n[shade]);
+  }
+  root.style.setProperty('--noor-glow', theme.glowColor);
+}

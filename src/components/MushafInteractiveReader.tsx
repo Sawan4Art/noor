@@ -30,6 +30,8 @@ import {
   getAyahAudioUrl,
   MUSHAF_PAGES_DATA,
   getOrCreateMushafPage,
+  loadQuranPages,
+  isQuranPagesLoaded,
 } from '../utils/quranTajweedData';
 import {
   SearchResult,
@@ -123,6 +125,19 @@ export const MushafInteractiveReader: React.FC = () => {
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
+
+  // تحميل نص المصحف الكامل (604 صفحة) — بإعادة رسم فور الجاهزية
+  const [pagesReady, setPagesReady] = useState<boolean>(isQuranPagesLoaded());
+  useEffect(() => {
+    if (pagesReady) return;
+    let alive = true;
+    void loadQuranPages().then(() => {
+      if (alive) setPagesReady(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [pagesReady]);
 
   const currentPage: MushafPage = getOrCreateMushafPage(currentPageNum);
 
@@ -361,8 +376,222 @@ export const MushafInteractiveReader: React.FC = () => {
     return true;
   });
 
+  // عدد آيات السورة المعروضة — لنطاقات تشغيل صحيحة بدل الثوابت القديمة (286/141)
+  const displayedSurahNumber = activeAyah?.surahNumber ?? currentPage.ayahs[0]?.surahNumber ?? 1;
+  const surahAyahCount = SURAHS_LIST.find((s) => s.number === displayedSurahNumber)?.numberOfAyahs ?? 286;
+
+  /** تدفق الآيات بالتلوين التجويدي — مشترك بين العرض العادي وملء الشاشة */
+  const renderAyahFlow = (textClass: string, numberSize: string) => (
+    <div className={`text-justify font-quran text-slate-950 font-normal dir-rtl px-1 ${textClass}`}>
+      {currentPage.ayahs.map((ayah) => {
+        const isSelected = activeAyah?.ayahNumber === ayah.ayahNumber;
+        const isPlaying = currentPlayingAyahNum === ayah.ayahNumber;
+        const isMasked = memorizationTestMode && !revealedAyahs[ayah.ayahNumber];
+
+        return (
+          <span
+            key={`${ayah.surahNumber}-${ayah.ayahNumber}`}
+            onClick={(e) => handleAyahClick(ayah, e)}
+            className={`inline cursor-pointer transition-colors duration-150 rounded px-1 py-0.5 mx-0.5 ${
+              isPlaying
+                ? 'bg-emerald-200/90 shadow-sm ring-2 ring-emerald-500'
+                : isSelected
+                ? 'bg-amber-200/80 shadow-sm ring-2 ring-amber-400'
+                : 'hover:bg-amber-100/60'
+            }`}
+            title={`انقر للتفاعل مع الآية ${ayah.ayahNumber}`}
+          >
+            {isMasked ? (
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setRevealedAyahs((prev) => ({ ...prev, [ayah.ayahNumber]: true }));
+                }}
+                className="filter blur-sm bg-slate-300 text-transparent select-none cursor-pointer px-2 py-0.5 rounded"
+                title="انقر لإظهار الكلمات والتحقق من حفظك"
+              >
+                {ayah.plainText}
+              </span>
+            ) : (
+              ayah.segments.map((seg, sIdx) => {
+                const ruleStyle = seg.rule ? TAJWEED_COLORS[seg.rule] : null;
+                return (
+                  <span
+                    key={sIdx}
+                    style={ruleStyle ? { color: ruleStyle.color, fontWeight: 700 } : {}}
+                  >
+                    {seg.text}
+                  </span>
+                );
+              })
+            )}
+
+            {/* رقم الآية بالزخرفة العثمانية ﴿١٧﴾ */}
+            <span className={`inline-flex items-center justify-center font-sans font-bold text-[#8c6b23] border border-[#dfbe72] bg-[#fbf6e3] rounded-full mx-1 shadow-inner align-middle ${numberSize}`}>
+              {ayah.ayahNumber}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+
+  /* ==================== وضع ملء الشاشة الغامر — الصفحة تغطي الشاشة كلها ==================== */
+  if (isFullscreen) {
+    return (
+      <div className="fixed inset-0 z-[90] flex flex-col bg-[#05070d]" dir="rtl">
+        {/* Toast */}
+        {copiedToast && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[95] px-5 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl flex items-center gap-3 text-xs sm:text-sm">
+            <Check className="w-4 h-4 text-emerald-200" />
+            <span>{copiedToast}</span>
+            <button onClick={() => setCopiedToast(null)} className="text-xs text-emerald-200 hover:text-white px-2 py-0.5">
+              إغلاق
+            </button>
+          </div>
+        )}
+
+        {/* شريط علوي رفيع */}
+        <div
+          className="flex items-center justify-between gap-2 px-3 sm:px-5 py-2 border-b backdrop-blur-md shrink-0"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--noor-n-950) 82%, transparent)',
+            borderColor: 'color-mix(in srgb, var(--noor-p-500) 25%, transparent)',
+          }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <BookOpen className="w-4 h-4 shrink-0" style={{ color: 'var(--noor-a-400)' }} />
+            <span className="text-xs sm:text-sm font-bold truncate" style={{ color: 'var(--noor-n-100)' }}>
+              {currentPage.surahName}
+            </span>
+            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full border shrink-0" style={{
+              color: 'var(--noor-n-400)',
+              borderColor: 'color-mix(in srgb, var(--noor-p-500) 30%, transparent)',
+            }}>
+              الجزء {currentPage.juzNumber} • {currentPage.hizbQuarter}
+            </span>
+          </div>
+          <button
+            onClick={() => setIsFullscreen(false)}
+            className="p-2 rounded-xl border transition-colors shrink-0"
+            style={{
+              borderColor: 'color-mix(in srgb, var(--noor-p-500) 30%, transparent)',
+              color: 'var(--noor-n-300)',
+            }}
+            title="الخروج من ملء الشاشة (Esc)"
+          >
+            <Minimize2 className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* الصفحة — تغطي المساحة المتاحة بالكامل */}
+        <div className="flex-1 flex items-stretch justify-center p-1.5 sm:p-3 min-h-0">
+          <div
+            ref={pageContainerRef}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            className={`relative w-full max-w-4xl bg-[#fffdf5] text-slate-900 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden border-[6px] sm:border-[10px] border-[#dfbe72] ring-2 ring-[#997a31] select-none book-spine-shadow ${
+              flipDirection === 'next'
+                ? 'book-flip-forward'
+                : flipDirection === 'prev'
+                ? 'book-flip-backward'
+                : ''
+            }`}
+          >
+            <div className="h-full p-2 sm:p-4 border-4 border-[#3b8270] m-1 rounded-lg flex flex-col min-h-0">
+              {/* تدفق الآيات — يملأ المتاح ويمكن تمريره لو زاد */}
+              <div className="flex-1 overflow-y-auto min-h-0">
+                {renderAyahFlow('leading-[2.5] text-lg sm:text-2xl', 'w-6 h-6 sm:w-7 sm:h-7 text-xs sm:text-sm')}
+              </div>
+
+              {/* تذييل الصفحة */}
+              <div className="shrink-0 pt-2 border-t-2 border-[#dfbe72] flex items-center justify-between text-xs font-bold text-slate-700 px-2">
+                <span>جزء {currentPage.juzNumber}</span>
+                <span className="text-sm font-extrabold text-[#997a31]">{currentPage.pageNumber}</span>
+                <span>{currentPage.surahName}</span>
+              </div>
+            </div>
+
+            {showRadialMenu && (
+              <div
+                className="absolute z-30 pointer-events-auto"
+                style={{
+                  left: `${Math.min(Math.max(radialMenuPos.x, 100), 500)}px`,
+                  top: `${Math.min(Math.max(radialMenuPos.y, 100), 750)}px`,
+                }}
+              >
+                <RadialMenuActions
+                  onClose={() => setShowRadialMenu(false)}
+                  onListen={() => { setShowRadialMenu(false); setShowListenModal(true); }}
+                  onBookmark={handleBookmarkCurrentAyah}
+                  onTafseer={() => { setShowRadialMenu(false); setShowTafseerModal(true); }}
+                  onShare={handleShareAyah}
+                  onCopy={handleCopyAyah}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* شريط تنقل الصفحات السفلي الرفيع */}
+        <div
+          className="shrink-0 flex items-center justify-center gap-2 sm:gap-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t backdrop-blur-md"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--noor-n-950) 82%, transparent)',
+            borderColor: 'color-mix(in srgb, var(--noor-p-500) 25%, transparent)',
+          }}
+        >
+          <button
+            onClick={() => handleFlipPage('prev')}
+            disabled={currentPageNum <= 1}
+            className="p-2.5 rounded-xl disabled:opacity-30 transition-colors"
+            style={{ color: 'var(--noor-n-200)' }}
+            title="الصفحة السابقة"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-sm" style={{
+            borderColor: 'color-mix(in srgb, var(--noor-p-500) 30%, transparent)',
+          }}>
+            <span className="text-xs" style={{ color: 'var(--noor-n-400)' }}>صفحة</span>
+            <input
+              type="number"
+              min={1}
+              max={604}
+              value={currentPageNum}
+              onChange={(e) => {
+                const p = parseInt(e.target.value, 10);
+                if (p >= 1 && p <= 604) setCurrentPageNum(p);
+              }}
+              className="w-12 bg-transparent text-center font-bold focus:outline-none"
+              style={{ color: 'var(--noor-p-400)' }}
+            />
+            <span className="text-xs" style={{ color: 'var(--noor-n-500)' }}>/ 604</span>
+          </div>
+
+          {!pagesReady && (
+            <span className="text-[10px] px-2 py-1 rounded-lg animate-pulse" style={{ color: 'var(--noor-a-400)' }}>
+              جاري تحميل نص المصحف…
+            </span>
+          )}
+
+          <button
+            onClick={() => handleFlipPage('next')}
+            disabled={currentPageNum >= 604}
+            className="p-2.5 rounded-xl disabled:opacity-30 transition-colors"
+            style={{ color: 'var(--noor-n-200)' }}
+            title="الصفحة التالية"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`space-y-5 ${isFullscreen ? 'fixed inset-0 z-50 bg-[#070b14] overflow-y-auto p-2 sm:p-4' : ''}`}>
+    <div className="space-y-5">
       {/* Toast Alert */}
       {copiedToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl flex items-center gap-3 text-xs sm:text-sm animate-in fade-in slide-in-from-top-4 border border-emerald-400/40">
@@ -660,98 +889,14 @@ export const MushafInteractiveReader: React.FC = () => {
                 top: `${Math.min(Math.max(radialMenuPos.y, 100), 750)}px`,
               }}
             >
-              <div className="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2">
-                {/* Central Close Button */}
-                <button
-                  onClick={() => setShowRadialMenu(false)}
-                  className="w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-2xl ring-4 ring-white z-20 active:scale-95 transition-transform"
-                  title="إغلاق قائمة الآية"
-                >
-                  <X className="w-6 h-6 stroke-[3]" />
-                </button>
-
-                {/* 1. Play Audio Button (Top-Right) */}
-                <button
-                  onClick={() => {
-                    setShowRadialMenu(false);
-                    setShowListenModal(true);
-                  }}
-                  style={{ transform: 'translate(60px, -45px)' }}
-                  className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
-                  title="الاستماع وتحديد نطاق الآيات"
-                >
-                  <Play className="w-5 h-5 fill-current ml-0.5" />
-                </button>
-
-                {/* 2. Bookmark Button (Top) */}
-                <button
-                  onClick={handleBookmarkCurrentAyah}
-                  style={{ transform: 'translate(0px, -75px)' }}
-                  className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
-                  title="حفظ الآية في الإشارات المرجعية"
-                >
-                  <Bookmark className="w-5 h-5 fill-current" />
-                </button>
-
-                {/* 3. Tafseer Button (Top-Left) */}
-                <button
-                  onClick={() => {
-                    setShowRadialMenu(false);
-                    setShowTafseerModal(true);
-                  }}
-                  style={{ transform: 'translate(-60px, -45px)' }}
-                  className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
-                  title="تفسير الآية"
-                >
-                  <BookOpen className="w-5 h-5" />
-                </button>
-
-                {/* 4. Share Button (Right) */}
-                <button
-                  onClick={handleShareAyah}
-                  style={{ transform: 'translate(75px, 20px)' }}
-                  className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
-                  title="مشاركة الآية"
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
-
-                {/* 5. Copy Text Button (Bottom-Right) */}
-                <button
-                  onClick={handleCopyAyah}
-                  style={{ transform: 'translate(45px, 70px)' }}
-                  className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
-                  title="نسخ الآية"
-                >
-                  <Copy className="w-5 h-5" />
-                </button>
-
-                {/* 6. Info Button (Bottom) */}
-                <button
-                  onClick={() => {
-                    setShowRadialMenu(false);
-                    setShowTafseerModal(true);
-                  }}
-                  style={{ transform: 'translate(-25px, 70px)' }}
-                  className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
-                  title="معلومات وتدبر"
-                >
-                  <Info className="w-5 h-5" />
-                </button>
-
-                {/* 7. Sliders / Range Button (Left) */}
-                <button
-                  onClick={() => {
-                    setShowRadialMenu(false);
-                    setShowListenModal(true);
-                  }}
-                  style={{ transform: 'translate(-75px, 0px)' }}
-                  className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
-                  title="تحديد نطاق التلاوة والحفظ"
-                >
-                  <Sliders className="w-5 h-5" />
-                </button>
-              </div>
+              <RadialMenuActions
+                onClose={() => setShowRadialMenu(false)}
+                onListen={() => { setShowRadialMenu(false); setShowListenModal(true); }}
+                onBookmark={handleBookmarkCurrentAyah}
+                onTafseer={() => { setShowRadialMenu(false); setShowTafseerModal(true); }}
+                onShare={handleShareAyah}
+                onCopy={handleCopyAyah}
+              />
             </div>
           )}
         </div>
@@ -950,7 +1095,7 @@ export const MushafInteractiveReader: React.FC = () => {
               <button
                 onClick={() => {
                   setRangeStartAyah(1);
-                  setRangeEndAyah(286);
+                  setRangeEndAyah(surahAyahCount);
                   handleStartCustomRange();
                 }}
                 className="w-full py-2.5 rounded-xl hover:bg-slate-800 transition-colors"
@@ -961,7 +1106,7 @@ export const MushafInteractiveReader: React.FC = () => {
               <button
                 onClick={() => {
                   setRangeStartAyah(activeAyah.ayahNumber);
-                  setRangeEndAyah(286);
+                  setRangeEndAyah(surahAyahCount);
                   handleStartCustomRange();
                 }}
                 className="w-full py-2.5 rounded-xl hover:bg-slate-800 transition-colors"
@@ -1113,9 +1258,15 @@ export const MushafInteractiveReader: React.FC = () => {
 
             <div className="space-y-2">
               <h4 className="text-xs font-bold text-emerald-400">التفسير وبيان المعنى:</h4>
-              <p className="text-sm text-slate-300 leading-relaxed font-sans bg-slate-950 p-4 rounded-2xl border border-slate-800/80">
-                {activeAyah.tafseer}
-              </p>
+              {activeAyah.tafseer ? (
+                <p className="text-sm text-slate-300 leading-relaxed font-sans bg-slate-950 p-4 rounded-2xl border border-slate-800/80">
+                  {activeAyah.tafseer}
+                </p>
+              ) : (
+                <p className="text-sm text-slate-400 leading-relaxed font-sans bg-slate-950 p-4 rounded-2xl border border-slate-800/80 text-center">
+                  التفسير الميسر متاح تدريجياً — هذه الصفحة من نص المصحف الكامل المعتمد (رسم عثماني).
+                </p>
+              )}
             </div>
 
             <button
@@ -1256,3 +1407,106 @@ export const MushafInteractiveReader: React.FC = () => {
     </div>
   );
 };
+
+/* ============================================================================
+ * قائمة الآية الدائرية — مكوّن مشترك بين العرض العادي وملء الشاشة
+ * (نفس التصميم البرتقالي الأصلي بنفس المواقع)
+ * ========================================================================== */
+interface RadialMenuActionsProps {
+  onClose: () => void;
+  onListen: () => void;
+  onBookmark: () => void;
+  onTafseer: () => void;
+  onShare: () => void;
+  onCopy: () => void;
+}
+
+const RadialMenuActions: React.FC<RadialMenuActionsProps> = ({
+  onClose,
+  onListen,
+  onBookmark,
+  onTafseer,
+  onShare,
+  onCopy,
+}) => (
+  <div className="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2">
+    {/* زر الإغلاق المركزي */}
+    <button
+      onClick={onClose}
+      className="w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-2xl ring-4 ring-white z-20 active:scale-95 transition-transform"
+      title="إغلاق قائمة الآية"
+    >
+      <X className="w-6 h-6 stroke-[3]" />
+    </button>
+
+    {/* التلاوة وتحديد النطاق */}
+    <button
+      onClick={onListen}
+      style={{ transform: 'translate(60px, -45px)' }}
+      className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
+      title="الاستماع وتحديد نطاق الآيات"
+    >
+      <Play className="w-5 h-5 fill-current ml-0.5" />
+    </button>
+
+    {/* الحفظ في الإشارات المرجعية */}
+    <button
+      onClick={onBookmark}
+      style={{ transform: 'translate(0px, -75px)' }}
+      className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
+      title="حفظ الآية في الإشارات المرجعية"
+    >
+      <Bookmark className="w-5 h-5 fill-current" />
+    </button>
+
+    {/* التفسير */}
+    <button
+      onClick={onTafseer}
+      style={{ transform: 'translate(-60px, -45px)' }}
+      className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
+      title="تفسير الآية"
+    >
+      <BookOpen className="w-5 h-5" />
+    </button>
+
+    {/* المشاركة */}
+    <button
+      onClick={onShare}
+      style={{ transform: 'translate(75px, 20px)' }}
+      className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
+      title="مشاركة الآية"
+    >
+      <Share2 className="w-5 h-5" />
+    </button>
+
+    {/* النسخ */}
+    <button
+      onClick={onCopy}
+      style={{ transform: 'translate(45px, 70px)' }}
+      className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
+      title="نسخ الآية"
+    >
+      <Copy className="w-5 h-5" />
+    </button>
+
+    {/* التدبر والمعلومات */}
+    <button
+      onClick={onTafseer}
+      style={{ transform: 'translate(-25px, 70px)' }}
+      className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
+      title="معلومات وتدبر"
+    >
+      <Info className="w-5 h-5" />
+    </button>
+
+    {/* نطاق التلاوة والحفظ */}
+    <button
+      onClick={onListen}
+      style={{ transform: 'translate(-75px, 0px)' }}
+      className="absolute w-12 h-12 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white flex items-center justify-center shadow-xl ring-2 ring-white active:scale-90 transition-transform"
+      title="تحديد نطاق التلاوة والحفظ"
+    >
+      <Sliders className="w-5 h-5" />
+    </button>
+  </div>
+);

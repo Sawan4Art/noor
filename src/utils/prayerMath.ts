@@ -109,6 +109,10 @@ function acosD(x: number): number {
   return Math.acos(x) * R2D;
 }
 
+function atan2D(y: number, x: number): number {
+  return Math.atan2(y, x) * R2D;
+}
+
 function atanD(x: number): number {
   return Math.atan(x) * R2D;
 }
@@ -142,6 +146,12 @@ function julianDate(year: number, month: number, day: number): number {
   );
 }
 
+/**
+ * موضع الشمس (مطلع مستقيم + ميل + معادلة الزمن) — خوارزمية PrayTimes المرجعية.
+ * إصلاح جذر: المطلع المستقيم لازم atan2 (لحفظ الربع الصحيح) وبالساعات مع fixHour،
+ * مش atan عادي مع fixAngle — الخطأ ده كان يخرّب معادلة الزمن بمئات الساعات
+ * ويزحلق كل المواقيت ساعات كاملة.
+ */
 function sunPosition(jd: number): { declination: number; equationOfTime: number } {
   const D = jd - 2451545.0;
   const g = fixAngle(357.529 + 0.98560028 * D);
@@ -149,7 +159,7 @@ function sunPosition(jd: number): { declination: number; equationOfTime: number 
   const L = fixAngle(q + 1.915 * sinD(g) + 0.02 * sinD(2 * g));
 
   const e = 23.439 - 0.00000036 * D;
-  const RA = fixAngle(atanD(cosD(e) * sinD(L)) / 15.0);
+  const RA = fixHour(atan2D(cosD(e) * sinD(L), cosD(L)) / 15.0);
   const declination = asinD(sinD(e) * sinD(L));
   const equationOfTime = q / 15.0 - RA;
 
@@ -168,7 +178,9 @@ export function computePrayerTimes(
   const day = date.getDate();
   const timeZoneOffsetHours = -date.getTimezoneOffset() / 60;
 
-  const jd = julianDate(year, month, day);
+  // تقريب ظهير الشمس: نحسب موضع الشمس عند الظهير المحلي المشمس
+  // (تقنية PrayTimes — بدقة ±1-2 دقيقة بدون تكرار)
+  const jd = julianDate(year, month, day) - lng / (15 * 24);
   const { declination: d, equationOfTime: eqt } = sunPosition(jd);
 
   const methodParams = CALCULATION_METHODS[method] || CALCULATION_METHODS.Egypt;
