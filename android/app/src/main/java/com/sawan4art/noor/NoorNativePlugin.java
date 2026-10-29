@@ -116,6 +116,18 @@ public class NoorNativePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void openAppSettings(PluginCall call) {
+        try {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(android.net.Uri.parse("package:" + getContext().getPackageName()));
+            getActivity().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.resolve();
+        }
+    }
+
+    @PluginMethod
     public void openExactAlarmSettings(PluginCall call) {
         try {
             if (Build.VERSION.SDK_INT >= 31) {

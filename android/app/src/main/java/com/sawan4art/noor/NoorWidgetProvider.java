@@ -18,6 +18,8 @@ import org.json.JSONObject;
  * ويدجت مواقيت الصلاة لشاشة الهاتف الرئيسية (4×2):
  * - اسم التطبيق + المدينة + الصلاة القادمة ووقتها وعداد تنازلي حي (Chronometer)
  * - صف المواقيت الستة مع إبراز القادمة
+ * - نسختان: عادية بخلفية داكنة (NoorWidgetProvider) وشفافة بلا خلفية
+ *   (NoorWidgetTransparentProvider) — كل واحدة تظهر كخيار مستقل في قائمة الويدجتس
  * - يتحدث كل 30 دقيقة تلقائياً + فوراً كل ما فتح المستخدم التطبيق
  */
 public class NoorWidgetProvider extends AppWidgetProvider {
@@ -27,18 +29,36 @@ public class NoorWidgetProvider extends AppWidgetProvider {
         pushUpdate(context);
     }
 
+    /** التخطيت المستخدم في هذه النسخة — الفئة الشفافة تعيد تعريفه */
+    protected RemoteViews createViews(Context context) {
+        return new RemoteViews(context.getPackageName(), R.layout.widget_noor);
+    }
+
     /** تحديث كل نسخ الويدجت من البيانات المحفوظة */
     static void pushUpdate(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         if (manager == null) return;
-        ComponentName widget = new ComponentName(context, NoorWidgetProvider.class);
-        int[] ids = manager.getAppWidgetIds(widget);
+
+        // النسخة العادية
+        updateProviderInstances(context, manager,
+                new ComponentName(context, NoorWidgetProvider.class),
+                new NoorWidgetProvider());
+        // النسخة الشفافة
+        updateProviderInstances(context, manager,
+                new ComponentName(context, NoorWidgetTransparentProvider.class),
+                new NoorWidgetTransparentProvider());
+    }
+
+    private static void updateProviderInstances(
+            Context context, AppWidgetManager manager, ComponentName provider, NoorWidgetProvider impl) {
+        int[] ids = manager.getAppWidgetIds(provider);
         if (ids == null || ids.length == 0) return;
 
-        SharedPreferences prefs = context.getSharedPreferences(NoorNativePlugin.PREFS, Context.MODE_PRIVATE);
+        SharedPreferences prefs =
+                context.getSharedPreferences(NoorNativePlugin.PREFS, Context.MODE_PRIVATE);
         String json = prefs.getString(NoorNativePlugin.KEY_WIDGET, null);
 
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_noor);
+        RemoteViews views = impl.createViews(context);
 
         if (json == null) {
             views.setTextViewText(R.id.widget_city, "افتح التطبيق أولاً لتحديث المواقيت");
@@ -67,7 +87,9 @@ public class NoorWidgetProvider extends AppWidgetProvider {
                                 "المتبقي %s",
                                 true);
                     } else {
-                        views.setChronometer(R.id.widget_countdown, SystemClock.elapsedRealtime(), null, false);
+                        views.setChronometer(
+                                R.id.widget_countdown,
+                                SystemClock.elapsedRealtime(), null, false);
                     }
                 }
 
@@ -108,6 +130,7 @@ public class NoorWidgetProvider extends AppWidgetProvider {
             case "asr": return "العصر";
             case "maghrib": return "المغرب";
             case "isha": return "العشاء";
+            case "qiyam": return "قيام الليل";
             default: return key;
         }
     }

@@ -346,3 +346,45 @@ export function savePermissionsAsked(): void {
     // تجاهل
   }
 }
+
+/* ==================== قيام الليل (اختياري) ==================== */
+
+const QIYAM_ENABLED_KEY = 'noor_qiyam_enabled';
+const QIYAM_OFFSET_KEY = 'noor_qiyam_offset_minutes';
+
+export function getSavedQiyamEnabled(): boolean {
+  try {
+    return localStorage.getItem(QIYAM_ENABLED_KEY) === 'on';
+  } catch {
+    return false;
+  }
+}
+
+export function saveQiyamEnabled(on: boolean): void {
+  try {
+    localStorage.setItem(QIYAM_ENABLED_KEY, on ? 'on' : 'off');
+  } catch {
+    // تجاهل
+  }
+}
+
+/** كم دقيقة قبل الفجر ينبه لقيام الليل (30/60/90) */
+export function getSavedQiyamOffsetMinutes(): number {
+  try {
+    const v = parseInt(localStorage.getItem(QIYAM_OFFSET_KEY) ?? '', 10);
+    if (v === 30 || v === 60 || v === 90) return v;
+  } catch {
+    // تجاهل
+  }
+  return 60;
+}
+
+export function saveQiyamOffsetMinutes(minutes: number): void {
+  try {
+    if (minutes === 30 || minutes === 60 || minutes === 90) {
+      localStorage.setItem(QIYAM_OFFSET_KEY, String(minutes));
+    }
+  } catch {
+    // تجاهل
+  }
+}

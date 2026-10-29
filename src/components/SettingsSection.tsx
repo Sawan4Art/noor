@@ -33,6 +33,7 @@ import {
   Layers,
   Wifi,
   CircleCheck,
+  MoonStar,
 } from 'lucide-react';
 import { APP_THEMES, AppTheme, ColorMode } from '../utils/themeData';
 import {
@@ -58,6 +59,8 @@ import {
   getAdhanAudioSrc,
   PrayerAlerts,
   PrayerAlertMode,
+  saveQiyamEnabled,
+  saveQiyamOffsetMinutes,
 } from '../utils/appSettings';
 import { AYAH_RECITERS, getAyahAudioUrl } from '../utils/quranTajweedData';
 import {
@@ -86,6 +89,7 @@ import {
   requestAllPermissions,
   updateWidget as pushWidgetUpdate,
   isNativeApp,
+  openAppSettings,
 } from '../utils/nativeBridge';
 import { registerBackHandler } from '../utils/backButton';
 
@@ -126,6 +130,10 @@ interface SettingsSectionProps {
   setAdhanEnabled: (on: boolean) => void;
   prayerAlerts: PrayerAlerts;
   setPrayerAlerts: (alerts: PrayerAlerts) => void;
+  qiyamEnabled: boolean;
+  setQiyamEnabled: (on: boolean) => void;
+  qiyamOffsetMinutes: number;
+  setQiyamOffsetMinutes: (m: number) => void;
 }
 
 /** رأس صفحة فرعية مع زر رجوع */
@@ -232,6 +240,10 @@ export const SettingsSection: React.FC<SettingsSectionProps> = (props) => {
           setAdhanEnabled={props.setAdhanEnabled}
           prayerAlerts={props.prayerAlerts}
           setPrayerAlerts={props.setPrayerAlerts}
+          qiyamEnabled={props.qiyamEnabled}
+          setQiyamEnabled={props.setQiyamEnabled}
+          qiyamOffsetMinutes={props.qiyamOffsetMinutes}
+          setQiyamOffsetMinutes={props.setQiyamOffsetMinutes}
         />
       )}
       {page === 'mushaf' && <MushafPage onBack={goHome} />}
@@ -732,6 +744,10 @@ const AdhanPage: React.FC<{
   setAdhanEnabled: (on: boolean) => void;
   prayerAlerts: PrayerAlerts;
   setPrayerAlerts: (alerts: PrayerAlerts) => void;
+  qiyamEnabled: boolean;
+  setQiyamEnabled: (on: boolean) => void;
+  qiyamOffsetMinutes: number;
+  setQiyamOffsetMinutes: (m: number) => void;
 }> = ({
   onBack,
   adhanVoiceId,
@@ -740,6 +756,10 @@ const AdhanPage: React.FC<{
   setAdhanEnabled,
   prayerAlerts,
   setPrayerAlerts,
+  qiyamEnabled,
+  setQiyamEnabled,
+  qiyamOffsetMinutes,
+  setQiyamOffsetMinutes,
 }) => {
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [permissions, setPermissions] = useState<{
@@ -895,17 +915,35 @@ const AdhanPage: React.FC<{
                   </div>
                 ))}
               </div>
-              <button
-                onClick={handleRequestPermissions}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold border transition-colors hover:bg-white/5"
-                style={{
-                  borderColor: 'color-mix(in srgb, var(--noor-p-500) 35%, transparent)',
-                  color: 'var(--noor-n-100)',
-                }}
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>طلب كل الأذونات الآن</span>
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleRequestPermissions}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold border transition-colors hover:bg-white/5"
+                  style={{
+                    borderColor: 'color-mix(in srgb, var(--noor-p-500) 35%, transparent)',
+                    color: 'var(--noor-n-100)',
+                  }}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>طلب كل الأذونات</span>
+                </button>
+                {(permissions?.location === false ||
+                  permissions?.notifications === false ||
+                  permissions?.exactAlarms === false) && (
+                  <button
+                    onClick={() => void openAppSettings()}
+                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-sm font-bold border transition-colors hover:bg-white/5"
+                    style={{
+                      borderColor: 'rgba(244,63,94,0.4)',
+                      color: '#fda4af',
+                    }}
+                    title="لو رفضت إذن نهائياً — افتح إعدادات التطبيق وفعّله يدوياً"
+                  >
+                    <TriangleAlert className="w-4 h-4" />
+                    <span>فتح إعدادات النظام</span>
+                  </button>
+                )}
+              </div>
               <p className="text-[10px] leading-relaxed" style={{ color: 'var(--noor-n-500)' }}>
                 الموقع لحساب المواقيت بدقة لمدينتك، والإشعارات والمنبهات الدقيقة ليعمل الأذان
                 في وقته حتى والشاشة مطفية.
@@ -1005,6 +1043,81 @@ const AdhanPage: React.FC<{
               );
             })}
           </div>
+        </Card>
+
+        {/* تنبيه قيام الليل (اختياري) */}
+        <Card title="تنبيه قيام الليل (اختياري)">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div
+                className="w-11 h-11 rounded-2xl flex items-center justify-center text-white"
+                style={{
+                  background: qiyamEnabled
+                    ? 'linear-gradient(135deg, #4338ca, #6366f1)'
+                    : '#475569',
+                }}
+              >
+                <MoonStar className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold" style={{ color: 'var(--noor-n-50)' }}>
+                  تنبيه استيقاظ لقيام الليل
+                </p>
+                <p className="text-[11px]" style={{ color: 'var(--noor-n-400)' }}>
+                  إشعار هادئ قبل الفجر — «أفضل الصلاة بعد الفريضة صلاة الليل»
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const next = !qiyamEnabled;
+                setQiyamEnabled(next);
+                saveQiyamEnabled(next);
+              }}
+              className="relative w-14 h-8 rounded-full transition-colors shrink-0"
+              style={{ backgroundColor: qiyamEnabled ? '#6366f1' : '#334155' }}
+              role="switch"
+              aria-checked={qiyamEnabled}
+            >
+              <span
+                className="absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-all"
+                style={{ right: qiyamEnabled ? '0.25rem' : '1.75rem' }}
+              />
+            </button>
+          </div>
+
+          {qiyamEnabled && (
+            <div className="space-y-1.5 animate-in fade-in">
+              <span className="text-[11px]" style={{ color: 'var(--noor-n-300)' }}>
+                كم دقيقة قبل أذان الفجر؟
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                {[30, 60, 90].map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => {
+                      setQiyamOffsetMinutes(m);
+                      saveQiyamOffsetMinutes(m);
+                    }}
+                    className={`py-2.5 rounded-2xl text-sm font-bold border transition-colors ${
+                      qiyamOffsetMinutes === m ? 'text-white' : ''
+                    }`}
+                    style={{
+                      borderColor:
+                        qiyamOffsetMinutes === m
+                          ? '#6366f1'
+                          : 'color-mix(in srgb, var(--noor-p-500) 18%, transparent)',
+                      backgroundColor:
+                        qiyamOffsetMinutes === m ? 'rgba(99,102,241,0.18)' : 'transparent',
+                      color: qiyamOffsetMinutes === m ? undefined : 'var(--noor-n-300)',
+                    }}
+                  >
+                    {m} دقيقة
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </div>

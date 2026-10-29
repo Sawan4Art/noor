@@ -64,6 +64,22 @@ export const PrayerTimesSection: React.FC<PrayerTimesSectionProps> = ({
 
   const nextPrayer: NextPrayerInfo = getNextPrayer(prayerTimes, now);
 
+  // الإمساك/السحور: 10 دقائق قبل الفجر (العادة الشرعية للمسلمين)
+  const imsakDate = new Date(prayerTimes.rawTimes.fajr.getTime() - 10 * 60 * 1000);
+  const formatHM = (d: Date): string =>
+    d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+  const imsakTime = formatHM(imsakDate);
+  const imsakRemainingSec = Math.max(
+    0,
+    Math.floor((imsakDate.getTime() - now.getTime()) / 1000),
+  );
+  // وقت السحور المثالي: منتصف الليل حتى الإمساك (نعرض بداية موصى بها: آخر ثلث)
+  const suhoorRecommendedDate = new Date(
+    prayerTimes.rawTimes.isha.getTime() +
+      (imsakDate.getTime() - prayerTimes.rawTimes.isha.getTime()) * 0.6,
+  );
+  const suhoorTime = formatHM(suhoorRecommendedDate);
+
   // تنسيق الوقت المتبقي من الثواني الخام
   const formatCountdown = (totalSeconds: number): string => {
     if (totalSeconds <= 0) return 'حان الآن';
@@ -113,6 +129,43 @@ export const PrayerTimesSection: React.FC<PrayerTimesSectionProps> = ({
 
           <p className="mt-4 text-xs text-emerald-200/70">
             🕌 {coordinates.city}
+          </p>
+        </div>
+      </div>
+
+      {/* ===== بطاقة الإمساك والسحور ===== */}
+      <div className="rounded-3xl border shadow-xl overflow-hidden bg-slate-900/90 border-slate-800">
+        <div className="px-5 sm:px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <h3 className="text-base font-bold text-white">الإمساك والسحور</h3>
+          <span className="text-[11px] text-slate-400">كل يوم — تلقائي لمدينتك</span>
+        </div>
+        <div className="grid grid-cols-2 divide-x divide-x-reverse divide-slate-800/70">
+          {/* الإمساك */}
+          <div className="p-5 text-center">
+            <p className="text-xs text-amber-300/90 font-bold mb-1">الإمساك 🌙</p>
+            <p className="text-2xl sm:text-3xl font-mono font-black text-white" dir="ltr">
+              {imsakTime}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1.5">
+              {imsakRemainingSec > 0 && imsakRemainingSec < 12 * 3600
+                ? `بعد ${formatCountdown(imsakRemainingSec)}`
+                : `قبل الفجر بـ 10 دقائق`}
+            </p>
+          </div>
+          {/* السحور */}
+          <div className="p-5 text-center">
+            <p className="text-xs text-sky-300/90 font-bold mb-1">وقت السحور المثالي 🍽️</p>
+            <p className="text-2xl sm:text-3xl font-mono font-black text-white" dir="ltr">
+              {suhoorTime}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1.5">
+              توصية النبي ﷺ: «تسحروا فإن في السحور بركة»
+            </p>
+          </div>
+        </div>
+        <div className="px-5 py-2.5 bg-slate-950/60 border-t border-slate-800 text-center">
+          <p className="text-[10px] text-slate-500 leading-relaxed">
+            الإمساك = قبل أذان الفجر بـ10 دقائق (احتياطاً) • تنبيه قيام الليل اختياري من الإعدادات ← الأذان
           </p>
         </div>
       </div>

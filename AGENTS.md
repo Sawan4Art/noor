@@ -74,3 +74,13 @@
 3. `./build-apk.sh` → `download/noor-almuslim-v<النسخة>.apk`.
 4. `apksigner verify --print-certs` — التوقيع CN=Noor AlMuslim.
 5. push + Release + APK (القاعدة الإلزامية في القسم 6).
+
+## 8) البناء على سيرفرات جيت هب (GitHub Actions) — 2026-10-29
+
+**القاعدة الجديدة: كل بناء إصدار يطلع من CI مش من البيئة المحلية.**
+- الـ workflow: `.github/workflows/build-release.yml`
+- يشتغل تلقائياً عند دفع وسم `v*` أو يدوياً من تبويب Actions
+- يشمل: tsc + bun test + بناء الويب + cap sync + توقيع release + Release بالـ APK
+- **التوقيع في CI من Actions Secrets**: KEYSTORE_BASE64 + KEYSTORE_PASSWORD + KEY_ALIAS + KEY_PASSWORD (رُفعت مشفرة بـ libsodium عبر `scripts/set-ci-secrets.py`). البصمة لازم تطابق `1B:F6:75:A3...` (نفس مفتاح الريبو الخاص noor-secrets)
+- **إصدار جديد = bump version + commit + push + `git tag v<نسخة> && git push --tags`** — والباقي كله أوتوماتيك
+- البناء المحلي (`./build-apk.sh`) لسه شغال للتجارب السريعة فقط

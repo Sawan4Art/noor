@@ -35,9 +35,10 @@
             android:name=".AdhanAlarmReceiver"
             android:exported="false" />
 
-        <!-- ويدجت مواقيت الصلاة لشاشة الهاتف الرئيسية -->
+        <!-- ويدجت مواقيت الصلاة لشاشة الهاتف الرئيسية (نسخة بخلفية) -->
         <receiver
             android:name=".NoorWidgetProvider"
+            android:label="@string/app_name"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -45,6 +46,19 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_noor_info" />
+        </receiver>
+
+        <!-- ويدجت مواقيت الصلاة الشفاف (بدون خلفية) — بطلب المالك -->
+        <receiver
+            android:name=".NoorWidgetTransparentProvider"
+            android:label="نور المسلم شفاف"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_noor_transparent_info" />
         </receiver>
 
         <!-- إعادة جدولة الأذان بعد إعادة تشغيل الهاتف أو تحديث التطبيق -->

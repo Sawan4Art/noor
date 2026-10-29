@@ -45,6 +45,10 @@ import {
   saveAdhanEnabled,
   getSavedPrayerAlerts,
   savePrayerAlerts,
+  getSavedQiyamEnabled,
+  saveQiyamEnabled,
+  getSavedQiyamOffsetMinutes,
+  saveQiyamOffsetMinutes,
   getPermissionsAsked,
   savePermissionsAsked,
   PrayerAlerts,
@@ -72,6 +76,8 @@ export default function App() {
   const [adhanVoiceId, setAdhanVoiceId] = useState<string>(() => getSavedAdhanVoice().id);
   const [adhanEnabled, setAdhanEnabled] = useState<boolean>(getSavedAdhanEnabled);
   const [prayerAlerts, setPrayerAlerts] = useState<PrayerAlerts>(getSavedPrayerAlerts);
+  const [qiyamEnabled, setQiyamEnabled] = useState<boolean>(getSavedQiyamEnabled);
+  const [qiyamOffsetMinutes, setQiyamOffsetMinutes] = useState<number>(getSavedQiyamOffsetMinutes);
 
   const [hijriDate, setHijriDate] = useState<string>('');
 
@@ -146,6 +152,16 @@ export default function App() {
     savePrayerAlerts(alerts);
   }, []);
 
+  const handleSetQiyamEnabled = useCallback((on: boolean) => {
+    setQiyamEnabled(on);
+    saveQiyamEnabled(on);
+  }, []);
+
+  const handleSetQiyamOffset = useCallback((m: number) => {
+    setQiyamOffsetMinutes(m);
+    saveQiyamOffsetMinutes(m);
+  }, []);
+
   // ===== أذونات أول تشغيل: تطلب تلقائياً بعد زر «متابعة» في السبلاش =====
   const permissionsRequestedRef = useRef(false);
   useEffect(() => {
@@ -180,7 +196,7 @@ export default function App() {
   }, [showSplash, handleSetCoordinates]);
 
   // ===== جدولة الأذان النيتِفية + تحديث الويدجت عند تغير الإعدادات/اليوم =====
-  const scheduleKey = `${coordinates.latitude},${coordinates.longitude}|${method}|${isHanafi}|${adhanVoiceId}|${adhanEnabled}|${JSON.stringify(prayerAlerts)}|${minuteTick}`;
+  const scheduleKey = `${coordinates.latitude},${coordinates.longitude}|${method}|${isHanafi}|${adhanVoiceId}|${adhanEnabled}|${JSON.stringify(prayerAlerts)}|${qiyamEnabled}|${qiyamOffsetMinutes}|${minuteTick}`;
   useEffect(() => {
     if (showSplash) return;
     const now = new Date();
@@ -213,8 +229,17 @@ export default function App() {
       upcoming.push({ key, name: PRAYER_NAMES_AR[key], ts: tomorrowTimes.rawTimes[key].getTime() });
     }
 
-    // جدولة منبهات الأذان (تعمل والشاشة مطفية)
-    if (adhanEnabled) {
+    // منبه قيام الليل (اختياري): إشعار هادئ قبل الفجر
+    if (qiyamEnabled) {
+      const qiyamToday = todayTimes.rawTimes.fajr.getTime() - qiyamOffsetMinutes * 60000;
+      const qiyamTomorrow =
+        tomorrowTimes.rawTimes.fajr.getTime() - qiyamOffsetMinutes * 60000;
+      const qiyamTs = qiyamToday > now.getTime() ? qiyamToday : qiyamTomorrow;
+      upcoming.push({ key: 'qiyam', name: 'قيام الليل', ts: qiyamTs });
+    }
+
+    // جدولة منبهات الأذان + قيام الليل (تعمل والشاشة مطفية)
+    if (adhanEnabled || qiyamEnabled) {
       const alarms = buildAlarmsFromAlerts(upcoming, prayerAlerts);
       void scheduleAdhanAlarms(alarms, adhanVoiceId, coordinates.city);
     } else {
@@ -330,6 +355,10 @@ export default function App() {
             setAdhanEnabled={handleSetAdhanEnabled}
             prayerAlerts={prayerAlerts}
             setPrayerAlerts={handleSetPrayerAlerts}
+            qiyamEnabled={qiyamEnabled}
+            setQiyamEnabled={handleSetQiyamEnabled}
+            qiyamOffsetMinutes={qiyamOffsetMinutes}
+            setQiyamOffsetMinutes={handleSetQiyamOffset}
           />
         )}
       </main>
