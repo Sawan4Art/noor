@@ -603,7 +603,8 @@ public class NoorNativePlugin extends Plugin {
             p.put("total", total);
             p.put("percent", percent);
             p.put("done", done);
-            bridge.trigger("noorApkProgress", p);
+            // الواجهة الصحيحة للأحداث في كاباسيتور: notifyListeners (يصل عبر addListener في الجسر)
+            notifyListeners("noorApkProgress", p);
         } catch (Exception ignored) {
         }
     }
