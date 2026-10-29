@@ -9,6 +9,7 @@ import {
   savePrayerAdjustments,
   getSavedAyahReciter,
   saveAyahReciter,
+  sanitizeWidgetSettings,
 } from './appSettings';
 import { AYAH_RECITERS } from './quranTajweedData';
 
@@ -88,4 +89,43 @@ test('prayer adjustments persistence: clamped values and safe parse', () => {
     savePrayerAdjustments({ dhuhr: 1 });
     assert.deepEqual(getSavedPrayerAdjustments(), {});
   }
+});
+
+test('widget settings: sanitization rejects garbage and keeps valid values', () => {
+  // قيم تالفة كلياً → الافتراضي الآمن
+  const def = sanitizeWidgetSettings(null);
+  assert.equal(def.accent, 'green');
+  assert.equal(def.textSize, 'medium');
+  assert.equal(def.bgOpacity, 100);
+  assert.equal(def.timeFormat, '12h');
+
+  // قيم غريبة تُرفض لكل حقل على حدة
+  const weird = sanitizeWidgetSettings({
+    accent: 'neon-pink',
+    textSize: 'gigantic',
+    showCity: 'yes',
+    bgOpacity: 137,
+    timeFormat: '13h',
+  });
+  assert.equal(weird.accent, 'green', 'لون غير معروف → الأخضر');
+  assert.equal(weird.textSize, 'medium', 'حجم غير معروف → المتوسط');
+  assert.equal(weird.showCity, true, 'قيمة غير منطقية → الافتراضي');
+  assert.equal(weird.bgOpacity, 100, 'شفافية خارج النطاق → تُقرّب للافتراضي');
+  assert.equal(weird.timeFormat, '12h');
+
+  // قيم سليمة تُحفظ كما هي + تقريب الشفافية لأقرب خيار
+  const good = sanitizeWidgetSettings({
+    accent: 'gold',
+    textSize: 'large',
+    showCity: false,
+    showTimesRow: false,
+    bgOpacity: 42,
+    timeFormat: '24h',
+  });
+  assert.equal(good.accent, 'gold');
+  assert.equal(good.textSize, 'large');
+  assert.equal(good.showCity, false);
+  assert.equal(good.showTimesRow, false);
+  assert.equal(good.bgOpacity, 50, '42 تُقرّب لأقرب خيار متاح (50)');
+  assert.equal(good.timeFormat, '24h');
 });

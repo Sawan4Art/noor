@@ -5,4 +5,5 @@
     <string name="package_name">com.sawan4art.noor</string>
     <string name="custom_url_scheme">com.sawan4art.noor</string>
     <string name="widget_description">مواقيت الصلاة والصلاة القادمة مع عداد تنازلي حي</string>
+    <string name="widget_transparent_description">مواقيت الصلاة بدون خلفية — شفاف تماماً ليتناسق مع خلفية هاتفك</string>
 </resources>

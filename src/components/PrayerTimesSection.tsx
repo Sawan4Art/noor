@@ -8,13 +8,15 @@ import {
   getNextPrayer,
   PRAYER_NAMES_AR,
   PrayerTimeKey,
+  isRamadanNow,
 } from '../utils/prayerMath';
-import { getSavedPrayerAdjustments } from '../utils/appSettings';
+import { getSavedPrayerAdjustments, getSavedSuhoorOffsetMinutes } from '../utils/appSettings';
 
 /**
- * الصفحة الرئيسية للمواقيت — بطلب المالك (2026-10، الدفعة الثالثة):
- * مواقيت الصلاة فقط + الصلاة القادمة مع العداد التنازلي.
- * الموقع وطريقة الحساب والأذان كلها انتقلت للإعدادات.
+ * الصفحة الرئيسية للمواقيت — بطلب المالك (2026-10-29):
+ * - السحور فقط في رمضان المبارك (أُلغي الإمساك نهائياً بطلب المالك)
+ * - تنبيه السحور اختياري من الإعدادات — افتراضه قبل الفجر بـ15 دقيقة
+ * - مواقيت الصلاة + الصلاة القادمة مع العداد التنازلي
  */
 
 interface PrayerTimesSectionProps {
@@ -63,6 +65,21 @@ export const PrayerTimesSection: React.FC<PrayerTimesSectionProps> = ({
   );
 
   const nextPrayer: NextPrayerInfo = getNextPrayer(prayerTimes, now);
+
+  // رمضان + السحور: بطاقة السحور في رمضان فقط — أُلغي الإمساك نهائياً (بطلب المالك)
+  const isRamadan = isRamadanNow(now);
+  const suhoorOffset = getSavedSuhoorOffsetMinutes();
+  // نهاية السحور = أذان الفجر ناقص مدة التنبيه المحددة
+  const suhoorEndDate = new Date(
+    prayerTimes.rawTimes.fajr.getTime() - suhoorOffset * 60 * 1000,
+  );
+  const formatHM = (d: Date): string =>
+    d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+  const suhoorEndTime = formatHM(suhoorEndDate);
+  const suhoorRemainingSec = Math.max(
+    0,
+    Math.floor((suhoorEndDate.getTime() - now.getTime()) / 1000),
+  );
 
   // تنسيق الوقت المتبقي من الثواني الخام
   const formatCountdown = (totalSeconds: number): string => {
@@ -116,6 +133,32 @@ export const PrayerTimesSection: React.FC<PrayerTimesSectionProps> = ({
           </p>
         </div>
       </div>
+
+      {/* ===== بطاقة السحور — رمضان فقط (أُلغي الإمساك بطلب المالك) ===== */}
+      {isRamadan && (
+        <div className="rounded-3xl border shadow-xl overflow-hidden bg-slate-900/90 border-amber-700/40">
+          <div className="px-5 sm:px-6 py-4 border-b border-amber-800/30 flex items-center justify-between">
+            <h3 className="text-base font-bold text-white">السحور 🍽️</h3>
+            <span className="text-[11px] text-amber-300/90">رمضان مبارك 🌙</span>
+          </div>
+          <div className="p-5 text-center space-y-2">
+            <p className="text-xs text-amber-300/90 font-bold">نهاية السحور قبل أذان الفجر بـ{suhoorOffset} دقيقة</p>
+            <p className="text-3xl sm:text-4xl font-mono font-black text-white" dir="ltr">
+              {suhoorEndTime}
+            </p>
+            <p className="text-[11px] text-slate-400">
+              {suhoorRemainingSec > 0 && suhoorRemainingSec < 12 * 3600
+                ? `يتبقى على نهاية السحور ${formatCountdown(suhoorRemainingSec)}`
+                : '«تسحروا فإن في السحور بركة»'}
+            </p>
+          </div>
+          <div className="px-5 py-2.5 bg-slate-950/60 border-t border-amber-800/20 text-center">
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              تنبيه السحور اختياري من الإعدادات ← الأذان والتنبيهات (افتراضه قبل أذان الفجر بـ{suhoorOffset} دقيقة)
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ===== مواقيت اليوم ===== */}
       <div className="rounded-3xl border shadow-xl overflow-hidden bg-slate-900/90 border-slate-800">

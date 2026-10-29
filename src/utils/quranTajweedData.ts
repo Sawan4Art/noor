@@ -110,12 +110,17 @@ const MARKUP_CODES: Record<string, TajweedRule> = {
   g: 'ghunnah',
 };
 
-const MARKUP_RE = /\[([a-z]*):?[0-9]*\[([^\]]*)\]/g;
-
 /**
- * تحليل نص الآية بترميز التجويد [o[َٓ]] إلى مقاطع ملونة قابلة للعرض.
- * النص الخالي من الترميز يرجع كمقطع واحد بلا قاعدة.
+ * ترميز مصحف التجويد من alquran.cloud — الشكلان الرسميان (السبب الجذري
+ * لتعطل التلوين سابقاً — 2026-10-29: كان الـ regex يتجاهل الصيغة المرقّمة
+ * `[X:N[...]` فيعرضها كأقواس خام بلا تلوين — 28,886 توكناً في المصحف كله):
+ *  1) قاعدة بلا رقم:  [l[ل]         → حرف القاعدة ثم النص الملون
+ *  2) قاعدة برقم:     [h:1[ٱ]       → نفس القاعدة والرقم مجرد معرّف للتوكن
+ * لا توجد توكنات «أرقام آيات» منفصلة في هذا الترميز — التطبيق يرسم رقم الآية
+ * بنفسه بالزخرفة العثمانية في نهاية الآية.
  */
+const TAJWEED_TOKEN_RE = /\[([a-z])(?::\d+)?\[([^\]]*)\]/g;
+
 export function parseTajweedMarkup(text: string): TajweedSegment[] {
   if (!text || !text.includes('[')) {
     return text ? [{ text }] : [];
@@ -123,16 +128,13 @@ export function parseTajweedMarkup(text: string): TajweedSegment[] {
   const segments: TajweedSegment[] = [];
   let lastIndex = 0;
   let m: RegExpExecArray | null;
-  MARKUP_RE.lastIndex = 0;
-  while ((m = MARKUP_RE.exec(text)) !== null) {
+  TAJWEED_TOKEN_RE.lastIndex = 0;
+  while ((m = TAJWEED_TOKEN_RE.exec(text)) !== null) {
     if (m.index > lastIndex) {
       segments.push({ text: text.slice(lastIndex, m.index) });
     }
-    const code = m[1];
-    const rule = code ? MARKUP_CODES[code] : undefined;
-    if (m[2]) {
-      segments.push(rule ? { text: m[2], rule } : { text: m[2] });
-    }
+    const rule = MARKUP_CODES[m[1]];
+    segments.push(rule ? { text: m[2], rule } : { text: m[2] });
     lastIndex = m.index + m[0].length;
   }
   if (lastIndex < text.length) {

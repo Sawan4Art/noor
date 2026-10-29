@@ -74,3 +74,33 @@
 3. `./build-apk.sh` → `download/noor-almuslim-v<النسخة>.apk`.
 4. `apksigner verify --print-certs` — التوقيع CN=Noor AlMuslim.
 5. push + Release + APK (القاعدة الإلزامية في القسم 6).
+
+## 8) البناء على سيرفرات جيت هب (GitHub Actions) — 2026-10-29
+
+**القاعدة الجديدة: كل بناء إصدار يطلع من CI مش من البيئة المحلية.**
+- الـ workflow: `.github/workflows/build-release.yml`
+- يشتغل تلقائياً عند دفع وسم `v*` أو يدوياً من تبويب Actions
+- يشمل: tsc + bun test + بناء الويب + cap sync + توقيع release + Release بالـ APK
+- **التوقيع في CI من Actions Secrets**: KEYSTORE_BASE64 + KEYSTORE_PASSWORD + KEY_ALIAS + KEY_PASSWORD (رُفعت مشفرة بـ libsodium عبر `scripts/set-ci-secrets.py`). البصمة لازم تطابق `1B:F6:75:A3...` (نفس مفتاح الريبو الخاص noor-secrets)
+- **إصدار جديد = bump version + commit + push + `git tag v<نسخة> && git push --tags`** — والباقي كله أوتوماتيك
+- البناء المحلي (`./build-apk.sh`) لسه شغال للتجارب السريعة فقط
+
+## 9) دروس الدفعة الخامسة (2026-10-29، النسخة 0.3.1)
+
+### التجويد: جذر «الألوان مش ظاهرة» كان في الـ regex
+- ترميز alquran.cloud الرسمي شكلان: `[X[نص]` بلا رقم و `[X:N[نص]` برقم (مثل `[h:1[ٱ]`).
+- الـ regex القديم كان يتجاهل الصيغة المرقّمة (28,886 توكن في المصحف) وياكل محتواها كـ«علامة آية» — فكان نص العلامة يظهر خاماً وبلا لون.
+- التحقق من صحة الترميز يكون على **البيانات الفعلية** (python + regex على quran-tajweed.json) مش على الافتراضات.
+
+### الصور العربية بـ PIL: راqm يتكفل بالكل
+- PIL هنا مزوّد بمحرك **raqm**: مرر النص المنطقي الخام مباشرة — أي `arabic_reshaper + bidi` يدوي يعمل **عكساً مزدوجاً** (كلمات معكوسة الترتيب).
+- خط أميري (Amiri) في `assets-src/` للسبلاش ومعاينات الويدجت. الإيموجي غير موجود في أميري — ارسم رموزاً (هلال) يدوياً بدله.
+
+### الويدجت: التخصيص الكامل
+- الإعدادات تُخزن JSON في SharedPreferences (`widget_settings_json`) وتُقرأ عند كل رسم (`WidgetCustomization`).
+- RemoteViews: الألوان `setTextColor`، الأحجام `setTextViewTextSize`، الإظهار `setViewVisibility`، الخلفية `setInt(root, "setBackgroundResource", ...)` — خمس درجات شفافية كـ drawables منفصلة (widget_bg_0..100).
+- `applySnapshot` صارت instance method عشان النسخة الشفافة تعيد تعريف الخلفية.
+
+### سبلاش أندرويد 12+ (API 31+)
+- النظام يفرض سبلاش خاصاً به: اضبط `android:windowSplashScreenBackground` + `android:windowSplashScreenAnimatedIcon` في `values-v31/styles.xml` وإلا ظهرت شاشة بيضاء بأيقونة أجنبية.
+- استدعِ `SplashScreen.installSplashScreen(this)` أول سطر في `MainActivity.onCreate` (المكتبة androidx core-splashscreen متاحة كاعتمادية ضمنية).

@@ -71,26 +71,34 @@ settingsEvaluated { settings ->
 EOF
 
 echo "STAGE:keystore" > .setup-tmp/status
-# 5) Keystore جديد (لو مش موجود) — والنسخة الاحتياطية من الريبو الخاص أولاً
+# 5) Keystore: يسترجع من الريبو الخاص (noor-secrets) بالتوكن من البيئة
 mkdir -p keystore
-if [ -f keystore/noor-release.keystore ]; then
+GH_TOKEN="${GH_TOKEN:-$GITHUB_TOKEN}"
+if [ ! -f keystore/noor-release.keystore ] && [ -n "$GH_TOKEN" ]; then
+  curl -sL -o keystore/noor-release.keystore \
+    -H "Authorization: token $GH_TOKEN" \
+    "https://raw.githubusercontent.com/Sawan4Art/noor-secrets/main/noor-release.keystore"
+  echo "keystore استُرجع من النسخة الاحتياطية"
+elif [ -f keystore/noor-release.keystore ]; then
   echo "keystore موجود"
-else
-  "$JAVA_HOME/bin/keytool" -genkeypair -v \
-    -keystore keystore/noor-release.keystore \
-    -alias noor \
-    -keyalg RSA -keysize 2048 -validity 10950 \
-    -storepass NoorMuslim2026! -keypass NoorMuslim2026! \
-    -dname "CN=Noor AlMuslim, OU=Sawan4Art, O=Sawan4Art, L=Cairo, C=EG" 2>&1 | tail -2
 fi
 
-# .env للتوقيع (مسارات مطلقة)
-cat > .env <<EOF
-DATABASE_URL=file:/home/z/my-project/db/custom.db
-CAP_KEYSTORE_PATH=/home/z/my-project/keystore/noor-release.keystore
-CAP_KEYSTORE_PASSWORD=NoorMuslim2026!
-CAP_KEY_ALIAS=noor
-CAP_KEY_PASSWORD=NoorMuslim2026!
-EOF
+# 6) ملف .env للتوقيع — القيم السرية من متغيرات البيئة فقط
+#    (القيم الفعلية في الريبو الخاص noor-secrets — لا تُكتب هنا أبداً)
+if [ ! -f .env ] && [ -f keystore/noor-release.keystore ]; then
+  if [ -n "$NOOR_KEYSTORE_PASSWORD" ]; then
+    cat > .env <<E
+DATABASE_URL=file:$(pwd)/db/custom.db
+CAP_KEYSTORE_PATH=$(pwd)/keystore/noor-release.keystore
+CAP_KEYSTORE_PASSWORD=$NOOR_KEYSTORE_PASSWORD
+CAP_KEY_ALIAS=${NOOR_KEY_ALIAS:-noor}
+CAP_KEY_PASSWORD=${NOOR_KEY_PASSWORD:-$NOOR_KEYSTORE_PASSWORD}
+E
+    echo ".env كُتب من متغيرات البيئة"
+  else
+    echo "⚠️ عيّن NOOR_KEYSTORE_PASSWORD ليكتب .env — القيم في noor-secrets/README"
+    touch .env
+  fi
+fi
 
 echo "DONE_ALL" > .setup-tmp/status

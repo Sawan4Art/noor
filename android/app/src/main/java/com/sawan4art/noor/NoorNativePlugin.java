@@ -3,6 +3,7 @@ package com.sawan4art.noor;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlarmManager;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -30,9 +31,12 @@ import java.util.List;
 
 /**
  * الجسر النيتِفي لتطبيق نور المسلم:
- * - requestAllPermissions: الموقع + الإشعارات + فحص المنبهات الدقيقة
- * - scheduleAdhanAlarms: منبهات أذان دقيقة تعمل والشاشة مطفية
- * - updateWidget: تحديث ويدجت الشاشة الرئيسية
+ * - requestAllPermissions / checkPermissions: الموقع + الإشعارات + المنبهات الدقيقة + عدم الإزعاج
+ * - openAppSettings / openNotificationSettings / openExactAlarmSettings / openDndAccessSettings
+ * - scheduleAdhanAlarms: منبهات أذان/إقامة/سحور/قيام دقيقة تعمل والشاشة مطفية
+ *   + خطة كتم أصوات الهاتف من الأذان حتى بعد الإقامة + صوت الإقامة المختار
+ * - scheduleSalawatAlarms: تذكير دوري بصوت الصلاة على النبي ﷺ
+ * - updateWidget: تحديث ويدجت الشاشة الرئيسية + حفظ الموقع ليعمل الويدجت وحده
  */
 @CapacitorPlugin(name = "NoorNative")
 public class NoorNativePlugin extends Plugin {
@@ -42,6 +46,16 @@ public class NoorNativePlugin extends Plugin {
     static final String KEY_VOICE = "adhan_voice";
     static final String KEY_CITY = "city";
     static final String KEY_WIDGET = "widget_json";
+    static final String KEY_WIDGET_SETTINGS = "widget_settings_json";
+    static final String KEY_IQAMAH_VOICE = "iqamah_voice";
+    static final String KEY_MUTE_ENABLED = "mute_enabled";
+    static final String KEY_MUTE_MINUTES = "mute_minutes";
+    static final String KEY_IQAMAH_ENABLED = "iqamah_enabled";
+    static final String KEY_IQAMAH_OFFSET = "iqamah_offset_minutes";
+    static final String KEY_WIDGET_LAT = "widget_lat";
+    static final String KEY_WIDGET_LNG = "widget_lng";
+    static final String KEY_WIDGET_METHOD = "widget_method";
+    static final String KEY_WIDGET_HANAFI = "widget_hanafi";
     private static final int PERMISSION_REQUEST = 4711;
 
     private PluginCall pendingPermissionCall;
@@ -106,6 +120,25 @@ public class NoorNativePlugin extends Plugin {
         call.resolve(ret);
     }
 
+    /** قراءة الحالة الكاملة بلا طلب — للأزرار والإعدادات */
+    @PluginMethod
+    public void checkPermissions(PluginCall call) {
+        JSObject ret = new JSObject();
+        Activity activity = getActivity();
+        boolean notif = Build.VERSION.SDK_INT < 33
+                || (activity != null
+                        && ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS)
+                                == PackageManager.PERMISSION_GRANTED);
+        boolean location = activity != null
+                && ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED;
+        ret.put("location", location);
+        ret.put("notifications", notif);
+        ret.put("exactAlarms", hasExactAlarms());
+        ret.put("dndAccess", isDndAccessGrantedInternal());
+        call.resolve(ret);
+    }
+
     private boolean hasExactAlarms() {
         AlarmManager am = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
         if (am == null) return false;
@@ -115,13 +148,47 @@ public class NoorNativePlugin extends Plugin {
         return true;
     }
 
+    private boolean isDndAccessGrantedInternal() {
+        NotificationManager nm =
+                (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm == null) return false;
+        return nm.isNotificationPolicyAccessGranted();
+    }
+
+    /* ============================ فتح إعدادات النظام ============================ */
+
+    private void startActivitySafely(Intent intent) {
+        try {
+            Activity activity = getActivity();
+            if (activity != null) {
+                activity.startActivity(intent);
+            } else {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(intent);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    @PluginMethod
+    public void openAppSettings(PluginCall call) {
+        try {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(android.net.Uri.parse("package:" + getContext().getPackageName()));
+            startActivitySafely(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.resolve();
+        }
+    }
+
     @PluginMethod
     public void openExactAlarmSettings(PluginCall call) {
         try {
             if (Build.VERSION.SDK_INT >= 31) {
                 Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
                 intent.setData(android.net.Uri.parse("package:" + getContext().getPackageName()));
-                getActivity().startActivity(intent);
+                startActivitySafely(intent);
             }
             call.resolve();
         } catch (Exception e) {
@@ -129,7 +196,43 @@ public class NoorNativePlugin extends Plugin {
         }
     }
 
-    /* ============================ منبهات الأذان ============================ */
+    /** فتح إعدادات إشعارات التطبيق مباشرة (إصلاح زر فتح الأذونات — 2026-10-29) */
+    @PluginMethod
+    public void openNotificationSettings(PluginCall call) {
+        try {
+            Intent intent;
+            if (Build.VERSION.SDK_INT >= 26) {
+                intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                intent.putExtra(Settings.EXTRA_APP_PACKAGE, getContext().getPackageName());
+            } else {
+                intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                intent.setData(android.net.Uri.parse("package:" + getContext().getPackageName()));
+            }
+            startActivitySafely(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.resolve();
+        }
+    }
+
+    @PluginMethod
+    public void isDndAccessGranted(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("granted", isDndAccessGrantedInternal());
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void openDndAccessSettings(PluginCall call) {
+        try {
+            startActivitySafely(new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS));
+            call.resolve();
+        } catch (Exception e) {
+            call.resolve();
+        }
+    }
+
+    /* ============================ منبهات الأذان/الإقامة/الكتم ============================ */
 
     @PluginMethod
     public void scheduleAdhanAlarms(PluginCall call) {
@@ -138,14 +241,24 @@ public class NoorNativePlugin extends Plugin {
             JSArray alarms = call.getArray("alarms");
             String voice = call.getString("voice", "main");
             String city = call.getString("city", "");
+            JSObject settings = call.getObject("settings");
+
+            boolean iqamahEnabled = settings != null && settings.optBoolean("iqamahEnabled", false);
+            int iqamahOffset = settings != null ? settings.optInt("iqamahOffsetMinutes", 15) : 15;
+            String iqamahVoice = settings != null ? settings.optString("iqamahVoice", "makkah") : "makkah";
+            boolean muteEnabled = settings != null && settings.optBoolean("muteEnabled", false);
+            int muteMinutes = settings != null ? settings.optInt("muteMinutes", 10) : 10;
 
             SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
 
             AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
-            // إلغاء القديم أولاً
-            for (int i = 0; i < 24; i++) {
+            // إلغاء القديم أولاً — النطاق الكامل 72 فتحة:
+            // 0-23 أذان | 48-71 إقامة | 0-47 كتم/استعادة (مطابق لنطاق cancelAdhanAlarms)
+            for (int i = 0; i < 72; i++) {
                 PendingIntent pi = buildAlarmPendingIntent(ctx, i, null);
                 if (pi != null) am.cancel(pi);
+                PendingIntent mi = buildMutePendingIntent(ctx, i, null);
+                if (mi != null) am.cancel(mi);
             }
 
             long now = System.currentTimeMillis();
@@ -166,20 +279,43 @@ public class NoorNativePlugin extends Plugin {
 
                     PendingIntent pi = buildAlarmPendingIntent(ctx, index, payload);
                     if (pi == null) continue;
-                    try {
-                        if (Build.VERSION.SDK_INT >= 23) {
-                            if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) {
-                                // بدون إذن المنبهات الدقيقة: شبه دقيق (فرق ثوانٍ لدقائق قليلة)
-                                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ts, pi);
-                            } else {
-                                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ts, pi);
-                            }
-                        } else {
-                            am.setExact(AlarmManager.RTC_WAKEUP, ts, pi);
+                    setExactSafely(am, ts, pi);
+
+                    // كتم الأصوات: يبدأ مع الأذان الصوتي وينتهي بعد الإقامة بمدة محددة
+                    if (muteEnabled && "adhan".equals(mode)) {
+                        long muteEnd = ts;
+                        if (iqamahEnabled) {
+                            muteEnd += iqamahOffset * 60000L;
                         }
-                    } catch (SecurityException se) {
-                        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ts, pi);
+                        muteEnd += muteMinutes * 60000L;
+                        JSONObject mutePayload = new JSONObject();
+                        mutePayload.put("mode", "mute_on");
+                        mutePayload.put("ts", ts);
+                        PendingIntent mp = buildMutePendingIntent(ctx, index, mutePayload);
+                        if (mp != null) setExactSafely(am, ts, mp);
+
+                        JSONObject restorePayload = new JSONObject();
+                        restorePayload.put("mode", "mute_off");
+                        restorePayload.put("ts", muteEnd);
+                        PendingIntent rp = buildMutePendingIntent(ctx, index + 24, restorePayload);
+                        if (rp != null) setExactSafely(am, muteEnd, rp);
                     }
+
+                    // الإقامة: منبه إقامة بعد الأذان الصوتي بالمدة المحددة
+                    if (iqamahEnabled && "adhan".equals(mode)) {
+                        long iqamahTs = ts + iqamahOffset * 60000L;
+                        if (iqamahTs > now) {
+                            JSONObject iqPayload = new JSONObject();
+                            iqPayload.put("key", alarm.optString("key", ""));
+                            iqPayload.put("name", alarm.optString("name", ""));
+                            iqPayload.put("mode", "iqamah");
+                            iqPayload.put("ts", iqamahTs);
+                            PendingIntent ip = buildAlarmPendingIntent(ctx, index + 48, iqPayload);
+                            if (ip != null) setExactSafely(am, iqamahTs, ip);
+                            payload.put("iqamahTs", iqamahTs);
+                        }
+                    }
+
                     kept.put(payload);
                     index++;
                 }
@@ -189,6 +325,11 @@ public class NoorNativePlugin extends Plugin {
                     .putString(KEY_ALARMS, kept.toString())
                     .putString(KEY_VOICE, voice)
                     .putString(KEY_CITY, city)
+                    .putString(KEY_IQAMAH_VOICE, iqamahVoice)
+                    .putBoolean(KEY_MUTE_ENABLED, muteEnabled)
+                    .putInt(KEY_MUTE_MINUTES, muteMinutes)
+                    .putBoolean(KEY_IQAMAH_ENABLED, iqamahEnabled)
+                    .putInt(KEY_IQAMAH_OFFSET, iqamahOffset)
                     .apply();
 
             JSObject ret = new JSObject();
@@ -199,13 +340,28 @@ public class NoorNativePlugin extends Plugin {
         }
     }
 
+    private void setExactSafely(AlarmManager am, long ts, PendingIntent pi) {
+        try {
+            if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) {
+                // بدون إذن المنبهات الدقيقة: شبه دقيق (فرق ثوانٍ لدقائق قليلة)
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ts, pi);
+            } else {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ts, pi);
+            }
+        } catch (SecurityException se) {
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ts, pi);
+        }
+    }
+
     @PluginMethod
     public void cancelAdhanAlarms(PluginCall call) {
         Context ctx = getContext();
         AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
-        for (int i = 0; i < 24; i++) {
+        for (int i = 0; i < 72; i++) {
             PendingIntent pi = buildAlarmPendingIntent(ctx, i, null);
             if (pi != null) am.cancel(pi);
+            PendingIntent mi = buildMutePendingIntent(ctx, i, null);
+            if (mi != null) am.cancel(mi);
         }
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_ALARMS).apply();
         call.resolve();
@@ -225,6 +381,66 @@ public class NoorNativePlugin extends Plugin {
         return PendingIntent.getBroadcast(ctx, 1000 + index, intent, flags);
     }
 
+    static PendingIntent buildMutePendingIntent(Context ctx, int index, JSONObject payload) {
+        Intent intent = new Intent(ctx, AdhanAlarmReceiver.class);
+        intent.setAction("com.sawan4art.noor.MUTE_" + index);
+        if (payload != null) {
+            intent.putExtra("mode", payload.optString("mode", "mute_on"));
+            intent.putExtra("ts", payload.optLong("ts"));
+        }
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= 23) flags |= PendingIntent.FLAG_IMMUTABLE;
+        return PendingIntent.getBroadcast(ctx, 2000 + index, intent, flags);
+    }
+
+    /* ==================== تذكير الصلاة على النبي ﷺ ==================== */
+
+    @PluginMethod
+    public void scheduleSalawatAlarms(PluginCall call) {
+        try {
+            Context ctx = getContext();
+            int intervalMinutes = Math.max(5, call.getInt("intervalMinutes", 30));
+            AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+            if (am == null) {
+                call.resolve();
+                return;
+            }
+            cancelSalawatInternal(ctx, am);
+            long first = System.currentTimeMillis() + intervalMinutes * 60000L;
+            PendingIntent pi = buildSalawatPendingIntent(ctx);
+            try {
+                am.setInexactRepeating(AlarmManager.RTC_WAKEUP, first, intervalMinutes * 60000L, pi);
+            } catch (SecurityException se) {
+                am.setRepeating(AlarmManager.RTC_WAKEUP, first, intervalMinutes * 60000L, pi);
+            }
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("salawat schedule failed: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void cancelSalawatAlarms(PluginCall call) {
+        AlarmManager am = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+        if (am != null) cancelSalawatInternal(getContext(), am);
+        call.resolve();
+    }
+
+    private void cancelSalawatInternal(Context ctx, AlarmManager am) {
+        PendingIntent pi = buildSalawatPendingIntent(ctx);
+        am.cancel(pi);
+    }
+
+    static PendingIntent buildSalawatPendingIntent(Context ctx) {
+        Intent intent = new Intent(ctx, AdhanAlarmReceiver.class);
+        intent.setAction("com.sawan4art.noor.SALAWAT");
+        intent.putExtra("mode", "salawat");
+        intent.putExtra("name", "الصلاة على النبي");
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= 23) flags |= PendingIntent.FLAG_IMMUTABLE;
+        return PendingIntent.getBroadcast(ctx, 3001, intent, flags);
+    }
+
     /* ============================ الويدجت ============================ */
 
     @PluginMethod
@@ -232,11 +448,27 @@ public class NoorNativePlugin extends Plugin {
         try {
             Context ctx = getContext();
             JSObject data = call.getObject("data");
+            JSObject widgetSettings = call.getObject("settings");
             if (data != null) {
-                ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                SharedPreferences.Editor editor = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                         .edit()
-                        .putString(KEY_WIDGET, data.toString())
-                        .apply();
+                        .putString(KEY_WIDGET, data.toString());
+                // حفظ إعدادات التخصيص الكامل للويدجت (بطلب المالك 2026-10-29)
+                if (widgetSettings != null) {
+                    editor.putString(KEY_WIDGET_SETTINGS, widgetSettings.toString());
+                }
+                // حفظ الإحداثيات ليعمل الويدجت ويحسب المواقيت بنفسه حتى بدون فتح التطبيق
+                try {
+                    if (data.has("latitude") && data.has("longitude")) {
+                        editor.putFloat(KEY_WIDGET_LAT, (float) data.getDouble("latitude"));
+                        editor.putFloat(KEY_WIDGET_LNG, (float) data.getDouble("longitude"));
+                    }
+                    String method = data.optString("method", "");
+                    if (!method.isEmpty()) editor.putString(KEY_WIDGET_METHOD, method);
+                    if (data.has("hanafi")) editor.putBoolean(KEY_WIDGET_HANAFI, data.optBoolean("hanafi"));
+                } catch (Exception ignored) {
+                }
+                editor.apply();
             }
             NoorWidgetProvider.pushUpdate(ctx);
             call.resolve();

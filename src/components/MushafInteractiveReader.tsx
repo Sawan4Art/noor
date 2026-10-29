@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Play,
   Pause,
@@ -13,10 +13,20 @@ import {
   Eye,
   EyeOff,
   Type,
+  Layers,
+  CircleDot,
+  RotateCcw,
+  Trash2,
+  CheckCheck,
+  Sparkles,
+  MapPin,
+  Minus,
+  Plus,
 } from 'lucide-react';
 import {
   TajweedAyah,
   MushafPage,
+  TajweedRule,
   TAJWEED_RULES,
   AYAH_RECITERS,
   AyahReciter,
@@ -42,17 +52,33 @@ import {
 } from '../utils/appSettings';
 import { registerBackHandler } from '../utils/backButton';
 import { resolveAyahAudioSrc } from '../utils/ayahAudioCache';
+import {
+  getLastReadPage,
+  saveLastReadPage,
+  getKhatma,
+  getKhatmaProgress,
+  isPageReadInKhatma,
+  markKhatmaPageRead,
+  resetKhatma,
+  getJuzForPage,
+  getJuzRange,
+  getJuzProgress,
+  toggleAyahMemorized,
+  isAyahMemorized,
+  getMemorizationProgress,
+  getReviewQueue,
+} from '../utils/mushafProgress';
 
 /**
  * المصحف الشريف التفاعلي — مصحف التجويد الملون (604 صفحة).
  *
- * بطلب المالك (2026-10، الدفعة الثالثة):
- * - ملء الشاشة الكامل دائماً: لا شريط علوي ولا سفلي إطلاقاً —
- *   الخروج بزر الرجوع في الهاتف، والتقليب بالسحب أو بلمس حافة الشاشة.
- * - الضغطة المطولة أطول (750ms) مع قائمة آية زجاجية أنيقة.
- * - التلوين التجويدي الحقييد من مصحف التجويد المعتمد (6236 آية).
- * - تلاوة متواصلة بلا تقطع: الآية التالية تُحمَّل مسبقاً أثناء تشغيل الحالية.
- * - حجم الخط يتكيف مع ارتفاع الصفحة ليملأها كمصحف حقيقي.
+ * الدفعة الرابعة (بطلب المالك 2026-10-29):
+ * - القائمة تظهر بالضغطة الطويلة فقط — اللمسة العادية لا تفتح شيئاً
+ * - تحديد متعدد الآيات: ضغطة طويلة تبدأ التحديد، واللمس يضيف/يزيل آيات،
+ *   وشريط إجراءات عائم (تلاوة المحدد، تفسير المحدد، حفظ، نسخ، مشاركة)
+ * - ورقة المصحف بملء الشاشة فوق شريط التنقل مباشرة (التنقل مرئي دائماً)
+ * - شريط سفلي نحيف: متابعة القراءة (آخر صفحة) + الأجزاء + الختمات + تعليم الصفحة
+ * - نظام حفظ مطور: تعليم الآيات المحفوظة + لوحة تقدم لكل سورة + طابور مراجعة
  */
 
 /** صوت تقليب ورق حقيقي عبر Web Audio API */
@@ -89,7 +115,7 @@ function playPaperTurnSound() {
   }
 }
 
-/** مدة الضغطة الطويلة قبل ظهور قائمة الآية — أطول بطلب المالك */
+/** مدة الضغطة الطويلة قبل بدء التحديد — أطول بطلب المالك */
 const LONG_PRESS_MS = 750;
 
 /** مفتاح مصحف نصي لربط الآيات بصوتها */
@@ -97,21 +123,29 @@ const ayahKey = (surah: number, ayah: number) => `${surah}:${ayah}`;
 
 export const MushafInteractiveReader: React.FC = () => {
   // ===== حالة التنقل بين الصفحات =====
-  const [currentPageNum, setCurrentPageNum] = useState<number>(4);
+  const [currentPageNum, setCurrentPageNum] = useState<number>(getLastReadPage);
   const [activeAyah, setActiveAyah] = useState<TajweedAyah | null>(null);
-  const [showAyahMenu, setShowAyahMenu] = useState<boolean>(false);
-  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [flipDirection, setFlipDirection] = useState<'next' | 'prev' | null>(null);
+
+  // ===== نظام التحديد المتصل (ضغطة طويلة تبدأ + لمسة تمتد نطاقاً متصلاً) =====
+  /** أرقام الآيات المحددة — دائماً نطاق متصل من anchor إلى end بلا فجوات */
+  const [selectedAyahs, setSelectedAyahs] = useState<Set<number>>(new Set());
+  const [selectionMode, setSelectionMode] = useState<boolean>(false);
+  /** آية بداية التحديد (الضغطة الطويلة) — تظل ثابتة أثناء التمديد */
+  const selectionAnchorRef = useRef<number | null>(null);
 
   // ===== مكتبة المصحف: السور / البحث / الإشارات / الأدوات =====
   const [showLibrary, setShowLibrary] = useState<boolean>(false);
-  const [libraryTab, setLibraryTab] = useState<'surahs' | 'search' | 'bookmarks' | 'tools'>('surahs');
+  const [libraryTab, setLibraryTab] = useState<'surahs' | 'juz' | 'khatma' | 'search' | 'bookmarks' | 'tools'>('surahs');
   const [surahSearchQuery, setSurahSearchQuery] = useState<string>('');
   const [surahTabFilter, setSurahTabFilter] = useState<'all' | 'meccan' | 'medinan'>('all');
 
   // ===== النوافذ =====
   const [showListenModal, setShowListenModal] = useState<boolean>(false);
   const [showTafseerModal, setShowTafseerModal] = useState<boolean>(false);
+  /** ورقة خيارات تشغيل الصوت من شريط التحديد (بطلب المالك) */
+  const [showPlayOptions, setShowPlayOptions] = useState<boolean>(false);
+  const [tafseerAyahs, setTafseerAyahs] = useState<TajweedAyah[]>([]);
   const [copiedToast, setCopiedToast] = useState<string | null>(null);
 
   // ===== التلاوة بالنطاقات والتكرار (الحفظ) =====
@@ -135,8 +169,26 @@ export const MushafInteractiveReader: React.FC = () => {
   // ===== طبعة المصحف من الإعدادات =====
   const [edition, setEdition] = useState<MushafEditionStyle>(getSavedEdition);
 
-  // ===== حجم الخط التكيفي مع ارتفاع الصفحة =====
-  const [adaptiveFontSize, setAdaptiveFontSize] = useState<number>(24);
+  // ===== حجم الخط + أبعاد الصفحة التكيفية — الصفحة تملأ المساحة كاملة بلا اسكرول =====
+  const [adaptive, setAdaptive] = useState<{ fontSize: number; pageW: number; pageH: number }>({
+    fontSize: 24,
+    pageW: 300,
+    pageH: 455,
+  });
+  /** حجم الخط بعد الملاءمة التلقائية ليملأ الصفحة بلا اسكرول */
+  const [fitFontSize, setFitFontSize] = useState<number>(24);
+  const flowRef = useRef<HTMLDivElement | null>(null);
+  const flowBoxRef = useRef<HTMLDivElement | null>(null);
+  /** عداد محاولات التحقق من الملاءمة — يتصفر مع كل صفحة جديدة */
+  const fitVerifyRef = useRef<number>(0);
+
+  // ===== حالة الختمة (محدثة عند التعليم) =====
+  const [khatmaTick, setKhatmaTick] = useState(0);
+  const khatma = useMemo(() => getKhatma(), [khatmaTick]);
+  const pageReadInKhatma = useMemo(
+    () => isPageReadInKhatma(currentPageNum),
+    [currentPageNum, khatmaTick],
+  );
 
   // ===== مراجع =====
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
@@ -171,11 +223,10 @@ export const MushafInteractiveReader: React.FC = () => {
       try {
         const key = ayahKey(surah, ayah);
         if (nextAudioKeyRef.current === key && nextAudioRef.current) return;
-        nextAudioKeyRef.current = key; // حجز فوري لمنع التحميل المزدوج
+        nextAudioKeyRef.current = key;
         const url = getAyahAudioUrl(selectedReciter.folder, surah, ayah);
         const { src, revoke } = await resolveAyahAudioSrc(url);
         if (nextAudioKeyRef.current !== key) {
-          // تغيّر الطلب أثناء التحميل — نتجاهل النتيجة
           revoke?.();
           return;
         }
@@ -226,13 +277,9 @@ export const MushafInteractiveReader: React.FC = () => {
       const advance = (nextAyah: number | null, repeatRange: boolean) => {
         const state = queueRef.current;
         if (!state || !state.playing) return;
-        if (nextAyah !== null && nextAyah > 0) {
-          void playAyah(surah, nextAyah);
-        } else if (repeatRange) {
-          void playAyah(surah, state.start);
-        } else {
-          stopAudio();
-        }
+        if (nextAyah !== null && nextAyah > 0) void playAyah(surah, nextAyah);
+        else if (repeatRange) void playAyah(surah, state.start);
+        else stopAudio();
       };
 
       const startWith = (el: HTMLAudioElement, revoke: (() => void) | null) => {
@@ -246,7 +293,6 @@ export const MushafInteractiveReader: React.FC = () => {
         setCurrentPlayingAyahNum(ayah);
         setIsPlayingRange(true);
 
-        // تحميل الآية التالية مسبقاً فور بدء الحالية (استمرارية بلا تقطع)
         const nextAyah = ayah < q.end ? ayah + 1 : null;
         if (nextAyah !== null) {
           window.setTimeout(() => {
@@ -257,7 +303,6 @@ export const MushafInteractiveReader: React.FC = () => {
         el.onended = () => {
           const state = queueRef.current;
           if (!state || !state.playing) return;
-          // تكرار الآية نفسها للحفظ
           if (state.ayahRepeat + 1 < state.repeatPer) {
             state.ayahRepeat += 1;
             el.currentTime = 0;
@@ -265,12 +310,10 @@ export const MushafInteractiveReader: React.FC = () => {
             return;
           }
           state.ayahRepeat = 0;
-          // الانتقال للآية التالية في النطاق
           if (ayah < state.end) {
             advance(ayah + 1, false);
             return;
           }
-          // إعادة النطاق كاملاً
           if (state.cycle + 1 < state.repeatAll) {
             state.cycle += 1;
             advance(null, true);
@@ -281,12 +324,8 @@ export const MushafInteractiveReader: React.FC = () => {
 
         el.onerror = () => {
           const state = queueRef.current;
-          if (state && state.playing && ayah < state.end) {
-            // فشل تحميل الآية: تخطي للآية التالية بدل التوقف الكامل
-            advance(ayah + 1, false);
-          } else {
-            stopAudio();
-          }
+          if (state && state.playing && ayah < state.end) advance(ayah + 1, false);
+          else stopAudio();
         };
 
         void el.play().catch(() => {
@@ -305,7 +344,6 @@ export const MushafInteractiveReader: React.FC = () => {
         return;
       }
 
-      // لا يوجد تحميل مسبق — نجلب من الكاش/الشبكة مباشرة
       const url = getAyahAudioUrl(selectedReciter.folder, surah, ayah);
       void resolveAyahAudioSrc(url).then(({ src, revoke }) => {
         const state = queueRef.current;
@@ -340,7 +378,6 @@ export const MushafInteractiveReader: React.FC = () => {
     [playAyah, stopAudio],
   );
 
-  // إيقاف الصوت عند مغادرة التبويب
   useEffect(() => stopAudio, [stopAudio]);
 
   // تحميل نص المصحف الكامل (604 صفحة) + مصحف التجويد الملون
@@ -365,59 +402,299 @@ export const MushafInteractiveReader: React.FC = () => {
 
   // عدد آيات السورة المعروضة
   const displayedSurahNumber =
-    activeAyah?.surahNumber ?? currentPage.ayahs[0]?.surahNumber ?? 1;
+    selectedAyahs.size > 0
+      ? currentPage.ayahs.find((a) => selectedAyahs.has(a.ayahNumber))?.surahNumber ??
+        currentPage.ayahs[0]?.surahNumber ??
+        1
+      : currentPage.ayahs[0]?.surahNumber ?? 1;
   const surahAyahCount =
     SURAHS_LIST.find((s) => s.number === displayedSurahNumber)?.numberOfAyahs ?? 286;
 
-  // ===== حجم الخط: قياس ارتفاع الشاشة وتكبير الخط لملء الصفحة =====
+  // ===== القياس التكيفي: ورقة المصحف تملأ كل المساحة المتاحة (بلا نسبة كتاب) =====
   useEffect(() => {
     const compute = () => {
-      const h = screenRef.current?.clientHeight ?? window.innerHeight;
-      // مصحف حقيقي: ~15 سطراً في الصفحة — الخط ≈ 2.3% من الارتفاع
-      const size = Math.max(15, Math.min(42, Math.round(h * 0.023)));
-      setAdaptiveFontSize(size);
+      const el = screenRef.current;
+      const w = el?.clientWidth ?? window.innerWidth;
+      const h = el?.clientHeight ?? window.innerHeight;
+      // شريط سفلي نحيف ~46 + هوامش ~14
+      const availH = Math.max(280, h - 60);
+      const availW = Math.max(200, w - 12);
+      // الصفحة تملأ المساحة كاملة — لا فراغ فوق وتحت (بطلب المالك)
+      const fontSize = Math.max(14, Math.min(42, Math.round(availH * 0.0265)));
+      setAdaptive({ fontSize, pageW: Math.round(availW), pageH: Math.round(availH) });
     };
     compute();
     window.addEventListener('resize', compute);
     return () => window.removeEventListener('resize', compute);
   }, []);
 
+  /**
+   * ملاءمة الخط تلقائية: تُقاس من الصندوق الفعلي بعد اكتمال التخطيط —
+   * مرحلتان (نمو خشن 2px حتى 96% ثم ضبط دقيق 0.5px بلا فيضان) —
+   * وتُعاد تلقائياً مع أي تغيير في أبعاد الصفحة أو تحميل الخطوط
+   * (بطلب المالك: إلغاء الاسكرول وملء الفراغ فوق وتحت بالكامل).
+   */
+  const computeFit = useCallback(() => {
+    const el = flowRef.current;
+    const box = flowBoxRef.current;
+    if (!el || !box || !pagesReady) return;
+    const boxH = box.clientHeight;
+    const boxW = box.clientWidth;
+    if (boxH < 60 || boxW < 60) return; // التخطيط لم يستقر بعد
+
+    const measureContentH = (): number => el.scrollHeight;
+    // بذرة أولية من ارتفاع الصندوق الحقيقي (ليس من حالة قديمة)
+    let size = Math.max(14, Math.min(42, Math.round(boxH * 0.0265)));
+    el.style.fontSize = `${size}px`;
+    void box.offsetHeight;
+
+    const MAX_SIZE = 84;
+    // مرحلة 1: نمو خشن حتى يملأ النص 96% من الصفحة أو يفيض
+    for (let i = 0; i < 60 && size < MAX_SIZE; i++) {
+      if (measureContentH() >= boxH * 0.96) break;
+      size += 2;
+      el.style.fontSize = `${size}px`;
+      void box.offsetHeight;
+    }
+    // مرحلة 2: تصغير دقيق حتى لا يفيض النص عن الصفحة إطلاقاً
+    for (let i = 0; i < 24 && size > 9; i++) {
+      if (measureContentH() <= boxH) break;
+      size -= 0.5;
+      el.style.fontSize = `${size}px`;
+      void box.offsetHeight;
+    }
+    setFitFontSize(size);
+
+    // التحقق بعد الرسم: لو الملاءمة ما زالت ناقصة أو فائضة (سباق تخطيط عابر)
+    // يُعاد الضبط حتى يستقر — بحد أقصى 8 محاولات
+    if (fitVerifyRef.current < 8) {
+      fitVerifyRef.current += 1;
+      window.requestAnimationFrame(() => {
+        const el2 = flowRef.current;
+        const box2 = flowBoxRef.current;
+        if (!el2 || !box2) return;
+        const fill = el2.scrollHeight / Math.max(1, box2.clientHeight);
+        if (fill < 0.93 || fill > 1.001) computeFit();
+        else fitVerifyRef.current = 0;
+      });
+    }
+  }, [pagesReady]);
+
+  // إعادة الملاءمة مع كل صفحة/طبعة/تغيّر أبعاد
+  useEffect(() => {
+    fitVerifyRef.current = 0;
+    computeFit();
+  }, [computeFit, currentPageNum, edition, adaptive.pageW, adaptive.pageH]);
+
+  // مراقب أبعاد + اكتمال الخطوط: يلتقط أي تغيير متأخر في التخطيط ويضبط الملاءمة
+  useEffect(() => {
+    if (!pagesReady) return;
+    const box = flowBoxRef.current;
+    if (!box) return;
+    let raf = 0;
+    const scheduleFit = () => {
+      window.cancelAnimationFrame(raf);
+      raf = window.requestAnimationFrame(() => computeFit());
+    };
+    const ro = new ResizeObserver(scheduleFit);
+    ro.observe(box);
+    window.addEventListener('resize', scheduleFit);
+    if (typeof document.fonts !== 'undefined') {
+      void document.fonts.ready.then(scheduleFit);
+    }
+    // ضبط إضافي بعد أول إطارين — يحسم أي سباق تخطيط عند الفتح
+    scheduleFit();
+    const t = window.setTimeout(scheduleFit, 350);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+      ro.disconnect();
+      window.removeEventListener('resize', scheduleFit);
+    };
+  }, [pagesReady, computeFit]);
+
+  // حفظ آخر صفحة مقروءة مع كل تنقل
+  useEffect(() => {
+    saveLastReadPage(currentPageNum);
+  }, [currentPageNum]);
+
   // ===== تقليب الصفحات (عربي RTL: التالية لليسار) =====
   const handleFlipPage = useCallback((direction: 'next' | 'prev') => {
     playPaperTurnSound();
     setFlipDirection(direction);
     setTimeout(() => {
-      if (direction === 'next') {
-        setCurrentPageNum((p) => Math.min(604, p + 1));
-      } else {
-        setCurrentPageNum((p) => Math.max(1, p - 1));
-      }
-      setShowAyahMenu(false);
+      if (direction === 'next') setCurrentPageNum((p) => Math.min(604, p + 1));
+      else setCurrentPageNum((p) => Math.max(1, p - 1));
     }, 140);
     setTimeout(() => setFlipDirection(null), 340);
   }, []);
 
-  // اختيار سورة → فتح صفحتها مباشرة بملء الشاشة
+  // اختيار سورة → فتح صفحتها مباشرة
   const handleSelectSurah = (surah: Surah) => {
     setCurrentPageNum(surah.page);
+    exitSelectionMode();
     setShowLibrary(false);
     playPaperTurnSound();
     setCopiedToast(`سورة ${surah.name} — صفحة ${surah.page}`);
     setTimeout(() => setCopiedToast(null), 2500);
   };
 
-  // لوحة المفاتيح: أسهم للتقليب + Esc يغلق المودالات
+  // ===== التحديد المتصل: ضغطة طويلة تبدأ + لمسة تمتد نطاقاً بلا فجوات =====
+  /** بناء نطاق متصل من نقطتين — لا يجوز ترك آيات في النص (بطلب المالك) */
+  const buildContiguousRange = (a: number, b: number): Set<number> => {
+    const start = Math.min(a, b);
+    const end = Math.max(a, b);
+    const set = new Set<number>();
+    for (let n = start; n <= end; n++) set.add(n);
+    return set;
+  };
+
+  const enterSelectionMode = (ayahNumber: number) => {
+    selectionAnchorRef.current = ayahNumber;
+    setSelectedAyahs(new Set([ayahNumber]));
+    setSelectionMode(true);
+    if ('vibrate' in navigator) {
+      try {
+        navigator.vibrate(30);
+      } catch {
+        // تجاهل
+      }
+    }
+  };
+
+  /**
+   * لمسة عادية أثناء التحديد: تمتد/تقلّص النطاق المتصل بين آية البداية
+   * والآية الملموسة — تحديد 30 ثم 50 يحدد كل ما بينهما تلقائياً.
+   */
+  const extendSelectionTo = (ayahNumber: number) => {
+    const anchor = selectionAnchorRef.current ?? ayahNumber;
+    setSelectedAyahs(buildContiguousRange(anchor, ayahNumber));
+    setSelectionMode(true);
+    if ('vibrate' in navigator) {
+      try {
+        navigator.vibrate(15);
+      } catch {
+        // تجاهل
+      }
+    }
+  };
+
+  const exitSelectionMode = useCallback(() => {
+    selectionAnchorRef.current = null;
+    setSelectedAyahs(new Set());
+    setSelectionMode(false);
+  }, []);
+
+  // نطاق التحديد: من أصغر لأكبر آية محددة
+  const selectionRange = useMemo(() => {
+    if (selectedAyahs.size === 0) return null;
+    const nums = [...selectedAyahs];
+    return { start: Math.min(...nums), end: Math.max(...nums) };
+  }, [selectedAyahs]);
+
+  // الآيات المحددة كاملة البيانات
+  const selectedAyahObjects = useMemo(
+    () => currentPage.ayahs.filter((a) => selectedAyahs.has(a.ayahNumber)),
+    [currentPage, selectedAyahs],
+  );
+
+  /** تشغيل الصوت من شريط التحديد — يفتح ورقة الخيارات الثلاثة (بطلب المالك) */
+  const handlePlaySelection = () => {
+    setShowPlayOptions(true);
+  };
+
+  /** تشغيل نطاق فعلي مع إغلاق ورقة الخيارات */
+  const startPlayback = (start: number, end: number) => {
+    const surah = selectedAyahObjects[0]?.surahNumber ?? displayedSurahNumber;
+    setRangeStartAyah(start);
+    setRangeEndAyah(end);
+    setShowPlayOptions(false);
+    startRange(surah, start, end, 1, 1);
+  };
+
+  /** زر التشغيل في الشريط السفلي: بتحديد قائم يفتح خيارات التلاوة — وإلا نافذة الاستماع */
+  const handleBottomPlayClick = () => {
+    if (selectionMode && selectedAyahs.size > 0) {
+      setShowPlayOptions(true);
+      return;
+    }
+    const first = currentPage.ayahs[0];
+    if (first) {
+      setActiveAyah(first);
+      setRangeStartAyah(first.ayahNumber);
+      setRangeEndAyah(first.ayahNumber);
+    }
+    setShowListenModal(true);
+  };
+
+  /** فتح التفسير للآيات المحددة */
+  const handleTafseerSelection = () => {
+    const ayahs =
+      selectedAyahObjects.length > 0
+        ? selectedAyahObjects
+        : currentPage.ayahs.filter((a) => selectionRange && a.ayahNumber >= selectionRange.start && a.ayahNumber <= selectionRange.end);
+    setTafseerAyahs(ayahs);
+    setShowTafseerModal(true);
+  };
+
+  /** حفظ كل الآيات المحددة (نظام الحفظ) */
+  const handleMemorizeSelection = () => {
+    const surah = selectedAyahObjects[0]?.surahNumber ?? displayedSurahNumber;
+    let added = 0;
+    let removed = 0;
+    for (const num of selectedAyahs) {
+      const now = toggleAyahMemorized(surah, num);
+      if (now) added++;
+      else removed++;
+    }
+    setCopiedToast(
+      added > 0
+        ? `تم تعليم ${added} آية كمحفوظة 🌟`
+        : `تم إلغاء حفظ ${removed} آية`,
+    );
+    setTimeout(() => setCopiedToast(null), 3000);
+    exitSelectionMode();
+  };
+
+  /** نسخ نص الآيات المحددة */
+  const handleCopySelection = () => {
+    const text = selectedAyahObjects
+      .map((a) => `﴿${a.plainText}﴾`)
+      .join('\n');
+    navigator.clipboard.writeText(
+      `${text}\n[${currentPage.surahName}: ${selectionRange?.start}${selectionRange && selectionRange.end !== selectionRange.start ? `—${selectionRange.end}` : ''}]`,
+    );
+    setCopiedToast('تم نسخ نص الآيات المحددة إلى الحافظة');
+    setTimeout(() => setCopiedToast(null), 3000);
+    exitSelectionMode();
+  };
+
+  /** مشاركة الآيات المحددة */
+  const handleShareSelection = () => {
+    const text = selectedAyahObjects.map((a) => `﴿${a.plainText}﴾`).join('\n');
+    const shareText = `${text}\n[${currentPage.surahName}]`;
+    if (navigator.share) {
+      navigator.share({ title: currentPage.surahName, text: shareText }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(shareText);
+      setCopiedToast('تم نسخ النص للمشاركة');
+      setTimeout(() => setCopiedToast(null), 3000);
+    }
+    exitSelectionMode();
+  };
+
+  // ===== لوحة المفاتيح: أسهم للتقليب (عربي RTL: السهم يمين = التالية) =====
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (showLibrary || showListenModal || showTafseerModal) return;
-      if (e.key === 'ArrowLeft') handleFlipPage('next');
-      else if (e.key === 'ArrowRight') handleFlipPage('prev');
+      if (showLibrary || showListenModal || showTafseerModal || showPlayOptions) return;
+      if (e.key === 'ArrowRight') handleFlipPage('next');
+      else if (e.key === 'ArrowLeft') handleFlipPage('prev');
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleFlipPage, showLibrary, showListenModal, showTafseerModal]);
+  }, [handleFlipPage, showLibrary, showListenModal, showTafseerModal, showPlayOptions]);
 
-  // زر الرجوع في أندرويد: يغلق المودالات ويوقف الصوت أولاً
+  // ===== زر الرجوع في أندرويد =====
   useEffect(() => {
     return registerBackHandler(() => {
       if (showTafseerModal) {
@@ -428,12 +705,16 @@ export const MushafInteractiveReader: React.FC = () => {
         setShowListenModal(false);
         return true;
       }
+      if (showPlayOptions) {
+        setShowPlayOptions(false);
+        return true;
+      }
       if (showLibrary) {
         setShowLibrary(false);
         return true;
       }
-      if (showAyahMenu) {
-        setShowAyahMenu(false);
+      if (selectionMode) {
+        exitSelectionMode();
         return true;
       }
       if (isPlayingRange) {
@@ -442,9 +723,18 @@ export const MushafInteractiveReader: React.FC = () => {
       }
       return false;
     });
-  }, [showAyahMenu, showLibrary, showListenModal, showTafseerModal, isPlayingRange, stopAudio]);
+  }, [
+    showTafseerModal,
+    showListenModal,
+    showPlayOptions,
+    showLibrary,
+    selectionMode,
+    isPlayingRange,
+    stopAudio,
+    exitSelectionMode,
+  ]);
 
-  // ===== السحب (Swipe) لتقليب الصفحات =====
+  // ===== السحب (Swipe) لتقليب الصفحات — عربي RTL: السحب يميناً = التالية =====
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
@@ -455,56 +745,24 @@ export const MushafInteractiveReader: React.FC = () => {
     const deltaX = e.changedTouches[0].clientX - touchStartX.current;
     const deltaY = e.changedTouches[0].clientY - touchStartY.current;
 
-    if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY)) {
-      if (deltaX < 0) handleFlipPage('next');
+    if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+      // إصلاح الاتجاه المعكوس (بطلب المالك): سحب يميناً = صفحة تالية
+      if (deltaX > 0) handleFlipPage('next');
       else handleFlipPage('prev');
     }
     touchStartX.current = null;
     touchStartY.current = null;
   };
 
-  // ===== قائمة الآية: فتح عند نقطة الضغط مع تثبيت داخل حدود الصفحة =====
-  const openAyahMenu = (ayah: TajweedAyah, clientX: number, clientY: number) => {
-    setActiveAyah(ayah);
-    setRangeStartAyah(ayah.ayahNumber);
-    setRangeEndAyah(Math.max(ayah.ayahNumber, rangeEndAyah || ayah.ayahNumber));
-
-    if (pageContainerRef.current) {
-      const rect = pageContainerRef.current.getBoundingClientRect();
-      const clickX = clientX - rect.left;
-      const clickY = clientY - rect.top;
-      const menuW = 260;
-      const menuH = 340;
-      const x = Math.min(
-        Math.max(clickX - menuW / 2, 10),
-        Math.max(rect.width - menuW - 10, 10),
-      );
-      const y = Math.min(
-        Math.max(clickY - 60, 10),
-        Math.max(rect.height - menuH - 10, 10),
-      );
-      setMenuPos({ x, y });
-    }
-    setShowAyahMenu(true);
-  };
-
-  const closeAyahMenu = useCallback(() => setShowAyahMenu(false), []);
-
-  // ===== الضغطة الطويلة (لمس + فأرة) =====
-  const startLongPress = (ayah: TajweedAyah, clientX: number, clientY: number) => {
+  // ===== الضغطة الطويلة فقط: تبدأ التحديد المتصل =====
+  const startLongPress = (ayah: TajweedAyah) => {
     longPressFired.current = false;
     setPressingAyahNum(ayah.ayahNumber);
     if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
     longPressTimer.current = window.setTimeout(() => {
       longPressFired.current = true;
-      if ('vibrate' in navigator) {
-        try {
-          navigator.vibrate(30);
-        } catch {
-          // تجاهل
-        }
-      }
-      openAyahMenu(ayah, clientX, clientY);
+      // ضغطة طويلة: تبدأ تحديداً جديداً من هذه الآية (أول مرة أو أثناء تحديد قائم)
+      enterSelectionMode(ayah.ayahNumber);
       setPressingAyahNum(null);
     }, LONG_PRESS_MS);
   };
@@ -517,56 +775,21 @@ export const MushafInteractiveReader: React.FC = () => {
     setPressingAyahNum(null);
   };
 
-  // نقرة عادية (أو نهاية ضغطة طويلة قصيرة) → فتح القائمة أيضاً
-  const handleAyahClick = (ayah: TajweedAyah, event: React.MouseEvent) => {
+  /**
+   * اللمسة العادية (بدون ضغط طويل):
+   * - في وضع التحديد: تمتد النطاق المتصل بين آية البداية والآية الملموسة
+   * - خارج وضع التحديد: لا تفتح أي قائمة (بطلب المالك — القائمة بالضغط الطويل فقط)
+   */
+  const handleAyahTap = (ayah: TajweedAyah) => {
     if (longPressFired.current) {
       longPressFired.current = false;
       return;
     }
-    openAyahMenu(ayah, event.clientX, event.clientY);
-  };
-
-  // ===== إجراءات الآية =====
-  const handleBookmarkCurrentAyah = () => {
-    if (!activeAyah) return;
-    const item: BookmarkItem = {
-      id: `${activeAyah.surahNumber}-${activeAyah.ayahNumber}-${Date.now()}`,
-      surahNumber: activeAyah.surahNumber,
-      surahName: currentPage.surahName,
-      ayahNumber: activeAyah.ayahNumber,
-      pageNumber: currentPageNum,
-      timestamp: Date.now(),
-      textSnippet: activeAyah.plainText.substring(0, 70) + '...',
-      status: 'memorizing',
-    };
-    saveBookmark(item);
-    setBookmarks(getSavedBookmarks());
-    setShowAyahMenu(false);
-    setCopiedToast(`تمت إضافة الآية ${activeAyah.ayahNumber} إلى المحفوظات`);
-    setTimeout(() => setCopiedToast(null), 3000);
-  };
-
-  const handleCopyAyah = () => {
-    if (!activeAyah) return;
-    navigator.clipboard.writeText(
-      `﴿${activeAyah.plainText}﴾ [${currentPage.surahName}: ${activeAyah.ayahNumber}]`,
-    );
-    setShowAyahMenu(false);
-    setCopiedToast('تم نسخ نص الآية الكريمة إلى الحافظة');
-    setTimeout(() => setCopiedToast(null), 3000);
-  };
-
-  const handleShareAyah = () => {
-    if (!activeAyah) return;
-    const shareText = `﴿${activeAyah.plainText}﴾\n[${currentPage.surahName} — آية ${activeAyah.ayahNumber}]`;
-    if (navigator.share) {
-      navigator.share({ title: currentPage.surahName, text: shareText }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(shareText);
-      setCopiedToast('تم نسخ نص الآية للمشاركة');
-      setTimeout(() => setCopiedToast(null), 3000);
+    if (selectionMode) {
+      extendSelectionTo(ayah.ayahNumber);
+      return;
     }
-    setShowAyahMenu(false);
+    // لمسة عادية خارج التحديد — لا شيء (تمنع اللمس من التقليب العرضي أيضاً)
   };
 
   // ===== البحث =====
@@ -582,8 +805,8 @@ export const MushafInteractiveReader: React.FC = () => {
     const page = getOrCreateMushafPage(res.pageNumber);
     const match = page.ayahs.find((a) => a.ayahNumber === res.ayahNumber);
     if (match) {
-      setActiveAyah(match);
       setRangeStartAyah(match.ayahNumber);
+      setRangeEndAyah(match.ayahNumber);
     }
   };
 
@@ -600,56 +823,69 @@ export const MushafInteractiveReader: React.FC = () => {
   });
 
   const isNightEdition = edition.id === 'night';
+  const currentJuz = getJuzForPage(currentPageNum);
+  const khatmaProgress = getKhatmaProgress();
+  const lastRead = getLastReadPage();
 
   // =====================================================================
   // تدفق الآيات بالتلوين التجويدي المعتمد حسب الطبعة
   // =====================================================================
   const renderAyahFlow = () => (
     <div
-      className="text-justify font-quran font-normal dir-rtl leading-[2.6]"
-      style={{ color: edition.ink, fontSize: `${adaptiveFontSize}px` }}
+      ref={flowRef}
+      className="text-justify font-quran font-normal dir-rtl leading-[2.2]"
+      style={{ color: edition.ink, fontSize: `${fitFontSize}px` }}
     >
       {currentPage.ayahs.map((ayah) => {
-        const isSelected = activeAyah?.ayahNumber === ayah.ayahNumber;
         const isPlaying = currentPlayingAyahNum === ayah.ayahNumber;
+        const isSelected = selectedAyahs.has(ayah.ayahNumber);
         const isMasked = memorizationTestMode && !revealedAyahs[ayah.ayahNumber];
+        const isMemorized = isAyahMemorized(ayah.surahNumber, ayah.ayahNumber);
         const isPressing = pressingAyahNum === ayah.ayahNumber;
 
         return (
           <span
             key={`${ayah.surahNumber}-${ayah.ayahNumber}`}
-            onClick={(e) => handleAyahClick(ayah, e)}
             onContextMenu={(e) => {
               e.preventDefault();
-              openAyahMenu(ayah, e.clientX, e.clientY);
+              if (selectionMode) extendSelectionTo(ayah.ayahNumber);
+              else enterSelectionMode(ayah.ayahNumber);
             }}
-            onTouchStart={(e) =>
-              startLongPress(ayah, e.touches[0].clientX, e.touches[0].clientY)
-            }
-            onTouchEnd={(e) => {
+            onTouchStart={() => startLongPress(ayah)}
+            onTouchEnd={() => {
               cancelLongPress();
-              if (!longPressFired.current && e.changedTouches.length > 0) {
-                openAyahMenu(ayah, e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-              }
+              // الضغطة الطويلة مافضلتش؟ → لمسة عادية
+              if (!longPressFired.current) handleAyahTap(ayah);
             }}
             onTouchMove={cancelLongPress}
             onTouchCancel={cancelLongPress}
-            onMouseDown={(e) => startLongPress(ayah, e.clientX, e.clientY)}
-            onMouseUp={cancelLongPress}
+            onMouseDown={() => startLongPress(ayah)}
+            onMouseUp={() => {
+              cancelLongPress();
+              if (!longPressFired.current) handleAyahTap(ayah);
+            }}
             onMouseLeave={cancelLongPress}
             className={`inline cursor-pointer transition-all duration-150 rounded px-1 py-0.5 mx-0.5 select-none ${
-              isPressing ? 'scale-105' : ''
+              isPressing ? 'scale-[1.02]' : ''
             } ${
-              isPlaying
+              isSelected
+                ? 'bg-amber-300/90 shadow-sm ring-2 ring-amber-500'
+                : isPlaying
                 ? 'bg-emerald-300/90 shadow-sm ring-2 ring-emerald-600'
-                : isSelected
-                ? 'bg-amber-200/80 shadow-sm ring-2 ring-amber-400'
-                : 'hover:bg-amber-100/30'
+                : 'hover:bg-amber-100/25'
             }`}
-            title={`اضغط مطولاً على الآية ${ayah.ayahNumber} للتفاعل`}
+            title={
+              selectionMode
+                ? 'المس آية لتمتد النطاق المتصل حتى آية البداية'
+                : 'اضغط مطولاً لبدء تحديد الآيات ثم المس لتمديد النطاق'
+            }
           >
             {isMasked ? (
               <span
+                onTouchEnd={(e) => {
+                  e.stopPropagation();
+                  cancelLongPress();
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   setRevealedAyahs((prev) => ({ ...prev, [ayah.ayahNumber]: true }));
@@ -680,19 +916,26 @@ export const MushafInteractiveReader: React.FC = () => {
               })
             )}
 
-            {/* رقم الآية بالزخرفة العثمانية */}
+            {/* رقم الآية بالزخرفة العثمانية + علامة الحفظ */}
             <span
-              className="inline-flex items-center justify-center font-sans font-bold border rounded-full mx-1 shadow-inner align-middle"
+              className="inline-flex items-center justify-center font-sans font-bold border rounded-full mx-1 shadow-inner align-middle relative"
               style={{
-                width: `${Math.round(adaptiveFontSize * 1.15)}px`,
-                height: `${Math.round(adaptiveFontSize * 1.15)}px`,
-                fontSize: `${Math.max(9, Math.round(adaptiveFontSize * 0.45))}px`,
+                width: `${Math.round(fitFontSize * 1.12)}px`,
+                height: `${Math.round(fitFontSize * 1.12)}px`,
+                fontSize: `${Math.max(9, Math.round(fitFontSize * 0.44))}px`,
                 color: edition.ayahNumberColor,
                 borderColor: edition.frame,
                 backgroundColor: isNightEdition ? 'rgba(255,255,255,0.06)' : '#fbf6e3',
               }}
             >
               {ayah.ayahNumber}
+              {isMemorized && (
+                <span
+                  className="absolute -top-1 -left-1 w-2 h-2 rounded-full"
+                  style={{ backgroundColor: '#10b981' }}
+                  title="محفوظة"
+                />
+              )}
             </span>
           </span>
         );
@@ -701,14 +944,54 @@ export const MushafInteractiveReader: React.FC = () => {
   );
 
   // =====================================================================
-  // صفحة المصحف نفسها — تملأ الشاشة بالكامل (نسبة مصحف حقيقية)
+  // ورقة المصحف — تملأ الشاشة كاملة بلا اسكرول + مفتاح ألوان التجويد أسفلها
   // =====================================================================
+  /** قواعد التجويد الموجودة فعلاً في هذه الصفحة — لمفتاح الألوان أسفل كل صفحة */
+  const pageTajweedRules = useMemo(() => {
+    if (!edition.showTajweed) return [];
+    const present = new Set<TajweedRule>();
+    for (const ayah of currentPage.ayahs) {
+      for (const seg of ayah.segments) {
+        if (seg.rule) present.add(seg.rule);
+      }
+    }
+    return (Object.keys(TAJWEED_RULES) as TajweedRule[]).filter((k) => present.has(k));
+  }, [currentPage, edition.showTajweed]);
+
+  const renderTajweedLegend = () => {
+    if (!edition.showTajweed || pageTajweedRules.length === 0) return null;
+    return (
+      <div
+        className="shrink-0 mt-1.5 pt-1.5 border-t-2 px-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 justify-center"
+        style={{ borderColor: edition.innerFrame }}
+        dir="rtl"
+      >
+        {pageTajweedRules.map((ruleKey) => {
+          const rule = TAJWEED_RULES[ruleKey];
+          return (
+            <span
+              key={ruleKey}
+              className="inline-flex items-center gap-1 font-sans"
+              style={{ fontSize: `${Math.max(7.5, Math.round(fitFontSize * 0.32))}px`, color: edition.ink }}
+            >
+              <span
+                className="inline-block w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: isNightEdition ? rule.nightColor : rule.color }}
+              />
+              {rule.label}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderMushafPage = () => (
     <div
       ref={pageContainerRef}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className={`relative h-full mx-auto aspect-[66/100] max-w-full shadow-2xl overflow-hidden select-none book-spine-shadow rounded-lg border-[6px] sm:border-[10px] ${
+      className={`relative mx-auto shadow-2xl overflow-hidden select-none book-spine-shadow rounded-lg border-[5px] sm:border-[6px] ${
         flipDirection === 'next'
           ? 'book-flip-forward'
           : flipDirection === 'prev'
@@ -716,30 +999,35 @@ export const MushafInteractiveReader: React.FC = () => {
           : ''
       }`}
       style={{
+        width: `${adaptive.pageW}px`,
+        height: `${adaptive.pageH}px`,
         backgroundColor: edition.paper,
         borderColor: edition.frame,
-        boxShadow: '0 18px 50px rgba(0,0,0,0.55)',
+        boxShadow: '0 14px 44px rgba(0,0,0,0.55)',
       }}
       dir="rtl"
     >
       <div
-        className="h-full p-2 sm:p-4 border-4 rounded-lg relative flex flex-col overflow-hidden"
+        className="h-full p-2 sm:p-3 border-[3px] rounded-md relative flex flex-col overflow-hidden"
         style={{ borderColor: edition.innerFrame }}
       >
         {/* ترويسة الصفحة داخل إطار المصحف (زي المصحف الحقيقي) */}
         <div
-          className="flex items-center justify-between shrink-0 pb-2 mb-3 border-b-2"
-          style={{ borderColor: edition.frame, color: edition.ink }}
+          className="flex items-center justify-between shrink-0 pb-1.5 mb-2 border-b-2"
+          style={{
+            borderColor: edition.frame,
+            color: edition.ink,
+            fontSize: `${Math.max(9, fitFontSize * 0.4)}px`,
+          }}
         >
           <div
-            className="px-3 py-1 rounded border font-sans font-bold"
+            className="px-2.5 py-0.5 rounded border font-sans font-bold"
             style={{
-              fontSize: `${Math.max(9, adaptiveFontSize * 0.42)}px`,
               borderColor: edition.frame,
               backgroundColor: isNightEdition ? 'rgba(255,255,255,0.05)' : `${edition.frame}22`,
             }}
           >
-            {currentPage.hizbQuarter} • الجزء {currentPage.juzNumber}
+            الجزء {currentPage.juzNumber} • {currentPage.hizbQuarter}
           </div>
 
           <button
@@ -747,29 +1035,34 @@ export const MushafInteractiveReader: React.FC = () => {
               setLibraryTab('surahs');
               setShowLibrary(true);
             }}
-            className="px-4 py-1 rounded border font-arabic font-bold transition-all hover:brightness-110"
+            className="px-3 py-0.5 rounded border font-arabic font-bold transition-all hover:brightness-110"
             style={{
-              fontSize: `${Math.max(10, adaptiveFontSize * 0.48)}px`,
+              fontSize: `${Math.max(10, fitFontSize * 0.45)}px`,
               borderColor: edition.innerFrame,
               color: edition.ink,
               backgroundColor: isNightEdition ? 'rgba(255,255,255,0.05)' : `${edition.innerFrame}18`,
             }}
-            title="فهرس السور والبحث والإشارات"
+            title="فهرس السور والبحث والأدوات"
           >
             {currentPage.surahName} ▾
           </button>
         </div>
 
-        {/* تدفق الآيات — يملأ الصفحة بالكامل */}
-        <div className="flex-1 min-h-0 overflow-y-auto">{renderAyahFlow()}</div>
+        {/* تدفق الآيات — يملأ الصفحة بالكامل بلا اسكرول (بطلب المالك) */}
+        <div ref={flowBoxRef} className="flex-1 min-h-0 overflow-hidden">
+          {renderAyahFlow()}
+        </div>
+
+        {/* مفتاح ألوان التجويد أسفل كل صفحة (بطلب المالك) */}
+        {renderTajweedLegend()}
 
         {/* تذييل الصفحة: الجزء | رقم الصفحة | السورة */}
         <div
-          className="mt-3 pt-2 border-t-2 shrink-0 flex items-center justify-between font-bold px-2"
+          className="mt-1.5 pt-1.5 border-t-2 shrink-0 flex items-center justify-between font-bold px-1"
           style={{
             borderColor: edition.frame,
             color: edition.ink,
-            fontSize: `${Math.max(9, adaptiveFontSize * 0.42)}px`,
+            fontSize: `${Math.max(9, fitFontSize * 0.4)}px`,
           }}
         >
           <span>جزء {currentPage.juzNumber}</span>
@@ -777,7 +1070,7 @@ export const MushafInteractiveReader: React.FC = () => {
             className="font-extrabold"
             style={{
               color: edition.ayahNumberColor,
-              fontSize: `${Math.max(11, adaptiveFontSize * 0.55)}px`,
+              fontSize: `${Math.max(11, fitFontSize * 0.52)}px`,
             }}
           >
             {currentPage.pageNumber}
@@ -785,51 +1078,205 @@ export const MushafInteractiveReader: React.FC = () => {
           <span>{currentPage.surahName}</span>
         </div>
       </div>
-
-      {/* قائمة الآية الزجاجية */}
-      {showAyahMenu && activeAyah && (
-        <AyahContextMenu
-          ayahNumber={activeAyah.ayahNumber}
-          surahName={currentPage.surahName}
-          x={menuPos.x}
-          y={menuPos.y}
-          onClose={closeAyahMenu}
-          onListen={() => {
-            closeAyahMenu();
-            setShowListenModal(true);
-          }}
-          onTafseer={() => {
-            closeAyahMenu();
-            setShowTafseerModal(true);
-          }}
-          onBookmark={handleBookmarkCurrentAyah}
-          onCopy={handleCopyAyah}
-          onShare={handleShareAyah}
-        />
-      )}
     </div>
   );
 
   // =====================================================================
-  // العرض الغامر الكامل: لا شريط علوي ولا سفلي — تقليب بالحواف والسحب
+  // الشريط السفلي النحيف: متابعة القراءة + الأجزاء + الختمات + تعليم الصفحة
+  // (فوق شريط التنقل الرئيسي مباشرة)
+  // =====================================================================
+  const renderBottomStrip = () => (
+    <div
+      className="shrink-0 flex items-center justify-between gap-1 px-2 py-1 border-t backdrop-blur-md"
+      style={{
+        backgroundColor: 'color-mix(in srgb, var(--noor-n-950) 92%, transparent)',
+        borderColor: 'color-mix(in srgb, var(--noor-p-500) 22%, transparent)',
+      }}
+      dir="rtl"
+    >
+      {/* متابعة القراءة: آخر صفحة مفتوحة */}
+      <button
+        onClick={() => {
+          setCurrentPageNum(lastRead);
+          setCopiedToast(`متابعة القراءة — صفحة ${lastRead}`);
+          setTimeout(() => setCopiedToast(null), 2000);
+        }}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-colors hover:bg-white/10 max-w-[38%]"
+        style={{ color: currentTheme.color }}
+        title="الانتقال لآخر صفحة قرأتها"
+      >
+        <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--noor-a-400)' }} />
+        <span className="truncate">
+          متابعة القراءة: <span style={{ color: 'var(--noor-a-400)' }}>صفحة {lastRead}</span>
+        </span>
+      </button>
+
+      {/* منتصف: رقم الصفحة الحالية */}
+      <div className="flex items-center gap-1 text-[11px] font-mono font-bold shrink-0" style={{ color: 'var(--noor-n-300)' }}>
+        <button
+          onClick={() => handleFlipPage('prev')}
+          disabled={currentPageNum <= 1}
+          className="p-1 rounded-lg disabled:opacity-30 hover:bg-white/10"
+          style={{ color: 'var(--noor-n-200)' }}
+          title="الصفحة السابقة"
+        >
+          <Plus className="w-3.5 h-3.5 rotate-90" />
+        </button>
+        <span>
+          {currentPageNum} / 604
+        </span>
+        <button
+          onClick={() => handleFlipPage('next')}
+          disabled={currentPageNum >= 604}
+          className="p-1 rounded-lg disabled:opacity-30 hover:bg-white/10"
+          style={{ color: 'var(--noor-n-200)' }}
+          title="الصفحة التالية"
+        >
+          <Minus className="w-3.5 h-3.5 rotate-90" />
+        </button>
+      </div>
+
+      {/* يمين: التشغيل + الأجزاء + الختمات + تعليم الصفحة */}
+      <div className="flex items-center gap-0.5 shrink-0">
+        <button
+          onClick={handleBottomPlayClick}
+          className="p-1.5 rounded-xl transition-colors hover:bg-white/10"
+          style={{ color: 'var(--noor-a-400)' }}
+          title={
+            selectionMode && selectedAyahs.size > 0
+              ? 'خيارات تلاوة الآيات المحددة'
+              : 'الاستماع إلى هذه الصفحة أو السورة'
+          }
+        >
+          <Play className="w-4 h-4 fill-current" />
+        </button>
+
+        <button
+          onClick={() => {
+            setLibraryTab('juz');
+            setShowLibrary(true);
+          }}
+          className="p-1.5 rounded-xl transition-colors hover:bg-white/10"
+          style={{ color: 'var(--noor-n-200)' }}
+          title={`فهرس الأجزاء الثلاثين — أنت في الجزء ${currentJuz}`}
+        >
+          <Layers className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={() => {
+            setLibraryTab('khatma');
+            setShowLibrary(true);
+          }}
+          className="p-1.5 rounded-xl transition-colors hover:bg-white/10 relative"
+          style={{ color: 'var(--noor-n-200)' }}
+          title={`الختمات — ${khatmaProgress.percent}% من الختمة الحالية`}
+        >
+          <CircleDot className="w-4 h-4" />
+          <span
+            className="absolute -bottom-0.5 -left-0.5 text-[7px] font-black px-1 rounded-full"
+            style={{ backgroundColor: 'var(--noor-p-500)', color: '#fff' }}
+          >
+            {khatmaProgress.percent}%
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            const completed = markKhatmaPageRead(currentPageNum);
+            setKhatmaTick((t) => t + 1);
+            setCopiedToast(
+              completed
+                ? 'ما شاء الله! أكملت ختمة كاملة — تقبل الله منك 🎉'
+                : pageReadInKhatma
+                ? 'الصفحة معلّمة مقروءة أصلاً'
+                : `تم تعليم صفحة ${currentPageNum} كمقروءة في الختمة ✓`,
+            );
+            setTimeout(() => setCopiedToast(null), 2500);
+          }}
+          className={`p-1.5 rounded-xl transition-colors ${
+            pageReadInKhatma ? 'bg-emerald-500/25' : 'hover:bg-white/10'
+          }`}
+          style={{ color: pageReadInKhatma ? '#34d399' : 'var(--noor-n-200)' }}
+          title={pageReadInKhatma ? 'الصفحة مقروءة في الختمة' : 'تعليم الصفحة كمقروءة في الختمة'}
+        >
+          {pageReadInKhatma ? <CheckCheck className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+        </button>
+      </div>
+    </div>
+  );
+
+  // =====================================================================
+  // شريط إجراءات التحديد المتعدد (فوق الشريط السفلي)
+  // =====================================================================
+  const renderSelectionBar = () => {
+    if (!selectionMode || selectedAyahs.size === 0) return null;
+    const count = selectedAyahs.size;
+    return (
+      <div
+        className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 border-t backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2"
+        style={{
+          background: `linear-gradient(135deg, color-mix(in srgb, var(--noor-p-500) 22%, transparent), color-mix(in srgb, var(--noor-n-950) 92%, transparent))`,
+          borderColor: 'color-mix(in srgb, var(--noor-p-500) 35%, transparent)',
+        }}
+        dir="rtl"
+      >
+        <span className="text-[11px] font-extrabold shrink-0" style={{ color: 'var(--noor-n-50)' }}>
+          محدد {count} {count === 1 ? 'آية' : 'آيات'}
+          {selectionRange && selectionRange.end !== selectionRange.start && (
+            <span className="text-[10px] font-normal opacity-70">
+              {' '}
+              ({selectionRange.start}—{selectionRange.end})
+            </span>
+          )}
+        </span>
+
+        <div className="flex-1 flex items-center justify-end gap-1 flex-wrap">
+          <SelectionAction icon={<Play className="w-4 h-4" />} label="تلاوة المحدد" color="#10b981" onClick={handlePlaySelection} />
+          <SelectionAction icon={<BookOpen className="w-4 h-4" />} label="تفسير" color="#14b8a6" onClick={handleTafseerSelection} />
+          <SelectionAction icon={<Sparkles className="w-4 h-4" />} label="حفظ" color="#f59e0b" onClick={handleMemorizeSelection} />
+          <SelectionAction icon={<Copy className="w-4 h-4" />} label="نسخ" color="#0ea5e9" onClick={handleCopySelection} />
+          <SelectionAction icon={<Share2 className="w-4 h-4" />} label="مشاركة" color="#f43f5e" onClick={handleShareSelection} />
+          <button
+            onClick={exitSelectionMode}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold border transition-colors hover:bg-white/10"
+            style={{
+              borderColor: 'color-mix(in srgb, var(--noor-p-500) 30%, transparent)',
+              color: 'var(--noor-n-200)',
+            }}
+          >
+            <X className="w-3.5 h-3.5" />
+            إلغاء
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // =====================================================================
+  // العرض: ورقة المصحف بملء الشاشة فوق شريط التنقل مباشرة
   // =====================================================================
   return (
-    <div ref={screenRef} className="fixed inset-0 z-[90] flex flex-col bg-[#05070d]" dir="rtl">
+    <div
+      ref={screenRef}
+      className="fixed inset-x-0 top-0 bottom-[calc(74px+env(safe-area-inset-bottom))] z-[85] flex flex-col bg-[#05070d]"
+      dir="rtl"
+    >
       {/* Toast */}
       {copiedToast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[95] px-5 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl flex items-center gap-3 text-xs sm:text-sm">
-          <Check className="w-4 h-4 text-emerald-200" />
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[95] px-4 py-2.5 bg-emerald-600 text-white rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs sm:text-sm">
+          <Check className="w-4 h-4 text-emerald-200 shrink-0" />
           <span>{copiedToast}</span>
           <button
             onClick={() => setCopiedToast(null)}
-            className="text-xs text-emerald-200 hover:text-white px-2 py-0.5"
+            className="text-xs text-emerald-200 hover:text-white px-1.5 py-0.5"
           >
             إغلاق
           </button>
         </div>
       )}
 
-      {/* زر إيقاف التلاوة العائم الصغير أثناء التشغيل فقط */}
+      {/* زر إيقاف التلاوة العائم أثناء التشغيل فقط */}
       {isPlayingRange && (
         <button
           onClick={stopAudio}
@@ -854,8 +1301,22 @@ export const MushafInteractiveReader: React.FC = () => {
         </div>
       )}
 
-      {/* صفحة المصحف تملأ الشاشة */}
-      <div className="flex-1 min-h-0 flex items-center justify-center p-1.5 sm:p-3">
+      {/* تلميح التحديد أول مرة يفعّل فيه الوضع */}
+      {selectionMode && (
+        <div
+          className="fixed top-3 left-1/2 -translate-x-1/2 z-[92] px-4 py-2 rounded-2xl text-[11px] backdrop-blur-md shadow-xl animate-in fade-in"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--noor-p-500) 25%, var(--noor-n-950))',
+            color: 'var(--noor-n-50)',
+            border: '1px solid color-mix(in srgb, var(--noor-p-500) 40%, transparent)',
+          }}
+        >
+          المس الآيات لإضافتها للتحديد • الضغطة الطويلة على آية محددة تزيلها
+        </div>
+      )}
+
+      {/* ورقة المصحف تملأ المساحة المتاحة */}
+      <div className="flex-1 min-h-0 flex items-center justify-center p-1.5 sm:p-2.5">
         {renderMushafPage()}
       </div>
 
@@ -864,27 +1325,38 @@ export const MushafInteractiveReader: React.FC = () => {
         aria-label="الصفحة التالية"
         onClick={() => handleFlipPage('next')}
         disabled={currentPageNum >= 604}
-        className="fixed left-0 top-0 bottom-0 w-[9%] max-w-[70px] z-[88] disabled:opacity-0 bg-transparent border-0 cursor-w-resize active:bg-white/[0.04]"
+        className="fixed left-0 w-[8%] max-w-[60px] z-[84] disabled:opacity-0 bg-transparent border-0 cursor-w-resize active:bg-white/[0.04]"
+        style={{ top: 0, bottom: 'calc(74px + env(safe-area-inset-bottom))' }}
       />
       <button
         aria-label="الصفحة السابقة"
         onClick={() => handleFlipPage('prev')}
         disabled={currentPageNum <= 1}
-        className="fixed right-0 top-0 bottom-0 w-[9%] max-w-[70px] z-[88] disabled:opacity-0 bg-transparent border-0 cursor-e-resize active:bg-white/[0.04]"
+        className="fixed right-0 w-[8%] max-w-[60px] z-[84] disabled:opacity-0 bg-transparent border-0 cursor-e-resize active:bg-white/[0.04]"
+        style={{ top: 0, bottom: 'calc(74px + env(safe-area-inset-bottom))' }}
       />
 
-      {/* مكتبة المصحف: السور | البحث | الإشارات | الأدوات */}
+      {/* شريط إجراءات التحديد (فوق الشريط السفلي) */}
+      {renderSelectionBar()}
+
+      {/* الشريط السفلي النحيف — فوق شريط التنقل مباشرة */}
+      {renderBottomStrip()}
+
+      {/* مكتبة المصحف */}
       {showLibrary && (
         <LibraryModal
           initialTab={libraryTab}
           onClose={() => setShowLibrary(false)}
           onSelectSurah={handleSelectSurah}
-          // بحث
+          onSelectJuz={(juz) => {
+            setCurrentPageNum(getJuzRange(juz).start);
+            exitSelectionMode();
+            setShowLibrary(false);
+          }}
           searchQuery={searchQuery}
           onSearchChange={handleSearchChange}
           searchResults={searchResults}
           onSelectSearchResult={handleSelectSearchResult}
-          // إشارات
           bookmarks={bookmarks}
           onSelectBookmark={(bm) => {
             setCurrentPageNum(bm.pageNumber);
@@ -894,25 +1366,50 @@ export const MushafInteractiveReader: React.FC = () => {
             removeBookmark(id);
             setBookmarks(getSavedBookmarks());
           }}
-          // أدوات
           memorizationTestMode={memorizationTestMode}
           onToggleMemorization={() => setMemorizationTestMode((v) => !v)}
           edition={edition}
           onOpenListen={() => {
             setShowLibrary(false);
+            if (selectionRange) {
+              setRangeStartAyah(selectionRange.start);
+              setRangeEndAyah(selectionRange.end);
+            } else {
+              const first = currentPage.ayahs[0];
+              if (first) {
+                setActiveAyah(first);
+                setRangeStartAyah(first.ayahNumber);
+                setRangeEndAyah(first.ayahNumber);
+              }
+            }
             setShowListenModal(true);
           }}
-          hasActiveAyah={activeAyah !== null}
+          khatmaTick={khatmaTick}
+          onResetKhatma={() => setKhatmaTick((t) => t + 1)}
+          currentJuz={currentJuz}
         />
       )}
 
-      {/* الاستماع إلى؟ */}
-      {showListenModal && activeAyah && (
-        <ListenModal
-          ayahNumber={activeAyah.ayahNumber}
+      {/* ورقة خيارات تلاوة الآيات المحددة — بطلب المالك:
+          تشغيل المحدد فقط / السورة كاملة / من بداية التحديد إلى نهاية السورة */}
+      {showPlayOptions && (
+        <PlayOptionsSheet
           surahName={currentPage.surahName}
+          surahAyahCount={surahAyahCount}
+          selStart={selectionRange?.start ?? 1}
+          selEnd={selectionRange?.end ?? 1}
+          reciterName={selectedReciter.name}
+          onPlay={startPlayback}
+          onClose={() => setShowPlayOptions(false)}
+        />
+      )}
+
+      {/* الاستماع (للنطاقات والتكرار المخصص) */}
+      {showListenModal && (
+        <ListenModal
           firstAyahOnPage={currentPage.ayahs[0]?.ayahNumber ?? 1}
           lastAyahOnPage={currentPage.ayahs[currentPage.ayahs.length - 1]?.ayahNumber ?? 1}
+          surahName={currentPage.surahName}
           surahAyahCount={surahAyahCount}
           rangeStart={rangeStartAyah}
           rangeEnd={rangeEndAyah}
@@ -930,20 +1427,24 @@ export const MushafInteractiveReader: React.FC = () => {
           onClose={() => setShowListenModal(false)}
           onStart={(start, end, per, all) => {
             setShowListenModal(false);
-            setShowAyahMenu(false);
             startRange(displayedSurahNumber, start, end, per, all);
           }}
         />
       )}
 
-      {/* التفسير */}
-      {showTafseerModal && activeAyah && (
+      {/* التفسير (للآية أو الآيات المحددة) */}
+      {showTafseerModal && tafseerAyahs.length > 0 && (
         <TafseerModal
-          ayah={activeAyah}
+          ayahs={tafseerAyahs}
+          surahName={currentPage.surahName}
           edition={edition}
           onClose={() => setShowTafseerModal(false)}
           onListen={() => {
             setShowTafseerModal(false);
+            const first = tafseerAyahs[0];
+            const last = tafseerAyahs[tafseerAyahs.length - 1];
+            setRangeStartAyah(first.ayahNumber);
+            setRangeEndAyah(last.ayahNumber);
             setShowListenModal(true);
           }}
         />
@@ -952,13 +1453,145 @@ export const MushafInteractiveReader: React.FC = () => {
   );
 };
 
+/** قيمة لون الثيم الحالي — تستخدم في الشريط السفلي */
+const currentTheme = { color: 'var(--noor-n-100)' };
+
+/** زر إجراء في شريط التحديد */
+const SelectionAction: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  color: string;
+  onClick: () => void;
+}> = ({ icon, label, color, onClick }) => (
+  <button
+    onClick={onClick}
+    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all hover:brightness-110 active:scale-95"
+    style={{ backgroundColor: `${color}26`, color, border: `1px solid ${color}55` }}
+  >
+    {icon}
+    <span className="hidden xs:inline sm:inline">{label}</span>
+  </button>
+);
+
 /* ============================================================================
- * مكتبة المصحف — السور والبحث والإشارات والأدوات في نافذة واحدة منظمة
+ * ورقة خيارات التلاوة للآيات المحددة — بطلب المالك:
+ * تشغيل المحدد فقط / تشغيل السورة كاملة / من بداية التحديد إلى نهاية السورة
+ * ========================================================================== */
+const PlayOptionsSheet: React.FC<{
+  surahName: string;
+  surahAyahCount: number;
+  selStart: number;
+  selEnd: number;
+  reciterName: string;
+  onPlay: (start: number, end: number) => void;
+  onClose: () => void;
+}> = ({ surahName, surahAyahCount, selStart, selEnd, reciterName, onPlay, onClose }) => {
+  const isSingle = selStart === selEnd;
+  return (
+    <div
+      className="fixed inset-0 z-[96] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-4"
+      onClick={onClose}
+      dir="rtl"
+    >
+      <div
+        className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-slate-800 p-5 space-y-3.5 text-right shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <Play className="w-4.5 h-4.5 text-emerald-400 fill-current" />
+            <span>خيارات التلاوة</span>
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* ملخص التحديد */}
+        <div className="px-3.5 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between text-[11px]">
+          <span className="font-bold text-emerald-300">سورة {surahName}</span>
+          <span className="text-slate-400">
+            {isSingle
+              ? `الآية ${selStart}`
+              : `التحديد: الآيات ${selStart} — ${selEnd}`}
+            {' • '}
+            <span className="font-sans">{reciterName}</span>
+          </span>
+        </div>
+
+        {/* الخيارات الثلاثة — بطلب المالك */}
+        <div className="space-y-2">
+          <PlayOptionRow
+            title="تشغيل المحدد فقط"
+            subtitle={
+              isSingle ? `تلاوة الآية ${selStart} وحدها` : `تلاوة الآيات ${selStart} — ${selEnd}`
+            }
+            color="#10b981"
+            onClick={() => onPlay(selStart, selEnd)}
+          />
+          <PlayOptionRow
+            title="تشغيل السورة كاملة"
+            subtitle={`سورة ${surahName} من الآية 1 إلى الآية ${surahAyahCount}`}
+            color="#f59e0b"
+            onClick={() => onPlay(1, surahAyahCount)}
+          />
+          <PlayOptionRow
+            title="من بداية التحديد إلى نهاية السورة"
+            subtitle={`من الآية ${selStart} إلى الآية ${surahAyahCount}`}
+            color="#0ea5e9"
+            onClick={() => onPlay(selStart, surahAyahCount)}
+          />
+        </div>
+
+        <button
+          onClick={onClose}
+          className="w-full py-2.5 rounded-2xl bg-slate-950 border border-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-800 transition-colors"
+        >
+          إلغاء
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/** صف خيار في ورقة خيارات التلاوة */
+const PlayOptionRow: React.FC<{
+  title: string;
+  subtitle: string;
+  color: string;
+  onClick: () => void;
+}> = ({ title, subtitle, color, onClick }) => (
+  <button
+    onClick={onClick}
+    className="w-full p-3.5 rounded-2xl border text-right flex items-center gap-3 transition-all hover:brightness-125 active:scale-[0.99]"
+    style={{ backgroundColor: `${color}14`, borderColor: `${color}45` }}
+  >
+    <span
+      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+      style={{ backgroundColor: `${color}26`, color }}
+    >
+      <Play className="w-4 h-4 fill-current" />
+    </span>
+    <span className="min-w-0">
+      <span className="block text-sm font-extrabold" style={{ color }}>
+        {title}
+      </span>
+      <span className="block text-[11px] text-slate-400 truncate">{subtitle}</span>
+    </span>
+  </button>
+);
+
+/* ============================================================================
+ * مكتبة المصحف — السور | الأجزاء | الختمات | البحث | الإشارات | أدوات الحفظ
  * ========================================================================== */
 interface LibraryModalProps {
-  initialTab: 'surahs' | 'search' | 'bookmarks' | 'tools';
+  initialTab: 'surahs' | 'juz' | 'khatma' | 'search' | 'bookmarks' | 'tools';
   onClose: () => void;
   onSelectSurah: (surah: Surah) => void;
+  onSelectJuz: (juz: number) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   searchResults: SearchResult[];
@@ -970,13 +1603,16 @@ interface LibraryModalProps {
   onToggleMemorization: () => void;
   edition: MushafEditionStyle;
   onOpenListen: () => void;
-  hasActiveAyah: boolean;
+  khatmaTick: number;
+  onResetKhatma: () => void;
+  currentJuz: number;
 }
 
 const LibraryModal: React.FC<LibraryModalProps> = ({
   initialTab,
   onClose,
   onSelectSurah,
+  onSelectJuz,
   searchQuery,
   onSearchChange,
   searchResults,
@@ -988,17 +1624,34 @@ const LibraryModal: React.FC<LibraryModalProps> = ({
   onToggleMemorization,
   edition,
   onOpenListen,
-  hasActiveAyah,
+  khatmaTick,
+  onResetKhatma,
+  currentJuz,
 }) => {
   const [tab, setTab] = useState(initialTab);
   const [surahQuery, setSurahQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'meccan' | 'medinan'>('all');
 
-  const tabs: Array<{ key: typeof tab; label: string; Icon: React.FC<{ className?: string }> }> = [
+  // تحديث بيانات الختمة والحفظ عند التغيير
+  const khatmaState = useMemo(() => getKhatma(), [khatmaTick]);
+  const khatmaProgress = useMemo(
+    () => getKhatmaProgress(),
+    [khatmaTick],
+  );
+  const memorization = useMemo(() => getMemorizationProgress(), [khatmaTick]);
+  const reviewQueue = useMemo(() => getReviewQueue(6), [khatmaTick]);
+
+  const tabs: Array<{
+    key: typeof tab;
+    label: string;
+    Icon: React.FC<{ className?: string }>;
+  }> = [
     { key: 'surahs', label: 'السور', Icon: BookOpen },
+    { key: 'juz', label: 'الأجزاء', Icon: Layers },
+    { key: 'khatma', label: 'الختمات', Icon: CircleDot },
     { key: 'search', label: 'البحث', Icon: Search },
     { key: 'bookmarks', label: 'إشاراتي', Icon: Bookmark },
-    { key: 'tools', label: 'أدوات', Icon: Sliders },
+    { key: 'tools', label: 'حفظي', Icon: Sliders },
   ];
 
   const filtered = SURAHS_LIST.filter((s) => {
@@ -1036,12 +1689,12 @@ const LibraryModal: React.FC<LibraryModalProps> = ({
         </div>
 
         {/* تبويبات المكتبة */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 overflow-x-auto">
           {tabs.map(({ key, label, Icon }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+              className={`flex-1 min-w-[64px] flex flex-col items-center gap-0.5 py-2 rounded-xl text-[10px] font-bold transition-colors ${
                 tab === key
                   ? 'bg-amber-600 text-white shadow'
                   : 'bg-slate-950 text-slate-400 hover:text-white'
@@ -1116,6 +1769,139 @@ const LibraryModal: React.FC<LibraryModalProps> = ({
           </>
         )}
 
+        {/* ===== الأجزاء الثلاثون ===== */}
+        {tab === 'juz' && (
+          <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2 pr-1 min-h-0">
+            {Array.from({ length: 30 }, (_, i) => i + 1).map((juz) => {
+              const { start, end } = getJuzRange(juz);
+              const prog = getJuzProgress(juz);
+              const isCurrent = juz === currentJuz;
+              return (
+                <button
+                  key={juz}
+                  onClick={() => onSelectJuz(juz)}
+                  className={`p-3 rounded-2xl border text-right space-y-1.5 transition-all ${
+                    isCurrent
+                      ? 'bg-gradient-to-br from-amber-600/25 to-amber-900/20 border-amber-500/60'
+                      : 'bg-slate-950 border-slate-800/80 hover:border-amber-500/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-extrabold text-slate-100">الجزء {juz}</span>
+                    {isCurrent && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">
+                        أنت هنا
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-sans">
+                    صفحات {start}—{end}
+                  </div>
+                  <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${prog.percent}%`,
+                        background:
+                          prog.percent === 100
+                            ? 'linear-gradient(90deg,#10b981,#34d399)'
+                            : 'linear-gradient(90deg,#f59e0b,#fbbf24)',
+                      }}
+                    />
+                  </div>
+                  <div className="text-[9px] text-slate-500 font-sans">
+                    {prog.read}/{prog.total} صفحة {prog.percent === 100 ? 'مكتمل ✓' : ''}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ===== الختمات ===== */}
+        {tab === 'khatma' && (
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0">
+            {/* الختمة الجارية */}
+            <div className="p-4 rounded-3xl bg-gradient-to-br from-emerald-950/80 to-slate-950 border border-emerald-700/40 text-center space-y-3">
+              <p className="text-sm font-bold text-emerald-300">ختمة جارية</p>
+              <div className="relative w-36 h-36 mx-auto">
+                <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+                  <circle cx="60" cy="60" r="52" fill="none" stroke="#1e293b" strokeWidth="10" />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="52"
+                    fill="none"
+                    stroke="url(#khatmaGrad)"
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(khatmaProgress.percent / 100) * 326.7} 326.7`}
+                  />
+                  <defs>
+                    <linearGradient id="khatmaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#10b981" />
+                      <stop offset="100%" stopColor="#34d399" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-2xl font-black text-white font-mono">
+                    {khatmaProgress.percent}%
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {khatmaProgress.read} / 604 صفحة
+                  </span>
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                بدأت {new Date(khatmaState.startedAt).toLocaleDateString('ar-EG')}
+                {khatmaProgress.read > 0 && (
+                  <> • متبقٍ {604 - khatmaProgress.read} صفحة</>
+                )}
+              </p>
+              <button
+                onClick={() => {
+                  resetKhatma();
+                  onResetKhatma();
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-bold border border-rose-500/40 text-rose-300 hover:bg-rose-500/10 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                إعادة بدء الختمة من الصفر
+              </button>
+            </div>
+
+            {/* سجل الختمات المكتملة */}
+            <div className="p-4 rounded-3xl bg-slate-950 border border-slate-800 space-y-2">
+              <p className="text-sm font-bold text-slate-200">الختمات المكتملة 🎉</p>
+              {khatmaState.history.length === 0 ? (
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  لسه مفيش ختمات مكتملة. علّم كل صفحة تخلصها بزر ✓ في الشريط السفلي،
+                  وكمّل لحد ما تخلص الـ604 صفحة كلها.
+                </p>
+              ) : (
+                khatmaState.history
+                  .slice()
+                  .reverse()
+                  .map((h, i) => (
+                    <div
+                      key={h.completedAt}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800/60"
+                    >
+                      <span className="text-xs font-bold text-emerald-300">
+                        ختمة {khatmaState.history.length - i}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-sans">
+                        {new Date(h.completedAt).toLocaleDateString('ar-EG')} • في {h.days}{' '}
+                        {h.days === 1 ? 'يوم' : 'أيام'}
+                      </span>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ===== البحث ===== */}
         {tab === 'search' && (
           <>
@@ -1163,7 +1949,7 @@ const LibraryModal: React.FC<LibraryModalProps> = ({
           <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 min-h-0">
             {bookmarks.length === 0 ? (
               <div className="text-center py-8 text-xs text-slate-400">
-                لا توجد آيات محفوظة حالياً. اضغط مطولاً على أي آية في المصحف ثم اختر الحفظ.
+                لا توجد آيات محفوظة حالياً. حدد آيات بالضغط المطول ثم اختر الحفظ.
               </div>
             ) : (
               bookmarks.map((bm) => (
@@ -1197,9 +1983,10 @@ const LibraryModal: React.FC<LibraryModalProps> = ({
           </div>
         )}
 
-        {/* ===== الأدوات ===== */}
+        {/* ===== حفظي: نظام الحفظ المطور ===== */}
         {tab === 'tools' && (
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0">
+            {/* وضع التسميع */}
             <button
               onClick={onToggleMemorization}
               className={`w-full flex items-center gap-3 p-4 rounded-2xl border transition-colors text-right ${
@@ -1210,10 +1997,16 @@ const LibraryModal: React.FC<LibraryModalProps> = ({
             >
               <span
                 className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  memorizationTestMode ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-amber-400'
+                  memorizationTestMode
+                    ? 'bg-amber-500 text-slate-950'
+                    : 'bg-slate-800 text-amber-400'
                 }`}
               >
-                {memorizationTestMode ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {memorizationTestMode ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
               </span>
               <span className="flex-1">
                 <span className="block text-sm font-bold text-slate-100">
@@ -1230,10 +2023,86 @@ const LibraryModal: React.FC<LibraryModalProps> = ({
               )}
             </button>
 
+            {/* طابور المراجعة */}
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-100">مراجعة الحفظ</span>
+                <span className="text-[10px] text-slate-500">
+                  الأقدم حفظاً أولاً (الأقرب للنسيان)
+                </span>
+              </div>
+              {reviewQueue.length === 0 ? (
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  حدد آيات بالضغط المطول ثم اضغط «حفظ» لتعليمها محفوظة — وهتظهر هنا
+                  للمراجعة الدورية بترتيب أقدم حفظ.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {reviewQueue.map(({ surah, ayah, at }) => (
+                    <div
+                      key={`${surah}-${ayah}`}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800/60"
+                    >
+                      <span className="text-xs font-bold text-slate-200">
+                        {SURAHS_LIST.find((s) => s.number === surah)?.name ?? surah} • آية {ayah}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-sans">
+                        حُفظت {new Date(at).toLocaleDateString('ar-EG')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* تقدم الحفظ لكل سورة */}
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-100">تقدم حفظي لكل سورة</span>
+                <span className="text-[10px] text-slate-500">{memorization.length} سورة</span>
+              </div>
+              {memorization.length === 0 ? (
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  لسه مفيش آيات محفوظة. من المصحف: اضغط مطولاً لتحديد الآيات المحفوظة
+                  عندك ثم اضغط «حفظ» — وهيتبع تقدمك هنا آية بآية.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {memorization
+                    .sort((a, b) => b.percent - a.percent)
+                    .map((m) => (
+                      <div key={m.surahNumber} className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-slate-200">
+                            سورة {m.surahName}
+                            {m.percent === 100 && ' 🌟'}
+                          </span>
+                          <span className="font-mono text-slate-400">
+                            {m.memorized}/{m.total} ({m.percent}%)
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${m.percent}%`,
+                              background:
+                                m.percent === 100
+                                  ? 'linear-gradient(90deg,#10b981,#34d399)'
+                                  : 'linear-gradient(90deg,#f59e0b,#fbbf24)',
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* التلاوة بالنطاقات */}
             <button
               onClick={onOpenListen}
-              disabled={!hasActiveAyah}
-              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-emerald-600/40 transition-colors text-right disabled:opacity-40"
+              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-emerald-600/40 transition-colors text-right"
             >
               <span className="w-10 h-10 rounded-xl bg-slate-800 text-emerald-400 flex items-center justify-center">
                 <Play className="w-5 h-5 fill-current" />
@@ -1243,9 +2112,7 @@ const LibraryModal: React.FC<LibraryModalProps> = ({
                   الاستماع بالنطاقات والتكرار
                 </span>
                 <span className="block text-[11px] text-slate-400 mt-0.5">
-                  {hasActiveAyah
-                    ? 'تلاوة الآية المحددة أو نطاق كامل بصوت القارئ المفضل'
-                    : 'اضغط على أي آية أولاً ثم افتح الأدوات'}
+                  تلاوة نطاق آيات بصوت القارئ المفضل مع تكرار الحفظ
                 </span>
               </span>
             </button>
@@ -1281,13 +2148,12 @@ const LibraryModal: React.FC<LibraryModalProps> = ({
 };
 
 /* ============================================================================
- * نافذة الاستماع — آية / صفحة / سورة / نطاق مخصص مع التكرار
+ * نافذة الاستماع — نطاق مخصص مع التكرار
  * ========================================================================== */
 interface ListenModalProps {
-  ayahNumber: number;
-  surahName: string;
   firstAyahOnPage: number;
   lastAyahOnPage: number;
+  surahName: string;
   surahAyahCount: number;
   rangeStart: number;
   rangeEnd: number;
@@ -1304,10 +2170,9 @@ interface ListenModalProps {
 }
 
 const ListenModal: React.FC<ListenModalProps> = ({
-  ayahNumber,
-  surahName,
   firstAyahOnPage,
   lastAyahOnPage,
+  surahName,
   surahAyahCount,
   rangeStart,
   rangeEnd,
@@ -1340,10 +2205,10 @@ const ListenModal: React.FC<ListenModalProps> = ({
 
       <div className="space-y-1.5 text-base font-semibold text-slate-200">
         <button
-          onClick={() => onStart(ayahNumber, ayahNumber, 1, 1)}
+          onClick={() => onStart(rangeStart, rangeStart, 1, 1)}
           className="w-full py-2.5 rounded-xl hover:bg-slate-800 transition-colors"
         >
-          آية {ayahNumber}
+          آية {rangeStart}
         </button>
         <button
           onClick={() => onStart(firstAyahOnPage, lastAyahOnPage, 1, 1)}
@@ -1358,10 +2223,10 @@ const ListenModal: React.FC<ListenModalProps> = ({
           {surahName} كاملة من أولها
         </button>
         <button
-          onClick={() => onStart(ayahNumber, surahAyahCount, 1, 1)}
+          onClick={() => onStart(rangeStart, surahAyahCount, 1, 1)}
           className="w-full py-2.5 rounded-xl hover:bg-slate-800 transition-colors"
         >
-          من الآية {ayahNumber} إلى آخر السورة
+          من الآية {rangeStart} إلى آخر السورة
         </button>
       </div>
 
@@ -1471,14 +2336,15 @@ const ListenModal: React.FC<ListenModalProps> = ({
 );
 
 /* ============================================================================
- * نافذة التفسير
+ * نافذة التفسير — لآية أو مجموعة آيات محددة
  * ========================================================================== */
 const TafseerModal: React.FC<{
-  ayah: TajweedAyah;
+  ayahs: TajweedAyah[];
+  surahName: string;
   edition: MushafEditionStyle;
   onClose: () => void;
   onListen: () => void;
-}> = ({ ayah, edition, onClose, onListen }) => (
+}> = ({ ayahs, surahName, edition, onClose, onListen }) => (
   <div
     className="fixed inset-0 z-[96] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in"
     onClick={onClose}
@@ -1491,7 +2357,12 @@ const TafseerModal: React.FC<{
       <div className="flex items-center justify-between pb-3 border-b border-slate-800">
         <h3 className="text-base font-bold text-white flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-emerald-400" />
-          <span>التفسير الميسر • آية {ayah.ayahNumber}</span>
+          <span>
+            التفسير الميسر • {surahName}
+            {ayahs.length > 1
+              ? ` (الآيات ${ayahs[0].ayahNumber}—${ayahs[ayahs.length - 1].ayahNumber})`
+              : ` • آية ${ayahs[0]?.ayahNumber}`}
+          </span>
         </h3>
         <button
           onClick={onClose}
@@ -1501,174 +2372,38 @@ const TafseerModal: React.FC<{
         </button>
       </div>
 
-      <div
-        className="p-4 rounded-2xl font-quran text-lg leading-relaxed border-2"
-        style={{
-          backgroundColor: edition.paper,
-          color: edition.ink,
-          borderColor: edition.frame,
-        }}
-      >
-        ﴿{ayah.plainText}﴾
-      </div>
+      {ayahs.map((ayah) => (
+        <div key={`${ayah.surahNumber}-${ayah.ayahNumber}`} className="space-y-2">
+          <div
+            className="p-4 rounded-2xl font-quran text-lg leading-relaxed border-2"
+            style={{
+              backgroundColor: edition.paper,
+              color: edition.ink,
+              borderColor: edition.frame,
+            }}
+          >
+            ﴿{ayah.plainText}﴾
+          </div>
 
-      <div className="space-y-2">
-        <h4 className="text-xs font-bold text-emerald-400">التفسير وبيان المعنى:</h4>
-        {ayah.tafseer ? (
-          <p className="text-sm text-slate-300 leading-relaxed font-sans bg-slate-950 p-4 rounded-2xl border border-slate-800/80">
-            {ayah.tafseer}
-          </p>
-        ) : (
-          <p className="text-sm text-slate-400 leading-relaxed font-sans bg-slate-950 p-4 rounded-2xl border border-slate-800/80 text-center">
-            التفسير الميسر متاح تدريجياً — هذه الصفحة من نص المصحف الكامل المعتمد (رسم عثماني).
-          </p>
-        )}
-      </div>
+          {ayah.tafseer ? (
+            <p className="text-sm text-slate-300 leading-relaxed font-sans bg-slate-950 p-4 rounded-2xl border border-slate-800/80">
+              {ayah.tafseer}
+            </p>
+          ) : (
+            <p className="text-[13px] text-slate-400 leading-relaxed font-sans bg-slate-950 p-4 rounded-2xl border border-slate-800/80 text-center">
+              التفسير الميسر متاح تدريجياً — هذه الصفحة من نص المصحف الكامل المعتمد (رسم عثماني).
+            </p>
+          )}
+        </div>
+      ))}
 
       <button
         onClick={onListen}
         className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-2"
       >
         <Play className="w-4 h-4 fill-current" />
-        <span>الاستماع لتلاوة هذه الآية</span>
+        <span>الاستماع لتلاوة هذه الآيات</span>
       </button>
     </div>
   </div>
-);
-
-/* ============================================================================
- * قائمة الآية الزجاجية المنسقة — تظهر عند النقر أو الضغطة الطويلة
- * ========================================================================== */
-interface AyahContextMenuProps {
-  ayahNumber: number;
-  surahName: string;
-  x: number;
-  y: number;
-  onClose: () => void;
-  onListen: () => void;
-  onTafseer: () => void;
-  onBookmark: () => void;
-  onCopy: () => void;
-  onShare: () => void;
-}
-
-const AyahContextMenu: React.FC<AyahContextMenuProps> = ({
-  ayahNumber,
-  surahName,
-  x,
-  y,
-  onClose,
-  onListen,
-  onTafseer,
-  onBookmark,
-  onCopy,
-  onShare,
-}) => (
-  <>
-    <div className="absolute inset-0 z-20" onClick={onClose} />
-
-    <div
-      dir="rtl"
-      className="absolute z-30 w-[260px] rounded-3xl border shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
-      style={{
-        left: `${x}px`,
-        top: `${y}px`,
-        backgroundColor: 'color-mix(in srgb, var(--noor-n-900) 94%, transparent)',
-        borderColor: 'color-mix(in srgb, var(--noor-p-500) 35%, transparent)',
-        boxShadow: '0 24px 60px rgba(0,0,0,0.55)',
-      }}
-    >
-      <div
-        className="px-4 py-3 border-b flex items-center justify-between"
-        style={{
-          background: `linear-gradient(135deg, color-mix(in srgb, var(--noor-p-500) 30%, transparent), color-mix(in srgb, var(--noor-a-500) 18%, transparent))`,
-          borderColor: 'color-mix(in srgb, var(--noor-p-500) 25%, transparent)',
-        }}
-      >
-        <div>
-          <div className="text-xs font-extrabold" style={{ color: 'var(--noor-n-50)' }}>
-            {surahName} — آية {ayahNumber}
-          </div>
-          <div className="text-[10px] mt-0.5" style={{ color: 'var(--noor-n-400)' }}>
-            اختر ما تريد فعله بالآية
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-xl transition-colors hover:bg-white/10"
-          style={{ color: 'var(--noor-n-300)' }}
-          aria-label="إغلاق"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className="p-2 space-y-1">
-        <ContextMenuAction
-          onClick={onListen}
-          icon={<Play className="w-4 h-4 fill-current" />}
-          label="استماع وتحديد نطاق"
-          hint="تلاوة الآية أو مجموعة آيات بصوت القارئ"
-          color="#10b981"
-        />
-        <ContextMenuAction
-          onClick={onTafseer}
-          icon={<BookOpen className="w-4 h-4" />}
-          label="التفسير والتدبر"
-          hint="عرض التفسير الميسر للآية"
-          color="#14b8a6"
-        />
-        <ContextMenuAction
-          onClick={onBookmark}
-          icon={<Bookmark className="w-4 h-4" />}
-          label="حفظ الآية"
-          hint="إضافة لإشارات الحفظ المرجعية"
-          color="#f59e0b"
-        />
-        <ContextMenuAction
-          onClick={onCopy}
-          icon={<Copy className="w-4 h-4" />}
-          label="نسخ الآية"
-          hint="نسخ نص الآية إلى الحافظة"
-          color="#0ea5e9"
-        />
-        <ContextMenuAction
-          onClick={onShare}
-          icon={<Share2 className="w-4 h-4" />}
-          label="مشاركة الآية"
-          hint="مشاركة الآية مع الأهل والأصدقاء"
-          color="#f43f5e"
-        />
-      </div>
-    </div>
-  </>
-);
-
-/** صف إجراء واحد داخل قائمة الآية */
-const ContextMenuAction: React.FC<{
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-  hint: string;
-  color: string;
-}> = ({ onClick, icon, label, hint, color }) => (
-  <button
-    onClick={onClick}
-    className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-2xl transition-colors hover:bg-white/[0.07] text-right group"
-  >
-    <span
-      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-white shadow-md transition-transform group-hover:scale-105"
-      style={{ backgroundColor: color }}
-    >
-      {icon}
-    </span>
-    <span className="flex-1 min-w-0">
-      <span className="block text-xs font-bold" style={{ color: 'var(--noor-n-100)' }}>
-        {label}
-      </span>
-      <span className="block text-[10px] mt-0.5" style={{ color: 'var(--noor-n-400)' }}>
-        {hint}
-      </span>
-    </span>
-  </button>
 );

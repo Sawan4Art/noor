@@ -5,7 +5,8 @@ import { APP_VERSION } from '../utils/otaUpdate';
 import { AppTheme, ColorMode } from '../utils/themeData';
 
 /**
- * شاشة السبلاش — صفحة دعاء لأبي المرحوم (يوسف: طلبها تكون أول ما التطبيق يفتح)
+ * شاشة السبلاش — صفحة دعاء لأبي المتوفي (يوسف: طلبها تكون أول ما التطبيق يفتح،
+ * 2026-10-29: من «المرحوم» إلى «المتوفي» بطلب المالك)
  * وتنتهي بجملة الصدقة الجارية اللي طلبها المالك حرفياً.
  * بطلب المالك: لا تُغلق إلا بزر «متابعة» فقط — لا إغلاق تلقائي ولا إغلاق باللمس.
  */
@@ -98,7 +99,7 @@ export const SplashDua: React.FC<SplashDuaProps> = ({ onDone, currentTheme }) =>
               className="font-extrabold text-white mb-[max(0.6rem,1.4vh)]"
               style={{ fontSize: 'clamp(1.15rem, 3.2vh, 1.875rem)' }}
             >
-              دعاء لأبي المرحوم
+              دعاء لأبي المتوفي
             </motion.h1>
 
             <motion.p
@@ -139,7 +140,7 @@ export const SplashDua: React.FC<SplashDuaProps> = ({ onDone, currentTheme }) =>
                 fontSize: 'clamp(0.9rem, 2.3vh, 1.125rem)',
               }}
             >
-              هذا التطبيق صدقة جارية على روح المرحوم بأذن الله أبي
+              هذا التطبيق صدقة جارية على روح المتوفي بأذن الله أبي
             </p>
 
             <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500">

@@ -16,6 +16,7 @@ import { UpdateBanner } from './components/UpdateBanner';
 import {
   Coordinates,
   getHijriDate,
+  isRamadanNow,
   computePrayerTimes,
   getNextPrayer,
   CalculationMethod,
@@ -45,18 +46,49 @@ import {
   saveAdhanEnabled,
   getSavedPrayerAlerts,
   savePrayerAlerts,
+  getSavedQiyamEnabled,
+  saveQiyamEnabled,
+  getSavedQiyamMode,
+  saveQiyamMode,
+  getSavedQiyamOffsetMinutes,
+  saveQiyamOffsetMinutes,
+  getSavedSuhoorEnabled,
+  saveSuhoorEnabled,
+  getSavedSuhoorOffsetMinutes,
+  saveSuhoorOffsetMinutes,
+  getSavedIqamahEnabled,
+  saveIqamahEnabled,
+  getSavedIqamahOffsetMinutes,
+  saveIqamahOffsetMinutes,
+  getSavedIqamahVoice,
+  saveIqamahVoice,
+  getSavedMuteEnabled,
+  saveMuteEnabled,
+  getSavedMuteMinutes,
+  saveMuteMinutes,
+  getSavedSalawatEnabled,
+  saveSalawatEnabled,
+  getSavedSalawatIntervalMinutes,
+  saveSalawatIntervalMinutes,
+  getSavedWidgetSettings,
+  saveWidgetSettings,
+  WidgetSettings,
   getPermissionsAsked,
   savePermissionsAsked,
   PrayerAlerts,
+  QiyamMode,
 } from './utils/appSettings';
 import {
   scheduleAdhanAlarms,
   cancelAdhanAlarms,
+  scheduleSalawatAlarms,
+  cancelSalawatAlarms,
   updateWidget,
   requestAllPermissions,
   isNativeApp,
   buildAlarmsFromAlerts,
 } from './utils/nativeBridge';
+import { reverseGeocodeCity } from './utils/geo';
 import { initAndroidBack } from './utils/backButton';
 
 const PRAYER_ORDER: PrayerTimeKey[] = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
@@ -72,8 +104,29 @@ export default function App() {
   const [adhanVoiceId, setAdhanVoiceId] = useState<string>(() => getSavedAdhanVoice().id);
   const [adhanEnabled, setAdhanEnabled] = useState<boolean>(getSavedAdhanEnabled);
   const [prayerAlerts, setPrayerAlerts] = useState<PrayerAlerts>(getSavedPrayerAlerts);
+  // قيام الليل: اختياري — قبل الفجر أو بعد العشاء (بطلب المالك)
+  const [qiyamEnabled, setQiyamEnabled] = useState<boolean>(getSavedQiyamEnabled);
+  const [qiyamMode, setQiyamMode] = useState<QiyamMode>(getSavedQiyamMode);
+  const [qiyamOffsetMinutes, setQiyamOffsetMinutes] = useState<number>(getSavedQiyamOffsetMinutes);
+  // السحور: رمضان فقط + تنبيه اختياري افتراضه قبل الفجر بـ15 دقيقة
+  const [suhoorEnabled, setSuhoorEnabled] = useState<boolean>(getSavedSuhoorEnabled);
+  const [suhoorOffsetMinutes, setSuhoorOffsetMinutes] = useState<number>(getSavedSuhoorOffsetMinutes);
+  // الإقامة: تنبيه صوتي بعد الأذان بمدة محددة بصوت قابل للتغيير
+  const [iqamahEnabled, setIqamahEnabled] = useState<boolean>(getSavedIqamahEnabled);
+  const [iqamahOffsetMinutes, setIqamahOffsetMinutes] = useState<number>(getSavedIqamahOffsetMinutes);
+  const [iqamahVoiceId, setIqamahVoiceId] = useState<string>(() => getSavedIqamahVoice().id);
+  // كتم كل أصوات الهاتف مع الأذان حتى بعد الإقامة بمدة محددة
+  const [muteEnabled, setMuteEnabled] = useState<boolean>(getSavedMuteEnabled);
+  const [muteMinutes, setMuteMinutes] = useState<number>(getSavedMuteMinutes);
+  // تذكير دوري بصوت الصلاة على النبي ﷺ
+  const [salawatEnabled, setSalawatEnabled] = useState<boolean>(getSavedSalawatEnabled);
+  const [salawatIntervalMinutes, setSalawatIntervalMinutes] = useState<number>(getSavedSalawatIntervalMinutes);
+  // تخصيص كامل للويدجت: اللون والحجم والعناصر والشفافية ونظام الوقت
+  const [widgetSettings, setWidgetSettings] = useState<WidgetSettings>(getSavedWidgetSettings);
 
   const [hijriDate, setHijriDate] = useState<string>('');
+  // رمضان المبارك: السحور يعمل في رمضان فقط (بطلب المالك)
+  const [isRamadan, setIsRamadan] = useState<boolean>(() => isRamadanNow());
 
   // Theme & Color Mode State
   const [currentTheme, setCurrentTheme] = useState<AppTheme>(getSavedTheme);
@@ -92,6 +145,7 @@ export default function App() {
   useEffect(() => {
     const h = getHijriDate(new Date());
     setHijriDate(h.formatted);
+    setIsRamadan(isRamadanNow());
   }, []);
 
   // الثيم الشامل: توليد طيف الألوان وحقنه في متغيرات CSS مع كل تغيير
@@ -146,6 +200,71 @@ export default function App() {
     savePrayerAlerts(alerts);
   }, []);
 
+  const handleSetQiyamEnabled = useCallback((on: boolean) => {
+    setQiyamEnabled(on);
+    saveQiyamEnabled(on);
+  }, []);
+
+  const handleSetQiyamMode = useCallback((m: QiyamMode) => {
+    setQiyamMode(m);
+    saveQiyamMode(m);
+  }, []);
+
+  const handleSetQiyamOffset = useCallback((m: number) => {
+    setQiyamOffsetMinutes(m);
+    saveQiyamOffsetMinutes(m);
+  }, []);
+
+  const handleSetSuhoorEnabled = useCallback((on: boolean) => {
+    setSuhoorEnabled(on);
+    saveSuhoorEnabled(on);
+  }, []);
+
+  const handleSetSuhoorOffset = useCallback((m: number) => {
+    setSuhoorOffsetMinutes(m);
+    saveSuhoorOffsetMinutes(m);
+  }, []);
+
+  const handleSetIqamahEnabled = useCallback((on: boolean) => {
+    setIqamahEnabled(on);
+    saveIqamahEnabled(on);
+  }, []);
+
+  const handleSetIqamahOffset = useCallback((m: number) => {
+    setIqamahOffsetMinutes(m);
+    saveIqamahOffsetMinutes(m);
+  }, []);
+
+  const handleSetIqamahVoiceId = useCallback((id: string) => {
+    setIqamahVoiceId(id);
+    saveIqamahVoice(id);
+  }, []);
+
+  const handleSetMuteEnabled = useCallback((on: boolean) => {
+    setMuteEnabled(on);
+    saveMuteEnabled(on);
+  }, []);
+
+  const handleSetMuteMinutes = useCallback((m: number) => {
+    setMuteMinutes(m);
+    saveMuteMinutes(m);
+  }, []);
+
+  const handleSetSalawatEnabled = useCallback((on: boolean) => {
+    setSalawatEnabled(on);
+    saveSalawatEnabled(on);
+  }, []);
+
+  const handleSetSalawatInterval = useCallback((m: number) => {
+    setSalawatIntervalMinutes(m);
+    saveSalawatIntervalMinutes(m);
+  }, []);
+
+  const handleSetWidgetSettings = useCallback((s: WidgetSettings) => {
+    setWidgetSettings(s);
+    saveWidgetSettings(s);
+  }, []);
+
   // ===== أذونات أول تشغيل: تطلب تلقائياً بعد زر «متابعة» في السبلاش =====
   const permissionsRequestedRef = useRef(false);
   useEffect(() => {
@@ -159,15 +278,20 @@ export default function App() {
     savePermissionsAsked();
     // طلب كل الأذونات: الموقع للمواقيت + الإشعارات والمنبهات للأذان في الخلفية
     void requestAllPermissions().then(() => {
-      // بعد منح الموقع: حدّث الموقع تلقائياً لو ما زال الافتراضي
+      // بعد منح الموقع: حدّث الموقع تلقائياً + اجلب اسم المدينة (إصلاح «المدينة لا تظهر»)
       const saved = getSavedLocation();
       if (saved.city === 'القاهرة، مصر' && isNativeApp()) {
         navigator.geolocation?.getCurrentPosition(
           (pos) => {
-            handleSetCoordinates({
-              city: 'موقعي الحالي',
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            handleSetCoordinates({ city: 'موقعي الحالي…', latitude: lat, longitude: lng });
+            void reverseGeocodeCity(lat, lng).then((geo) => {
+              handleSetCoordinates({
+                city: geo.country && !geo.city.includes(geo.country) ? `${geo.city}، ${geo.country}` : geo.city,
+                latitude: lat,
+                longitude: lng,
+              });
             });
           },
           () => {
@@ -179,8 +303,8 @@ export default function App() {
     });
   }, [showSplash, handleSetCoordinates]);
 
-  // ===== جدولة الأذان النيتِفية + تحديث الويدجت عند تغير الإعدادات/اليوم =====
-  const scheduleKey = `${coordinates.latitude},${coordinates.longitude}|${method}|${isHanafi}|${adhanVoiceId}|${adhanEnabled}|${JSON.stringify(prayerAlerts)}|${minuteTick}`;
+  // ===== جدولة الأذان/الإقامة/السحور/القيام/الكتم + الويدجت عند تغير الإعدادات/اليوم =====
+  const scheduleKey = `${coordinates.latitude},${coordinates.longitude}|${coordinates.city}|${method}|${isHanafi}|${adhanVoiceId}|${adhanEnabled}|${JSON.stringify(prayerAlerts)}|${qiyamEnabled}|${qiyamMode}|${qiyamOffsetMinutes}|${suhoorEnabled}|${suhoorOffsetMinutes}|${iqamahEnabled}|${iqamahOffsetMinutes}|${iqamahVoiceId}|${muteEnabled}|${muteMinutes}|${isRamadan}|${JSON.stringify(widgetSettings)}|${minuteTick}`;
   useEffect(() => {
     if (showSplash) return;
     const now = new Date();
@@ -201,11 +325,13 @@ export default function App() {
       isHanafi,
     );
 
+    const nowMs = now.getTime();
+
     // الصلوات القادمة: المتبقي اليوم + صلوات الغد (لضمان الأذان حتى لو التطبيق ما فتحش)
     const upcoming: Array<{ key: string; name: string; ts: number }> = [];
     for (const key of PRAYER_ORDER) {
       const t = todayTimes.rawTimes[key].getTime();
-      if (t > now.getTime()) {
+      if (t > nowMs) {
         upcoming.push({ key, name: PRAYER_NAMES_AR[key], ts: t });
       }
     }
@@ -213,33 +339,73 @@ export default function App() {
       upcoming.push({ key, name: PRAYER_NAMES_AR[key], ts: tomorrowTimes.rawTimes[key].getTime() });
     }
 
-    // جدولة منبهات الأذان (تعمل والشاشة مطفية)
-    if (adhanEnabled) {
+    // تنبيه قيام الليل (اختياري): قبل الفجر أو بعد العشاء — بطلب المالك
+    if (qiyamEnabled) {
+      const qiyamOf = (base: ReturnType<typeof computePrayerTimes>) =>
+        qiyamMode === 'before_fajr'
+          ? base.rawTimes.fajr.getTime() - qiyamOffsetMinutes * 60000
+          : base.rawTimes.isha.getTime() + qiyamOffsetMinutes * 60000;
+      const qiyamToday = qiyamOf(todayTimes);
+      const qiyamTomorrow = qiyamOf(tomorrowTimes);
+      const qiyamTs = qiyamToday > nowMs ? qiyamToday : qiyamTomorrow;
+      upcoming.push({ key: 'qiyam', name: 'قيام الليل', ts: qiyamTs });
+    }
+
+    // تنبيه السحور (اختياري — رمضان فقط): قبل أذان الفجر بالمدة المحددة (افتراضي 15)
+    if (isRamadan && suhoorEnabled) {
+      const suhoorToday = todayTimes.rawTimes.fajr.getTime() - suhoorOffsetMinutes * 60000;
+      const suhoorTomorrow = tomorrowTimes.rawTimes.fajr.getTime() - suhoorOffsetMinutes * 60000;
+      const suhoorTs = suhoorToday > nowMs ? suhoorToday : suhoorTomorrow;
+      upcoming.push({ key: 'suhoor', name: 'السحور', ts: suhoorTs });
+    }
+
+    // جدولة منبهات الأذان + الإقامة + السحور + القيام + خطة الكتم (تعمل والشاشة مطفية)
+    if (adhanEnabled || qiyamEnabled || (isRamadan && suhoorEnabled)) {
       const alarms = buildAlarmsFromAlerts(upcoming, prayerAlerts);
-      void scheduleAdhanAlarms(alarms, adhanVoiceId, coordinates.city);
+      void scheduleAdhanAlarms(alarms, adhanVoiceId, coordinates.city, {
+        iqamahEnabled,
+        iqamahOffsetMinutes,
+        iqamahVoice: iqamahVoiceId,
+        muteEnabled,
+        muteMinutes,
+      });
     } else {
       void cancelAdhanAlarms();
     }
 
-    // تحديث ويدجت الشاشة الرئيسية ببيانات اليوم
+    // تذكير الصلاة على النبي ﷺ الدوري (اختياري قابل للإلغاء)
+    if (salawatEnabled) {
+      void scheduleSalawatAlarms(salawatIntervalMinutes);
+    } else {
+      void cancelSalawatAlarms();
+    }
+
+    // تحديث ويدجت الشاشة الرئيسية + حفظ الموقع/الطريقة لتحسب الويدجت مواقيتها بنفسها
     const next = getNextPrayer(todayTimes, now);
-    void updateWidget({
-      city: coordinates.city,
-      hijri: hijriDate,
-      times: Object.fromEntries(PRAYER_ORDER.map((k) => [k, todayTimes[k]])),
-      order: PRAYER_ORDER.map((k) => ({
-        key: k,
-        name: PRAYER_NAMES_AR[k],
-        time: todayTimes[k],
-      })),
-      next: {
-        key: next.name,
-        name: next.arabicName,
-        ts: next.targetDate.getTime(),
-        time: next.timeStr,
+    void updateWidget(
+      {
+        city: coordinates.city,
+        hijri: hijriDate,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        method,
+        hanafi: isHanafi,
+        times: Object.fromEntries(PRAYER_ORDER.map((k) => [k, todayTimes[k]])),
+        order: PRAYER_ORDER.map((k) => ({
+          key: k,
+          name: PRAYER_NAMES_AR[k],
+          time: todayTimes[k],
+        })),
+        next: {
+          key: next.name,
+          name: next.arabicName,
+          ts: next.targetDate.getTime(),
+          time: next.timeStr,
+        },
+        tzOffsetMinutes: -now.getTimezoneOffset(),
       },
-      tzOffsetMinutes: -now.getTimezoneOffset(),
-    });
+      widgetSettings,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleKey, showSplash]);
 
@@ -269,7 +435,7 @@ export default function App() {
           : `bg-gradient-to-br ${currentTheme.bgGradientLight} text-slate-900`
       }`}
     >
-      {/* شاشة السبلاش — دعاء لأبي المرحوم + الصدقة الجارية */}
+      {/* شاشة السبلاش — دعاء لأبي المتوفي + الصدقة الجارية */}
       {showSplash && (
         <SplashDua
           onDone={() => setShowSplash(false)}
@@ -330,6 +496,33 @@ export default function App() {
             setAdhanEnabled={handleSetAdhanEnabled}
             prayerAlerts={prayerAlerts}
             setPrayerAlerts={handleSetPrayerAlerts}
+            qiyamEnabled={qiyamEnabled}
+            setQiyamEnabled={handleSetQiyamEnabled}
+            qiyamMode={qiyamMode}
+            setQiyamMode={handleSetQiyamMode}
+            qiyamOffsetMinutes={qiyamOffsetMinutes}
+            setQiyamOffsetMinutes={handleSetQiyamOffset}
+            suhoorEnabled={suhoorEnabled}
+            setSuhoorEnabled={handleSetSuhoorEnabled}
+            suhoorOffsetMinutes={suhoorOffsetMinutes}
+            setSuhoorOffsetMinutes={handleSetSuhoorOffset}
+            iqamahEnabled={iqamahEnabled}
+            setIqamahEnabled={handleSetIqamahEnabled}
+            iqamahOffsetMinutes={iqamahOffsetMinutes}
+            setIqamahOffsetMinutes={handleSetIqamahOffset}
+            iqamahVoiceId={iqamahVoiceId}
+            setIqamahVoiceId={handleSetIqamahVoiceId}
+            muteEnabled={muteEnabled}
+            setMuteEnabled={handleSetMuteEnabled}
+            muteMinutes={muteMinutes}
+            setMuteMinutes={handleSetMuteMinutes}
+            salawatEnabled={salawatEnabled}
+            setSalawatEnabled={handleSetSalawatEnabled}
+            salawatIntervalMinutes={salawatIntervalMinutes}
+            setSalawatIntervalMinutes={handleSetSalawatInterval}
+            widgetSettings={widgetSettings}
+            setWidgetSettings={handleSetWidgetSettings}
+            isRamadan={isRamadan}
           />
         )}
       </main>
@@ -349,7 +542,7 @@ export default function App() {
       >
         <div className="max-w-7xl mx-auto px-4 space-y-1.5">
           <p className="font-bold" style={{ color: currentTheme.accentColor }}>
-            هذا التطبيق صدقة جارية على روح المرحوم بأذن الله أبي
+            هذا التطبيق صدقة جارية على روح المتوفي بأذن الله أبي
           </p>
           <div className="flex items-center justify-center gap-2 text-[11px]">
             <span

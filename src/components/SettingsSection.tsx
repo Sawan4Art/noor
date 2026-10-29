@@ -33,6 +33,7 @@ import {
   Layers,
   Wifi,
   CircleCheck,
+  MoonStar,
 } from 'lucide-react';
 import { APP_THEMES, AppTheme, ColorMode } from '../utils/themeData';
 import {
@@ -58,6 +59,30 @@ import {
   getAdhanAudioSrc,
   PrayerAlerts,
   PrayerAlertMode,
+  saveQiyamEnabled,
+  saveQiyamMode,
+  saveQiyamOffsetMinutes,
+  QiyamMode,
+  QIYAM_OFFSET_OPTIONS,
+  saveSuhoorEnabled,
+  saveSuhoorOffsetMinutes,
+  SUHOOR_OFFSET_OPTIONS,
+  saveIqamahEnabled,
+  saveIqamahOffsetMinutes,
+  saveIqamahVoice,
+  IQAMAH_OFFSET_OPTIONS,
+  IQAMAH_VOICES,
+  getIqamahAudioSrc,
+  saveMuteEnabled,
+  saveMuteMinutes,
+  MUTE_MINUTES_OPTIONS,
+  saveSalawatEnabled,
+  saveSalawatIntervalMinutes,
+  SALAWAT_INTERVAL_OPTIONS,
+  WidgetSettings,
+  WIDGET_ACCENTS,
+  WIDGET_TEXT_SIZES,
+  WIDGET_BG_OPACITY_OPTIONS,
 } from '../utils/appSettings';
 import { AYAH_RECITERS, getAyahAudioUrl } from '../utils/quranTajweedData';
 import {
@@ -84,9 +109,16 @@ import {
 import { LocationPickerModal } from './LocationPickerModal';
 import {
   requestAllPermissions,
+  checkPermissions,
   updateWidget as pushWidgetUpdate,
   isNativeApp,
+  openAppSettings,
+  openNotificationSettings,
+  openExactAlarmSettings,
+  isDndAccessGranted,
+  openDndAccessSettings,
 } from '../utils/nativeBridge';
+import { reverseGeocodeCity } from '../utils/geo';
 import { registerBackHandler } from '../utils/backButton';
 
 /**
@@ -126,6 +158,33 @@ interface SettingsSectionProps {
   setAdhanEnabled: (on: boolean) => void;
   prayerAlerts: PrayerAlerts;
   setPrayerAlerts: (alerts: PrayerAlerts) => void;
+  qiyamEnabled: boolean;
+  setQiyamEnabled: (on: boolean) => void;
+  qiyamMode: QiyamMode;
+  setQiyamMode: (m: QiyamMode) => void;
+  qiyamOffsetMinutes: number;
+  setQiyamOffsetMinutes: (m: number) => void;
+  suhoorEnabled: boolean;
+  setSuhoorEnabled: (on: boolean) => void;
+  suhoorOffsetMinutes: number;
+  setSuhoorOffsetMinutes: (m: number) => void;
+  iqamahEnabled: boolean;
+  setIqamahEnabled: (on: boolean) => void;
+  iqamahOffsetMinutes: number;
+  setIqamahOffsetMinutes: (m: number) => void;
+  iqamahVoiceId: string;
+  setIqamahVoiceId: (id: string) => void;
+  muteEnabled: boolean;
+  setMuteEnabled: (on: boolean) => void;
+  muteMinutes: number;
+  setMuteMinutes: (m: number) => void;
+  salawatEnabled: boolean;
+  setSalawatEnabled: (on: boolean) => void;
+  salawatIntervalMinutes: number;
+  setSalawatIntervalMinutes: (m: number) => void;
+  widgetSettings: WidgetSettings;
+  setWidgetSettings: (s: WidgetSettings) => void;
+  isRamadan: boolean;
 }
 
 /** رأس صفحة فرعية مع زر رجوع */
@@ -232,6 +291,31 @@ export const SettingsSection: React.FC<SettingsSectionProps> = (props) => {
           setAdhanEnabled={props.setAdhanEnabled}
           prayerAlerts={props.prayerAlerts}
           setPrayerAlerts={props.setPrayerAlerts}
+          qiyamEnabled={props.qiyamEnabled}
+          setQiyamEnabled={props.setQiyamEnabled}
+          qiyamMode={props.qiyamMode}
+          setQiyamMode={props.setQiyamMode}
+          qiyamOffsetMinutes={props.qiyamOffsetMinutes}
+          setQiyamOffsetMinutes={props.setQiyamOffsetMinutes}
+          suhoorEnabled={props.suhoorEnabled}
+          setSuhoorEnabled={props.setSuhoorEnabled}
+          suhoorOffsetMinutes={props.suhoorOffsetMinutes}
+          setSuhoorOffsetMinutes={props.setSuhoorOffsetMinutes}
+          iqamahEnabled={props.iqamahEnabled}
+          setIqamahEnabled={props.setIqamahEnabled}
+          iqamahOffsetMinutes={props.iqamahOffsetMinutes}
+          setIqamahOffsetMinutes={props.setIqamahOffsetMinutes}
+          iqamahVoiceId={props.iqamahVoiceId}
+          setIqamahVoiceId={props.setIqamahVoiceId}
+          muteEnabled={props.muteEnabled}
+          setMuteEnabled={props.setMuteEnabled}
+          muteMinutes={props.muteMinutes}
+          setMuteMinutes={props.setMuteMinutes}
+          salawatEnabled={props.salawatEnabled}
+          setSalawatEnabled={props.setSalawatEnabled}
+          salawatIntervalMinutes={props.salawatIntervalMinutes}
+          setSalawatIntervalMinutes={props.setSalawatIntervalMinutes}
+          isRamadan={props.isRamadan}
         />
       )}
       {page === 'mushaf' && <MushafPage onBack={goHome} />}
@@ -245,7 +329,14 @@ export const SettingsSection: React.FC<SettingsSectionProps> = (props) => {
           setColorMode={props.setColorMode}
         />
       )}
-      {page === 'widgets' && <WidgetsPage onBack={goHome} coordinates={props.coordinates} />}
+      {page === 'widgets' && (
+        <WidgetsPage
+          onBack={goHome}
+          coordinates={props.coordinates}
+          widgetSettings={props.widgetSettings}
+          setWidgetSettings={props.setWidgetSettings}
+        />
+      )}
       {page === 'updates' && <UpdatesPage onBack={goHome} />}
       {page === 'feedback' && <FeedbackPage onBack={goHome} />}
       {page === 'about' && <AboutPage onBack={goHome} />}
@@ -439,11 +530,17 @@ const LocationPage: React.FC<{
           maximumAge: 60000,
         });
       });
-      const coords: Coordinates = {
-        city: 'موقعي الحالي',
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-      };
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      // عرض مؤقت ثم استبداله باسم المدينة الحقيقي (إصلاح «اسم المدينة لا يظهر»)
+      setCoordinates({ city: 'موقعي الحالي…', latitude: lat, longitude: lng });
+      saveLocation({ city: 'موقعي الحالي…', latitude: lat, longitude: lng });
+      const geo = await reverseGeocodeCity(lat, lng);
+      const city =
+        geo.country && !geo.city.includes(geo.country)
+          ? `${geo.city}، ${geo.country}`
+          : geo.city;
+      const coords: Coordinates = { city, latitude: lat, longitude: lng };
       setCoordinates(coords);
       saveLocation(coords);
     } catch (e) {
@@ -722,7 +819,8 @@ const TimesPage: React.FC<{
 };
 
 /* ============================================================================
- * صفحة الأذان: الأصوات + التنبيهات + الأذونات
+ * صفحة الأذان: الأصوات + الإقامة + الكتم + السحور + القيام + الصلاة على النبي
+ * + الأذونات بأزرار فتح إعدادات النظام (إصلاح زر الأذونات — 2026-10-29)
  * ========================================================================== */
 const AdhanPage: React.FC<{
   onBack: () => void;
@@ -732,6 +830,31 @@ const AdhanPage: React.FC<{
   setAdhanEnabled: (on: boolean) => void;
   prayerAlerts: PrayerAlerts;
   setPrayerAlerts: (alerts: PrayerAlerts) => void;
+  qiyamEnabled: boolean;
+  setQiyamEnabled: (on: boolean) => void;
+  qiyamMode: QiyamMode;
+  setQiyamMode: (m: QiyamMode) => void;
+  qiyamOffsetMinutes: number;
+  setQiyamOffsetMinutes: (m: number) => void;
+  suhoorEnabled: boolean;
+  setSuhoorEnabled: (on: boolean) => void;
+  suhoorOffsetMinutes: number;
+  setSuhoorOffsetMinutes: (m: number) => void;
+  iqamahEnabled: boolean;
+  setIqamahEnabled: (on: boolean) => void;
+  iqamahOffsetMinutes: number;
+  setIqamahOffsetMinutes: (m: number) => void;
+  iqamahVoiceId: string;
+  setIqamahVoiceId: (id: string) => void;
+  muteEnabled: boolean;
+  setMuteEnabled: (on: boolean) => void;
+  muteMinutes: number;
+  setMuteMinutes: (m: number) => void;
+  salawatEnabled: boolean;
+  setSalawatEnabled: (on: boolean) => void;
+  salawatIntervalMinutes: number;
+  setSalawatIntervalMinutes: (m: number) => void;
+  isRamadan: boolean;
 }> = ({
   onBack,
   adhanVoiceId,
@@ -740,25 +863,57 @@ const AdhanPage: React.FC<{
   setAdhanEnabled,
   prayerAlerts,
   setPrayerAlerts,
+  qiyamEnabled,
+  setQiyamEnabled,
+  qiyamMode,
+  setQiyamMode,
+  qiyamOffsetMinutes,
+  setQiyamOffsetMinutes,
+  suhoorEnabled,
+  setSuhoorEnabled,
+  suhoorOffsetMinutes,
+  setSuhoorOffsetMinutes,
+  iqamahEnabled,
+  setIqamahEnabled,
+  iqamahOffsetMinutes,
+  setIqamahOffsetMinutes,
+  iqamahVoiceId,
+  setIqamahVoiceId,
+  muteEnabled,
+  setMuteEnabled,
+  muteMinutes,
+  setMuteMinutes,
+  salawatEnabled,
+  setSalawatEnabled,
+  salawatIntervalMinutes,
+  setSalawatIntervalMinutes,
+  isRamadan,
 }) => {
   const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [iqamahPreviewPlaying, setIqamahPreviewPlaying] = useState(false);
   const [permissions, setPermissions] = useState<{
     location: boolean;
     notifications: boolean;
     exactAlarms: boolean;
+    dndAccess: boolean;
   } | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const refreshPermissions = useCallback(async () => {
+    const status = await checkPermissions();
+    setPermissions(status);
+  }, []);
+
   useEffect(() => {
-    void requestAllPermissions().then(setPermissions);
+    void refreshPermissions();
     return () => {
       audioRef.current?.pause();
     };
-  }, []);
+  }, [refreshPermissions]);
 
   const handleRequestPermissions = async () => {
-    const result = await requestAllPermissions();
-    setPermissions(result);
+    await requestAllPermissions();
+    await refreshPermissions();
   };
 
   const togglePreview = () => {
@@ -775,6 +930,21 @@ const AdhanPage: React.FC<{
       audioRef.current.onerror = () => setPreviewPlaying(false);
       void audioRef.current.play().catch(() => setPreviewPlaying(false));
       setPreviewPlaying(true);
+    }
+  };
+
+  /** معاينة صوت الإقامة المختار */
+  const toggleIqamahPreview = () => {
+    if (iqamahPreviewPlaying) {
+      audioRef.current?.pause();
+      setIqamahPreviewPlaying(false);
+    } else {
+      if (!audioRef.current) audioRef.current = new Audio();
+      audioRef.current.src = getIqamahAudioSrc(iqamahVoiceId);
+      audioRef.current.onended = () => setIqamahPreviewPlaying(false);
+      audioRef.current.onerror = () => setIqamahPreviewPlaying(false);
+      void audioRef.current.play().catch(() => setIqamahPreviewPlaying(false));
+      setIqamahPreviewPlaying(true);
     }
   };
 
@@ -853,7 +1023,7 @@ const AdhanPage: React.FC<{
           </button>
         </div>
 
-        {/* الأذونات */}
+        {/* الأذونات — بأزرار فتح إعدادات النظام المباشرة (إصلاح زر فتح الأذونات) */}
         <Card title="أذونات التطبيق">
           {!isNativeApp() ? (
             <p className="text-[11px] leading-relaxed" style={{ color: 'var(--noor-n-400)' }}>
@@ -861,15 +1031,16 @@ const AdhanPage: React.FC<{
             </p>
           ) : (
             <>
-              <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="grid grid-cols-4 gap-2 text-center">
                 {[
                   { label: 'الموقع', ok: permissions?.location },
                   { label: 'الإشعارات', ok: permissions?.notifications },
                   { label: 'منبهات دقيقة', ok: permissions?.exactAlarms },
+                  { label: 'عدم الإزعاج', ok: permissions?.dndAccess },
                 ].map((p) => (
                   <div
                     key={p.label}
-                    className="p-3 rounded-2xl border space-y-1.5"
+                    className="p-2.5 rounded-2xl border space-y-1"
                     style={{
                       borderColor:
                         p.ok === true
@@ -886,10 +1057,10 @@ const AdhanPage: React.FC<{
                     ) : (
                       <ShieldCheck className="w-5 h-5 mx-auto" style={{ color: 'var(--noor-n-400)' }} />
                     )}
-                    <p className="text-[10px] font-bold" style={{ color: 'var(--noor-n-200)' }}>
+                    <p className="text-[9px] font-bold" style={{ color: 'var(--noor-n-200)' }}>
                       {p.label}
                     </p>
-                    <p className="text-[9px]" style={{ color: 'var(--noor-n-500)' }}>
+                    <p className="text-[8px]" style={{ color: 'var(--noor-n-500)' }}>
                       {p.ok === true ? 'ممنوح' : p.ok === false ? 'غير ممنوح' : '…'}
                     </p>
                   </div>
@@ -904,11 +1075,46 @@ const AdhanPage: React.FC<{
                 }}
               >
                 <ShieldCheck className="w-4 h-4" />
-                <span>طلب كل الأذونات الآن</span>
+                <span>طلب كل الأذونات</span>
               </button>
+              {(permissions?.location === false ||
+                permissions?.notifications === false ||
+                permissions?.exactAlarms === false ||
+                permissions?.dndAccess === false) && (
+                <div className="grid grid-cols-3 gap-2">
+                  {permissions?.notifications === false && (
+                    <button
+                      onClick={() => void openNotificationSettings().then(refreshPermissions)}
+                      className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-2xl text-[10px] font-bold border transition-colors hover:bg-white/5"
+                      style={{ borderColor: 'rgba(244,63,94,0.4)', color: '#fda4af' }}
+                    >
+                      <Bell className="w-4 h-4" />
+                      <span>فتح إشعارات التطبيق</span>
+                    </button>
+                  )}
+                  {permissions?.exactAlarms === false && (
+                    <button
+                      onClick={() => void openExactAlarmSettings().then(refreshPermissions)}
+                      className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-2xl text-[10px] font-bold border transition-colors hover:bg-white/5"
+                      style={{ borderColor: 'rgba(244,63,94,0.4)', color: '#fda4af' }}
+                    >
+                      <Clock className="w-4 h-4" />
+                      <span>فتح المنبهات الدقيقة</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => void openAppSettings().then(refreshPermissions)}
+                    className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-2xl text-[10px] font-bold border transition-colors hover:bg-white/5"
+                    style={{ borderColor: 'color-mix(in srgb, var(--noor-p-500) 35%, transparent)', color: 'var(--noor-n-200)' }}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span>كل إعدادات التطبيق</span>
+                  </button>
+                </div>
+              )}
               <p className="text-[10px] leading-relaxed" style={{ color: 'var(--noor-n-500)' }}>
-                الموقع لحساب المواقيت بدقة لمدينتك، والإشعارات والمنبهات الدقيقة ليعمل الأذان
-                في وقته حتى والشاشة مطفية.
+                الموقع لحساب المواقيت، والإشعارات والمنبهات الدقيقة ليعمل الأذان في وقته
+                حتى والشاشة مطفية، وعدم الإزعاج لكتم أصوات الهاتف مع الأذان.
               </p>
             </>
           )}
@@ -1005,6 +1211,509 @@ const AdhanPage: React.FC<{
               );
             })}
           </div>
+        </Card>
+
+        {/* تنبيه قيام الليل (اختياري): قبل الفجر أو بعد العشاء — بطلب المالك */}
+        <Card title="تنبيه قيام الليل (اختياري)">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div
+                className="w-11 h-11 rounded-2xl flex items-center justify-center text-white"
+                style={{
+                  background: qiyamEnabled
+                    ? 'linear-gradient(135deg, #4338ca, #6366f1)'
+                    : '#475569',
+                }}
+              >
+                <MoonStar className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold" style={{ color: 'var(--noor-n-50)' }}>
+                  تنبيه استيقاظ لقيام الليل
+                </p>
+                <p className="text-[11px]" style={{ color: 'var(--noor-n-400)' }}>
+                  «أفضل الصلاة بعد الفريضة صلاة الليل»
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const next = !qiyamEnabled;
+                setQiyamEnabled(next);
+                saveQiyamEnabled(next);
+              }}
+              className="relative w-14 h-8 rounded-full transition-colors shrink-0"
+              style={{ backgroundColor: qiyamEnabled ? '#6366f1' : '#334155' }}
+              role="switch"
+              aria-checked={qiyamEnabled}
+            >
+              <span
+                className="absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-all"
+                style={{ right: qiyamEnabled ? '0.25rem' : '1.75rem' }}
+              />
+            </button>
+          </div>
+
+          {qiyamEnabled && (
+            <div className="space-y-3 animate-in fade-in">
+              <div>
+                <span className="text-[11px]" style={{ color: 'var(--noor-n-300)' }}>
+                  متى ينبهك لقيام الليل؟
+                </span>
+                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                  {(
+                    [
+                      ['before_fajr', 'قبل أذان الفجر'],
+                      ['after_isha', 'بعد صلاة العشاء'],
+                    ] as Array<[QiyamMode, string]>
+                  ).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      onClick={() => {
+                        setQiyamMode(mode);
+                        saveQiyamMode(mode);
+                      }}
+                      className={`py-2.5 rounded-2xl text-sm font-bold border transition-colors ${
+                        qiyamMode === mode ? 'text-white' : ''
+                      }`}
+                      style={{
+                        borderColor:
+                          qiyamMode === mode
+                            ? '#6366f1'
+                            : 'color-mix(in srgb, var(--noor-p-500) 18%, transparent)',
+                        backgroundColor:
+                          qiyamMode === mode ? 'rgba(99,102,241,0.18)' : 'transparent',
+                        color: qiyamMode === mode ? undefined : 'var(--noor-n-300)',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[11px]" style={{ color: 'var(--noor-n-300)' }}>
+                  {qiyamMode === 'before_fajr'
+                    ? 'كم دقيقة قبل أذان الفجر؟'
+                    : 'كم دقيقة بعد صلاة العشاء؟'}
+                </span>
+                <div className="grid grid-cols-5 gap-1.5 mt-1.5">
+                  {QIYAM_OFFSET_OPTIONS.map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        setQiyamOffsetMinutes(m);
+                        saveQiyamOffsetMinutes(m);
+                      }}
+                      className={`py-2.5 rounded-2xl text-xs font-bold border transition-colors ${
+                        qiyamOffsetMinutes === m ? 'text-white' : ''
+                      }`}
+                      style={{
+                        borderColor:
+                          qiyamOffsetMinutes === m
+                            ? '#6366f1'
+                            : 'color-mix(in srgb, var(--noor-p-500) 18%, transparent)',
+                        backgroundColor:
+                          qiyamOffsetMinutes === m ? 'rgba(99,102,241,0.18)' : 'transparent',
+                        color: qiyamOffsetMinutes === m ? undefined : 'var(--noor-n-300)',
+                      }}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* السحور — رمضان فقط (أُلغي الإمساك بطلب المالك) */}
+        {isRamadan && (
+          <Card title="تنبيه السحور (رمضان)">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3.5">
+                <div
+                  className="w-11 h-11 rounded-2xl flex items-center justify-center text-white"
+                  style={{
+                    background: suhoorEnabled
+                      ? 'linear-gradient(135deg, #b45309, #f59e0b)'
+                      : '#475569',
+                  }}
+                >
+                  <BellRing className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-extrabold" style={{ color: 'var(--noor-n-50)' }}>
+                    تنبيه السحور
+                  </p>
+                  <p className="text-[11px]" style={{ color: 'var(--noor-n-400)' }}>
+                    «تسحروا فإن في السحور بركة» — يعمل في رمضان فقط
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const next = !suhoorEnabled;
+                  setSuhoorEnabled(next);
+                  saveSuhoorEnabled(next);
+                }}
+                className="relative w-14 h-8 rounded-full transition-colors shrink-0"
+                style={{ backgroundColor: suhoorEnabled ? '#f59e0b' : '#334155' }}
+                role="switch"
+                aria-checked={suhoorEnabled}
+              >
+                <span
+                  className="absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-all"
+                  style={{ right: suhoorEnabled ? '0.25rem' : '1.75rem' }}
+                />
+              </button>
+            </div>
+
+            {suhoorEnabled && (
+              <div className="space-y-1.5 animate-in fade-in">
+                <span className="text-[11px]" style={{ color: 'var(--noor-n-300)' }}>
+                  قبل أذان الفجر بكم دقيقة؟ (افتراضي 15 دقيقة)
+                </span>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {SUHOOR_OFFSET_OPTIONS.map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        setSuhoorOffsetMinutes(m);
+                        saveSuhoorOffsetMinutes(m);
+                      }}
+                      className={`py-2.5 rounded-2xl text-xs font-bold border transition-colors ${
+                        suhoorOffsetMinutes === m ? 'text-white' : ''
+                      }`}
+                      style={{
+                        borderColor:
+                          suhoorOffsetMinutes === m
+                            ? '#f59e0b'
+                            : 'color-mix(in srgb, var(--noor-p-500) 18%, transparent)',
+                        backgroundColor:
+                          suhoorOffsetMinutes === m ? 'rgba(245,158,11,0.16)' : 'transparent',
+                        color: suhoorOffsetMinutes === m ? undefined : 'var(--noor-n-300)',
+                      }}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* الإقامة: صوت إقامة بعد الأذان بمدة محددة + صوت قابل للتغيير */}
+        <Card title="الإقامة">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div
+                className="w-11 h-11 rounded-2xl flex items-center justify-center text-white"
+                style={{
+                  background: iqamahEnabled
+                    ? 'linear-gradient(135deg, #047857, #10b981)'
+                    : '#475569',
+                }}
+              >
+                <BellRing className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold" style={{ color: 'var(--noor-n-50)' }}>
+                  أذان الإقامة
+                </p>
+                <p className="text-[11px]" style={{ color: 'var(--noor-n-400)' }}>
+                  يشتغل بعد الأذان بالمدة المحددة — «قد قامت الصلاة»
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const next = !iqamahEnabled;
+                setIqamahEnabled(next);
+                saveIqamahEnabled(next);
+              }}
+              className="relative w-14 h-8 rounded-full transition-colors shrink-0"
+              style={{ backgroundColor: iqamahEnabled ? '#10b981' : '#334155' }}
+              role="switch"
+              aria-checked={iqamahEnabled}
+            >
+              <span
+                className="absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-all"
+                style={{ right: iqamahEnabled ? '0.25rem' : '1.75rem' }}
+              />
+            </button>
+          </div>
+
+          {iqamahEnabled && (
+            <div className="space-y-3 animate-in fade-in">
+              <div>
+                <span className="text-[11px]" style={{ color: 'var(--noor-n-300)' }}>
+                  بعد الأذان بكم دقيقة؟
+                </span>
+                <div className="grid grid-cols-5 gap-1.5 mt-1.5">
+                  {IQAMAH_OFFSET_OPTIONS.map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        setIqamahOffsetMinutes(m);
+                        saveIqamahOffsetMinutes(m);
+                      }}
+                      className={`py-2.5 rounded-2xl text-xs font-bold border transition-colors ${
+                        iqamahOffsetMinutes === m ? 'text-white' : ''
+                      }`}
+                      style={{
+                        borderColor:
+                          iqamahOffsetMinutes === m
+                            ? '#10b981'
+                            : 'color-mix(in srgb, var(--noor-p-500) 18%, transparent)',
+                        backgroundColor:
+                          iqamahOffsetMinutes === m ? 'rgba(16,185,129,0.16)' : 'transparent',
+                        color: iqamahOffsetMinutes === m ? undefined : 'var(--noor-n-300)',
+                      }}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[11px]" style={{ color: 'var(--noor-n-300)' }}>
+                  صوت الإقامة:
+                </span>
+                <div className="space-y-2 mt-1.5">
+                  {IQAMAH_VOICES.map((voice) => (
+                    <div
+                      key={voice.id}
+                      className="flex items-center justify-between p-3 rounded-2xl border"
+                      style={{
+                        borderColor:
+                          iqamahVoiceId === voice.id
+                            ? 'var(--noor-p-500)'
+                            : 'color-mix(in srgb, var(--noor-p-500) 18%, transparent)',
+                        backgroundColor:
+                          iqamahVoiceId === voice.id
+                            ? 'color-mix(in srgb, var(--noor-p-500) 12%, transparent)'
+                            : 'transparent',
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          setIqamahVoiceId(voice.id);
+                          saveIqamahVoice(voice.id);
+                        }}
+                        className="flex-1 text-right"
+                      >
+                        <span className="block text-sm font-bold" style={{ color: 'var(--noor-n-50)' }}>
+                          {voice.name}
+                        </span>
+                        <span className="block text-[10px] mt-0.5" style={{ color: 'var(--noor-n-400)' }}>
+                          {voice.location}
+                        </span>
+                      </button>
+                      {iqamahVoiceId === voice.id && (
+                        <CheckCircle className="w-5 h-5 mx-2 shrink-0" style={{ color: 'var(--noor-p-400)' }} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={toggleIqamahPreview}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold border transition-colors hover:bg-white/5"
+                style={{
+                  borderColor: 'color-mix(in srgb, var(--noor-p-500) 35%, transparent)',
+                  color: 'var(--noor-n-100)',
+                }}
+              >
+                {iqamahPreviewPlaying ? (
+                  <>
+                    <Square className="w-4 h-4" />
+                    <span>إيقاف معاينة الإقامة</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    <span>معاينة صوت الإقامة</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </Card>
+
+        {/* كتم كل أصوات الهاتف مع الأذان */}
+        <Card title="كتم كل أصوات الهاتف مع الأذان">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div
+                className="w-11 h-11 rounded-2xl flex items-center justify-center text-white"
+                style={{
+                  background: muteEnabled
+                    ? 'linear-gradient(135deg, #7c3aed, #a78bfa)'
+                    : '#475569',
+                }}
+              >
+                <Volume2 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold" style={{ color: 'var(--noor-n-50)' }}>
+                  كتم الأصوات عند الأذان
+                </p>
+                <p className="text-[11px]" style={{ color: 'var(--noor-n-400)' }}>
+                  يكتم الهاتف كله مع بدء الأذان ويرجع بعد الإقامة
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const next = !muteEnabled;
+                setMuteEnabled(next);
+                saveMuteEnabled(next);
+                if (next && isNativeApp()) {
+                  // يحتاج إذن عدم الإزعاج — نفتح صفحة المنح فوراً
+                  void isDndAccessGranted().then((granted) => {
+                    if (!granted) void openDndAccessSettings();
+                  });
+                }
+              }}
+              className="relative w-14 h-8 rounded-full transition-colors shrink-0"
+              style={{ backgroundColor: muteEnabled ? '#8b5cf6' : '#334155' }}
+              role="switch"
+              aria-checked={muteEnabled}
+            >
+              <span
+                className="absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-all"
+                style={{ right: muteEnabled ? '0.25rem' : '1.75rem' }}
+              />
+            </button>
+          </div>
+
+          {muteEnabled && (
+            <div className="space-y-2.5 animate-in fade-in">
+              <div>
+                <span className="text-[11px]" style={{ color: 'var(--noor-n-300)' }}>
+                  بعد الإقامة بكم دقيقة يرجع الصوت؟ (افتراضي 10 دقائق)
+                </span>
+                <div className="grid grid-cols-7 gap-1 mt-1.5">
+                  {MUTE_MINUTES_OPTIONS.map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        setMuteMinutes(m);
+                        saveMuteMinutes(m);
+                      }}
+                      className={`py-2 rounded-xl text-[10px] font-bold border transition-colors ${
+                        muteMinutes === m ? 'text-white' : ''
+                      }`}
+                      style={{
+                        borderColor:
+                          muteMinutes === m
+                            ? '#8b5cf6'
+                            : 'color-mix(in srgb, var(--noor-p-500) 18%, transparent)',
+                        backgroundColor:
+                          muteMinutes === m ? 'rgba(139,92,246,0.16)' : 'transparent',
+                        color: muteMinutes === m ? undefined : 'var(--noor-n-300)',
+                      }}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {permissions?.dndAccess === false && (
+                <button
+                  onClick={() => void openDndAccessSettings()}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-xs font-bold border transition-colors hover:bg-white/5"
+                  style={{ borderColor: 'rgba(245,158,11,0.45)', color: '#fcd34d' }}
+                >
+                  <TriangleAlert className="w-4 h-4" />
+                  <span>منح إذن «عدم الإزعاج» لكتم كل الأصوات</span>
+                </button>
+              )}
+              <p className="text-[10px] leading-relaxed" style={{ color: 'var(--noor-n-500)' }}>
+                لو الإقامة مطفأة — يرجع الصوت بعد الأذان بنفس المدة المحددة.
+              </p>
+            </div>
+          )}
+        </Card>
+
+        {/* تذكير الصلاة على النبي ﷺ */}
+        <Card title="تذكير الصلاة على النبي ﷺ">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div
+                className="w-11 h-11 rounded-2xl flex items-center justify-center text-white"
+                style={{
+                  background: salawatEnabled
+                    ? 'linear-gradient(135deg, #0f766e, #14b8a6)'
+                    : '#475569',
+                }}
+              >
+                <BellRing className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold" style={{ color: 'var(--noor-n-50)' }}>
+                  تذكير دوري بصوت «الصلاة على النبي»
+                </p>
+                <p className="text-[11px]" style={{ color: 'var(--noor-n-400)' }}>
+                  «مَن صلى عليَّ صلاة صلى الله عليه بها عشراً»
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const next = !salawatEnabled;
+                setSalawatEnabled(next);
+                saveSalawatEnabled(next);
+              }}
+              className="relative w-14 h-8 rounded-full transition-colors shrink-0"
+              style={{ backgroundColor: salawatEnabled ? '#14b8a6' : '#334155' }}
+              role="switch"
+              aria-checked={salawatEnabled}
+            >
+              <span
+                className="absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-all"
+                style={{ right: salawatEnabled ? '0.25rem' : '1.75rem' }}
+              />
+            </button>
+          </div>
+
+          {salawatEnabled && (
+            <div className="space-y-1.5 animate-in fade-in">
+              <span className="text-[11px]" style={{ color: 'var(--noor-n-300)' }}>
+                كل كم دقيقة يظهر التذكير؟ (افتراضي كل 30 دقيقة)
+              </span>
+              <div className="grid grid-cols-4 gap-1.5">
+                {SALAWAT_INTERVAL_OPTIONS.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => {
+                      setSalawatIntervalMinutes(m);
+                      saveSalawatIntervalMinutes(m);
+                    }}
+                    className={`py-2.5 rounded-2xl text-xs font-bold border transition-colors ${
+                      salawatIntervalMinutes === m ? 'text-white' : ''
+                    }`}
+                    style={{
+                      borderColor:
+                        salawatIntervalMinutes === m
+                          ? '#14b8a6'
+                          : 'color-mix(in srgb, var(--noor-p-500) 18%, transparent)',
+                      backgroundColor:
+                        salawatIntervalMinutes === m ? 'rgba(20,184,166,0.16)' : 'transparent',
+                      color: salawatIntervalMinutes === m ? undefined : 'var(--noor-n-300)',
+                    }}
+                  >
+                    {m >= 60 ? `${m / 60} ساعة` : `${m} دقيقة`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </div>
@@ -1386,10 +2095,12 @@ const AppearancePage: React.FC<{
 /* ============================================================================
  * صفحة الويدجت — إرشادات الإضافة + معاينة حية + تحديث فوري
  * ========================================================================== */
-const WidgetsPage: React.FC<{ onBack: () => void; coordinates: Coordinates }> = ({
-  onBack,
-  coordinates,
-}) => {
+const WidgetsPage: React.FC<{
+  onBack: () => void;
+  coordinates: Coordinates;
+  widgetSettings: WidgetSettings;
+  setWidgetSettings: (s: WidgetSettings) => void;
+}> = ({ onBack, coordinates, widgetSettings, setWidgetSettings }) => {
   const [now, setNow] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
@@ -1411,21 +2122,41 @@ const WidgetsPage: React.FC<{ onBack: () => void; coordinates: Coordinates }> = 
     now,
   );
 
+  const accentColor =
+    WIDGET_ACCENTS.find((a) => a.id === widgetSettings.accent)?.color ?? '#6ee7b7';
+  const textScale =
+    WIDGET_TEXT_SIZES.find((s) => s.id === widgetSettings.textSize)?.scale ?? 1.0;
+
+  /** تنسيق الوقت حسب نظام الويدجت المختار (12/24) — للمعاينة الحية */
+  const fmtWidgetTime = (d: Date): string => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    if (widgetSettings.timeFormat === '24h') {
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    let h = d.getHours() % 12;
+    if (h === 0) h = 12;
+    return `${h}:${pad(d.getMinutes())} ${d.getHours() < 12 ? 'ص' : 'م'}`;
+  };
+  const nextTimeStr = fmtWidgetTime(next.targetDate);
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    await pushWidgetUpdate({
-      city: coordinates.city,
-      hijri: '',
-      times: {},
-      order: [],
-      next: {
-        key: next.name,
-        name: next.arabicName,
-        ts: next.targetDate.getTime(),
-        time: next.timeStr,
+    await pushWidgetUpdate(
+      {
+        city: coordinates.city,
+        hijri: '',
+        times: {},
+        order: [],
+        next: {
+          key: next.name,
+          name: next.arabicName,
+          ts: next.targetDate.getTime(),
+          time: next.timeStr,
+        },
+        tzOffsetMinutes: -new Date().getTimezoneOffset(),
       },
-      tzOffsetMinutes: -new Date().getTimezoneOffset(),
-    });
+      widgetSettings,
+    );
     setRefreshing(false);
     setRefreshedAt(
       new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
@@ -1441,44 +2172,297 @@ const WidgetsPage: React.FC<{ onBack: () => void; coordinates: Coordinates }> = 
     return `${pad(h)}:${pad(m)}:${pad(sec)}`;
   })();
 
+  /** تحديث جزء من إعدادات الويدجت */
+  const patch = (p: Partial<WidgetSettings>) =>
+    setWidgetSettings({ ...widgetSettings, ...p });
+
+  /** مفتاح إظهار/إخفاء عنصر في الويدجت */
+  const WidgetToggle: React.FC<{
+    label: string;
+    hint?: string;
+    value: boolean;
+    onChange: (v: boolean) => void;
+  }> = ({ label, hint, value, onChange }) => (
+    <button
+      onClick={() => onChange(!value)}
+      className="w-full flex items-center justify-between gap-3 p-3 rounded-2xl border transition-colors text-right"
+      style={{
+        borderColor: value
+          ? 'color-mix(in srgb, var(--noor-p-500) 45%, transparent)'
+          : 'color-mix(in srgb, var(--noor-n-500) 22%, transparent)',
+        backgroundColor: value
+          ? 'color-mix(in srgb, var(--noor-p-500) 12%, transparent)'
+          : 'transparent',
+      }}
+    >
+      <span className="min-w-0">
+        <span className="block text-xs font-bold" style={{ color: 'var(--noor-n-100)' }}>
+          {label}
+        </span>
+        {hint && (
+          <span className="block text-[10px]" style={{ color: 'var(--noor-n-400)' }}>
+            {hint}
+          </span>
+        )}
+      </span>
+      <span
+        className="relative w-11 h-6 rounded-full transition-colors shrink-0"
+        style={{ backgroundColor: value ? 'var(--noor-p-500)' : '#334155' }}
+      >
+        <span
+          className="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all"
+          style={{ right: value ? '0.25rem' : '1.5rem' }}
+        />
+      </span>
+    </button>
+  );
+
   return (
     <div>
       <PageHeader
         title="ويدجت المواقيت"
-        subtitle="مواقيت الصلاة على شاشة هاتفك الرئيسية"
+        subtitle="تخصيص كامل + مواقيت الصلاة على شاشة هاتفك الرئيسية"
         onBack={onBack}
         icon={<Smartphone className="w-5 h-5" />}
       />
 
       <div className="space-y-4">
-        {/* المعاينة الحية — تتحدث كل ثانية */}
+        {/* المعاينة الحية — تعكس كل إعدادات التخصيص */}
         <div className="rounded-3xl overflow-hidden border shadow-2xl mx-auto max-w-xs"
           style={{ borderColor: 'color-mix(in srgb, var(--noor-p-500) 30%, transparent)' }}
         >
           <div
             className="p-4 text-center text-white"
             style={{
-              background: 'linear-gradient(160deg, #064e3b 0%, #022c22 70%, #01160f 100%)',
+              background:
+                widgetSettings.bgOpacity === 0
+                  ? 'linear-gradient(160deg, #064e3b 0%, #022c22 70%, #01160f 100%)'
+                  : `linear-gradient(160deg, color-mix(in srgb, #064e3b ${Math.round(widgetSettings.bgOpacity * 0.75)}%, #0b1220), #01160f)`,
             }}
           >
-            <div className="flex items-center justify-center gap-1.5 mb-1">
-              <span className="text-base">🕌</span>
-              <span className="text-[11px] font-bold text-emerald-300">نور المسلم</span>
-            </div>
-            <p className="text-[10px] text-emerald-200/70 mb-3">{coordinates.city}</p>
-            <p className="text-2xl font-black text-white">{next.arabicName}</p>
-            <p className="text-sm font-mono text-emerald-300 mb-2" dir="ltr">
-              {next.timeStr}
+            {widgetSettings.showAppName && (
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <span className="text-base">🕌</span>
+                <span
+                  className="text-[11px] font-bold"
+                  style={{ fontSize: `${11 * textScale}px`, color: accentColor }}
+                >
+                  نور المسلم
+                </span>
+              </div>
+            )}
+            {widgetSettings.showCity && (
+              <p
+                className="mb-3"
+                style={{
+                  fontSize: `${10 * textScale}px`,
+                  color: `${accentColor}b3`,
+                }}
+              >
+                {coordinates.city}
+              </p>
+            )}
+            {widgetSettings.showNextPrayer && (
+              <>
+                <p
+                  className="font-black text-white"
+                  style={{ fontSize: `${24 * textScale}px` }}
+                >
+                  {next.arabicName}
+                </p>
+                <p
+                  className="mb-2"
+                  style={{ fontSize: `${14 * textScale}px`, color: accentColor }}
+                  dir="ltr"
+                >
+                  {nextTimeStr}
+                </p>
+              </>
+            )}
+            {widgetSettings.showCountdown && (
+              <div
+                className="inline-block px-4 py-1.5 rounded-xl border bg-black/30"
+                style={{ borderColor: `${accentColor}4d` }}
+                dir="ltr"
+              >
+                <span
+                  className="font-mono font-bold text-white tabular-nums"
+                  style={{ fontSize: `${16 * textScale}px` }}
+                >
+                  {countdown}
+                </span>
+              </div>
+            )}
+            {widgetSettings.showTimesRow && (
+              <p
+                className="mt-2.5 leading-relaxed"
+                style={{ fontSize: `${10 * textScale}px`, color: '#e2e8f0cc' }}
+              >
+                الفجر {nextTimeStr} • الظهر {nextTimeStr} • العصر {nextTimeStr}
+              </p>
+            )}
+            <p className="text-[9px] mt-2" style={{ color: 'var(--noor-n-500)' }}>
+              معاينة حية — التغييرات تُطبَّق على الويدجت فوراً
             </p>
-            <div
-              className="inline-block px-4 py-1.5 rounded-xl border border-emerald-500/30 bg-black/30"
-              dir="ltr"
-            >
-              <span className="font-mono text-base font-bold text-white tabular-nums">{countdown}</span>
-            </div>
-            <p className="text-[9px] text-emerald-200/60 mt-2">هذه هي المعاينة الحية للويدجت</p>
           </div>
         </div>
+
+        {/* ===== التخصيص الكامل — بطلب المالك ===== */}
+        <Card title="لون التمييز">
+          <div className="flex items-center gap-2 flex-wrap">
+            {WIDGET_ACCENTS.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => patch({ accent: a.id })}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border text-[11px] font-bold transition-all"
+                style={{
+                  borderColor:
+                    widgetSettings.accent === a.id
+                      ? a.color
+                      : 'color-mix(in srgb, var(--noor-n-500) 25%, transparent)',
+                  backgroundColor:
+                    widgetSettings.accent === a.id
+                      ? `${a.color}22`
+                      : 'transparent',
+                  color: widgetSettings.accent === a.id ? a.color : 'var(--noor-n-300)',
+                }}
+              >
+                <span
+                  className="w-3 h-3 rounded-full inline-block shrink-0"
+                  style={{ backgroundColor: a.color }}
+                />
+                {a.label}
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="حجم الخط">
+          <div className="grid grid-cols-3 gap-2">
+            {WIDGET_TEXT_SIZES.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => patch({ textSize: s.id })}
+                className={`py-2.5 rounded-2xl text-xs font-bold border transition-colors ${
+                  widgetSettings.textSize === s.id ? 'text-white' : ''
+                }`}
+                style={{
+                  borderColor:
+                    widgetSettings.textSize === s.id
+                      ? 'var(--noor-p-500)'
+                      : 'color-mix(in srgb, var(--noor-n-500) 25%, transparent)',
+                  background:
+                    widgetSettings.textSize === s.id
+                      ? 'linear-gradient(135deg, var(--noor-p-500), var(--noor-a-500))'
+                      : 'transparent',
+                  color:
+                    widgetSettings.textSize === s.id ? '#fff' : 'var(--noor-n-300)',
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="عناصر الويدجت — أظهر أو أخفِ ما تريد">
+          <div className="space-y-2">
+            <WidgetToggle
+              label="اسم التطبيق"
+              hint="«🕌 نور المسلم» أعلى الويدجت"
+              value={widgetSettings.showAppName}
+              onChange={(v) => patch({ showAppName: v })}
+            />
+            <WidgetToggle
+              label="المدينة"
+              hint="اسم المدينة في الترويسة"
+              value={widgetSettings.showCity}
+              onChange={(v) => patch({ showCity: v })}
+            />
+            <WidgetToggle
+              label="الصلاة القادمة"
+              hint="اسم الصلاة ووقتها"
+              value={widgetSettings.showNextPrayer}
+              onChange={(v) => patch({ showNextPrayer: v })}
+            />
+            <WidgetToggle
+              label="العداد التنازلي"
+              hint="الوقت المتبقي حتى الأذان"
+              value={widgetSettings.showCountdown}
+              onChange={(v) => patch({ showCountdown: v })}
+            />
+            <WidgetToggle
+              label="صف المواقيت الستة"
+              hint="الفجر والشروق والظهر والعصر والمغرب والعشاء"
+              value={widgetSettings.showTimesRow}
+              onChange={(v) => patch({ showTimesRow: v })}
+            />
+          </div>
+        </Card>
+
+        <Card title="نظام الوقت">
+          <div className="grid grid-cols-2 gap-2">
+            {(
+              [
+                ['12h', '12 ساعة (ص/م)'],
+                ['24h', '24 ساعة'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => patch({ timeFormat: id })}
+                className={`py-2.5 rounded-2xl text-xs font-bold border transition-colors ${
+                  widgetSettings.timeFormat === id ? 'text-white' : ''
+                }`}
+                style={{
+                  borderColor:
+                    widgetSettings.timeFormat === id
+                      ? 'var(--noor-p-500)'
+                      : 'color-mix(in srgb, var(--noor-n-500) 25%, transparent)',
+                  background:
+                    widgetSettings.timeFormat === id
+                      ? 'linear-gradient(135deg, var(--noor-p-500), var(--noor-a-500))'
+                      : 'transparent',
+                  color:
+                    widgetSettings.timeFormat === id ? '#fff' : 'var(--noor-n-300)',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="شفافية الخلفية — النسخة الداكنة">
+          <p className="text-[10px] leading-relaxed" style={{ color: 'var(--noor-n-400)' }}>
+            تختار الشفافية للنسخة الداكنة «مواقيت الصلاة». النسخة «نور المسلم شفاف» بلا خلفية دائماً.
+          </p>
+          <div className="grid grid-cols-5 gap-1.5">
+            {WIDGET_BG_OPACITY_OPTIONS.map((op) => (
+              <button
+                key={op}
+                onClick={() => patch({ bgOpacity: op })}
+                className={`py-2 rounded-xl text-[11px] font-bold border transition-colors ${
+                  widgetSettings.bgOpacity === op ? 'text-white' : ''
+                }`}
+                style={{
+                  borderColor:
+                    widgetSettings.bgOpacity === op
+                      ? 'var(--noor-p-500)'
+                      : 'color-mix(in srgb, var(--noor-n-500) 25%, transparent)',
+                  background:
+                    widgetSettings.bgOpacity === op
+                      ? 'linear-gradient(135deg, var(--noor-p-500), var(--noor-a-500))'
+                      : 'transparent',
+                  color:
+                    widgetSettings.bgOpacity === op ? '#fff' : 'var(--noor-n-300)',
+                }}
+              >
+                {op}%
+              </button>
+            ))}
+          </div>
+        </Card>
 
         {/* خطوات الإضافة */}
         <Card title="إضافة الويدجت لشاشتك الرئيسية">
@@ -1811,7 +2795,7 @@ const AboutPage: React.FC<{ onBack: () => void }> = ({ onBack }) => (
           className="text-sm font-bold leading-relaxed"
           style={{ color: 'var(--noor-a-400)' }}
         >
-          هذا التطبيق صدقة جارية على روح المرحوم بأذن الله أبي
+          هذا التطبيق صدقة جارية على روح المتوفي بأذن الله أبي
         </p>
       </div>
 

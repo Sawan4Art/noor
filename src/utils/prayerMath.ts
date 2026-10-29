@@ -423,6 +423,18 @@ export function calculateDistanceToKaaba(lat: number, lng: number): number {
 }
 
 /**
+ * هل اليوم داخل شهر رمضان المبارك؟ (بطلب المالك: السحور يظهر ويعمل في رمضان فقط)
+ * تعتمد على التحويل الهجري أم القرى — وسط تقريبي مقبول للتقويم العملي.
+ */
+export function isRamadanNow(date: Date = new Date()): boolean {
+  try {
+    return getHijriDate(date).monthName === 'رمضان';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Approximate Hijri Date conversion
  */
 export function getHijriDate(date: Date = new Date()): {

@@ -3,29 +3,52 @@
  * كل الدوال ترجع fallback آمن على الويب (لا شيء يحدث) وعلى أي خطأ نيتِف.
  *
  * المتاح نيتِفياً (NoorNativePlugin.java):
- * - requestAllPermissions: الموقع + الإشعارات (+ فحص المنبهات الدقيقة)
- * - scheduleAdhanAlarms: منبهات أذان دقيقة تعمل والشاشة مطفية
- * - cancelAdhanAlarms: إلغاء كل المنبهات
- * - updateWidget: تحديث ويدجت شاشة الرئيسية ببيانات المواقيت
+ * - requestAllPermissions / checkPermissions: الموقع + الإشعارات + المنبهات الدقيقة
+ * - openAppSettings / openNotificationSettings / openExactAlarmSettings
+ * - isDndAccessGranted / openDndAccessSettings (لكتم الأصوات)
+ * - scheduleAdhanAlarms: منبهات أذان/إقامة/سحور/قيام تعمل والشاشة مطفية
+ *   + كتم أصوات الهاتف من الأذان حتى بعد الإقامة + صوت الإقامة المختار
+ * - scheduleSalawatAlarms: تذكير دوري بصوت الصلاة على النبي ﷺ
+ * - cancelSalawatAlarms
+ * - updateWidget: تحديث ويدجت شاشة الرئيسية (ويحفظ الموقع ليعمل الويدجت وحده)
  */
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { PrayerAlerts } from './appSettings';
+import { PrayerAlerts, WidgetSettings } from './appSettings';
 
 export interface AdhanAlarm {
-  /** مفتاح الصلاة: fajr/dhuhr/... */
+  /** مفتاح الصلاة: fajr/dhuhr/... أو qiyam/suhoor */
   key: string;
   /** الاسم العربي المعروض */
   name: string;
-  /** وقت الصلاة بالميلي ثانية (epoch) */
+  /** وقت التنبيه بالميلي ثانية (epoch) */
   ts: number;
-  /** نمط التنبيه */
-  mode: 'adhan' | 'notification' | 'off';
+  /** نمط التنبيه: أذان كامل / إقامة / إشعار / إيقاف */
+  mode: 'adhan' | 'iqamah' | 'notification' | 'off';
+}
+
+/** إعدادات الإقامة والكتم تُمرَّر للنيتِف مع كل جدولة */
+export interface AlarmSettings {
+  /** تفعيل الإقامة */
+  iqamahEnabled: boolean;
+  /** دقائق الإقامة بعد الأذان */
+  iqamahOffsetMinutes: number;
+  /** صوت الإقامة: makkah / beautiful */
+  iqamahVoice: string;
+  /** كتم كل أصوات الهاتف مع الأذان */
+  muteEnabled: boolean;
+  /** دقائق الكتم بعد الإقامة (أو بعد الأذان لو الإقامة مطفأة) */
+  muteMinutes: number;
 }
 
 export interface WidgetData {
   city: string;
   /** التاريخ الهجري المختصر */
   hijri: string;
+  /** إحداثيات الطريقة المذهب — لتحسب الويدجت مواقيتها بنفسها بدون فتح التطبيق */
+  latitude?: number;
+  longitude?: number;
+  method?: string;
+  hanafi?: boolean;
   /** مواقيت اليوم: مفتاح -> نص الوقت HH:MM */
   times: Record<string, string>;
   /** أسماء الصلوات بالترتيب مع مفاتيحها */
@@ -36,12 +59,31 @@ export interface WidgetData {
   tzOffsetMinutes: number;
 }
 
+export interface PermissionsStatus {
+  location: boolean;
+  notifications: boolean;
+  exactAlarms: boolean;
+  dndAccess: boolean;
+}
+
 interface NoorNativePlugin {
   requestAllPermissions(): Promise<{ location: boolean; notifications: boolean; exactAlarms: boolean }>;
-  scheduleAdhanAlarms(options: { alarms: AdhanAlarm[]; voice: string; city: string }): Promise<void>;
+  checkPermissions(): Promise<PermissionsStatus>;
+  scheduleAdhanAlarms(options: {
+    alarms: AdhanAlarm[];
+    voice: string;
+    city: string;
+    settings: AlarmSettings;
+  }): Promise<void>;
   cancelAdhanAlarms(): Promise<void>;
-  updateWidget(options: { data: WidgetData }): Promise<void>;
+  scheduleSalawatAlarms(options: { intervalMinutes: number }): Promise<void>;
+  cancelSalawatAlarms(): Promise<void>;
+  updateWidget(options: { data: WidgetData; settings?: WidgetSettings }): Promise<void>;
   openExactAlarmSettings(): Promise<void>;
+  openAppSettings(): Promise<void>;
+  openNotificationSettings(): Promise<void>;
+  isDndAccessGranted(): Promise<boolean>;
+  openDndAccessSettings(): Promise<void>;
 }
 
 const NoorNative = registerPlugin<NoorNativePlugin>('NoorNative');
@@ -49,6 +91,13 @@ const NoorNative = registerPlugin<NoorNativePlugin>('NoorNative');
 export function isNativeApp(): boolean {
   return Capacitor.isNativePlatform();
 }
+
+const EMPTY_PERMISSIONS: PermissionsStatus = {
+  location: false,
+  notifications: false,
+  exactAlarms: false,
+  dndAccess: false,
+};
 
 /** طلب كل الأذونات دفعة واحدة (أول تشغيل أو من الإعدادات) */
 export async function requestAllPermissions(): Promise<{
@@ -64,11 +113,26 @@ export async function requestAllPermissions(): Promise<{
   }
 }
 
-/** جدولة منبهات الأذان القادمة — تُستدعى كل ما تغيرت المواقيت/الإعدادات */
-export async function scheduleAdhanAlarms(alarms: AdhanAlarm[], voice: string, city: string): Promise<void> {
+/** قراءة حالة كل الأذونات دون طلب (لعرضها في الإعدادات) */
+export async function checkPermissions(): Promise<PermissionsStatus> {
+  if (!isNativeApp()) return { location: true, notifications: true, exactAlarms: true, dndAccess: true };
+  try {
+    return await NoorNative.checkPermissions();
+  } catch {
+    return EMPTY_PERMISSIONS;
+  }
+}
+
+/** جدولة منبهات الأذان/الإقامة/السحور/القيام + خطة الكتم — تُستدعى عند أي تغيير */
+export async function scheduleAdhanAlarms(
+  alarms: AdhanAlarm[],
+  voice: string,
+  city: string,
+  settings: AlarmSettings,
+): Promise<void> {
   if (!isNativeApp() || alarms.length === 0) return;
   try {
-    await NoorNative.scheduleAdhanAlarms({ alarms, voice, city });
+    await NoorNative.scheduleAdhanAlarms({ alarms, voice, city, settings });
   } catch {
     // fallback صامت — الأذان داخل التطبيق يظل يعمل
   }
@@ -83,11 +147,30 @@ export async function cancelAdhanAlarms(): Promise<void> {
   }
 }
 
-/** تحديث ويدجت الشاشة الرئيسية ببيانات مواقيت اليوم */
-export async function updateWidget(data: WidgetData): Promise<void> {
+/** تذكير دوري بصوت الصلاة على النبي ﷺ */
+export async function scheduleSalawatAlarms(intervalMinutes: number): Promise<void> {
   if (!isNativeApp()) return;
   try {
-    await NoorNative.updateWidget({ data });
+    await NoorNative.scheduleSalawatAlarms({ intervalMinutes });
+  } catch {
+    // تجاهل
+  }
+}
+
+export async function cancelSalawatAlarms(): Promise<void> {
+  if (!isNativeApp()) return;
+  try {
+    await NoorNative.cancelSalawatAlarms();
+  } catch {
+    // تجاهل
+  }
+}
+
+/** تحديث ويدجت الشاشة الرئيسية ببيانات مواقيت اليوم + إعدادات التخصيص الكاملة */
+export async function updateWidget(data: WidgetData, settings?: WidgetSettings): Promise<void> {
+  if (!isNativeApp()) return;
+  try {
+    await NoorNative.updateWidget({ data, settings });
   } catch {
     // تجاهل
   }
@@ -102,13 +185,65 @@ export async function openExactAlarmSettings(): Promise<void> {
   }
 }
 
-/** تحويل أنماط التنبيه + المواقيت إلى قائمة منبهات للنيتِف */
+/** فتح صفحة إعدادات التطبيق في النظام (للأذونات المرفوضة نهائياً) */
+export async function openAppSettings(): Promise<void> {
+  if (!isNativeApp()) return;
+  try {
+    await NoorNative.openAppSettings();
+  } catch {
+    // تجاهل
+  }
+}
+
+/** فتح إعدادات إشعارات التطبيق مباشرة (بطلب المالك: زر فتح الأذونات لا يعمل) */
+export async function openNotificationSettings(): Promise<void> {
+  if (!isNativeApp()) return;
+  try {
+    await NoorNative.openNotificationSettings();
+  } catch {
+    // تجاهل
+  }
+}
+
+/** هل مُنح إذن «عدم الإزعاج» اللازم لكتم أصوات الهاتف؟ */
+export async function isDndAccessGranted(): Promise<boolean> {
+  if (!isNativeApp()) return true;
+  try {
+    return await NoorNative.isDndAccessGranted();
+  } catch {
+    return false;
+  }
+}
+
+/** فتح إعدادات منح «عدم الإزعاج» للتطبيق */
+export async function openDndAccessSettings(): Promise<void> {
+  if (!isNativeApp()) return;
+  try {
+    await NoorNative.openDndAccessSettings();
+  } catch {
+    // تجاهل
+  }
+}
+
+/**
+ * تحويل أنماط التنبيه + المواقيت إلى قائمة منبهات للنيتِف.
+ * - قيام الليل والسحور: إشعار دائماً (مش أذان)
+ * - الإقامة تُجدول نيتِفياً من إعدادات الأذان (لكل أذان صوتي)
+ */
 export function buildAlarmsFromAlerts(
   upcoming: Array<{ key: string; name: string; ts: number }>,
   alerts: PrayerAlerts,
 ): AdhanAlarm[] {
   return upcoming
-    .filter((p) => alerts[p.key as keyof PrayerAlerts] !== undefined)
-    .map((p) => ({ ...p, mode: alerts[p.key as keyof PrayerAlerts] }))
-    .slice(0, 12);
+    .map((p) => {
+      // مفاتيح خاصة (قيام/سحور) إشعار دائماً
+      const alertMode = alerts[p.key as keyof PrayerAlerts];
+      const mode: 'adhan' | 'iqamah' | 'notification' | 'off' =
+        p.key === 'qiyam' || p.key === 'suhoor'
+          ? 'notification'
+          : (alertMode ?? 'notification');
+      return { ...p, mode };
+    })
+    .filter((p) => p.mode !== 'off')
+    .slice(0, 20);
 }

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { COUNTRIES_DATA, CountryInfo, CityLocation, getDeviceCoordinates } from '../utils/countriesData';
 import { Coordinates } from '../utils/prayerMath';
+import { reverseGeocodeCity } from '../utils/geo';
 
 interface LocationPickerModalProps {
   isOpen: boolean;
@@ -32,13 +33,28 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
 
   const currentCountry = COUNTRIES_DATA.find((c) => c.code === selectedCountryCode) || COUNTRIES_DATA[0];
 
+  /**
+   * تحديد الموقع عبر GPS + جلب اسم المدينة الحقيقي (بطلب المالك:
+   * «تحديد الموقع يعمل لكن اسم المدينة لا يظهر») — أي فشل في الاسم
+   * لا يكسر التحديد: يبقى «موقعي الحالي» مع الإحداثيات الدقيقة.
+   */
   const handleUseGPS = async () => {
     setIsLocatingGPS(true);
     setGpsError(null);
     try {
       const pos = await getDeviceCoordinates();
+      let city = 'موقعي الحالي';
+      try {
+        const geo = await reverseGeocodeCity(pos.latitude, pos.longitude);
+        city =
+          geo.country && !geo.city.includes(geo.country)
+            ? `${geo.city}، ${geo.country}`
+            : geo.city;
+      } catch {
+        // الاسم احتياطي فقط — الإحداثيات الدقيقة كافية للمواقيت
+      }
       onSelectCoords({
-        city: pos.name,
+        city,
         latitude: pos.latitude,
         longitude: pos.longitude,
       });

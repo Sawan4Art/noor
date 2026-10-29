@@ -10,17 +10,23 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
+import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 
 /**
  * خدمة الأذان الأمامية (Foreground Service):
- * تعزف صوت الأذان كاملاً بصوت أعلى استراحة (USAGE_ALARM) حتى لو الشاشة
- * مطفية أو التطبيق في الخلفية — مع إشعار فيه زر إيقاف.
+ * - وضع الأذان: تعزف الأذان كاملاً بصوت أعلى استراحة (USAGE_ALARM) حتى لو
+ *   الشاشة مطفية أو التطبيق في الخلفية — مع إشعار فيه زر إيقاف.
+ * - وضع الإقامة: تعزف صوت الإقامة المختار من الإعدادات.
+ * - وضع الصلاة على النبي ﷺ: تذكير دوري بصوت الصلاة على النبي.
+ * - كتم الأصوات: عند الأذان الصوتي تُكتم كل أصوات الهاتف (عدم الإزعاج أو
+ *   الوضع الصامت) وتُستعاد بمنبه مستقل بعد الإقامة بالمدة المحددة.
  */
 public class AdhanService extends Service {
 
@@ -28,9 +34,14 @@ public class AdhanService extends Service {
     public static final String CHANNEL_NOTIFY = "noor_notify_channel";
     private static final int NOTIFICATION_ID = 2001;
     private static final int NOTIFY_ID = 2002;
+    private static final String TAG = "NoorAdhan";
 
     private MediaPlayer player;
     private PowerManager.WakeLock wakeLock;
+    /** هل الكتم مفعّل حالياً من هذه الخدمة (لاستعادة الصوت عند الإيقاف اليدوي) */
+    private boolean muteAppliedHere = false;
+    private int previousRingerMode = AudioManager.RINGER_MODE_NORMAL;
+    private int previousInterruptionFilter = NotificationManager.INTERRUPTION_FILTER_ALL;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -45,25 +56,53 @@ public class AdhanService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && "stop".equals(intent.getAction())) {
+        String action = intent != null ? intent.getAction() : null;
+        if ("stop".equals(action)) {
+            restoreMuteIfApplied();
             stopSelf();
             return START_NOT_STICKY;
         }
 
+        String mode = intent != null ? intent.getStringExtra("mode") : "adhan";
+        if (mode == null) mode = "adhan";
         String prayerName = intent != null ? intent.getStringExtra("name") : "الصلاة";
         if (prayerName == null) prayerName = "الصلاة";
 
-        startForeground(NOTIFICATION_ID, buildAdhanNotification(this, prayerName));
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(NOTIFICATION_ID,
+                        buildNotification(this, prayerName, mode),
+                        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+            } else {
+                startForeground(NOTIFICATION_ID, buildNotification(this, prayerName, mode));
+            }
+        } catch (Exception e) {
+            // فشل startForeground (قيود الخلفية الصارمة): نجرب الإشعار العادي ثم نخرج
+            Log.w(TAG, "startForeground failed: " + e.getMessage());
+            postPrayerNotification(this, prayerName);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
 
         acquireWakeLock();
-        playAdhan();
+
+        if ("adhan".equals(mode)) {
+            applyMuteFromPrefs();
+            playResource("adhan_", 6 * 60 * 1000);
+        } else if ("iqamah".equals(mode)) {
+            playResource("iqamah_", 3 * 60 * 1000);
+        } else if ("salawat".equals(mode)) {
+            playResource("salawat_", 2 * 60 * 1000);
+        }
         return START_NOT_STICKY;
     }
 
-    private void playAdhan() {
+    /* ============================ التشغيل ============================ */
+
+    private void playResource(String prefix, int maxDurationMs) {
         try {
             releasePlayer();
-            int resId = resolveAdhanResId();
+            int resId = resolveVoiceResId(prefix);
             player = MediaPlayer.create(this, resId);
             if (player == null) {
                 stopSelf();
@@ -76,30 +115,131 @@ public class AdhanService extends Service {
                                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                                 .build());
             }
-            player.setOnCompletionListener(mp -> stopSelf());
+            player.setOnCompletionListener(mp -> {
+                if (!"adhan_".equals(prefix)) restoreMuteIfApplied();
+                stopSelf();
+            });
             player.setOnErrorListener((mp, what, extra) -> {
                 stopSelf();
                 return true;
             });
             player.start();
 
-            // أمان: إيقاف تلقائي بعد 6 دقائق مهما حدث
+            // أمان: إيقاف تلقائي بعد الحد الأقصى مهما حدث
             final Service self = this;
             new android.os.Handler(android.os.Looper.getMainLooper())
-                    .postDelayed(self::stopSelf, 6 * 60 * 1000);
+                    .postDelayed(self::stopSelf, maxDurationMs);
         } catch (Exception e) {
             stopSelf();
         }
     }
 
-    private int resolveAdhanResId() {
+    /** اختيار الصوت: adhan_/iqamah_/salawat_ + المفتاح المحفوظ */
+    private int resolveVoiceResId(String prefix) {
         SharedPreferences prefs = getSharedPreferences(NoorNativePlugin.PREFS, MODE_PRIVATE);
-        String voice = prefs.getString(NoorNativePlugin.KEY_VOICE, "main");
         Resources res = getResources();
-        int id = res.getIdentifier("adhan_" + voice, "raw", getPackageName());
-        if (id == 0) id = res.getIdentifier("adhan_main", "raw", getPackageName());
-        if (id == 0) id = res.getIdentifier("adhan_fakhry", "raw", getPackageName());
+        String voice = "";
+        if ("iqamah_".equals(prefix)) {
+            voice = prefs.getString(NoorNativePlugin.KEY_IQAMAH_VOICE, "makkah");
+        } else if ("adhan_".equals(prefix)) {
+            voice = prefs.getString(NoorNativePlugin.KEY_VOICE, "main");
+        } else if ("salawat_".equals(prefix)) {
+            voice = "main";
+        }
+        int id = res.getIdentifier(prefix + voice, "raw", getPackageName());
+        if (id == 0) id = res.getIdentifier(prefix + "main", "raw", getPackageName());
+        if (id == 0) {
+            // أول ملف متاح من نفس النوع
+            String[] candidates = "iqamah_".equals(prefix)
+                    ? new String[]{"iqamah_makkah", "iqamah_beautiful"}
+                    : "salawat_".equals(prefix)
+                            ? new String[]{"salawat_main"}
+                            : new String[]{"adhan_main", "adhan_fakhry"};
+            for (String c : candidates) {
+                id = res.getIdentifier(c, "raw", getPackageName());
+                if (id != 0) break;
+            }
+        }
         return id;
+    }
+
+    /* ============================ كتم الأصوات ============================ */
+
+    /**
+     * كتم كل أصوات الهاتف عند بدء الأذان (بطلب المالك):
+     * 1) عدم الإزعاج الكامل لو مُنح الإذن (الأشمل)
+     * 2) وإلا الوضع الصامت + اهتزاز مقفول
+     * الاستعادة تتم بمنبه مستقل (mute_off) بعد الإقامة بالمدة المحددة،
+     * وأيضاً عند الإيقاف اليدوي من الإشعار كإجراء أمان.
+     */
+    private void applyMuteFromPrefs() {
+        try {
+            SharedPreferences prefs = getSharedPreferences(NoorNativePlugin.PREFS, MODE_PRIVATE);
+            if (!prefs.getBoolean(NoorNativePlugin.KEY_MUTE_ENABLED, false)) return;
+
+            AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+            previousRingerMode = audio != null ? audio.getRingerMode() : AudioManager.RINGER_MODE_NORMAL;
+            previousInterruptionFilter =
+                    nm != null ? nm.getCurrentInterruptionFilter() : NotificationManager.INTERRUPTION_FILTER_ALL;
+
+            boolean applied = false;
+            if (nm != null && nm.isNotificationPolicyAccessGranted()) {
+                try {
+                    nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE);
+                    applied = true;
+                } catch (Exception ignored) {
+                }
+            }
+            if (!applied && audio != null) {
+                try {
+                    audio.setRingerMode(AudioManager.RINGER_MODE_SILENT);
+                    applied = true;
+                } catch (Exception ignored) {
+                }
+            }
+            muteAppliedHere = applied;
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void restoreMuteIfApplied() {
+        if (!muteAppliedHere) return;
+        muteAppliedHere = false;
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null && nm.isNotificationPolicyAccessGranted()) {
+                try {
+                    nm.setInterruptionFilter(previousInterruptionFilter);
+                } catch (Exception ignored) {
+                }
+            }
+            AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            if (audio != null && previousRingerMode != AudioManager.RINGER_MODE_SILENT) {
+                try {
+                    audio.setRingerMode(previousRingerMode);
+                } catch (Exception ignored) {
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    /** استعادة الصوت من منبه mute_off (يستدعى عبر المُستقبِل) */
+    static void restoreMute(Context ctx) {
+        try {
+            NotificationManager nm =
+                    (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null && nm.isNotificationPolicyAccessGranted()) {
+                nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+            }
+            AudioManager audio = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+            if (audio != null && audio.getRingerMode() == AudioManager.RINGER_MODE_SILENT) {
+                audio.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private void acquireWakeLock() {
@@ -107,7 +247,7 @@ public class AdhanService extends Service {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (pm != null) {
                 wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "noor:adhan");
-                wakeLock.acquire(6 * 60 * 1000L);
+                wakeLock.acquire(10 * 60 * 1000L);
             }
         } catch (Exception ignored) {
         }
@@ -139,17 +279,19 @@ public class AdhanService extends Service {
         if (nm == null) return;
 
         NotificationChannel adhan = new NotificationChannel(
-                CHANNEL_ADHAN, "الأذان", NotificationManager.IMPORTANCE_HIGH);
-        adhan.setDescription("تشغيل الأذان عند وقت الصلاة");
+                CHANNEL_ADHAN, "الأذان والإقامة", NotificationManager.IMPORTANCE_HIGH);
+        adhan.setDescription("تشغيل الأذان والإقامة عند وقت الصلاة");
         adhan.setSound(null, null);
         nm.createNotificationChannel(adhan);
 
         NotificationChannel notify = new NotificationChannel(
                 CHANNEL_NOTIFY, "تنبيهات الصلاة", NotificationManager.IMPORTANCE_DEFAULT);
+        notify.setDescription("تنبيهات السحور وقيام الليل والصلاة على النبي");
+        notify.enableVibration(true);
         nm.createNotificationChannel(notify);
     }
 
-    private Notification buildAdhanNotification(Context ctx, String prayerName) {
+    private Notification buildNotification(Context ctx, String prayerName, String mode) {
         Intent stopIntent = new Intent(this, AdhanService.class);
         stopIntent.setAction("stop");
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
@@ -160,11 +302,27 @@ public class AdhanService extends Service {
         openIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent openPi = PendingIntent.getActivity(this, 2, openIntent, flags);
 
+        String title;
+        String text;
+        switch (mode) {
+            case "iqamah":
+                title = "قد قامت الصلاة — " + prayerName;
+                text = "حان وقت الإقامة — تقبل الله طاعتكم";
+                break;
+            case "salawat":
+                title = "صَلُّوا عَلَى النَّبِيِّ ﷺ";
+                text = "اللهم صلِّ وسلم على نبينا محمد — تذكير دوري";
+                break;
+            default:
+                title = "حان الآن وقت " + prayerName;
+                text = "التطبيق يؤذن الآن — تقبل الله طاعتكم";
+        }
+
         NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(ctx, CHANNEL_ADHAN)
                         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                        .setContentTitle("حان الآن وقت " + prayerName)
-                        .setContentText("التطبيق يؤذن الآن — تقبل الله طاعتكم")
+                        .setContentTitle(title)
+                        .setContentText(text)
                         .setOngoing(true)
                         .setContentIntent(openPi)
                         .addAction(0, "إيقاف", stopPi)
@@ -174,8 +332,12 @@ public class AdhanService extends Service {
         return builder.build();
     }
 
-    /** إشعار صلاة عادي (وضع الإشعار بدون أذان صوتي) */
+    /** إشعار صامت/هزّاز للتنبيهات: قيام الليل، السحور، ونواقص الأذان */
     static void postPrayerNotification(Context ctx, String prayerName) {
+        postPrayerNotification(ctx, prayerName, null);
+    }
+
+    static void postPrayerNotification(Context ctx, String prayerName, String body) {
         createChannels(ctx);
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= 23) flags |= PendingIntent.FLAG_IMMUTABLE;
@@ -186,15 +348,15 @@ public class AdhanService extends Service {
         NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(ctx, CHANNEL_NOTIFY)
                         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                        .setContentTitle("حان الآن وقت " + prayerName)
-                        .setContentText("حَيَّ عَلَى الصَّلَاة — تقبل الله طاعتكم")
+                        .setContentTitle(prayerName)
+                        .setContentText(body != null ? body : "حَيَّ عَلَى الصَّلَاة — تقبل الله طاعتكم")
                         .setAutoCancel(true)
                         .setContentIntent(openPi)
                         .setPriority(NotificationCompat.PRIORITY_DEFAULT);
 
         NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) {
-            nm.notify(NOTIFY_ID, builder.build());
+            nm.notify(NOTIFY_ID + prayerName.hashCode(), builder.build());
         }
     }
 }

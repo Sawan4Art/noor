@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- مقدمة أيقونة نور المسلم: هلال ونجمة ذهبية (المنطقة الآمنة 66/108) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- الهلال: دائرة كاملة (52,55 r23) مقصوصة بدائرة مزاحة يمين-أعلى (62,51 r19) -->
+    <path
+        android:fillColor="#f5c451"
+        android:fillType="evenOdd"
+        android:pathData="M52,32 a23,23 0 1,0 0,46 a23,23 0 1,0 0,-46 z M62,32 a19,19 0 1,1 0,38 a19,19 0 1,1 0,-38 z" />
+
+    <!-- النجمة الرباعية في فتحة الهلال (يمين-أعلى) -->
+    <path
+        android:fillColor="#f5c451"
+        android:pathData="M73,31 l3.2,7.6 7.6,3.2 -7.6,3.2 -3.2,7.6 -3.2,-7.6 -7.6,-3.2 7.6,-3.2 z" />
+
+    <!-- نجمة صغيرة أسفل الهلال -->
+    <path
+        android:fillColor="#e8b53a"
+        android:pathData="M40,72 l1.8,4.2 4.2,1.8 -4.2,1.8 -1.8,4.2 -1.8,-4.2 -4.2,-1.8 4.2,-1.8 z" />
+</vector>
