@@ -1,0 +1,117 @@
+name: بناء وإصدار APK — نور المسلم
+
+# البناء على سيرفرات جيت هب نفسها — لا يعتمد على أي بيئة محلية
+# يعمل عند: دفع وسم إصدار v* أو تشغيل يدوي من تبويب Actions
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: بناء APK موقّع + إصدار
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: تحميل الكود
+        uses: actions/checkout@v4
+
+      - name: تجهيز JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: إعداد Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-36 build-tools;36.0.0 platform-tools'
+
+      - name: تجهيز Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: تثبيت الاعتماديات
+        run: bun install --frozen-lockfile
+
+      - name: فحص الأنواع (tsc)
+        run: bunx tsc --noEmit
+
+      - name: الاختبارات
+        run: bun test
+
+      - name: بناء نسخة الويب (يكتب version.json تلقائياً)
+        run: bun run build
+
+      - name: منع حزم ملفات التنزيل داخل الـ APK
+        run: rm -rf dist/downloads
+
+      - name: مزامنة كاباسيتور
+        run: bunx cap sync android
+
+      - name: استرجاع مفتاح التوقيع من الأسرار
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $HOME/noor-release.keystore
+          echo "CAP_KEYSTORE_PATH=$HOME/noor-release.keystore" >> $GITHUB_ENV
+          echo "CAP_KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "CAP_KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "CAP_KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: بناء وتوقيع الـ APK (release)
+        working-directory: android
+        run: ./gradlew assembleRelease --console=plain --stacktrace
+
+      - name: التحقق من التوقيع
+        run: |
+          $ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs \
+            android/app/build/outputs/apk/release/app-release.apk | head -4
+
+      - name: تجهيز اسم الملف
+        id: meta
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "apk=noor-almuslim-v${VERSION}.apk" >> $GITHUB_OUTPUT
+
+      - name: نسخ الـ APK باسم الإصدار
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk \
+             "${{ steps.meta.outputs.apk }}"
+
+      - name: رفع الـ APK كأصل build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.apk }}
+          path: ${{ steps.meta.outputs.apk }}
+
+      # عند دفع وسم v*: ينشئ Release رسمي ويرفق الـ APK
+      - name: إنشاء GitHub Release ورفع الـ APK
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: نور المسلم ${{ github.ref_name }}
+          files: ${{ steps.meta.outputs.apk }}
+          generate_release_notes: true
+          body: |
+            ## نور المسلم ${{ github.ref_name }}
+
+            > هذا التطبيق صدقة جارية على روح المرحوم بأذن الله أبي والد المالك — تقبل الله منا ومنكم
+            > الترقية تُثبَّت فوق النسخة السابقة مباشرة (نفس التوقيع ✅)
+
+            التفاصيل الكاملة في سجل التعديلات بالأسفل.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ملخص
+        run: |
+          echo "### ✅ تم بناء الأبلكيشن بنجاح" >> $GITHUB_STEP_SUMMARY
+          echo "- الملف: \`${{ steps.meta.outputs.apk }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- النسخة: \`${{ steps.meta.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          du -h "${{ steps.meta.outputs.apk }}"
