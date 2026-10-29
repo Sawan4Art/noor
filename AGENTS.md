@@ -1,7 +1,7 @@
-# قواعد عمل ريفو noor — دفتر الخبرة من مشروع فانك الحجري (StoneBill)
+# قواعد عمل ريفو noor — دفتر الخبرة من هذا المشروع
 
 > الملف ده هو الميثاق الالتزامي لأي مساعد AI شغال على الريفو ده.
-> مكتوب من خبرة بناء تطبيق إنتاجي كامل (فانك الحجري v1.49 → v1.64): جذر مشاكل PDF، حلقات تسجيل الدخول، الـ OTA، ونظام الإصدارات.
+> مكتوب من خبرة بناء التطبيق وإطلاق إصداراته: جذر المشاكل المتكررة، الـ OTA، ونظام الإصدارات.
 
 ## 0) النطاق — أهم قاعدة
 - **الريفو ده (Sawan4Art/noor) هو مشروعك الوحيد. ملهاش دعوة بأي مشروع تاني نهائياً.**
@@ -33,9 +33,8 @@
 10. **بعد كل إصدار: worklog** — سجل اتعمل إيه واتختبر إيه، علشان أي محادثة تانية تكمل من غير خبطة.
 
 ## 4) بنية المشروع
-- React 19 + TypeScript + Tailwind CSS 4 + Vite 8 (مشروع Google AI Studio أصلاً).
+- React 19 + TypeScript + Tailwind CSS 4 + Vite 8 (مشروع واجهة ويب + كاباسيتور).
 - `npm install` → `npm run dev` (بورت 3000) / `npm run build` / `npm run lint`.
-- Gemini API عن طريق `@google/genai` — المفتاح من الـ Secrets panel في AI Studio أو `.env`.
 - الريفو خاص — البرانش الأساسي `main`.
 
 ## 5) المميزات المطلوبة (من metadata.json + الخبرة القديمة)
@@ -129,3 +128,19 @@
 - JDK النظام JRE فقط (لا javac) — نزّل Temurin JDK 21 كامل: `https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse?project=jdk` وفكّه في `jdk21/`.
 - الإصدار يُنشأ عبر GitHub API (release + رفع APK بـ POST upload_url) — أنجح من الويب.
 - اضبط viewport المتصفح (`agent-browser set viewport 412 915`) قبل أي قياس بصري — الجلسة الجديدة ترجع لأسطح مكتب واسعة.
+
+## 11) دروس تحديث v0.4 (2026-10-29)
+
+### التحديث داخل التطبيق (بلا متصفح نهائياً — بطلب المالك)
+- المسار النيتِفي: تنزيل `HttpURLConnection` إلى `files/updates/` → حدث `noorApkProgress` لكل نسبة → `FileProvider` → `ACTION_VIEW` بمثبّت النظام.
+- `REQUEST_INSTALL_PACKAGES` في المانيفست إلزامية + `<files-path name="updates" path="updates/"/>` في `file_paths.xml` — من غيرها المثبّت يفشل بصمت.
+- الرفض بكود `install_permission` = افتح `ACTION_MANAGE_UNKNOWN_APP_SOURCES` واطلب إعادة المحاولة (مرة واحدة تكفي للمستخدم).
+- `call.reject/resolve` من ثريد خلفي: لُفّها في `runOnUiThread` — وإلا حالة تعليق صامت.
+
+### سباق محادثتين على ريفو واحد = كارثة مؤجلة
+- حصلت فعلاً: قائمة منبهات + كل مميزة الويْدجت اتنفذت مرتين بالتوازي وأحد المسارين اتعمل له force-push.
+- القاعدة: **حوار واحد فقط يكتب على الريفو** — الباقي يقرأ ويرفع ملاحظات. وقبل أي دفعة: `git fetch` أول شيء.
+- لو لقيت شغل مواز منشور: ابنِ فوقه (لا تمسح تاريخاً منشوراً) وأعد فقط ما ناقص فعلاً.
+
+### تعارض npm مع bun.lock
+- `npm install` يفشل `ERESOLVE` لو `esbuild` أقدم من متطلبات vite@8 — حدّثه لـ `^0.28.2` ورَجّع `bun.lock` بـ `bun install` بعد أي تغيير في `package.json`.

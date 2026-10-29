@@ -107,4 +107,7 @@
 
     <!-- إعادة جدولة الأذان بعد إعادة تشغيل الهاتف -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- التثبيت الذاتي للتحديثات من داخل التطبيق (v0.4 — بلا متصفح) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

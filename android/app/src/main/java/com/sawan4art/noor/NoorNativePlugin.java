@@ -14,6 +14,7 @@ import android.provider.Settings;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -25,6 +26,11 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
@@ -475,6 +481,141 @@ public class NoorNativePlugin extends Plugin {
         } catch (Exception e) {
             call.resolve();
         }
+    }
+
+    /* ============================ التحديث داخل التطبيق (v0.4 — بلا متصفح) ============================
+     * بطلب المالك: بلا متصفح — التنزيل جوه التطبيق بشريط تقدم، والتثبيت من داخل التطبيق.
+     * المسار: تنزيل HttpURLConnection إلى files/updates/ → FileProvider → intent تثبيت.
+     * التقدم الحي: حدث noorApkProgress {received,total,percent,done} لكل نسبة جديدة. */
+
+    /** هل المستخدم سمح بالتثبيت من هذا التطبيق؟ (أندرويد 8+) */
+    @PluginMethod
+    public void canInstallApk(PluginCall call) {
+        boolean can = true;
+        if (Build.VERSION.SDK_INT >= 26) {
+            can = getContext().getPackageManager().canRequestPackageInstalls();
+        }
+        JSObject ret = new JSObject();
+        ret.put("can", can);
+        call.resolve(ret);
+    }
+
+    /** فتح شاشة «تثبيت تطبيقات غير معروفة» لهذا التطبيق (أندرويد 8+) */
+    @PluginMethod
+    public void requestInstallPermission(PluginCall call) {
+        try {
+            if (Build.VERSION.SDK_INT >= 26
+                    && !getContext().getPackageManager().canRequestPackageInstalls()) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                intent.setData(android.net.Uri.parse("package:" + getContext().getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (getActivity() != null) {
+                    getActivity().startActivity(intent);
+                } else {
+                    getContext().startActivity(intent);
+                }
+            }
+            call.resolve();
+        } catch (Exception e) {
+            call.resolve();
+        }
+    }
+
+    /**
+     * تنزيل الـ APK داخل التطبيق مع أحداث تقدم حية، وعند الاكتمال يفتح مثبّت النظام مباشرة.
+     * الرفض بكود install_permission = لازم السماح أولاً (الواجهة تفتح الشاشة وتطلب إعادة المحاولة).
+     */
+    @PluginMethod
+    public void downloadAndInstallApk(final PluginCall call) {
+        final String url = call.getString("url", "");
+        if (url == null || url.isEmpty()) {
+            call.reject("empty url");
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 26
+                && !getContext().getPackageManager().canRequestPackageInstalls()) {
+            call.reject("install_permission");
+            return;
+        }
+        final Context ctx = getContext().getApplicationContext();
+        Thread t = new Thread(() -> {
+            File outFile = null;
+            try {
+                File dir = new File(ctx.getFilesDir(), "updates");
+                if (!dir.exists()) dir.mkdirs();
+                outFile = new File(dir, "noor-update.apk");
+
+                HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+                conn.setInstanceFollowRedirects(true);
+                conn.connect();
+                if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                    final int code = conn.getResponseCode();
+                    Activity act0 = getActivity();
+                    if (act0 != null) act0.runOnUiThread(() -> call.reject("http " + code));
+                    return;
+                }
+                long total = conn.getContentLength();
+                InputStream in = conn.getInputStream();
+                FileOutputStream out = new FileOutputStream(outFile);
+                byte[] buf = new byte[16384];
+                long received = 0;
+                int lastPercent = -1;
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    out.write(buf, 0, n);
+                    received += n;
+                    if (total > 0) {
+                        int percent = (int) (received * 100 / total);
+                        if (percent != lastPercent) {
+                            lastPercent = percent;
+                            emitProgress(received, total, percent, false);
+                        }
+                    }
+                }
+                out.flush();
+                out.close();
+                in.close();
+                emitProgress(received, total > 0 ? total : received, 100, true);
+
+                openInstaller(ctx, outFile);
+                Activity act = getActivity();
+                if (act != null) act.runOnUiThread(call::resolve);
+            } catch (final Exception e) {
+                if (outFile != null && outFile.exists() && outFile.length() == 0) {
+                    // ملف ناقص — نظّفه
+                    outFile.delete();
+                }
+                Activity act = getActivity();
+                if (act != null) {
+                    act.runOnUiThread(() -> call.reject("download failed: " + e.getMessage(), e));
+                }
+            }
+        }, "noor-apk-download");
+        t.start();
+    }
+
+    private void emitProgress(long received, long total, int percent, boolean done) {
+        try {
+            JSObject p = new JSObject();
+            p.put("received", received);
+            p.put("total", total);
+            p.put("percent", percent);
+            p.put("done", done);
+            bridge.trigger("noorApkProgress", p);
+        } catch (Exception ignored) {
+        }
+    }
+
+    /** فتح مثبّت النظام على الـ APK المُنزّل (عبر FileProvider) */
+    private void openInstaller(Context ctx, File apkFile) {
+        android.net.Uri uri = FileProvider.getUriForFile(ctx,
+                ctx.getPackageName() + ".fileprovider", apkFile);
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(uri, "application/vnd.android.package-archive");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+        ctx.startActivity(intent);
     }
 
     @Override

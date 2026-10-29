@@ -117,6 +117,8 @@ import {
   openExactAlarmSettings,
   isDndAccessGranted,
   openDndAccessSettings,
+  downloadAndInstallApk,
+  requestInstallPermission,
 } from '../utils/nativeBridge';
 import { reverseGeocodeCity } from '../utils/geo';
 import { registerBackHandler } from '../utils/backButton';
@@ -2562,6 +2564,26 @@ const UpdatesPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     void check();
   }, [check]);
 
+  // التنزيل داخل التطبيق بشريط تقدم ثم المثبّت — بلا متصفح (v0.4 بطلب المالك)
+  const [progress, setProgress] = useState<{ percent: number; mb: string; total: string } | null>(null);
+  const [downloadFailed, setDownloadFailed] = useState(false);
+  const startDownload = async (url: string) => {
+    setDownloadFailed(false);
+    setProgress({ percent: 0, mb: '0', total: '0' });
+    const ok = await downloadAndInstallApk(url, (p) => {
+      setProgress({
+        percent: Math.max(0, Math.min(100, p.percent)),
+        mb: (p.received / 1024 / 1024).toFixed(1),
+        total: (p.total / 1024 / 1024).toFixed(1),
+      });
+    });
+    if (!ok) {
+      setProgress(null);
+      setDownloadFailed(true);
+      await requestInstallPermission();
+    }
+  };
+
   return (
     <div>
       <PageHeader
@@ -2604,14 +2626,40 @@ const UpdatesPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <p className="text-sm font-extrabold" style={{ color: 'var(--noor-n-50)' }}>
                 يتوفر تحديث جديد: v{state.version}
               </p>
-              <button
-                onClick={() => window.open(state.url, '_blank', 'noopener,noreferrer')}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
-                style={{ background: 'linear-gradient(135deg, var(--noor-p-500), var(--noor-a-500))' }}
-              >
-                <Download className="w-4 h-4" />
-                <span>تحميل النسخة الجديدة</span>
-              </button>
+              {progress ? (
+                <div className="w-full max-w-xs mx-auto space-y-1.5">
+                  <div className="h-2.5 rounded-full overflow-hidden border" style={{
+                    borderColor: 'color-mix(in srgb, var(--noor-p-500) 30%, transparent)',
+                    backgroundColor: 'color-mix(in srgb, var(--noor-n-950) 60%, transparent)',
+                  }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{
+                        width: `${progress.percent}%`,
+                        background: 'linear-gradient(to left, var(--noor-p-500), var(--noor-a-500))',
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-mono" style={{ color: 'var(--noor-n-400)' }}>
+                    <span>{progress.percent >= 100 ? 'تم — يُفتح المثبّت…' : `جاري التنزيل ${progress.percent}%`}</span>
+                    <span>{progress.mb} / {progress.total} م.ب</span>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => void startDownload(state.url)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
+                  style={{ background: 'linear-gradient(135deg, var(--noor-p-500), var(--noor-a-500))' }}
+                >
+                  <Download className="w-4 h-4" />
+                  <span>تنزيل وتثبيت داخل التطبيق</span>
+                </button>
+              )}
+              {downloadFailed && (
+                <p className="text-[10px] leading-relaxed" style={{ color: '#fbbf24' }}>
+                  اسمح بالتثبيت من النافذة التي فُتحت (مرة واحدة فقط) ثم أعد المحاولة.
+                </p>
+              )}
             </>
           )}
           {state.status === 'error' && (

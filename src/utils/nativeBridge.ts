@@ -12,7 +12,7 @@
  * - cancelSalawatAlarms
  * - updateWidget: تحديث ويدجت شاشة الرئيسية (ويحفظ الموقع ليعمل الويدجت وحده)
  */
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor, PluginListenerHandle, registerPlugin } from '@capacitor/core';
 import { PrayerAlerts, WidgetSettings } from './appSettings';
 
 export interface AdhanAlarm {
@@ -84,6 +84,13 @@ interface NoorNativePlugin {
   openNotificationSettings(): Promise<void>;
   isDndAccessGranted(): Promise<boolean>;
   openDndAccessSettings(): Promise<void>;
+  canInstallApk(): Promise<{ can: boolean }>;
+  requestInstallPermission(): Promise<void>;
+  downloadAndInstallApk(options: { url: string }): Promise<void>;
+  addListener(
+    eventName: 'noorApkProgress',
+    listenerFunc: (data: ApkProgress) => void,
+  ): Promise<PluginListenerHandle>;
 }
 
 const NoorNative = registerPlugin<NoorNativePlugin>('NoorNative');
@@ -246,4 +253,60 @@ export function buildAlarmsFromAlerts(
     })
     .filter((p) => p.mode !== 'off')
     .slice(0, 20);
+}
+
+/* ==================== التحديث داخل التطبيق (v0.4 — بلا متصفح) ====================
+ * بطلب المالك: نقر التحديث ينزّل الـ APK جوه التطبيق بشريط تقدم حي
+ * ثم يفتح المثبّت تلقائياً — مفيش متصفح نهائياً. */
+
+export interface ApkProgress {
+  received: number;
+  total: number;
+  percent: number;
+  done: boolean;
+}
+
+/** هل يسمح النظام بتثبيت التحديث من داخل التطبيق؟ */
+export async function canInstallApk(): Promise<boolean> {
+  if (!isNativeApp()) return false;
+  try {
+    const r = await NoorNative.canInstallApk();
+    return !!r?.can;
+  } catch {
+    return false;
+  }
+}
+
+/** فتح شاشة السماح بالتثبيت من هذا التطبيق (مرة واحدة تكفي) */
+export async function requestInstallPermission(): Promise<void> {
+  if (!isNativeApp()) return;
+  try {
+    await NoorNative.requestInstallPermission();
+  } catch {
+    // تجاهل
+  }
+}
+
+/** تنزيل الـ APK داخل التطبيق بشريط تقدم ثم فتح المثبّت — true لو تم التنزيل وفتح المثبّت */
+export async function downloadAndInstallApk(
+  url: string,
+  onProgress?: (p: ApkProgress) => void,
+): Promise<boolean> {
+  if (!isNativeApp()) return false;
+  try {
+    let handle: PluginListenerHandle | null = null;
+    if (onProgress) {
+      handle = await NoorNative.addListener('noorApkProgress', (data: ApkProgress) => {
+        onProgress(data);
+      });
+    }
+    try {
+      await NoorNative.downloadAndInstallApk({ url });
+      return true;
+    } finally {
+      if (handle) await handle.remove();
+    }
+  } catch {
+    return false;
+  }
 }
