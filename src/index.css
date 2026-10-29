@@ -1,4 +1,5 @@
-@import "tailwindcss";
+@import "tailwindcss" source("../src");
+@source "../index.html";
 
 /* الوضع الليلي بيتبع كلاس .dark على <html> اللي التطبيق بيتحكم فيه
    (مش إعداد نظام التشغيل — ده كان بيلخبط الثيمات على الأجهزة الفاتحة) */

@@ -181,6 +181,10 @@ export const MushafInteractiveReader: React.FC = () => {
   const flowBoxRef = useRef<HTMLDivElement | null>(null);
   /** عداد محاولات التحقق من الملاءمة — يتصفر مع كل صفحة جديدة */
   const fitVerifyRef = useRef<number>(0);
+  /** مستنسخ القياس المخفي خارج تحكم React — لملاءمة بلا سباقات */
+  const measureRef = useRef<HTMLDivElement | null>(null);
+  /** آخر حجم خط مطبّق — لكسر تذبذب إعادة الملاءمة */
+  const fitFontSizeRef = useRef<number>(24);
 
   // ===== حالة الختمة (محدثة عند التعليم) =====
   const [khatmaTick, setKhatmaTick] = useState(0);
@@ -380,6 +384,16 @@ export const MushafInteractiveReader: React.FC = () => {
 
   useEffect(() => stopAudio, [stopAudio]);
 
+  // تنظيف مستنسخ القياس عند إلغاء تركيب المكوّن
+  useEffect(() => {
+    return () => {
+      if (measureRef.current) {
+        measureRef.current.remove();
+        measureRef.current = null;
+      }
+    };
+  }, []);
+
   // تحميل نص المصحف الكامل (604 صفحة) + مصحف التجويد الملون
   const [pagesReady, setPagesReady] = useState<boolean>(isQuranPagesLoaded());
   useEffect(() => {
@@ -429,10 +443,11 @@ export const MushafInteractiveReader: React.FC = () => {
   }, []);
 
   /**
-   * ملاءمة الخط تلقائية: تُقاس من الصندوق الفعلي بعد اكتمال التخطيط —
-   * مرحلتان (نمو خشن 2px حتى 96% ثم ضبط دقيق 0.5px بلا فيضان) —
-   * وتُعاد تلقائياً مع أي تغيير في أبعاد الصفحة أو تحميل الخطوط
-   * (بطلب المالك: إلغاء الاسكرول وملء الفراغ فوق وتحت بالكامل).
+   * ملاءمة الخط تلقائية — بملء الصفحة كاملة بلا اسكرول ولا فراغ (بطلب المالك).
+   *
+   * المنهج المحصّن ضد سباقات React: القياس يجري على «مستنسخ قياس» مخفي
+   * خارج تحكم React (React هو الكاتب الوحيد لحجم خط الصفحة الحقيقية)،
+   * ببحث ثنائي عن أكبر حجم لا يفيض — ثم يُضبط على الحالة مرة واحدة.
    */
   const computeFit = useCallback(() => {
     const el = flowRef.current;
@@ -440,74 +455,122 @@ export const MushafInteractiveReader: React.FC = () => {
     if (!el || !box || !pagesReady) return;
     const boxH = box.clientHeight;
     const boxW = box.clientWidth;
-    if (boxH < 60 || boxW < 60) return; // التخطيط لم يستقر بعد
+    // عرض/ارتفاع عابر أثناء تدوير الشاشة أو تغيير حجم النافذة — القياس عليه بلا معنى
+    if (boxH < 60 || boxW < 150 || el.children.length === 0) return;
 
-    const measureContentH = (): number => el.scrollHeight;
-    // بذرة أولية من ارتفاع الصندوق الحقيقي (ليس من حالة قديمة)
-    let size = Math.max(14, Math.min(42, Math.round(boxH * 0.0265)));
-    el.style.fontSize = `${size}px`;
-    void box.offsetHeight;
-
-    const MAX_SIZE = 84;
-    // مرحلة 1: نمو خشن حتى يملأ النص 96% من الصفحة أو يفيض
-    for (let i = 0; i < 60 && size < MAX_SIZE; i++) {
-      if (measureContentH() >= boxH * 0.96) break;
-      size += 2;
-      el.style.fontSize = `${size}px`;
-      void box.offsetHeight;
+    const pageKey = `${currentPageNum}|${edition.id}`;
+    // بناء المستنسخ المخفي (يُعاد بناؤه مع كل صفحة/طبعة جديدة فقط)
+    let m = measureRef.current;
+    if (!m || m.dataset.pageKey !== pageKey) {
+      if (m) m.remove();
+      m = document.createElement('div');
+      m.setAttribute('aria-hidden', 'true');
+      m.style.cssText =
+        'position:fixed;top:0;inset-inline-start:-99999px;visibility:hidden;' +
+        'pointer-events:none;z-index:-1;';
+      m.className = el.className;
+      m.innerHTML = el.innerHTML;
+      m.dataset.pageKey = pageKey;
+      document.body.appendChild(m);
+      measureRef.current = m;
     }
-    // مرحلة 2: تصغير دقيق حتى لا يفيض النص عن الصفحة إطلاقاً
-    for (let i = 0; i < 24 && size > 9; i++) {
-      if (measureContentH() <= boxH) break;
-      size -= 0.5;
-      el.style.fontSize = `${size}px`;
-      void box.offsetHeight;
-    }
-    setFitFontSize(size);
+    m.style.width = `${boxW}px`;
 
-    // التحقق بعد الرسم: لو الملاءمة ما زالت ناقصة أو فائضة (سباق تخطيط عابر)
-    // يُعاد الضبط حتى يستقر — بحد أقصى 8 محاولات
-    if (fitVerifyRef.current < 8) {
+    // خانات دوائر أرقام الآيات — عرضها يتغير مع الحجم فيؤثر على اللف
+    const circleSlots = Array.from(
+      m.querySelectorAll('span[class*="inline-flex"]'),
+    ) as HTMLElement[];
+
+    /** هل الحجم المقترح يُدخل النص في الصندوق دون فيضان؟ */
+    const fits = (size: number): boolean => {
+      m!.style.fontSize = `${size}px`;
+      const slotW = Math.round(size * 1.12) + 8; // الدائرة + هوامشها
+      for (const c of circleSlots) {
+        c.style.display = 'inline-block';
+        c.style.width = `${slotW}px`;
+        c.style.height = '0px';
+        c.style.fontSize = '0px';
+      }
+      void m!.offsetHeight;
+      return m!.scrollHeight <= boxH;
+    };
+
+    // بحث ثنائي: أكبر حجم (بدقة 0.5px) لا يفيض — يملأ ≥96% تلقائياً
+    // حارس «لا تقدم»: mid قد يساوي hi مع تقريب نصف الوحدة — بدونه حلقة لا نهائية
+    let lo = 9;
+    let hi = 84;
+    let best = 9;
+    while (hi - lo >= 0.5) {
+      const mid = Math.round(((lo + hi) / 2) * 2) / 2;
+      if (mid <= lo || mid >= hi) break;
+      if (fits(mid)) {
+        best = mid;
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+
+    // لا تحدّث الحالة لو النتيجة نفسها — يقطع أي تذبذب عرض محتمل
+    if (Math.abs(best - fitFontSizeRef.current) > 0.25) {
+      fitFontSizeRef.current = best;
+      setFitFontSize(best);
+    }
+
+    // تحقق خفيف بعد الرسم + فحوصات مؤجلة — لأي تغير تخطيط متأخر
+    // (حد أقصى 6 محاولات ثم يتوقف — لا حلقات)
+    if (fitVerifyRef.current < 6) {
       fitVerifyRef.current += 1;
-      window.requestAnimationFrame(() => {
+      const attempt = (): void => {
         const el2 = flowRef.current;
         const box2 = flowBoxRef.current;
-        if (!el2 || !box2) return;
+        if (!el2 || !box2 || el2.children.length === 0) return;
         const fill = el2.scrollHeight / Math.max(1, box2.clientHeight);
-        if (fill < 0.93 || fill > 1.001) computeFit();
-        else fitVerifyRef.current = 0;
-      });
+        if (fill < 0.88 || fill > 1.02) computeFit();
+        else fitVerifyRef.current = 6; // استقرت — أوقف المحاولات
+      };
+      window.requestAnimationFrame(attempt);
+      window.setTimeout(attempt, 400);
+      window.setTimeout(attempt, 1000);
     }
-  }, [pagesReady]);
+  }, [pagesReady, currentPageNum, edition.id]);
 
   // إعادة الملاءمة مع كل صفحة/طبعة/تغيّر أبعاد
   useEffect(() => {
     fitVerifyRef.current = 0;
     computeFit();
-  }, [computeFit, currentPageNum, edition, adaptive.pageW, adaptive.pageH]);
+  }, [computeFit, adaptive.pageW, adaptive.pageH]);
 
-  // مراقب أبعاد + اكتمال الخطوط: يلتقط أي تغيير متأخر في التخطيط ويضبط الملاءمة
+  // مراقب أبعاد الصندوق ومحتوى التدفق + اكتمال الخطوط:
+  // يعيد الملاءمة فقط إذا خرج الملء عن النطاق (خاصية عدم الحساسية تمنع الحلقات)
   useEffect(() => {
     if (!pagesReady) return;
     const box = flowBoxRef.current;
+    const flow = flowRef.current;
     if (!box) return;
     let raf = 0;
     const scheduleFit = () => {
       window.cancelAnimationFrame(raf);
-      raf = window.requestAnimationFrame(() => computeFit());
+      raf = window.requestAnimationFrame(() => {
+        const el2 = flowRef.current;
+        const box2 = flowBoxRef.current;
+        if (!el2 || !box2 || el2.children.length === 0) return;
+        const fill = el2.scrollHeight / Math.max(1, box2.clientHeight);
+        if (fill < 0.88 || fill > 1.02) computeFit();
+      });
     };
     const ro = new ResizeObserver(scheduleFit);
     ro.observe(box);
+    if (flow) ro.observe(flow); // تغير ارتفاع المحتوى (بعد الخط) يعيد التقييم
     window.addEventListener('resize', scheduleFit);
     if (typeof document.fonts !== 'undefined') {
       void document.fonts.ready.then(scheduleFit);
     }
-    // ضبط إضافي بعد أول إطارين — يحسم أي سباق تخطيط عند الفتح
-    scheduleFit();
-    const t = window.setTimeout(scheduleFit, 350);
+    // فحوصات مؤجلة تحسم أي سباق تخطيط عند الفتح أو تدوير الشاشة
+    const timers = [350, 900, 2000].map((ms) => window.setTimeout(scheduleFit, ms));
     return () => {
       window.cancelAnimationFrame(raf);
-      window.clearTimeout(t);
+      timers.forEach((t) => window.clearTimeout(t));
       ro.disconnect();
       window.removeEventListener('resize', scheduleFit);
     };
