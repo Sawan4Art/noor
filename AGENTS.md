@@ -104,3 +104,28 @@
 ### سبلاش أندرويد 12+ (API 31+)
 - النظام يفرض سبلاش خاصاً به: اضبط `android:windowSplashScreenBackground` + `android:windowSplashScreenAnimatedIcon` في `values-v31/styles.xml` وإلا ظهرت شاشة بيضاء بأيقونة أجنبية.
 - استدعِ `SplashScreen.installSplashScreen(this)` أول سطر في `MainActivity.onCreate` (المكتبة androidx core-splashscreen متاحة كاعتمادية ضمنية).
+
+## 10) دروس الدفعة السادسة (2026-10-29، إصلاحات v0.3.1 بعد تجربة v0.3.0)
+
+### جافا ≠ جافاسكربت: جذر «الويدجت فارغة» كان كسر ترجمة
+- `WidgetPrayerTimes.java` استخدم `date.getTimezoneOffset()` — دالة **جافاسكربت** لا وجود لها في `java.util.Calendar` → `compileReleaseJavaWithJavac` كان يفشل → نسخة الويدجت المحسوبة نيتِفياً لم تصل لأي هاتف أبداً والـ APK القديم هو ما اختبره المالك. الصيحة: **gradle assembleRelease لازم يُشغَّل وينجح قبل أي ادعاء أن ميزة نيتِف تعمل.**
+- المكافئ الصحيح: `date.getTimeZone().getOffset(date.getTimeInMillis()) / 3600000.0`.
+- فحص إلغاء المنبهات: النطاق لازم يطابق نطاق الجدولة (أذان 0-23 + إقامة 48-71 + كتم 0-47 = 72 فتحة).
+
+### ملاءمة خط بلا سباقات (نمط معماري)
+- **ممنوع** الكتابة الأمرية على `el.style.fontSize` لعنصر يتحكم فيه React — الـ re-render يمسحها في منتصف القياس ويولد حالات تالفة (خط 9px مع أطفال 39px!).
+- الصحيح: **مستنسخ قياس مخفي** في `document.body` (نفس className + innerHTML، بلا تحكم React) + بحث ثنائي على المستنسخ + `setFitFontSize` مرة واحدة.
+- **فخ البحث الثنائي بـ 0.5px**: `Math.round` يقرب نصف الوحدة لأعلى فيمكن أن `mid === hi`، ومع `hi = mid` لا يتقدم — **حلقة لا نهائية توقف الصفحة كلها**. الحل: حارس `if (mid <= lo || mid >= hi) break;`.
+- حلقات RO: مفتاح أسفل الصفحة/التذييل حجمه يعتمد على الخط → تغيّر الخط يغير ارتفاع الصندوق → RO يعيد الملاءمة → تذبذب. الحل: **خاصية عدم الحساسية** — أعد الملاءمة فقط لو الملء خارج [0.88, 1.02] + فحوصات مؤجلة (400ms/1000ms/2s) + رفض قياس صناديق عابرة (`boxW < 150`).
+
+### بناء أسرع 500×: تقييد مسح Tailwind
+- Tailwind 4 يمسح كل المصادر غير المتجاهلة بحثاً عن فئات — ملف `public/data/quran-tajweed.json` (1.67MB نص عربي) كان يُمسح كمرشحات → بناء 8-9 دقائق.
+- الحل في index.css: `@import "tailwindcss" source("../src");` + `@source "../index.html";` → البناء **0.6 ثانية**.
+
+### عدّاد الويدجت التنازلي
+- `setChronometer` بقاعدة مستقبلية يعرض أرقاماً سالبة — فعّل `views.setBoolean(viewId, "setCountDown", true)` (API 24+) قبل استدعائه لعرض «المتبقي 12:34» موجباً.
+
+### بيئة الساندبوكس — تحديثات
+- JDK النظام JRE فقط (لا javac) — نزّل Temurin JDK 21 كامل: `https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse?project=jdk` وفكّه في `jdk21/`.
+- الإصدار يُنشأ عبر GitHub API (release + رفع APK بـ POST upload_url) — أنجح من الويب.
+- اضبط viewport المتصفح (`agent-browser set viewport 412 915`) قبل أي قياس بصري — الجلسة الجديدة ترجع لأسطح مكتب واسعة.
