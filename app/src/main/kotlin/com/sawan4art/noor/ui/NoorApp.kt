@@ -23,10 +23,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -45,6 +46,8 @@ import com.sawan4art.noor.ui.theme.ThemeDialMath
 import com.sawan4art.noor.ui.theme.ThemeDialOverlay
 import com.sawan4art.noor.ui.theme.ThemeDialState
 import com.sawan4art.noor.ui.update.UpdateDialog
+import kotlin.math.max
+import kotlin.math.min
 
 /** التطبيق عربي أولاً — الاتجاه مثبت يمين-لليسار مهما كانت لغة الجهاز */
 private val AppDirection = LayoutDirection.Rtl
@@ -65,6 +68,9 @@ fun NoorApp(viewModel: HomeViewModel) {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
+
+    // مسار قناع الانقسام — يُعاد بناؤه كل إطار فوق المسار نفسه بلا تخصيصات
+    val maskPath = remember { Path() }
 
     // مزلاج المظهر — حالة واحدة تخدم طبقة الانقسام والمزلاج نفسه
     val dial = remember { ThemeDialState() }
@@ -100,7 +106,8 @@ fun NoorApp(viewModel: HomeViewModel) {
 
             // ===== طبقة المعاينة المقسومة — الثيم الهدف خلف الأيقونة =====
             // الفاتح يسار الحدّ (خلف الشمس المسحوبة يميناً) والمظلم يمينه،
-            // والحدّ نفسه عند الأيقونة والتوهج يضيء الحادّ — قناع DstIn واحد.
+            // والحدّ **قوس منحنٍ ينتفخ حول الأيقونة** (درس المالك: الضوء لا يستقيم)
+            // بحافة ريشية مموّهة على شرائح — قناع DstIn من مسارات لا تتباعد أبداً.
             if (dial.splitActive) {
                 NoorTheme(
                     themeMode = if (dial.overlayIsLight) ThemeMode.LIGHT else ThemeMode.DARK,
@@ -111,23 +118,8 @@ fun NoorApp(viewModel: HomeViewModel) {
                             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                             .drawWithContent {
                                 drawContent()
-                                if (dial.screenWidth > 0f) {
-                                    val profile = ThemeDialMath.maskStops(
-                                        dial.maskX.value,
-                                        dial.screenWidth,
-                                        dial.fadePx,
-                                        lightOnLeft = dial.overlayIsLight,
-                                    )
-                                    val stops = ArrayList<Pair<Float, Color>>(profile.size / 2)
-                                    var i = 0
-                                    while (i < profile.size) {
-                                        stops.add(profile[i] to Color.Black.copy(alpha = profile[i + 1]))
-                                        i += 2
-                                    }
-                                    drawRect(
-                                        brush = Brush.horizontalGradient(*stops.toTypedArray()),
-                                        blendMode = BlendMode.DstIn,
-                                    )
+                                if (dial.screenWidth > 0f && dial.screenHeight > 0f && dial.fadePx > 0f) {
+                                    drawArcSplitMask(dial, maskPath)
                                 }
                             },
                     ) {
@@ -185,6 +177,113 @@ fun NoorApp(viewModel: HomeViewModel) {
             onRetry = UpdateManager::startDownload,
         )
     }
+}
+
+/**
+ * قناع الانقسام القوسي — يُرسم على طبقة الثيم الهدف بـ DstIn:
+ * جسم المنطقة الهدف كامل حتى أول إزاحة ريشية، ثم شرائح الريش تتناوب
+ * بالشفافية من شبه الكامل إلى الصفر حول حدّ القوس — فتبدو الحافّة
+ * مموّهة منحنية كشفق لا خط حادّ. الشرائح لا تتراكب (فرق ثابت بين منحنيين
+ * متوازيين) فلا تتضاعف شفافية بكسل ولا ثقوب winding.
+ */
+private fun DrawScope.drawArcSplitMask(dial: ThemeDialState, maskPath: Path) {
+    val w = dial.screenWidth
+    val h = dial.screenHeight
+    val maskX = dial.maskX.value
+    val cy = dial.trackCenterY
+    val sag = dial.arcSagPx
+    val reach = dial.arcReachPx
+    val lightOnLeft = dial.overlayIsLight
+    val offsets = ThemeDialMath.featherOffsets(dial.fadePx)
+    val bands = offsets.size - 1
+    if (lightOnLeft) {
+        // المنطقة الهدف يسار الحدّ: الجسم الكامل حتى أول إزاحة ريشية
+        targetBodyPath(maskPath, maskX, cy, reach, sag, true, offsets[0], w, h)
+        drawPath(maskPath, Color.Black, blendMode = BlendMode.DstIn)
+        for (k in 0 until bands) {
+            featherBandPath(maskPath, maskX, cy, reach, sag, true, offsets[k], offsets[k + 1], h)
+            drawPath(maskPath, Color.Black.copy(alpha = ThemeDialMath.featherAlpha(k)), blendMode = BlendMode.DstIn)
+        }
+    } else {
+        // المنطقة الهدف يمين الحدّ: شرائح الريش تنزلق يساراً من الجسم الكامل
+        targetBodyPath(maskPath, maskX, cy, reach, sag, false, offsets[bands], w, h)
+        drawPath(maskPath, Color.Black, blendMode = BlendMode.DstIn)
+        for (k in 0 until bands) {
+            featherBandPath(
+                maskPath, maskX, cy, reach, sag, false,
+                offsets[bands - 1 - k], offsets[bands - k], h,
+            )
+            drawPath(maskPath, Color.Black.copy(alpha = ThemeDialMath.featherAlpha(k)), blendMode = BlendMode.DstIn)
+        }
+    }
+}
+
+/**
+ * جسم المنطقة الهدف: من أول إزاحة ريشية عن حدّ القوس حتى حافة الشاشة المقابلة.
+ * الحافة القوسية تُقص على حدود الشاشة (بلا تقاطع ذاتي) فلا ثقوب عند انسحاب الحدّ.
+ */
+private fun targetBodyPath(
+    path: Path,
+    maskX: Float,
+    centerY: Float,
+    reachPx: Float,
+    sagPx: Float,
+    lightOnLeft: Boolean,
+    edgeOffset: Float,
+    screenW: Float,
+    screenH: Float,
+) {
+    path.rewind()
+    val steps = 24
+    var i = 0
+    while (i <= steps) {
+        val y = screenH * i / steps
+        val x = ThemeDialMath.edgeX(y, maskX, centerY, reachPx, sagPx, lightOnLeft) + edgeOffset
+        val clamped = if (lightOnLeft) max(x, -1f) else min(x, screenW + 1f)
+        if (i == 0) path.moveTo(clamped, y) else path.lineTo(clamped, y)
+        i++
+    }
+    if (lightOnLeft) {
+        path.lineTo(-1f, screenH)
+        path.lineTo(-1f, 0f)
+    } else {
+        path.lineTo(screenW + 1f, screenH)
+        path.lineTo(screenW + 1f, 0f)
+    }
+    path.close()
+}
+
+/**
+ * شريحة ريش بين منحنيين متوازيين لحدّ القوس (فرق ثابت بينهما) —
+ * المتوازيان لا يتقاطعان أبداً فالشريحة بسيطة بلا ثقوب winding.
+ */
+private fun featherBandPath(
+    path: Path,
+    maskX: Float,
+    centerY: Float,
+    reachPx: Float,
+    sagPx: Float,
+    lightOnLeft: Boolean,
+    offsetA: Float,
+    offsetB: Float,
+    screenH: Float,
+) {
+    path.rewind()
+    val steps = 24
+    var i = 0
+    while (i <= steps) {
+        val y = screenH * i / steps
+        val x = ThemeDialMath.edgeX(y, maskX, centerY, reachPx, sagPx, lightOnLeft) + offsetA
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        i++
+    }
+    i = steps
+    while (i >= 0) {
+        val y = screenH * i / steps
+        path.lineTo(ThemeDialMath.edgeX(y, maskX, centerY, reachPx, sagPx, lightOnLeft) + offsetB, y)
+        i--
+    }
+    path.close()
 }
 
 /**

@@ -4,8 +4,11 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -14,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -26,7 +30,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -34,8 +37,11 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import com.sawan4art.noor.ui.icons.NoorIcons
@@ -43,14 +49,19 @@ import com.sawan4art.noor.ui.nav.GooeyMath
 import com.sawan4art.noor.ui.nav.addBridgePath
 import com.sawan4art.noor.ui.nav.addLiquidBlob
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * مزلاج الشمس والقمر — طبقة فوق كل شيء (فوق طبقتي الثيم):
- * كبسولة المسار + السائل الحي (ذيل ورأس وجسر بلا فصل) + توهج الشروق عند الحدّ
- * + أيقونتا الشمس والقمر تتقاطفان بموضع اليد.
+ * كبسولة المسار + السائل الحي (ذيل ورأس وجسر بلا فصل) + توهج الشروق **قوساً منحنياً**
+ * حول الأيقونة + أيقونتا الشمس والقمر تتقاطفان بموضع اليد.
  *
- * الإيماءة: قبضة على المسار كله؛ الحركة الأفقية تحرك الأيقونة مع اليد حرفياً،
- * والرفع يحسم بالضفة، والنقرة تبدّل. الاتجاه فيزيائي: يمين = فاتح.
+ * درس alpha7 (ملاحظة المالك): الإيماءة كانت على الطبقة الكاملة فصارت حاجز لمس
+ * يبتلع ضربات الشريط السفلي، والإمساك بالمسار الفارغ يولّد الانقسام الثقيل (لاج).
+ * الإصلاح: الطبقة ترسم فقط بلا أي قبضة لمس، والإيماءة على **صندوق يركب الأيقونة
+ * وحدها** — الفراغ يمر للطبقات تحتيه طبيعياً، والانقسام لا يشتغل إلا بسحب فعلي.
+ *
+ * الاتجاه داخلياً LTR دائماً — الرسم كله بإحداثيات فيزيائية مطلقة محصّنة من RTL.
  */
 @Composable
 fun ThemeDialOverlay(
@@ -73,9 +84,10 @@ fun ThemeDialOverlay(
     val iconPx = with(density) { 24.dp.toPx() }
     val strokePx = with(density) { 1.dp.toPx() }
     val anchorPad = blobR * 1.6f
+    val touchHalf = with(density) { 32.dp.toPx() } // هدف لمس 64dp يركب الأيقونة
 
     SideEffect {
-        dial.configure(dial.screenWidth, blobR, fadePx, bandPx, radialPx, anchorPad)
+        dial.configure(dial.screenWidth, dial.screenHeight, blobR, fadePx, bandPx, radialPx, anchorPad)
     }
 
     // مزامنة المرسى مع الثيم المثبت (أول قياس + تغيّر الإعدادات + الدوران)
@@ -95,7 +107,6 @@ fun ThemeDialOverlay(
     val scheme = MaterialTheme.colorScheme
     val capsuleFill = scheme.surface.copy(alpha = 0.45f)
     val capsuleBorder = scheme.outline.copy(alpha = 0.35f)
-    val dark = scheme.background.luminance() < 0.5f
     val sunTop = Color(0xFFFFE2AE)
     val sunBottom = Color(0xFFF4A85C)
     val moonTop = Color(0xFFD7E3F4)
@@ -110,54 +121,17 @@ fun ThemeDialOverlay(
     val sunPainter = rememberVectorPainter(NoorIcons.Sun)
     val moonPainter = rememberVectorPainter(NoorIcons.Moon)
 
-    Box(
+    // منحنى حدّ الشروق — يُعاد بناؤه كل إطار فوق المسار نفسه بلا تخصيصات
+    val glowEdge = remember { Path() }
+
+    // اتجاه داخلي LTR: صندوق الإيماءة يُثبَّت TopStart الفيزيائي (أعلى اليسار)
+    // مهما كان اتجاه التطبيق RTL — فالإزاحة الخام = إحداثيات مطلقة صحيحة
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Box(
         modifier = Modifier
             .fillMaxSize()
-            .onSizeChanged { dial.configure(it.width.toFloat(), blobR, fadePx, bandPx, radialPx, anchorPad) }
-            .semantics {
-                contentDescription =
-                    "مزلاج المظهر — اسحب يميناً للوضع الفاتح ويساراً للوضع المظلم، أو انقر للتبديل"
-            }
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    if (dial.busy || dial.dragging || !dial.isInsideTrack(down.position.x, down.position.y)) {
-                        return@awaitEachGesture // خارج المسار: يمر للطبقات تحتيه بلا استهلاك
-                    }
-                    down.consume()
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    // داخل awaitEachGesture تُمنع التعليقات العامة — تعديلات الحالة
-                    // عبر مسرح النطاق الرئيسي فتتسلسل بترتيب الأحداث نفسه
-                    scope.launch { dial.beginDrag(down.position.x, currentCommittedDark) }
-                    var totalDx = 0f
-                    var totalDy = 0f
-                    var crossedLeft = dial.progressOfHead() < 0.5f
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                        if (!change.pressed) {
-                            // الرفع: نقرة أم سحب؟
-                            if (ThemeDialMath.isTap(totalDx, totalDy)) {
-                                scope.launch { dial.toggle(currentCommittedDark, currentCommit, scope) }
-                            } else {
-                                scope.launch { dial.endDrag(currentCommit, scope) }
-                            }
-                            break
-                        }
-                        val delta = change.positionChange()
-                        totalDx += delta.x
-                        totalDy += delta.y
-                        val fingerX = change.position.x
-                        scope.launch { dial.dragTo(fingerX) }
-                        // همسة عند عبور المنتصف — الحاسمة
-                        val nowLeft = dial.progressOfHead() < 0.5f
-                        if (nowLeft != crossedLeft) {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            crossedLeft = nowLeft
-                        }
-                        change.consume()
-                    }
-                }
+            .onSizeChanged {
+                dial.configure(it.width.toFloat(), it.height.toFloat(), blobR, fadePx, bandPx, radialPx, anchorPad)
             }
             .drawBehind {
                 if (dial.trackWidth <= 0f || dial.screenWidth <= 0f) return@drawBehind
@@ -170,7 +144,7 @@ fun ThemeDialOverlay(
                 val energy = dial.energy()
                 val p = ThemeDialMath.progress(headXv, dial.anchorLeft, dial.anchorRight)
 
-                // ===== 1) كبسولة المسار =====
+                // ===== 1) كبسولة المسار (زخرفة لا إيماءة) =====
                 val topLeft = Offset(dial.trackLeft, dial.trackTop)
                 val capsule = Size(dial.trackWidth, dial.trackHeight)
                 drawRoundRect(
@@ -187,22 +161,43 @@ fun ThemeDialOverlay(
                     style = Stroke(strokePx),
                 )
 
-                // ===== 2) توهج الشروق عند حدّ الانقسام =====
+                // ===== 2) توهج الشروق — قوس منحنٍ ينتفخ حول الأيقونة لا خط مستقيم =====
+                // «الضوء لا يستقيم بل يظهر كقوس» — شرائط مرسومة على المنحنى نفسه:
+                // عريضة خافتة في الخارج ونواة لامعة في الداخل (تمويه تحليلي رخيص).
                 if (dial.splitActive) {
                     val gf = dial.glow.value * ThemeDialMath.glowDuringSweep(dial.sweepFraction())
                     if (gf > 0.004f) {
                         val warm = dial.overlayIsLight
                         val bandColor = if (warm) sunriseBand else moonBand
                         val coreColor = if (warm) sunriseCore else moonCore
-                        val profile = ThemeDialMath.glowStops(dial.maskX.value, dial.screenWidth, dial.bandPx)
-                        val stops = ArrayList<Pair<Float, Color>>(profile.size / 2)
+                        val sagPx = dial.arcSagPx
+                        val reachPx = dial.arcReachPx
+                        val h = size.height
+                        glowEdge.rewind()
+                        val steps = 28
                         var i = 0
-                        while (i < profile.size) {
-                            stops.add(profile[i] to bandColor.copy(alpha = 0.42f * gf * profile[i + 1]))
-                            i += 2
+                        while (i <= steps) {
+                            val sy = h * i / steps
+                            val sx = ThemeDialMath.edgeX(sy, dial.maskX.value, y, reachPx, sagPx, dial.overlayIsLight)
+                            if (i == 0) glowEdge.moveTo(sx, sy) else glowEdge.lineTo(sx, sy)
+                            i++
                         }
-                        drawRect(brush = Brush.horizontalGradient(*stops.toTypedArray()))
-                        val center = Offset(headXv, y)
+                        val midColor = lerp(bandColor, coreColor, 0.45f)
+                        val nearCore = lerp(bandColor, coreColor, 0.75f)
+                        val layers = arrayOf(
+                            Triple(1.00f, 0.050f, bandColor),
+                            Triple(0.74f, 0.070f, bandColor),
+                            Triple(0.52f, 0.095f, bandColor),
+                            Triple(0.36f, 0.135f, midColor),
+                            Triple(0.22f, 0.185f, nearCore),
+                            Triple(0.11f, 0.260f, coreColor),
+                            Triple(0.045f, 0.340f, coreColor),
+                        )
+                        for ((wf, af, c) in layers) {
+                            drawPath(glowEdge, c.copy(alpha = af * gf), style = Stroke(wf * bandPx))
+                        }
+                        // وهج شعاعي عند مصدر الضوء — الأيقونة نفسها
+                        val center = Offset(dial.maskX.value, y)
                         drawCircle(
                             brush = Brush.radialGradient(
                                 colors = listOf(
@@ -282,5 +277,82 @@ fun ThemeDialOverlay(
                     }
                 }
             },
-    )
+    ) {
+        // ===== صندوق الإيماءة — ثابت فوق مسار المزلاج كاملاً، والقبض من الأيقونة وحدها =====
+        // الطبقة الأم بلا pointerInput فليست حاجز لمس، وهذا الصندوق محصور في فجوة
+        // المسار (لا شيء تفاعلي تحتها): اللمس قرب الأيقونة يقبل، وفراغ المسار
+        // يُرفض فوراً بلا انقسام ولا لاج (إصلاح ملاحظة المالك)، والشريط السفلي
+        // وخارجه يعملان طبيعياً. الصندوق ثابت فالإحداثيات المحلية = إزاحة ثابتة
+        // عن الجذر (trackLeft/trackTop) — بلا أي حلقة تغذية راجعة مع حركة الأيقونة.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset {
+                    IntOffset(dial.trackLeft.roundToInt(), dial.trackTop.roundToInt())
+                }
+                .size(
+                    with(density) { dial.trackWidth.toDp() },
+                    with(density) { dial.trackHeight.toDp() },
+                )
+                .semantics {
+                    contentDescription =
+                        "مزلاج المظهر — اسحب الأيقونة يميناً للوضع الفاتح ويساراً للوضع المظلم، أو انقرها للتبديل"
+                }
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        if (dial.busy || dial.dragging) {
+                            return@awaitEachGesture // الأيقونة مشغولة برحلة — لا قبضة الآن
+                        }
+                        // القبض من الأيقونة وحدها — الإحداثيات المحلية + أصل المسار الثابت = جذرية
+                        val touchX = down.position.x + dial.trackLeft
+                        val touchY = down.position.y + dial.trackTop
+                        if (!dial.isInsideIcon(touchX, touchY, touchHalf)) {
+                            return@awaitEachGesture // فراغ المسار لا يغيّر المظهر ولا يعطل الأيقونة
+                        }
+                        down.consume()
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        // داخل awaitEachGesture تُمنع التعليقات العامة — تعديلات الحالة
+                        // عبر مسرح النطاق الرئيسي فتتسلسل بترتيب الأحداث نفسه
+                        var began = false
+                        var totalDx = 0f
+                        var totalDy = 0f
+                        var crossedLeft = dial.progressOfHead() < 0.5f
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) {
+                                if (began) {
+                                    // الرفع بعد سحب: الضفة التي عبرها الإصبع تحسم
+                                    scope.launch { dial.endDrag(currentCommit, scope) }
+                                } else {
+                                    // نقرة على الأيقونة: تبديل فوري برحلة كاملة
+                                    scope.launch { dial.toggle(currentCommittedDark, currentCommit, scope) }
+                                }
+                                break
+                            }
+                            val delta = change.positionChange()
+                            totalDx += delta.x
+                            totalDy += delta.y
+                            if (!began && !ThemeDialMath.isTap(totalDx, totalDy)) {
+                                // أول تجاوز لحساسية اللمس يولد الانقسام — النقرة الصامتة لا تكلف شيئاً
+                                began = true
+                                scope.launch { dial.beginDrag(change.position.x + dial.trackLeft, currentCommittedDark) }
+                            }
+                            if (began) {
+                                scope.launch { dial.dragTo(change.position.x + dial.trackLeft) }
+                                // همسة عند عبور المنتصف — الحاسمة
+                                val nowLeft = dial.progressOfHead() < 0.5f
+                                if (nowLeft != crossedLeft) {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    crossedLeft = nowLeft
+                                }
+                                change.consume()
+                            }
+                        }
+                    }
+                },
+        )
+    }
+    }
 }

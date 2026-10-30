@@ -23,8 +23,11 @@ import kotlin.math.abs
  *
  * قواعد المالك (2026-10-31):
  * - الأيقونة مع اليد حرفياً أثناء السحب (ما لم تُرفع اليد تبقى حيث هي).
- * - الفاتح خلف الأيقونة (جهة المغادرة) والمظلم أمامها — حدّ الانقسام عند الأيقونة.
+ * - الفاتح خلف الأيقونة (جهة المغادرة) والمظلم أمامها — حدّ الانقسام قوس منحنٍ
+ *   ينتفخ حول الأيقونة بحافة ريشية مموّهة تحاكي انحناء الضوء عند الشروق.
  * - الرفع يحسم بالضفة التي عبرت المنتصف، والنقرة تبدّل فوراً برحلة كاملة.
+ * - الإيماءة من الأيقونة وحدها (صندوق لمس يركب الأيقونة) — الفراغ والمسار
+ *   يمرّان للطبقات تحتيهما فلا لاج ولا ابتلاع لمسات (درس alpha7).
  */
 class ThemeDialState {
 
@@ -34,6 +37,7 @@ class ThemeDialState {
     var trackWidth by mutableFloatStateOf(0f); private set
     var trackHeight by mutableFloatStateOf(0f); private set
     var screenWidth by mutableFloatStateOf(0f); private set
+    var screenHeight by mutableFloatStateOf(0f); private set
 
     // مقاييس مرسلة من الواجهة بالبكسل
     var blobRadiusPx by mutableFloatStateOf(0f); private set
@@ -85,6 +89,7 @@ class ThemeDialState {
 
     fun configure(
         screenW: Float,
+        screenH: Float,
         blobRadius: Float,
         fade: Float,
         band: Float,
@@ -92,6 +97,7 @@ class ThemeDialState {
         anchorPad: Float,
     ) {
         screenWidth = screenW
+        screenHeight = screenH
         blobRadiusPx = blobRadius
         fadePx = fade
         bandPx = band
@@ -99,14 +105,17 @@ class ThemeDialState {
         anchorPadPx = anchorPad
     }
 
-    /** قبضة كريمية حول المسار كله — الأيقونة سائلة تستحق هامش لمس سخي */
-    fun isInsideTrack(x: Float, y: Float): Boolean {
-        val slop = blobRadiusPx
-        return x >= trackLeft - slop && x <= trackLeft + trackWidth + slop &&
-            y >= trackTop - slop && y <= trackTop + trackHeight + slop
-    }
+    /** أقصى انسحاب رأسي لحدّ القوس عن قمته (عند الأيقونة) — كسر من ارتفاع الشاشة */
+    val arcSagPx: Float get() = screenHeight * ThemeDialMath.ARC_SAG_FRACTION
+
+    /** مدى القوس الرأسي حتى يستقيم الحدّ — كسر من ارتفاع الشاشة */
+    val arcReachPx: Float get() = screenHeight * ThemeDialMath.ARC_REACH_FRACTION
 
     fun progressOfHead(): Float = ThemeDialMath.progress(headX.value, anchorLeft, anchorRight)
+
+    /** قبضة الأيقونة وحدها — مربع لمس حول رأس السائل (الإيماءة لا تعمل من فراغ المسار) */
+    fun isInsideIcon(x: Float, y: Float, halfTouch: Float): Boolean =
+        abs(x - headX.value) <= halfTouch && abs(y - trackCenterY) <= halfTouch
 
     /** كسر المسح الحالي 0..1 — التوهج يذبل به في الرحلة النهائية */
     fun sweepFraction(): Float {
@@ -206,7 +215,7 @@ class ThemeDialState {
     /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والقناع يُساق خارج الشاشة */
     private fun sweepToTarget(commitLight: Boolean, onCommitLight: (Boolean) -> Unit, scope: CoroutineScope) {
         busy = true
-        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, fadePx)
+        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, fadePx, arcSagPx)
         sweepFrom = maskX.value
         sweepTo = endB
         val anchor = if (commitLight) anchorRight else anchorLeft
