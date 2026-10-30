@@ -1,44 +1,43 @@
 package com.sawan4art.noor.ui.nav
 
 import kotlin.math.abs
+import kotlin.math.pow
+import kotlin.math.sin
 
 /**
- * رياضيات «القطرة السائلة» — كوتلن خالص بلا أي اعتماديات Compose
+ * رياضيات «النقل السائل المتصل» — كوتلن خالص بلا أي اعتماديات Compose
  * كي تُختبر وحدةً وتُعاد معاينتها ببايثون بنفس الأرقام حرفياً.
  *
- * الجسر (bridge) هو الرقبة المقعّرة التي تصل دائرتين فيُشعران بأنهما
- * سائل واحد يتفصل ويندمج — تقنية metaball بمنحنيات بيزيه وضبط وسطي.
+ * قاعدة المالك (2026-10-30): السائل ينتقل من الزر القديم إلى الجديد **دون فصل** —
+ * ينقص من القديم ويزيد في الجديد عبر جسر يبقى موصولاً حتى يكتمل النقل كله،
+ * والسائل نفسه حيّ لا يسكن: تموج سطحي وانسياب ورفرفة دائمة كقطرة ماء لزجة.
  */
 object GooeyMath {
 
-    /** أقصى امتداد أفقي للقطة عند بعد كامل عن الهدف (نسبة) */
-    private const val MAX_STRETCH = 0.45f
+    /** أدنى نصف قطر يُرسم له شكل — تحته يُعد السائل قد انتقل بالكامل */
+    const val MIN_RADIUS = 1.2f
 
     /**
-     * معامل التمطط الأفقي للقطرة مع اقترابها من الهدف:
-     * عند البعد الكامل تتمطط (1 + MAX_STRETCH) وعند الوصول تكتمل دائرة.
-     * [distance] البعد الحالي عن الهدف، [travelScale] مرجع البعد (عرض تبويب مثلًا).
+     * ضنك رقبة الجسر يتكيف مع ما تبقى في المصدر: مصدر ممتلئ = رقبة سمينة (0.42)،
+     * وكلما نفد المصدر ضاقت حتى تصير خيطاً يُسحب فيه آخر قطرة (→0.97).
      */
-    fun stretchFactor(distance: Float, travelScale: Float): Float {
-        if (travelScale <= 0f) return 1f
-        val t = (distance / travelScale).coerceIn(0f, 1f)
-        return 1f + MAX_STRETCH * t * t // تربيعية: تمطط خفيف في البداية ثم أوضح في منتصف الرحلة
+    fun waistFor(sourceRadius: Float, fullRadius: Float): Float {
+        if (fullRadius <= 0f) return 0.97f
+        val remaining = (sourceRadius / fullRadius).coerceIn(0f, 1f)
+        return 0.42f + 0.55f * (1f - remaining).pow(1.5f)
     }
 
-    /** الضغط العمودي المقابل للحفاظ على مساحة القطرة أثناء التمطط (سلوك السائل الحقيقي) */
-    fun squashFactor(stretchX: Float): Float = if (stretchX <= 0f) 1f else 1f / stretchX
-
     /**
-     * وصف جسر الجيلي بين دائرتين متمركزتين على خط أفقي واحد.
-     * الدائرة الأولى في الناتج هي الأيسر دائمًا مهما كان ترتيب الإدخال.
-     * يُرجع null إذا كانت الدائرتان بعيدتين (لا جسر) أو متطابقتين تمامًا.
-     *
-     * [waist] (0..1) كم تُسحب مناصف المنحنى نحو المنتصف — أكبر = رقبة أنحف.
+     * الجسر السائل بين دائرتين على خط أفقي — **بلا حد مسافة إطلاقاً**:
+     * يبقى موصولاً مهما بعدت النقطتان (وهذا جوهر قاعدة «لا فصل»).
+     * يُرجع null فقط عند التطابق التام أو احتواء إحداهما داخل الأخرى —
+     * حينئذٍ يكفي رسم الدائرتين وحدهما فالاندماج تلقائي.
+     * الدائرة الأولى في الناتج هي الأيسر دائماً مهما كان ترتيب الإدخال.
+     * [waist] (0..1) كم يُسحب من مناصف المنحنيات نحو محور المراكز — أكبر = رقبة أنحف.
      */
     fun bridge(
         x1: Float, y1: Float, r1: Float,
         x2: Float, y2: Float, r2: Float,
-        mergeDistance: Float,
         waist: Float = 0.42f,
     ): GooeyBridge? {
         // ترتيب: الدائرة اليسرى أولًا كي تكون قبب الأقواس باتجاه ثابت
@@ -52,19 +51,18 @@ object GooeyMath {
 
         val d = bx - ax
         if (d < 1e-4f) return null
-        if (d >= mergeDistance) return null
         if (d <= abs(ar - br)) return null // واحدة داخل الأخرى — الاندماج تلقائي بلا جسر
 
         val mx = (ax + bx) / 2f
         val my = (ay + by) / 2f
 
-        // نقاط الالتقاء عمودية على خط المراكز (الجسور أفقية دائمًا في شريطنا)
+        // نقاط الالتقاء عند قطبي الدائرتين العموديين على خط المراكز
         val p1y = ay - ar // أعلى اليسرى
         val p2y = ay + ar // أسفل اليسرى
         val p3y = by - br // أعلى اليمنى
         val p4y = by + br // أسفل اليمنى
 
-        // مناصف منحنيات بيزيه تُسحب نحو مركز المسافة = رقبة مقعّرة سائلة
+        // مناصف منحنيات بيزيه تُسحب نحو محور المراكز = رقبة مقعّرة سائلة
         val qAx = ax + (mx - ax) * waist
         val qBx = bx + (mx - bx) * waist
 
@@ -82,32 +80,46 @@ object GooeyMath {
         )
     }
 
-    /** نصف قطر النقطة المنفصلة: صغيرة عند الانفصال وتكبر كلما اقتربت من الاندماج */
-    fun dropletRadius(baseRadius: Float, distance: Float, mergeDistance: Float): Float {
-        if (mergeDistance <= 0f) return baseRadius
-        val closeness = (1f - distance / mergeDistance).coerceIn(0f, 1f)
-        return baseRadius * (0.55f + 0.45f * closeness)
+    /**
+     * التموج السطحي الدائم — قلب «السائل الحي»:
+     * ثلاث موجات سفر بترددات مختلفة في الثبات، وموجتان أقوى بطاقة الهبوط [energy]
+     * (0..1) التي تذبل بعد وصول الرأس. الناتج إزاحة نسبية لنصف القطر (±7% تقريباً).
+     */
+    fun surfaceWave(angle: Float, time: Float, energy: Float, phase: Float = 0f): Float {
+        val idle = 0.030f * sin(3f * angle + 1.9f * time + phase) +
+            0.022f * sin(5f * angle - 2.7f * time + 2.1f * phase) +
+            0.013f * sin(8f * angle + 3.6f * time + 4.2f * phase)
+        val live = energy * (
+            0.055f * sin(5f * angle + 8.5f * time + phase) +
+                0.035f * sin(9f * angle - 6.3f * time + 1.7f * phase)
+            )
+        return idle + live
     }
 
-    /** هل يلزم رسم الجسر بين نقطتين؟ (فحص سريع قبل بناء المسار) */
-    fun hasBridge(distance: Float, mergeDistance: Float): Boolean =
-        distance < mergeDistance && distance > 1e-4f
+    /** انسياب رأسي بطيء للمركز — السائل يعوم في الزجاج بدل أن يثبت */
+    fun centerDrift(time: Float, phase: Float = 0f): Float =
+        0.035f * sin(1.1f * time + phase) + 0.020f * sin(2.3f * time + 1.3f + phase)
+
+    /** موجة الجسر (−1..1) — تُضرب في مقياس صغير فترفرف الرقبة كماء حي */
+    fun bridgeSway(time: Float, phase: Float = 0f): Float =
+        0.6f * sin(2.1f * time + phase) + 0.4f * sin(3.3f * time + 1.9f + phase)
 }
 
 /**
  * كل نقاط الجسر بترتيب الرسم:
  * أعلى-يسار ← منحنى علوي ← أعلى-يمين ← قبة يمين ← أسفل-يمين ← منحنى سفلي ← أسفل-يسار ← قبة يسار
  * الدائرة «أ» دائمًا الأيسر والدائرة «ب» الأيمن.
+ * حقول منحنيات الرقبة متغيرة كي تُدمج فيها موجة الرفرفة وقت الرسم مباشرة.
  */
 class GooeyBridge(
     val ax: Float, val ay: Float, val ar: Float,
     val bx: Float, val by: Float, val br: Float,
     val p1x: Float, val p1y: Float,
-    val qA1x: Float, val qA1y: Float,
-    val qA2x: Float, val qA2y: Float,
+    var qA1x: Float, var qA1y: Float,
+    var qA2x: Float, var qA2y: Float,
     val p3x: Float, val p3y: Float,
     val p4x: Float, val p4y: Float,
-    val qB2x: Float, val qB2y: Float,
-    val qB1x: Float, val qB1y: Float,
+    var qB2x: Float, var qB2y: Float,
+    var qB1x: Float, var qB1y: Float,
     val p2x: Float, val p2y: Float,
 )

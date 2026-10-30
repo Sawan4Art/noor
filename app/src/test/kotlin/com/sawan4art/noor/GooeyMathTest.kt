@@ -2,55 +2,51 @@ package com.sawan4art.noor
 
 import com.sawan4art.noor.ui.nav.GooeyMath
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
+import kotlin.math.pow
+import kotlin.math.sin
 
-/** اختبارات رياضيات القطرة السائلة — نفس الأرقام تُستخدم في معاينة بايثون للمالك */
+/**
+ * اختبارات «النقل السائل المتصل» — قاعدتا المالك:
+ * 1) لا فصل: الجسر يبقى موصولاً حتى يكتمل نقل السائل كله.
+ * 2) السائل حي: تموج وانسياب دائمان بلا توقف.
+ * نفس الأرقام تُستخدم في معاينة بايثون للمالك.
+ */
 class GooeyMathTest {
 
     private val y = 100f
     private val r = 25f
 
+    // ===== قاعدة لا فصل =====
+
     @Test
-    fun `التمطط كامل عند البعد الكامل وواحد عند الوصول`() {
-        val travel = 300f
-        assertEquals(1f, GooeyMath.stretchFactor(0f, travel), 1e-6f)
-        assertEquals(1.45f, GooeyMath.stretchFactor(300f, travel), 1e-6f)
-        assertEquals(1.45f, GooeyMath.stretchFactor(500f, travel), 1e-6f) // لا يتجاوز الحد
-        assertTrue(GooeyMath.stretchFactor(150f, travel) in 1f..1.45f)
+    fun `الجسر لا ينقطع مهما بعدت النقطتان - جوهر قاعدة المالك`() {
+        // القديم كان يقطع الجسر عند مسافة الاندماج — الآن موصول دائماً
+        for (d in listOf(60f, 100f, 200f, 400f, 1000f)) {
+            val b = GooeyMath.bridge(0f, y, r, d, y, r, GooeyMath.waistFor(r, r))
+            assertNotNull("الجسر انقطع عند بعد $d — مخالفة قاعدة لا فصل", b)
+        }
     }
 
     @Test
-    fun `الضغط يحفظ الحجم تقريبًا`() {
-        val sx = GooeyMath.stretchFactor(300f, 300f)
-        val sy = GooeyMath.squashFactor(sx)
-        assertEquals(1f, sx * sy, 0.02f)
-    }
-
-    @Test
-    fun `لا جسر بين دائرتين متطابقتين تمامًا`() {
-        assertNull(GooeyMath.bridge(50f, y, r, 50f, y, r, 80f))
-    }
-
-    @Test
-    fun `لا جسر عند البعد الأكبر من مسافة الاندماج`() {
-        assertNull(GooeyMath.bridge(0f, y, r, 81f, y, r, 80f))
-        assertNotNull(GooeyMath.bridge(0f, y, r, 79f, y, r, 80f))
+    fun `لا جسر بين دائرتين متطابقتين تماما - الاندماج تلقائي`() {
+        assertNull(GooeyMath.bridge(50f, y, r, 50f, y, r, 0.42f))
+        assertNull(GooeyMath.bridge(50f, y, 0.5f, 50.00005f, y, r, 0.42f))
     }
 
     @Test
     fun `لا جسر حين تكون دائرة داخل الأخرى`() {
-        assertNull(GooeyMath.bridge(0f, y, 30f, 5f, y, 10f, 80f))
+        assertNull(GooeyMath.bridge(0f, y, 30f, 5f, y, 10f, 0.42f))
     }
 
     @Test
-    fun `الترتيب دائمًا يسار ثم يمين مهما كان ترتيب الإدخال`() {
-        val forward = GooeyMath.bridge(10f, y, r, 70f, y, r, 80f)!!
-        val backward = GooeyMath.bridge(70f, y, r, 10f, y, r, 80f)!!
+    fun `الترتيب دائما يسار ثم يمين مهما كان ترتيب الإدخال`() {
+        val forward = GooeyMath.bridge(10f, y, r, 70f, y, r, 0.42f)!!
+        val backward = GooeyMath.bridge(70f, y, r, 10f, y, r, 0.42f)!!
         assertTrue(forward.ax <= forward.bx)
         assertTrue(backward.ax <= backward.bx)
         assertEquals(forward.ax, backward.ax, 1e-4f)
@@ -58,8 +54,8 @@ class GooeyMathTest {
     }
 
     @Test
-    fun `نقاط الالتقاء على محيط الدائرتين تمامًا`() {
-        val b = GooeyMath.bridge(0f, y, r, 60f, y, r, 80f)!!
+    fun `نقاط الالتقاء على محيط الدائرتين تماما`() {
+        val b = GooeyMath.bridge(0f, y, r, 60f, y, r, 0.42f)!!
         assertEquals(r, abs(b.p1y - b.ay), 1e-4f) // أعلى اليسرى
         assertEquals(r, abs(b.p2y - b.ay), 1e-4f) // أسفل اليسرى
         assertEquals(b.br, abs(b.p3y - b.by), 1e-4f) // أعلى اليمنى
@@ -69,30 +65,124 @@ class GooeyMathTest {
     }
 
     @Test
-    fun `الرقبة أضيق من كامل المسافة - مقعرية سائلة`() {
-        val b = GooeyMath.bridge(0f, y, r, 70f, y, r, 80f)!!
-        // منتصف الحافة العلوية يجب أن ينزل تحت أعلى الدائرتين (رقبة داخلية)
-        val midTopY = (b.qA1y + b.qA2y) / 2f
-        assertTrue("الرقبة يجب أن تكون مقعرة: midTop=$midTopY", midTopY > b.p1y)
-        // ومنتصف الحافة السفلية فوق أسفل الدائرتين
-        val midBottomY = (b.qB1y + b.qB2y) / 2f
-        assertTrue(midBottomY < b.p2y)
+    fun `الرقبة مقعرة سائلة - مناصف المنحنيات مسحوبة نحو المحور`() {
+        val b = GooeyMath.bridge(0f, y, r, 70f, y, r, 0.42f)!!
+        // منتصف الحافة العلوية يجب أن ينزل تحت قطبي الدائرتين (رقبة داخلية)
+        assertTrue("الرقبة يجب أن تكون مقعرة", b.qA1y > b.p1y && b.qA2y > b.p3y)
+        // ومنتصف الحافة السفلية فوق القطب السفلي
+        assertTrue(b.qB1y < b.p2y && b.qB2y < b.p4y)
+    }
+
+    // ===== الرقبة المتكيفة — سحب آخر قطرة =====
+
+    @Test
+    fun `الرقبة سمينة والسائل كله في المصدر وخيط عند نفاده`() {
+        val fat = GooeyMath.waistFor(r, r)
+        val thin = GooeyMath.waistFor(0f, r)
+        assertEquals(0.42f, fat, 1e-4f)
+        assertTrue("الرقبة عند نفاد المصدر يجب أن تصل خيطاً: $thin", thin > 0.9f)
+        assertTrue(thin <= 1f)
+        // رتيبة التناقص: كلما نقص المصدر ضاقت الرقبة
+        var prev = Float.MAX_VALUE
+        for (i in 0..20) {
+            val w = GooeyMath.waistFor(r * i / 20f, r)
+            assertTrue("الرقبة يجب أن تضيق رتيباً مع نفاد المصدر", w <= prev + 1e-6f)
+            prev = w
+        }
     }
 
     @Test
-    fun `نصف قطر النقطة يكبر كلما اقتربت من الاندماج`() {
-        val far = GooeyMath.dropletRadius(10f, 78f, 80f)
-        val near = GooeyMath.dropletRadius(10f, 10f, 80f)
-        assertTrue(near > far)
-        // 10×(0.55+0.45×(1-78/80)) = 5.6125 و 10×(0.55+0.45×0.875) = 9.4375
-        assertEquals(5.6125f, far, 1e-4f)
-        assertEquals(9.4375f, near, 1e-4f)
+    fun `الرقبة تتكيف مع أنصاف أقطار غير متساوية بلا NaN`() {
+        for (src in listOf(0.1f, 1.2f, 5f, 13f, 25f)) {
+            for (head in listOf(3f, 12f, 25f)) {
+                val b = GooeyMath.bridge(0f, y, src, 60f, y, head, GooeyMath.waistFor(src, 25f))
+                if (b != null) {
+                    val values = arrayOf(
+                        b.qA1y, b.qA2y, b.qB1y, b.qB2y,
+                        b.p1y, b.p2y, b.p3y, b.p4y,
+                    )
+                    assertTrue(values.all { it.isFinite() })
+                }
+            }
+        }
+    }
+
+    // ===== السائل الحي — تموج وانسياب دائمان =====
+
+    @Test
+    fun `التموج السطحي حي ومحدود ومتكرر بلا NaN`() {
+        var maxIdle = 0f
+        var maxLive = 0f
+        for (t in 0..200) {
+            for (i in 0..24) {
+                val angle = i * (2f * Math.PI.toFloat() / 24f)
+                val idle = GooeyMath.surfaceWave(angle, t * 0.05f, 0f)
+                val live = GooeyMath.surfaceWave(angle, t * 0.05f, 1f)
+                assertTrue(idle.isFinite() && live.isFinite())
+                maxIdle = maxOf(maxIdle, abs(idle))
+                maxLive = maxOf(maxLive, abs(live))
+                // نفس المدخلات = نفس الناتج (حتمية المعاينة البايثونية)
+                assertEquals(idle, GooeyMath.surfaceWave(angle, t * 0.05f, 0f), 1e-7f)
+            }
+        }
+        assertTrue("تموج الثبات مفرط: $maxIdle", maxIdle < 0.12f)
+        assertTrue("تموج الطاقة مفرط: $maxLive", maxLive < 0.2f)
+        assertTrue("التموج لا بد أن يكون محسوساً: $maxIdle", maxIdle > 0.03f)
     }
 
     @Test
-    fun `فحص الجسر السريع منطقي`() {
-        assertTrue(GooeyMath.hasBridge(40f, 80f))
-        assertFalse(GooeyMath.hasBridge(80f, 80f))
-        assertFalse(GooeyMath.hasBridge(0f, 80f))
+    fun `الانسياب المركزي وموجة الجسر محدودان دائما`() {
+        var maxDrift = 0f
+        var maxSway = 0f
+        for (t in 0..300) {
+            val time = t * 0.03f
+            maxDrift = maxOf(maxDrift, abs(GooeyMath.centerDrift(time)))
+            maxSway = maxOf(maxSway, abs(GooeyMath.bridgeSway(time)))
+        }
+        assertTrue("انسياب مفرط: $maxDrift", maxDrift < 0.07f)
+        assertTrue("رفرفة مفرطة: $maxSway", maxSway <= 1.0001f)
+        // موجات حقيقية لا تنعدم
+        assertTrue(maxSway > 0.5f)
+    }
+
+    @Test
+    fun `التموج بطورين مختلفين يعطي سطحين متمايلين لا متطابقين`() {
+        // المصدر والرأس بطورين مختلفين — كي لا يبدو السائل قالباً متزامناً
+        val a = GooeyMath.surfaceWave(0.8f, 1.37f, 0f, phase = 0f)
+        val b = GooeyMath.surfaceWave(0.8f, 1.37f, 0f, phase = 1.3f)
+        assertTrue(abs(a - b) > 1e-4f)
+    }
+
+    // ===== حدود الأمان العددية =====
+
+    @Test
+    fun `ضنك الرقبة يتحمل مصدرا ممتلئا فوق الكامل أو فارغا تماما`() {
+        assertEquals(0.42f, GooeyMath.waistFor(100f, 25f), 1e-4f) // يُقيَّد عند الكامل
+        assertEquals(0.97f, GooeyMath.waistFor(5f, 0f), 1e-4f) // تقسيم على صفر محروس
+    }
+
+    @Test
+    fun `الجسر عند مسافات وبعوض شديد بلا انفجار عددي`() {
+        // رأس ضئيل جدا يبرع من المصدر عند بعدها الأقصى — خيط رفيع لا NaN
+        val b = GooeyMath.bridge(0f, y, r, 500f, y, 2f, GooeyMath.waistFor(r, r))
+        assertNotNull(b)
+        assertTrue(b!!.qA1y.isFinite() && b.qA2y.isFinite())
+    }
+
+    // ===== تطابق المعاينة البايثونية =====
+
+    @Test
+    fun `قيم مرجعية مثبتة تطابق معاينة بايثون حرفيا`() {
+        // من scripts/preview_liquid_transfer_v2.py — نفس الثوابت
+        val remaining = 14.4f / 25f
+        val w = GooeyMath.waistFor(14.4f, 25f)
+        assertEquals(0.42f + 0.55f * (1f - remaining).pow(1.5f), w, 1e-4f)
+        val angle = 0.8f
+        val time = 1.37f
+        // الـ phase = 1 كي تظهر معاملات الأطوار (+1 و ×2.1 و ×4.2) في القيمة المرجعية
+        val expected = 0.030f * sin(3f * angle + 1.9f * time + 1f) +
+            0.022f * sin(5f * angle - 2.7f * time + 2.1f) +
+            0.013f * sin(8f * angle + 3.6f * time + 4.2f)
+        assertEquals(expected, GooeyMath.surfaceWave(angle, time, 0f, phase = 1f), 1e-6f)
     }
 }
