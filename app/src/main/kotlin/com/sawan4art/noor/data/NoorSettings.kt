@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sawan4art.noor.domain.prayer.CalculationMethod
@@ -18,6 +19,13 @@ private val Context.noorDataStore: DataStore<Preferences> by preferencesDataStor
 
 /** وضع المظهر */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
+/** ذاكرة نظام التحديثات — متى فُحص آخر مرة وماذا أُشعر عنه واستُبعد */
+data class UpdatePrefs(
+    val lastCheckAt: Long = 0L,
+    val notifiedVersion: String? = null,
+    val dismissedVersion: String? = null,
+)
 
 /**
  * إعدادات التطبيق — DataStore (الخليفة الحديث لـ SharedPreferences).
@@ -44,6 +52,9 @@ class SettingsRepository(private val context: Context) {
         val LAT = doublePreferencesKey("latitude")
         val LNG = doublePreferencesKey("longitude")
         val LOCATION_RESOLVED = booleanPreferencesKey("location_resolved")
+        val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check_at")
+        val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
+        val UPDATE_DISMISSED = stringPreferencesKey("update_dismissed_version")
     }
 
     val settings: Flow<NoorSettingsState> = context.noorDataStore.data.map { p ->
@@ -78,5 +89,26 @@ class SettingsRepository(private val context: Context) {
             it[Keys.LNG] = longitude
             it[Keys.LOCATION_RESOLVED] = true
         }
+    }
+
+    /** ذاكرة التحديثات — نفس مخزن الإعدادات لأنها كلها تفضيلات المستخدم */
+    val updatePrefs: Flow<UpdatePrefs> = context.noorDataStore.data.map { p ->
+        UpdatePrefs(
+            lastCheckAt = p[Keys.UPDATE_LAST_CHECK] ?: 0L,
+            notifiedVersion = p[Keys.UPDATE_NOTIFIED],
+            dismissedVersion = p[Keys.UPDATE_DISMISSED],
+        )
+    }
+
+    suspend fun setUpdateChecked(atMillis: Long) {
+        context.noorDataStore.edit { it[Keys.UPDATE_LAST_CHECK] = atMillis }
+    }
+
+    suspend fun setNotifiedVersion(tag: String) {
+        context.noorDataStore.edit { it[Keys.UPDATE_NOTIFIED] = tag }
+    }
+
+    suspend fun setDismissedVersion(versionName: String) {
+        context.noorDataStore.edit { it[Keys.UPDATE_DISMISSED] = versionName }
     }
 }

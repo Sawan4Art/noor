@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
+        android:name=".NoorApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -20,6 +21,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          موفّر الملفات — يخدم الـ APK المنزّل لمثبّت النظام داخل التطبيق
+          (طلب المالك: التثبيت من داخل التطبيق بلا متصفح).
+          السلطة بـ applicationId فتختلف آلياً بين نسخة ألفا والمستقرة.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
     <!--
@@ -32,6 +48,9 @@
       • الاهتزاز والاستيقاظ: تنبيه الأذان والسبحة
       • الخدمة الأمامية للتشغيل: صوت الأذان يعمل والشاشة مطفأة (بميزة الأذان)
       • الوسائط الصوتية: اختيار صوت أذان مخصص من الجهاز (33+ وقديمها)
+      • تثبيت التحديثات: REQUEST_INSTALL_PACKAGES — حوار تثبيت النظام
+        فوق التطبيق من داخل التطبيق (بلا متصفح)، وصفحة «مصادر غير معروفة»
+        لهذا التطبيق فقط تُفتح أول مرة عند أول تثبيت
       الممنوح تلقائياً يُصرَّح به في المانيفست فقط، وحوارات النظام تُطلق عند أول
       حاجة فعلية للميزة (سلسلة الحوارات المتتابعة في MainActivity قائمة).
     -->
@@ -49,4 +68,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- تثبيت التحديث داخل التطبيق — حوار النظام يظهر فوق التطبيق بلا متصفح -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

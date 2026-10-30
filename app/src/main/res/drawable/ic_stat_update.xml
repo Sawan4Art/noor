@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  أيقونة إشعار التحديث — هلال هندسي بنفس هندسة أيقونة التطبيق
+  (نفس القوسين بنفس النسب مصغّرة إلى 24dp، فتحة أعلى-يمين).
+  إشعارات أندرويد تعرض الألفا فقط فهي بيضاء صلبة.
+  المحول: (قديم − 54)×(24/66) + 12 لكل إحداثي — لا تُحرَّر يدوياً.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 10.03,4.20 A 7.82,7.82 0 1,0 19.80,13.97 A 6.91,6.91 0 0,1 10.03,4.20 Z" />
+</vector>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  مسارات FileProvider — لتثبيت التحديث داخل التطبيق (طلب المالك: بلا متصفح).
+  مجلد updates الخارجي الخاص بالتطبيق هو مكان التنزيل الأساسي،
+  والداخلي احتياط إن لم يتوفر التخزين الخارجي.
+-->
+<paths>
+    <external-files-path
+        name="updates"
+        path="updates/" />
+    <files-path
+        name="updates_internal"
+        path="updates/" />
+</paths>

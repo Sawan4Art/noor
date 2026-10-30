@@ -146,6 +146,35 @@ object NoorIcons {
         }
     }
 
+    /** التحديثات — سهم تنزيل فوق صينية تركيب (نفس لغة المستطيلات المستديرة) */
+    val Update: ImageVector by lazy {
+        noorIcon("Update") {
+            filled {
+                // عمود السهم
+                moveTo(11.1f, 3.6f)
+                lineTo(12.9f, 3.6f)
+                lineTo(12.9f, 12.0f)
+                lineTo(11.1f, 12.0f)
+                close()
+                // رأس السهم مثلث لأسفل
+                moveTo(6.9f, 11.2f)
+                lineTo(17.1f, 11.2f)
+                lineTo(12f, 16.9f)
+                close()
+                // قدمتا الصينية والقاعدة
+                moveTo(4.2f, 15.4f)
+                lineTo(5.9f, 15.4f)
+                lineTo(5.9f, 18.3f)
+                lineTo(18.1f, 18.3f)
+                lineTo(18.1f, 15.4f)
+                lineTo(19.8f, 15.4f)
+                lineTo(19.8f, 20.0f)
+                lineTo(4.2f, 20.0f)
+                close()
+            }
+        }
+    }
+
     // ===== أدوات الرسم =====
 
     /** هندسة شمس مبدّل المظهر — قرص وأشعة (نفس أرقام المولّد) */

@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -23,6 +24,8 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sawan4art.noor.data.ThemeMode
+import com.sawan4art.noor.data.update.UpdateManager
+import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.ui.home.HomeScreen
 import com.sawan4art.noor.ui.home.HomeViewModel
 import com.sawan4art.noor.ui.nav.LiquidNavScaffold
@@ -30,6 +33,7 @@ import com.sawan4art.noor.ui.nav.NoorTab
 import com.sawan4art.noor.ui.sections.ComingSoonScreen
 import com.sawan4art.noor.ui.settings.SettingsScreen
 import com.sawan4art.noor.ui.theme.NoorTheme
+import com.sawan4art.noor.ui.update.UpdateDialog
 
 /** التطبيق عربي أولاً — الاتجاه مثبت يمين-لليسار مهما كانت لغة الجهاز */
 private val AppDirection = LayoutDirection.Rtl
@@ -39,6 +43,11 @@ fun NoorApp(viewModel: HomeViewModel) {
     var tab by rememberSaveable { mutableStateOf(NoorTab.PRAYER) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val locating by viewModel.locating.collectAsStateWithLifecycle()
+    // نظام التحديثات — حالة واحدة تخدم حوار «ما الجديد» وبطاقة الإعدادات
+    val updateState by UpdateManager.state.collectAsStateWithLifecycle()
+    val dismissedVersion by UpdateManager.dismissedVersion.collectAsStateWithLifecycle()
+    // فحص الفتح — بسقف 3 ساعات، والفحص اليدوي من الإعدادات بلا سقف
+    LaunchedEffect(Unit) { UpdateManager.onAppStart() }
     // الظلام الفعلي الحالي — مبدّل الهيدر يقلبه (من النظام → عكس المعمول به الآن)
     val darkTheme = when (uiState.settings.themeMode) {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
@@ -89,6 +98,12 @@ fun NoorApp(viewModel: HomeViewModel) {
                                 onSetMethod = viewModel::setMethod,
                                 onSetHanafi = viewModel::setHanafi,
                                 onSetThemeMode = viewModel::setThemeMode,
+                                updateState = updateState,
+                                onCheckUpdates = UpdateManager::checkNow,
+                                onInstallUpdate = {
+                                    (updateState as? UpdateUiState.ReadyToInstall)
+                                        ?.let { UpdateManager.installApk(it.apk) }
+                                },
                             )
                             else -> ComingSoonScreen(target)
                         }
@@ -100,5 +115,24 @@ fun NoorApp(viewModel: HomeViewModel) {
 
     BackHandler(enabled = tab != NoorTab.PRAYER) {
         tab = NoorTab.PRAYER
+    }
+
+    // حوار «ما الجديد» — يظهر مرة لكل نسخة، والاستبعاد يخفي كل حالاتها
+    // لذلك الإصدار (التنزيل الجاري يكمل ويُتابَع من بطاقة الإعدادات)
+    val dialogVisible = when (val s = updateState) {
+        is UpdateUiState.Available -> dismissedVersion != s.info.versionName
+        is UpdateUiState.Downloading -> dismissedVersion != s.info.versionName
+        is UpdateUiState.ReadyToInstall -> dismissedVersion != s.info.versionName
+        is UpdateUiState.Failed -> s.info != null && dismissedVersion != s.info?.versionName
+        else -> false
+    }
+    if (dialogVisible) {
+        UpdateDialog(
+            state = updateState,
+            onDismiss = UpdateManager::dismiss,
+            onDownload = UpdateManager::startDownload,
+            onInstall = UpdateManager::installApk,
+            onRetry = UpdateManager::startDownload,
+        )
     }
 }

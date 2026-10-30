@@ -1,6 +1,7 @@
 package com.sawan4art.noor
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -10,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sawan4art.noor.data.update.UpdateManager
 import com.sawan4art.noor.ui.NoorApp
 import com.sawan4art.noor.ui.home.HomeViewModel
 
@@ -56,9 +58,23 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         enqueueMissingPermissions()
+        handleUpdateIntent(intent)
         setContent {
             val viewModel: HomeViewModel = viewModel()
             NoorApp(viewModel)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // الإشعار يفتح التطبيق وهو حي — نفس المسار: فحص فوري فيفتح «ما الجديد»
+        handleUpdateIntent(intent)
+    }
+
+    /** ضغط إشعار التحديث → فحص فوري بلا سقف زمني فيظهر ملخص ما الجديد */
+    private fun handleUpdateIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(UpdateManager.EXTRA_OPEN_UPDATE, false) == true) {
+            UpdateManager.checkNow()
         }
     }
 
