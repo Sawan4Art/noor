@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,14 +15,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,10 +38,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.sawan4art.noor.BuildConfig
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 import com.sawan4art.noor.domain.prayer.PrayerMath
 import com.sawan4art.noor.domain.prayer.PrayerTimes
+import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.ui.theme.LocalNoorColors
 import com.sawan4art.noor.util.Hijri
 import com.sawan4art.noor.util.TimeFormat
@@ -53,17 +50,21 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
- * الشاشة الرئيسية: تحية + المدينة والتاريخ + بطاقة الهيرو (الصلاة القادمة
- * بعدّاد تنازلي وحلقة تقدم ذهبية) + شبكة مواقيت اليوم + تذييل الصدقة الجارية.
+ * الشاشة الرئيسية — **بلا تمرير** (بطلب المالك 2026-10-30):
+ * الهيدر (المدينة + تحديد الموقع + مبدّل المظهر) ثم بطاقة الهيرو تملأ المساحة
+ * الباقية بحلقة تقدم متكيفة، وشبكة مواقيت اليوم، وسطر الصدقة — والمساحة
+ * للشريط الزجاجي العائم محفوظة دائماً أسفل الشاشة مهما كان ارتفاع الجهاز.
+ *
+ * الترتيب داخل بطاقة الهيرو: الصلاة القادمة + العدّاد + التواريخ ثم التحية
+ * واسم التطبيق تحتها بخط صغير واضح (نُقلا من أعلى الشاشة بطلب المالك).
  */
 @Composable
 fun HomeScreen(
     state: HomeViewModel.HomeUiState,
     locating: Boolean,
     onDetectLocation: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onToggleTheme: () -> Unit,
 ) {
-    val noorColors = LocalNoorColors.current
     val zone = remember { ZoneId.systemDefault() }
     val now: ZonedDateTime = remember(state.nowMillis) {
         Instant.ofEpochMilli(state.nowMillis).atZone(zone)
@@ -82,48 +83,44 @@ fun HomeScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
-            .padding(horizontal = 20.dp)
-            .verticalScroll(rememberScrollState()),
+            .padding(horizontal = 20.dp),
     ) {
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
         HomeHeader(
             city = settings.city,
             locating = locating,
             onDetectLocation = onDetectLocation,
-            onOpenSettings = onOpenSettings,
+            onToggleTheme = onToggleTheme,
         )
-        Spacer(Modifier.height(20.dp))
-        HeroCard(next = next, now = now)
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(8.dp))
+        HeroCard(
+            next = next,
+            now = now,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+        )
+        Spacer(Modifier.height(12.dp))
+        // التاريخ مأخوذ من بطاقة الهيرو — العنوان وحده (بطلب المالك)
         Text(
-            text = "مواقيت اليوم — ${Hijri.gregorianArabic(today)}",
+            text = "مواقيت اليوم",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
         PrayerTimesGrid(times = times, activeKey = next.key)
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(10.dp))
         Text(
             text = "هذا التطبيق صدقة جارية على روح والد المالك — رحمه الله رحمة واسعة",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
+            maxLines = 1,
             modifier = Modifier
                 .fillMaxWidth()
-                .alpha(0.75f)
-                .padding(bottom = 8.dp),
+                .alpha(0.75f),
         )
-        Text(
-            text = "نور المسلم ${BuildConfig.VERSION_NAME}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .alpha(0.5f)
-                .padding(bottom = 8.dp),
-        )
-        Spacer(Modifier.height(112.dp)) // مساحة شريط التنقل الزجاجي العائم
+        Spacer(Modifier.height(112.dp)) // مساحة شريط التنقل الزجاجي العائم — دائماً
     }
 }
 
@@ -132,37 +129,32 @@ private fun HomeHeader(
     city: String,
     locating: Boolean,
     onDetectLocation: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onToggleTheme: () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = "السلام عليكم ورحمة الله",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f),
+        ) {
+            Icon(
+                Icons.Filled.LocationOn,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.size(18.dp),
             )
-            Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Filled.LocationOn,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(18.dp),
+            Spacer(Modifier.size(4.dp))
+            Text(
+                text = city,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            if (locating) {
+                Spacer(Modifier.size(8.dp))
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.secondary,
                 )
-                Spacer(Modifier.size(4.dp))
-                Text(
-                    text = city,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                if (locating) {
-                    Spacer(Modifier.size(8.dp))
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.secondary,
-                    )
-                }
             }
         }
         IconButton(
@@ -175,10 +167,11 @@ private fun HomeHeader(
                 tint = MaterialTheme.colorScheme.primary,
             )
         }
-        IconButton(onClick = onOpenSettings, modifier = Modifier.size(40.dp)) {
+        // مبدّل المظهر مكان الترس القديم — الشمس والقمر معاً (أيقونة نور الهندسية)
+        IconButton(onClick = onToggleTheme, modifier = Modifier.size(40.dp)) {
             Icon(
-                Icons.Filled.Settings,
-                contentDescription = "الإعدادات",
+                NoorIcons.SunMoon,
+                contentDescription = "تبديل المظهر — ليلي/نهاري",
                 tint = MaterialTheme.colorScheme.primary,
             )
         }
@@ -186,41 +179,55 @@ private fun HomeHeader(
 }
 
 @Composable
-private fun HeroCard(next: com.sawan4art.noor.domain.prayer.NextPrayer, now: ZonedDateTime) {
+private fun HeroCard(
+    next: com.sawan4art.noor.domain.prayer.NextPrayer,
+    now: ZonedDateTime,
+    modifier: Modifier = Modifier,
+) {
     val noorColors = LocalNoorColors.current
     val gold = MaterialTheme.colorScheme.secondary
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .clip(RoundedCornerShape(32.dp))
             .background(noorColors.heroGradient)
-            .padding(vertical = 28.dp, horizontal = 24.dp),
+            .padding(vertical = 20.dp, horizontal = 24.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxSize(),
+        ) {
             Text(
                 text = "الصلاة القادمة",
                 style = MaterialTheme.typography.labelLarge,
                 color = noorColors.heroMuted,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = next.arabicName,
                 style = MaterialTheme.typography.displaySmall,
                 color = noorColors.heroContent,
             )
-            Spacer(Modifier.height(2.dp))
             Text(
                 text = TimeFormat.prayerTime(next.target),
                 style = MaterialTheme.typography.titleMedium,
                 color = noorColors.heroMuted,
             )
-            Spacer(Modifier.height(18.dp))
-            ProgressRing(
-                progressPercent = next.progressPercent,
-                ringColor = gold,
-                trackColor = Color.White.copy(alpha = 0.12f),
+            // الحلقة تتكيف مع المساحة المتاحة، ونص العدّاد طبقة مستقلة لا ينكمش
+            // أبداً — حتى على أقصر الشاشات يبقى العدّاد مقروءاً بلا تمرير
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center,
             ) {
+                val side = minOf(maxHeight, maxWidth).coerceAtMost(176.dp)
+                ProgressRing(
+                    progressPercent = next.progressPercent,
+                    ringColor = gold,
+                    trackColor = Color.White.copy(alpha = 0.12f),
+                    modifier = Modifier.size(side),
+                )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = TimeFormat.remainingArabic(next.remainingSeconds),
@@ -234,7 +241,7 @@ private fun HeroCard(next: com.sawan4art.noor.domain.prayer.NextPrayer, now: Zon
                     )
                 }
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(8.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -242,6 +249,15 @@ private fun HeroCard(next: com.sawan4art.noor.domain.prayer.NextPrayer, now: Zon
                 HeroChip(text = Hijri.of(now.toLocalDate()).formatted)
                 HeroChip(text = Hijri.gregorianArabic(now.toLocalDate()))
             }
+            Spacer(Modifier.height(10.dp))
+            // التحية واسم التطبيق — نُقلا هنا تحت التواريخ بخط صغير واضح (بطلب المالك)
+            Text(
+                text = "السلام عليكم ورحمة الله • نور المسلم",
+                style = MaterialTheme.typography.labelMedium,
+                color = noorColors.heroContent.copy(alpha = 0.9f),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
         }
     }
 }
@@ -266,7 +282,7 @@ private fun ProgressRing(
     progressPercent: Int,
     ringColor: Color,
     trackColor: Color,
-    content: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val target = (progressPercent.coerceIn(0, 100)) / 100f
     val animated by animateFloatAsState(
@@ -274,38 +290,35 @@ private fun ProgressRing(
         animationSpec = tween(durationMillis = 700),
         label = "prayerProgress",
     )
-    Box(modifier = Modifier.size(176.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) {
-            val strokePx = 11.dp.toPx()
-            val diameter = size.minDimension - strokePx
-            val topLeft = androidx.compose.ui.geometry.Offset(
-                (size.width - diameter) / 2f,
-                (size.height - diameter) / 2f,
-            )
-            drawArc(
-                color = trackColor,
-                startAngle = 0f,
-                sweepAngle = 360f,
-                useCenter = false,
-                topLeft = topLeft,
-                size = androidx.compose.ui.geometry.Size(diameter, diameter),
-                style = Stroke(width = strokePx, cap = StrokeCap.Round),
-            )
-            drawArc(
-                brush = Brush.sweepGradient(
-                    0f to ringColor.copy(alpha = 0.25f),
-                    0.5f to ringColor,
-                    1f to ringColor.copy(alpha = 0.25f),
-                ),
-                startAngle = -90f,
-                sweepAngle = 360f * animated,
-                useCenter = false,
-                topLeft = topLeft,
-                size = androidx.compose.ui.geometry.Size(diameter, diameter),
-                style = Stroke(width = strokePx, cap = StrokeCap.Round),
-            )
-        }
-        content()
+    Canvas(modifier = modifier) {
+        val strokePx = 11.dp.toPx()
+        val diameter = size.minDimension - strokePx
+        val topLeft = androidx.compose.ui.geometry.Offset(
+            (size.width - diameter) / 2f,
+            (size.height - diameter) / 2f,
+        )
+        drawArc(
+            color = trackColor,
+            startAngle = 0f,
+            sweepAngle = 360f,
+            useCenter = false,
+            topLeft = topLeft,
+            size = androidx.compose.ui.geometry.Size(diameter, diameter),
+            style = Stroke(width = strokePx, cap = StrokeCap.Round),
+        )
+        drawArc(
+            brush = Brush.sweepGradient(
+                0f to ringColor.copy(alpha = 0.25f),
+                0.5f to ringColor,
+                1f to ringColor.copy(alpha = 0.25f),
+            ),
+            startAngle = -90f,
+            sweepAngle = 360f * animated,
+            useCenter = false,
+            topLeft = topLeft,
+            size = androidx.compose.ui.geometry.Size(diameter, diameter),
+            style = Stroke(width = strokePx, cap = StrokeCap.Round),
+        )
     }
 }
 
@@ -342,7 +355,7 @@ private fun PrayerCard(name: String, time: String, active: Boolean, modifier: Mo
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(vertical = 16.dp, horizontal = 8.dp),
+            modifier = Modifier.padding(vertical = 14.dp, horizontal = 8.dp),
         ) {
             Text(
                 text = name,

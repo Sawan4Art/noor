@@ -22,9 +22,31 @@
         </activity>
     </application>
 
-    <!-- أذونات المرحلة الأولى فقط — كل ميزة تضيف إذنها عند وصولها -->
+    <!--
+      حزمة الأذونات الكاملة (بطلب المالك 2026-10-30) — كل ميزة قادمة تجد إذنها جاهزاً:
+      • الموقع + الإنترنت: حساب المواقيت وتحديد المدينة (يُطلبان وقتياً حوارات النظام)
+      • الإشعارات: تنبيهات الأذان والأذكار (يُطلب وقتياً على 13+ بسلسلة الحوارات)
+      • المنبهات الدقيقة: مواعيد الأذان بالثانية — USE_EXACT_ALARM منح تلقائياً
+        لتطبيق مواقيت/تنبيهات (33+)، وSCHEDULE_EXACT_ALARM للأجهزة الأقدم (31-32)
+      • الإقلاع: إعادة جدولة التنبيهات بعد إعادة تشغيل الجهاز
+      • الاهتزاز والاستيقاظ: تنبيه الأذان والسبحة
+      • الخدمة الأمامية للتشغيل: صوت الأذان يعمل والشاشة مطفأة (بميزة الأذان)
+      • الوسائط الصوتية: اختيار صوت أذان مخصص من الجهاز (33+ وقديمها)
+      الممنوح تلقائياً يُصرَّح به في المانيفست فقط، وحوارات النظام تُطلق عند أول
+      حاجة فعلية للميزة (سلسلة الحوارات المتتابعة في MainActivity قائمة).
+    -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 </manifest>

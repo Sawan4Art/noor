@@ -7,6 +7,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * أيقونات «نور» المخصصة — مرسومة هندسيًا بلا مكتبة الأيقونات الموسعة
@@ -118,7 +120,41 @@ object NoorIcons {
         }
     }
 
+    /** مبدّل المظهر — الشمس والقمر معاً (بطلب المالك 2026-10-30: هندسية شمس وقمر):
+     *  هلال بنفس هندسة أيقونة التطبيق (فرق دائرتين بقوسين حقيقيين، الفتحة لأعلى-يمين
+     *  نحو الشمس) + قرص شمس بثماني أشعة مثلثية خارج دائرة القمر تماماً.
+     *  المسار مولّد بـ scripts/gen_theme_icon.py — لا تُحرَّر يدوياً. */
+    val SunMoon: ImageVector by lazy {
+        noorIcon("SunMoon") {
+            filled {
+                // الهلال — قوسان حقيقيان بين نقطتي تقاطع دائرتين (لغة أيقونة التطبيق نفسها)
+                moveTo(17.35f, 16.53f)
+                curveTo(16.24f, 20.12f, 12.75f, 22.44f, 9.01f, 22.06f)
+                curveTo(5.27f, 21.68f, 2.31f, 18.72f, 1.94f, 14.98f)
+                curveTo(1.57f, 11.24f, 3.89f, 7.75f, 7.48f, 6.65f)
+                curveTo(5.8f, 8.42f, 5.17f, 10.95f, 5.83f, 13.31f)
+                curveTo(6.48f, 15.67f, 8.32f, 17.51f, 10.68f, 18.17f)
+                curveTo(13.04f, 18.83f, 15.57f, 18.2f, 17.35f, 16.52f)
+                close()
+            }
+            filled {
+                // قرص الشمس
+                circle(SUN_CX, SUN_CY, SUN_DISC_R)
+                // ثماني أشعة مثلثية كل 45°
+                for (i in 0 until 8) ray(SUN_CX, SUN_CY, i * 45f)
+            }
+        }
+    }
+
     // ===== أدوات الرسم =====
+
+    /** هندسة شمس مبدّل المظهر — قرص وأشعة (نفس أرقام المولّد) */
+    private const val SUN_CX = 19.2f
+    private const val SUN_CY = 4.8f
+    private const val SUN_DISC_R = 1.9f
+    private const val RAY_BASE_R = 2.55f
+    private const val RAY_TIP_R = 3.8f
+    private const val RAY_HALF_DEG = 3.4
 
     private fun noorIcon(name: String, block: ImageVector.Builder.() -> Unit): ImageVector =
         ImageVector.Builder(
@@ -152,6 +188,25 @@ object NoorIcons {
 
     /** حبة سبحة صغيرة */
     private fun PathBuilder.bead(cx: Float, cy: Float) = circle(cx, cy, 1.45f)
+
+    /** شعاع شمس مثلثي — رأس على RAY_TIP_R وقاعدة حول الزاوية على RAY_BASE_R */
+    private fun PathBuilder.ray(cx: Float, cy: Float, angleDeg: Float) {
+        val a = Math.toRadians(angleDeg.toDouble())
+        val ha = Math.toRadians(RAY_HALF_DEG.toDouble())
+        moveTo(
+            (cx + RAY_TIP_R * cos(a)).toFloat(),
+            (cy + RAY_TIP_R * sin(a)).toFloat(),
+        )
+        lineTo(
+            (cx + RAY_BASE_R * cos(a + ha)).toFloat(),
+            (cy + RAY_BASE_R * sin(a + ha)).toFloat(),
+        )
+        lineTo(
+            (cx + RAY_BASE_R * cos(a - ha)).toFloat(),
+            (cy + RAY_BASE_R * sin(a - ha)).toFloat(),
+        )
+        close()
+    }
 
     /** نجمة نور الرباعية بأضلاع مقعّرة — نفس نجمة أيقونة التطبيق */
     private fun PathBuilder.star(cx: Float, cy: Float, r: Float) {

@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sawan4art.noor.data.ThemeMode
 import com.sawan4art.noor.ui.home.HomeScreen
 import com.sawan4art.noor.ui.home.HomeViewModel
 import com.sawan4art.noor.ui.nav.LiquidNavScaffold
@@ -37,6 +39,12 @@ fun NoorApp(viewModel: HomeViewModel) {
     var tab by rememberSaveable { mutableStateOf(NoorTab.PRAYER) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val locating by viewModel.locating.collectAsStateWithLifecycle()
+    // الظلام الفعلي الحالي — مبدّل الهيدر يقلبه (من النظام → عكس المعمول به الآن)
+    val darkTheme = when (uiState.settings.themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
 
     CompositionLocalProvider(LocalLayoutDirection provides AppDirection) {
         NoorTheme(themeMode = uiState.settings.themeMode) {
@@ -68,7 +76,11 @@ fun NoorApp(viewModel: HomeViewModel) {
                                 state = uiState,
                                 locating = locating,
                                 onDetectLocation = viewModel::detectLocation,
-                                onOpenSettings = { tab = NoorTab.SETTINGS },
+                                onToggleTheme = {
+                                    viewModel.setThemeMode(
+                                        if (darkTheme) ThemeMode.LIGHT else ThemeMode.DARK,
+                                    )
+                                },
                             )
                             NoorTab.SETTINGS -> SettingsScreen(
                                 settings = uiState.settings,
