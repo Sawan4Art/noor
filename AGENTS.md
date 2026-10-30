@@ -200,3 +200,27 @@
 - أيقونات core فقط في Compose (LocationOn/Settings/ArrowBack AutoMirrored) — Public/Mosque/DarkMode في الـ extended الثقيل.
 - `requestSingleUpdate` قبل API 30 يحتاج `Looper.getMainLooper()` صراحةً في خيط IO.
 - assets المصحف (quran-pages/tajweed/أصوات/خطوط) في `legacy-web:public/` — تُسترجع عند المرحلة 2.
+
+## 15) دروس الدفعة العاشرة (2026-10-30، v0.5.0-alpha2 — الشريط الزجاجي السائل)
+
+### حزم GraphicsLayer في Compose 1.7.6 (BOM 2024.12.01) — أين تسكن فعلاً
+- الكلاس `GraphicsLayer` وامتداد `DrawScope.drawLayer` في **`androidx.compose.ui.graphics.layer`** وليس `androidx.compose.ui.graphics`.
+- `ExperimentalGraphicsLayerApi` **غير موجودة** في 1.7.6 — لا حاجة لـ @OptIn إطلاقًا.
+- `rememberGraphicsLayer()` دالة @Composable — **ممنوع** نداؤها داخل `drawWithCache`؛ تُستدعى في جسم الكومبوزابل وتُلتقط بالإغلاق.
+- لا يوجد `scale(...){ block }` على DrawScope في 1.7 — الصيغة: `withTransform({ scale(sx, sy, pivot = Offset(...)) }) { ... }`.
+- `record` يُنادى بوسائط مسماة: `layer.record(size = other.size) { ... }` تفادياً لالتباس ترتيب البارامترات.
+
+### ضبابية خلفية حقيقية (زجاج) بلا أي مكتبة خارجية
+- النمط: طبقة المحتوى `drawWithContent { layer.record { drawContent() }; drawLayer(layer) }` ثم الشريط يسجل نسخة ثانية `snapshot.record(size = layer.size) { drawLayer(layer) }` ويضبط `snapshot.renderEffect = BlurEffect(...)` مؤقتاً عند رسمه داخل `clipPath(capsule)` مع إزاحة `-positionInRoot` — ثم يصفّر الـ renderEffect.
+- `positionInRoot()` للشريط ضروري لمحاذاة اللمحة المضببة (المحتوى من إحداثيات الجذر والشريط بإحداثياته المحلية).
+- كي يكون للزجاج «لحم» خلفه: المحتوى يجب أن يمتد **تحت** الشريط — `statusBarsPadding()` في الشاشات + Spacer سفلي ≈112dp بدل `systemBarsPadding`.
+
+### معاينة أنيميشن أندرويد بلا محاكي: بايثون بنفس ثوابت الكوتلن
+- انقل الثوابت حرفياً (spring ζ/k، أنصاف الأقطار، عوامل الدمج) وكامل صيغ GooeyMath — النتيجة مطابقة بصرياً وتُعرض للمالك كـ GIF قبل التركيب.
+- **PIL يدمج الإطارات المتطابقة المتتالية في GIF حتى بـ `optimize=False`** — فيتقص التوقيت. الحل: ادمج المدد يدوياً (`runs` مع تراكم duration) وسلّم قائمة durations صريحة للحفظ.
+- النقرات المجدولة في محاكاة إطارات: **حالة `fired` صريحة لا تنقضي** — مطابقة نافذة زمنية `< DT/2` تُفوّت النقرات (نفس درس طابور الأذونات: لا اعتماد على تزامن التوقيت).
+
+### بيئة البناء المحلية — إجراء الاسترجاع اكتمل
+- `scripts/setup-env.sh` يفترض فك cmdtools بصيغة `cmdline-tools/latest` — بعد unzip انقل `mv cmdline-tools latest` يدوياً ثم `sdkmanager --licenses` والتثبيت.
+- `local.properties` يُكتب في **جذر الريفو** (بعد إعادة البناء لا يوجد مجلد android/ فرعي).
+- أول بناء كوتلن محلي كامل في المشروع: `./gradlew :app:testAlphaUnitTest :app:assembleAlpha` — 19/19 خضراء وAPK 7.4MB — لم يعد CI هو المدقق الوحيد.
