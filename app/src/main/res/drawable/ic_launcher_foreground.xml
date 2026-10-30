@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  مقدمة أيقونة نور المسلم — طراز هندسي حديث بألوان هادئة:
+  هلال كريمي + نجمة رباعية ذهبية هادئة + نقطة توازن + حلقة رفيعة.
+  كل العناصر داخل المنطقة الآمنة (r33 حول 54,54) لأقنعة الـ adaptive.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#2BF0E7D2"
+        android:fillType="evenOdd"
+        android:pathData="M54,24 a30,30 0 1,0 0,60 a30,30 0 1,0 0,-60 z M54,25.6 a28.4,28.4 0 1,0 0,56.8 a28.4,28.4 0 1,0 0,-56.8 z" />
+
+    <path
+        android:fillColor="#F0E7D2"
+        android:fillType="evenOdd"
+        android:pathData="M49.5,41.7 a16.8,16.8 0 1,0 0,33.6 a16.8,16.8 0 1,0 0,-33.6 z M56.5,36.8 a14.2,14.2 0 1,0 0,28.4 a14.2,14.2 0 1,0 0,-28.4 z" />
+
+    <path
+        android:fillColor="#D9BA7C"
+        android:pathData="M67,34 L69.12,39.88 L75,42 L69.12,44.12 L67,50 L64.88,44.12 L59,42 L64.88,39.88 Z" />
+
+    <path
+        android:fillColor="#D9BA7C"
+        android:pathData="M43,36.3 a1.7,1.7 0 1,0 0,3.4 a1.7,1.7 0 1,0 0,-3.4 z" />
+</vector>

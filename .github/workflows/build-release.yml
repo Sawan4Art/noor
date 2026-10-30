@@ -1,19 +1,23 @@
-name: بناء وإصدار APK — نور المسلم
+name: بناء وإصدار APK — نور المسلم (كوتلن أصلي)
 
-# البناء على سيرفرات جيت هب نفسها — لا يعتمد على أي بيئة محلية
-# يعمل عند: دفع وسم إصدار v* أو تشغيل يدوي من تبويب Actions
+# إعادة البناء الكاملة بلغة كوتلن + Jetpack Compose — لا ويب ولا كاباسيتور
+# عند دفع وسم v*: اختبارات + بناء + توقيع + Release (ألفا = pre-release)
+# عند دفع main: اختبارات + بناء فحص فقط (بلا إصدار)
+
 on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build-release:
-    name: بناء APK موقّع + إصدار
+  build:
+    name: اختبارات وبناء APK موقّع
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -21,97 +25,74 @@ jobs:
       - name: تحميل الكود
         uses: actions/checkout@v4
 
-      - name: تجهيز JDK 21
+      - name: تجهيز JDK 21 (مع كاش Gradle)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
+          cache: 'gradle'
 
       - name: إعداد Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: 'platforms;android-36 build-tools;36.0.0 platform-tools'
 
-      - name: تجهيز Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: تثبيت الاعتماديات
-        run: bun install --frozen-lockfile
-
-      - name: فحص الأنواع (tsc)
-        run: bunx tsc --noEmit
-
-      - name: الاختبارات
-        run: bun test
-
-      - name: بناء نسخة الويب (يكتب version.json تلقائياً)
-        run: bun run build
-
-      - name: منع حزم ملفات التنزيل داخل الـ APK
-        run: rm -rf dist/downloads
-
-      - name: مزامنة كاباسيتور
-        run: bunx cap sync android
-
       - name: استرجاع مفتاح التوقيع من الأسرار
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $HOME/noor-release.keystore
-          echo "CAP_KEYSTORE_PATH=$HOME/noor-release.keystore" >> $GITHUB_ENV
-          echo "CAP_KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
-          echo "CAP_KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
-          echo "CAP_KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+          echo "NOOR_KEYSTORE=$HOME/noor-release.keystore" >> $GITHUB_ENV
+          echo "NOOR_KS_PASS=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "NOOR_KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "NOOR_KS_PASS=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
 
-      - name: بناء وتوقيع الـ APK (release)
-        working-directory: android
-        run: ./gradlew assembleRelease --console=plain --stacktrace
+      # اختبارات الوحدة — الاختبار الذهبي يفشل البناء عند أي انحراف في المواقيت
+      - name: اختبارات الوحدة (الذهبية)
+        run: ./gradlew :app:testReleaseUnitTest --console=plain --stacktrace
+
+      - name: بناء نسخة ألفا
+        run: ./gradlew :app:assembleAlpha --console=plain --stacktrace
+
+      # الإصدار الرسمي الموحّد عند الوسم النهائي (بلا لاحقة ألفا)
+      - name: بناء نسخة release عند الوسم
+        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, 'alpha')
+        run: ./gradlew :app:assembleRelease --console=plain --stacktrace
 
       - name: التحقق من التوقيع
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          $ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs \
-            android/app/build/outputs/apk/release/app-release.apk | head -4
+          if [[ "${{ github.ref_name }}" == *alpha* ]]; then
+            APK_PATH="app/build/outputs/apk/alpha/app-alpha.apk"
+          else
+            APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          fi
+          echo "الملف: $APK_PATH"
+          $ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs "$APK_PATH" | head -4
+          echo "NOOR_APK_PATH=$APK_PATH" >> $GITHUB_ENV
 
-      - name: تجهيز اسم الملف
-        id: meta
+      - name: تسمية ملف الإصدار
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "apk=noor-almuslim-v${VERSION}.apk" >> $GITHUB_OUTPUT
+          cp "${NOOR_APK_PATH}" "noor-almuslim-${{ github.ref_name }}.apk"
+          echo "NOOR_APK_NAME=noor-almuslim-${{ github.ref_name }}.apk" >> $GITHUB_ENV
 
-      - name: نسخ الـ APK باسم الإصدار
-        run: |
-          cp android/app/build/outputs/apk/release/app-release.apk \
-             "${{ steps.meta.outputs.apk }}"
-
-      - name: رفع الـ APK كأصل build
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.meta.outputs.apk }}
-          path: ${{ steps.meta.outputs.apk }}
-
-      # عند دفع وسم v*: ينشئ Release رسمي ويرفق الـ APK
+      # ألفا = pre-release حتى لا يلتقطها بنر التحديث في النسخة المستقرة
       - name: إنشاء GitHub Release ورفع الـ APK
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: نور المسلم ${{ github.ref_name }}
-          files: ${{ steps.meta.outputs.apk }}
+          files: ${{ env.NOOR_APK_NAME }}
+          prerelease: ${{ contains(github.ref_name, 'alpha') }}
           generate_release_notes: true
           body: |
             ## نور المسلم ${{ github.ref_name }}
 
             > هذا التطبيق صدقة جارية على روح المرحوم بأذن الله أبي والد المالك — تقبل الله منا ومنكم
-            > الترقية تُثبَّت فوق النسخة السابقة مباشرة (نفس التوقيع ✅)
 
-            التفاصيل الكاملة في سجل التعديلات بالأسفل.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+            - **نسخة ألفا**: تطبيق منفصل (`نور المسلم ألفا`) يُثبَّت جنب النسخة المستقرة للتجربة والمقارنة
+            - بناء كوتلن أصلي 100% (Jetpack Compose) — بلا ويب ولا كاباسيتور
       - name: ملخص
         run: |
-          echo "### ✅ تم بناء الأبلكيشن بنجاح" >> $GITHUB_STEP_SUMMARY
-          echo "- الملف: \`${{ steps.meta.outputs.apk }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- النسخة: \`${{ steps.meta.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          du -h "${{ steps.meta.outputs.apk }}"
+          echo "### ✅ بناء نور المسلم الكوتلني نجح" >> $GITHUB_STEP_SUMMARY
+          du -h app/build/outputs/apk/alpha/app-alpha.apk

@@ -1,9 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">نور المسلم</string>
-    <string name="title_activity_main">نور المسلم</string>
-    <string name="package_name">com.sawan4art.noor</string>
-    <string name="custom_url_scheme">com.sawan4art.noor</string>
-    <string name="widget_description">مواقيت الصلاة والصلاة القادمة مع عداد تنازلي حي</string>
-    <string name="widget_transparent_description">مواقيت الصلاة بدون خلفية — شفاف تماماً ليتناسق مع خلفية هاتفك</string>
-</resources>

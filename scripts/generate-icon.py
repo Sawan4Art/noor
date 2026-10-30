@@ -13,7 +13,7 @@ import os
 
 from PIL import Image, ImageDraw
 
-BASE = os.path.join(os.path.dirname(__file__), '..', 'android', 'app', 'src', 'main', 'res')
+BASE = os.path.join(os.path.dirname(__file__), '..', 'app', 'src', 'main', 'res')
 
 S = 1024  # دقة الرسم الأساسية
 

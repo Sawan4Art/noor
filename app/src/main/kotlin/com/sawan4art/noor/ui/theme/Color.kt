@@ -1,0 +1,41 @@
+package com.sawan4art.noor.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+// ===== النهاري (كريمي دافئ + زمردي + ذهبي) =====
+val DayBackground = Color(0xFFF6F2E9)
+val DayOnBackground = Color(0xFF17251F)
+val DaySurface = Color(0xFFFDFBF5)
+val DaySurfaceVariant = Color(0xFFECE6D6)
+val DayPrimary = Color(0xFF2E6B5E)
+val DayOnPrimary = Color(0xFFFFFFFF)
+val DayPrimaryContainer = Color(0xFFBFE5D8)
+val DayOnPrimaryContainer = Color(0xFF0E2F27)
+val DaySecondary = Color(0xFFB8943F)
+val DayOnSecondary = Color(0xFFFFFFFF)
+val DaySecondaryContainer = Color(0xFFF2E3BC)
+val DayOnSecondaryContainer = Color(0xFF3A2F10)
+val DayOutline = Color(0xFFC9C2B0)
+val DayHeroTop = Color(0xFF35655B)
+val DayHeroBottom = Color(0xFF22453D)
+val DayHeroContent = Color(0xFFF2EDE0)
+val DayHeroMuted = Color(0xFFB9CEC4)
+
+// ===== الليلي (أخضر ليلي عميق + زمردي فاتح + ذهبي) =====
+val NightBackground = Color(0xFF0C1512)
+val NightOnBackground = Color(0xFFE4EAE5)
+val NightSurface = Color(0xFF121E1A)
+val NightSurfaceVariant = Color(0xFF1C2C27)
+val NightPrimary = Color(0xFF82C9B0)
+val NightOnPrimary = Color(0xFF0A2A21)
+val NightPrimaryContainer = Color(0xFF24463D)
+val NightOnPrimaryContainer = Color(0xFFBFE5D8)
+val NightSecondary = Color(0xFFE2C67F)
+val NightOnSecondary = Color(0xFF2E2310)
+val NightSecondaryContainer = Color(0xFF3D3218)
+val NightOnSecondaryContainer = Color(0xFFF2E3BC)
+val NightOutline = Color(0xFF3A4B44)
+val NightHeroTop = Color(0xFF17332C)
+val NightHeroBottom = Color(0xFF0B1A16)
+val NightHeroContent = Color(0xFFE8EFE9)
+val NightHeroMuted = Color(0xFF8FA89C)

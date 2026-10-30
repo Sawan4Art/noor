@@ -1,44 +1,19 @@
-node_modules/
+# Gradle
+.gradle/
 build/
-dist/
-coverage/
-.DS_Store
-*.log
-.env*
-!.env.example
+app/build/
+local.properties
 
-# — أماكن عمل الساندبوكس (مش جزء من الريفو) —
-/download/
-/scripts/
-/skills/
-/upload/
-/db/
-/.noor.git/
-/android-sdk/
-/keystore/
-/dev.log
-/Caddyfile
-/noor-*.apk
-android/app/build/
-android/build/
-android/.gradle/
-android/local.properties
-android/app/*.keystore
-android/keystore*
-*.jks
-/jdk21/
-/public/downloads/
-/public/version.json
-
-/tool-results/
-.secrets-repo/
-
-# بيئة البناء المؤقتة — لا تُرفع أبداً (مئات الميجابايتات)
+# بيئة الساندبوكس — لا تدخل الريبو أبداً
 .setup-tmp/
-cmdtools.zip
-jdk21/
-android-sdk/
-.secrets-repo/
-# الـ APK يُرفع كأصل Release مش داخل الجيت
-download/*.apk
-public/downloads/*.apk
+keystore/
+*.keystore
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Kotlin
+.kotlin/

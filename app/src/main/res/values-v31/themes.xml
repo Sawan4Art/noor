@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- سبلاش أندرويد 12+: نفس أيقونة الهلال الهندسية على نفس الخلفية — انتقال سلس (درس v0.3.1) -->
+<resources>
+    <style name="Theme.Noor" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/noor_launcher_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowSplashScreenBackground">@color/noor_launcher_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="android:windowSplashScreenAnimationDuration">300</item>
+    </style>
+</resources>
