@@ -9,20 +9,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -40,13 +36,12 @@ import java.util.Locale
 
 /**
  * إعدادات المرحلة الأولى: الموقع + طريقة الحساب + مذهب العصر + المظهر.
- * إعدادات التنبيهات تصل مع مرحلة الأذان (المرحلة الرابعة).
+ * صارت تبويبًا في الشريط الزجاجي — زر الرجوع لم يعد له معنى.
  */
 @Composable
 fun SettingsScreen(
     settings: NoorSettingsState,
     locating: Boolean,
-    onBack: () -> Unit,
     onDetectLocation: () -> Unit,
     onSetMethod: (CalculationMethod) -> Unit,
     onSetHanafi: (Boolean) -> Unit,
@@ -55,25 +50,16 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .systemBarsPadding()
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp),
     ) {
-        Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "رجوع",
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Text(
-                text = "الإعدادات",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-        }
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "الإعدادات",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
         Spacer(Modifier.height(16.dp))
 
         SettingsCard(title = "الموقع") {
@@ -179,7 +165,7 @@ fun SettingsScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(116.dp)) // مساحة شريط التنقل الزجاجي العائم
     }
 }
 

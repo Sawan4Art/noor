@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -80,7 +81,7 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .systemBarsPadding()
+            .statusBarsPadding()
             .padding(horizontal = 20.dp)
             .verticalScroll(rememberScrollState()),
     ) {
@@ -120,8 +121,9 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .alpha(0.5f)
-                .padding(bottom = 20.dp),
+                .padding(bottom = 8.dp),
         )
+        Spacer(Modifier.height(112.dp)) // مساحة شريط التنقل الزجاجي العائم
     }
 }
 
