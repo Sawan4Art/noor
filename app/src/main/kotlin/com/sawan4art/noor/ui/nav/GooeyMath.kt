@@ -1,6 +1,10 @@
 package com.sawan4art.noor.ui.nav
 
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Path
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
 
@@ -128,3 +132,51 @@ class GooeyBridge(
     var qB1x: Float, var qB1y: Float,
     val p2x: Float, val p2y: Float,
 )
+
+/** نقطة سائلة حية: دائرة سطحوها متموج بتموج GooeyMath ومنعّم بكاتمول-روم مغلق */
+fun addLiquidBlob(
+    path: Path,
+    cx: Float,
+    cy: Float,
+    baseRadius: Float,
+    time: Float,
+    energy: Float,
+    phase: Float,
+) {
+    val n = 44
+    val xs = FloatArray(n)
+    val ys = FloatArray(n)
+    val twoPi = (2.0 * PI).toFloat()
+    for (i in 0 until n) {
+        // البداية من الأعلى والدوران باتجاه عقارب الساعة — مواكباً لاتجاه مسار الجسر
+        val angle = twoPi * i / n - PI.toFloat() / 2f
+        val radius = baseRadius * (1f + GooeyMath.surfaceWave(angle, time, energy, phase))
+        xs[i] = cx + radius * cos(angle)
+        ys[i] = cy + radius * sin(angle)
+    }
+    for (i in 0 until n) {
+        val prev = (i + n - 1) % n
+        val next = (i + 1) % n
+        val next2 = (i + 2) % n
+        if (i == 0) path.moveTo(xs[i], ys[i])
+        path.cubicTo(
+            xs[i] + (xs[next] - xs[prev]) / 6f,
+            ys[i] + (ys[next] - ys[prev]) / 6f,
+            xs[next] - (xs[next2] - xs[i]) / 6f,
+            ys[next] - (ys[next2] - ys[i]) / 6f,
+            xs[next],
+            ys[next],
+        )
+    }
+    path.close()
+}
+
+/** بناء مسار الجسر السائل داخل مسار السائل الموحد — قبتان دقيقتان وحافتا بيزيه مقعّرتان */
+fun addBridgePath(path: Path, b: GooeyBridge) {
+    path.moveTo(b.p1x, b.p1y)
+    path.cubicTo(b.qA1x, b.qA1y, b.qA2x, b.qA2y, b.p3x, b.p3y)
+    path.arcTo(Rect(b.bx - b.br, b.by - b.br, b.bx + b.br, b.by + b.br), -90f, 180f, false)
+    path.cubicTo(b.qB2x, b.qB2y, b.qB1x, b.qB1y, b.p2x, b.p2y)
+    path.arcTo(Rect(b.ax - b.ar, b.ay - b.ar, b.ax + b.ar, b.ay + b.ar), 90f, 180f, false)
+    path.close()
+}

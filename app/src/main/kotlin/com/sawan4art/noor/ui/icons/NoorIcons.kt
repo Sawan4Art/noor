@@ -146,6 +146,41 @@ object NoorIcons {
         }
     }
 
+    /** مزلاج المظهر — القمر وحده (هلال أيقونة التطبيق ممركزاً — مولّد آلي scripts/gen_dial_icons.py) */
+    val Moon: ImageVector by lazy {
+        noorIcon("Moon") {
+            filled {
+                moveTo(19.7f, 14.18f)
+                curveTo(18.6f, 17.77f, 15.11f, 20.09f, 11.36f, 19.71f)
+                curveTo(7.62f, 19.33f, 4.66f, 16.37f, 4.29f, 12.63f)
+                curveTo(3.92f, 8.89f, 6.24f, 5.4f, 9.84f, 4.3f)
+                curveTo(8.16f, 6.07f, 7.53f, 8.6f, 8.18f, 10.96f)
+                curveTo(8.83f, 13.32f, 10.68f, 15.16f, 13.04f, 15.82f)
+                curveTo(15.4f, 16.48f, 17.93f, 15.85f, 19.71f, 14.17f)
+                close()
+            }
+        }
+    }
+
+    /** مزلاج المظهر — الشمس وحدها (قرص + ثماني أشعة، الأولى نحو الشرق — مولّد آلي) */
+    val Sun: ImageVector by lazy {
+        noorIcon("Sun") {
+            filled {
+                // قرص الشمس الممركز
+                circle(12f, 12f, 4.5f)
+                // ثماني أشعة مثلثية — الأولى نحو اليمين (شرق)
+                rayAt(21.2f, 12f, 18.06f, 12.7f, 18.06f, 11.3f)
+                rayAt(18.51f, 18.51f, 15.79f, 16.78f, 16.78f, 15.79f)
+                rayAt(12f, 21.2f, 11.3f, 18.06f, 12.7f, 18.06f)
+                rayAt(5.49f, 18.51f, 7.22f, 15.79f, 8.21f, 16.78f)
+                rayAt(2.8f, 12f, 5.94f, 11.3f, 5.94f, 12.7f)
+                rayAt(5.49f, 5.49f, 8.21f, 7.22f, 7.22f, 8.21f)
+                rayAt(12f, 2.8f, 12.7f, 5.94f, 11.3f, 5.94f)
+                rayAt(18.51f, 5.49f, 16.78f, 8.21f, 15.79f, 7.22f)
+            }
+        }
+    }
+
     /** التحديثات — سهم تنزيل فوق صينية تركيب (نفس لغة المستطيلات المستديرة) */
     val Update: ImageVector by lazy {
         noorIcon("Update") {
@@ -217,6 +252,18 @@ object NoorIcons {
 
     /** حبة سبحة صغيرة */
     private fun PathBuilder.bead(cx: Float, cy: Float) = circle(cx, cy, 1.45f)
+
+    /** شعاع شمس مثلثي بنقاط جاهزة — مولّد آلي (مزلاج المظهر) */
+    private fun PathBuilder.rayAt(
+        tipX: Float, tipY: Float,
+        b1X: Float, b1Y: Float,
+        b2X: Float, b2Y: Float,
+    ) {
+        moveTo(tipX, tipY)
+        lineTo(b1X, b1Y)
+        lineTo(b2X, b2Y)
+        close()
+    }
 
     /** شعاع شمس مثلثي — رأس على RAY_TIP_R وقاعدة حول الزاوية على RAY_BASE_R */
     private fun PathBuilder.ray(cx: Float, cy: Float, angleDeg: Float) {

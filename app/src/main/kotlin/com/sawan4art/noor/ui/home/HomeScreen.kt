@@ -36,12 +36,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 import com.sawan4art.noor.domain.prayer.PrayerMath
 import com.sawan4art.noor.domain.prayer.PrayerTimes
-import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.ui.theme.LocalNoorColors
 import com.sawan4art.noor.util.Hijri
 import com.sawan4art.noor.util.TimeFormat
@@ -51,9 +52,12 @@ import java.time.ZonedDateTime
 
 /**
  * الشاشة الرئيسية — **بلا تمرير** (بطلب المالك 2026-10-30):
- * الهيدر (المدينة + تحديد الموقع + مبدّل المظهر) ثم بطاقة الهيرو تملأ المساحة
- * الباقية بحلقة تقدم متكيفة، وشبكة مواقيت اليوم، وسطر الصدقة — والمساحة
+ * الهيدر (المدينة + تحديد الموقع) ثم مسار مزلاج الشمس/القمر السائل، وبطاقة الهيرو
+ * تملأ المساحة الباقية بحلقة تقدم متكيفة، وشبكة مواقيت اليوم، وسطر الصدقة — والمساحة
  * للشريط الزجاجي العائم محفوظة دائماً أسفل الشاشة مهما كان ارتفاع الجهاز.
+ *
+ * مزلاج المظهر نفسه يُرسم فوق كل الشاشة من جذر التطبيق (ThemeDialOverlay) —
+ * هنا مساره الفارغ فقط كي يستقر السائل في مكانه الصحيح فوق الهيدر.
  *
  * الترتيب داخل بطاقة الهيرو: الصلاة القادمة + العدّاد + التواريخ ثم التحية
  * واسم التطبيق تحتها بخط صغير واضح (نُقلا من أعلى الشاشة بطلب المالك).
@@ -63,7 +67,7 @@ fun HomeScreen(
     state: HomeViewModel.HomeUiState,
     locating: Boolean,
     onDetectLocation: () -> Unit,
-    onToggleTheme: () -> Unit,
+    onDialPlaced: (Float, Float, Float, Float) -> Unit,
 ) {
     val zone = remember { ZoneId.systemDefault() }
     val now: ZonedDateTime = remember(state.nowMillis) {
@@ -90,9 +94,13 @@ fun HomeScreen(
             city = settings.city,
             locating = locating,
             onDetectLocation = onDetectLocation,
-            onToggleTheme = onToggleTheme,
         )
-        Spacer(Modifier.height(8.dp))
+        // مسار مزلاج الشمس/القمر — السائل نفسه يُرسم فوق الكل من الجذر
+        ThemeDialTrack(
+            onPlaced = onDialPlaced,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Spacer(Modifier.height(4.dp))
         HeroCard(
             next = next,
             now = now,
@@ -129,7 +137,6 @@ private fun HomeHeader(
     city: String,
     locating: Boolean,
     onDetectLocation: () -> Unit,
-    onToggleTheme: () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Row(
@@ -167,15 +174,27 @@ private fun HomeHeader(
                 tint = MaterialTheme.colorScheme.primary,
             )
         }
-        // مبدّل المظهر مكان الترس القديم — الشمس والقمر معاً (أيقونة نور الهندسية)
-        IconButton(onClick = onToggleTheme, modifier = Modifier.size(40.dp)) {
-            Icon(
-                NoorIcons.SunMoon,
-                contentDescription = "تبديل المظهر — ليلي/نهاري",
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        }
     }
+}
+
+/**
+ * مسار مزلاج المظهر — فجوة محجوزة في الهيدر يُوضع فوقها السائل من الجذر.
+ * لا ترسم شيئاً هنا؛ موقعها فقط هو ما يهم (بإحداثيات الجذر).
+ */
+@Composable
+private fun ThemeDialTrack(
+    onPlaced: (Float, Float, Float, Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .onGloballyPositioned { coords ->
+                val pos = coords.positionInRoot()
+                onPlaced(pos.x, pos.y, coords.size.width.toFloat(), coords.size.height.toFloat())
+            },
+    )
 }
 
 @Composable
