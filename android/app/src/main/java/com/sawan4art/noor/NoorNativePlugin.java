@@ -65,6 +65,8 @@ public class NoorNativePlugin extends Plugin {
     private static final int PERMISSION_REQUEST = 4711;
 
     private PluginCall pendingPermissionCall;
+    /** مجموعات الأذونات المطلوبة بالتتابع — كل مجموعة حوار مستقل */
+    private final List<String[]> permissionQueue = new ArrayList<>();
 
     /* ============================ الأذونات ============================ */
 
@@ -76,33 +78,57 @@ public class NoorNativePlugin extends Plugin {
             return;
         }
 
-        List<String> wanted = new ArrayList<>();
+        // الجذر: طلب الأذونات كلها في نداء واحد يجعل بعض الأجهزة تعرض حوار
+        // الموقع فقط وتُسقط حوار الإشعارات صامتاً — لذا يُطلب كل إذن في حوار
+        // مستقل بالتتابع (الموقع أولاً ثم الإشعارات).
+        permissionQueue.clear();
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            permissionQueue.add(new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION});
+        }
         if (Build.VERSION.SDK_INT >= 33
                 && ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS)
                         != PackageManager.PERMISSION_GRANTED) {
-            wanted.add(Manifest.permission.POST_NOTIFICATIONS);
-        }
-        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            wanted.add(Manifest.permission.ACCESS_FINE_LOCATION);
-            wanted.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+            permissionQueue.add(new String[]{Manifest.permission.POST_NOTIFICATIONS});
         }
 
-        if (wanted.isEmpty()) {
-            resolvePermissions(call);
+        pendingPermissionCall = call;
+        requestNextPermissionGroup(activity);
+    }
+
+    /** يُظهر حوار المجموعة التالية — أو يُنهي النداء بالحالة الفعلية إذا لم يبق شيء */
+    private void requestNextPermissionGroup(Activity activity) {
+        if (permissionQueue.isEmpty()) {
+            PluginCall call = pendingPermissionCall;
+            pendingPermissionCall = null;
+            if (call != null) {
+                resolvePermissions(call);
+            }
             return;
         }
-        pendingPermissionCall = call;
-        ActivityCompat.requestPermissions(activity, wanted.toArray(new String[0]), PERMISSION_REQUEST);
+        ActivityCompat.requestPermissions(activity, permissionQueue.remove(0), PERMISSION_REQUEST);
     }
 
     @Override
     public void handleRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.handleRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST && pendingPermissionCall != null) {
-            PluginCall call = pendingPermissionCall;
-            pendingPermissionCall = null;
-            resolvePermissions(call);
+            Activity activity = getActivity();
+            if (activity != null) {
+                // من رفض إذناً «لا تسأل مرة أخرى» يمرّ حواره صامتاً فوراً
+                // ويكمل الطابور — والمخرج النهائي يعرض الحالة الحقيقية،
+                // والإعدادات (أزرار فتح إعدادات النظام) هي المنفذ حينها.
+                requestNextPermissionGroup(activity);
+            } else {
+                permissionQueue.clear();
+                PluginCall call = pendingPermissionCall;
+                pendingPermissionCall = null;
+                if (call != null) {
+                    resolvePermissions(call);
+                }
+            }
         }
     }
 

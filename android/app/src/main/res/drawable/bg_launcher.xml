@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- خلفية الأيقونة المتدرجة: أخضر عميق دافئ -->
+<!-- خلفية الأيقونة: أخضر مريمي (sage) هادئ متدرج شعاعيًا — بطلب المالك 2026-10 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <gradient
         android:type="radial"
-        android:gradientRadius="140dp"
+        android:gradientRadius="150dp"
         android:centerX="0.5"
-        android:centerY="0.42"
-        android:startColor="#0e7a5a"
-        android:endColor="#052e22" />
+        android:centerY="0.45"
+        android:startColor="#3A6B60"
+        android:endColor="#2B534A" />
 </shape>
