@@ -327,26 +327,6 @@ export function savePrayerAlerts(alerts: PrayerAlerts): void {
   }
 }
 
-/* ==================== أذونات أول تشغيل ==================== */
-
-const PERMISSIONS_ASKED_KEY = 'noor_permissions_asked';
-
-export function getPermissionsAsked(): boolean {
-  try {
-    return localStorage.getItem(PERMISSIONS_ASKED_KEY) === 'yes';
-  } catch {
-    return false;
-  }
-}
-
-export function savePermissionsAsked(): void {
-  try {
-    localStorage.setItem(PERMISSIONS_ASKED_KEY, 'yes');
-  } catch {
-    // تجاهل
-  }
-}
-
 /* ==================== قيام الليل (اختياري — وضعان) ==================== */
 
 /** وضع تنبيه قيام الليل: قبل الفجر أو بعد العشاء (بطلب المالك 2026-10-29) */

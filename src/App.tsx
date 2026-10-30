@@ -73,8 +73,6 @@ import {
   getSavedWidgetSettings,
   saveWidgetSettings,
   WidgetSettings,
-  getPermissionsAsked,
-  savePermissionsAsked,
   PrayerAlerts,
   QiyamMode,
 } from './utils/appSettings';
@@ -265,17 +263,16 @@ export default function App() {
     saveWidgetSettings(s);
   }, []);
 
-  // ===== أذونات أول تشغيل: تطلب تلقائياً بعد زر «متابعة» في السبلاش =====
+  // ===== أذونات الإقلاع: تُطلب في كل تشغيل بعد زر «متابعة» في السبلاش =====
+  // بلا قفل «مرة واحدة»: الجانب الأصلي يتخطى الممنوح تلقائياً والنظام لا يُظهر
+  // الحوار إلا للناقص — فالطلب صامت حين يكتمل كل شيء. القفل القديم كان يمنع
+  // الطلب للأبد لو سُجل مفتاحه قبل ظهور الحوار (أو جاء التحديث فوق نسخة قديمة)
+  // — إصلاح «التطبيق لا يطلب الأذونات».
   const permissionsRequestedRef = useRef(false);
   useEffect(() => {
     if (showSplash) return;
     if (permissionsRequestedRef.current) return;
-    if (getPermissionsAsked()) {
-      permissionsRequestedRef.current = true;
-      return;
-    }
     permissionsRequestedRef.current = true;
-    savePermissionsAsked();
     // طلب كل الأذونات: الموقع للمواقيت + الإشعارات والمنبهات للأذان في الخلفية
     void requestAllPermissions().then(() => {
       // بعد منح الموقع: حدّث الموقع تلقائياً + اجلب اسم المدينة (إصلاح «المدينة لا تظهر»)

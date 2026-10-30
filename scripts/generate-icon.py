@@ -113,11 +113,8 @@ def build():
         round_img.save(os.path.join(out_dir, 'ic_launcher_round.png'))
         print(f'✅ {folder}: {size_px}px (مربعة + دائرية)')
 
-    # 3) مقدمة أيقونة الـ adaptive (رمز فقط بخلفية شفافة، أكبر شوي)
-    fg_big = draw_crescent_star(S)
-    fg_big.save(os.path.join(BASE, 'drawable', 'ic_launcher_foreground_png.png'))
-    # (النسخة الفعلية المستخدمة للـ adaptive هي الفيكتور — دي احتياطية)
-    print('✅ مقدمة الـ adaptive جاهزة (فيكتور + احتياطي PNG)')
+    # ملاحظة: مقدمة الـ adaptive على API 26+ هي الفيكتور
+    # drawable/ic_launcher_foreground.xml — لا PNG مطلوب.
 
 
 if __name__ == '__main__':
