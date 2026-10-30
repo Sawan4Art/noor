@@ -173,16 +173,16 @@ class GooeyMathTest {
 
     @Test
     fun `قيم مرجعية مثبتة تطابق معاينة بايثون حرفيا`() {
-        // من scripts/preview_liquid_transfer_v2.py — نفس الثوابت
+        // من scripts/make_liquid_preview_gif.py — نفس الثوابت (alpha4)
         val remaining = 14.4f / 25f
         val w = GooeyMath.waistFor(14.4f, 25f)
         assertEquals(0.42f + 0.55f * (1f - remaining).pow(1.5f), w, 1e-4f)
         val angle = 0.8f
         val time = 1.37f
         // الـ phase = 1 كي تظهر معاملات الأطوار (+1 و ×2.1 و ×4.2) في القيمة المرجعية
-        val expected = 0.030f * sin(3f * angle + 1.9f * time + 1f) +
-            0.022f * sin(5f * angle - 2.7f * time + 2.1f) +
-            0.013f * sin(8f * angle + 3.6f * time + 4.2f)
+        val expected = 0.038f * sin(2f * angle + 1.0f * time + 1f) +
+            0.028f * sin(4f * angle - 1.5f * time + 2.1f) +
+            0.017f * sin(6f * angle + 2.1f * time + 4.2f)
         assertEquals(expected, GooeyMath.surfaceWave(angle, time, 0f, phase = 1f), 1e-6f)
     }
 }

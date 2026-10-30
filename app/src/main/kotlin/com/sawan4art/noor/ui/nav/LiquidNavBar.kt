@@ -80,10 +80,11 @@ import kotlinx.coroutines.launch
  *    يُسحب آخر قطرة. والسائل حيّ لا يسكن: تموج سطحي وانسياب ورفرفة مستمرة.
  */
 
-/** مدد النقل بالمللي ثانية: نقص المصدر، رحلة الرأس، وذبول الرجفة بعدها */
-private const val DRAIN_MS = 780
-private const val HEAD_MS = 620
-private const val JIGGLE_MS = 950
+/** مدد النقل بالمللي ثانية: نقص المصدر، رحلة الرأس، وذبول الرجفة بعدها
+ *  (alpha4: أبطأ بطلب المالك — نقل ألزق أكثر تمهلًا) */
+private const val DRAIN_MS = 1040
+private const val HEAD_MS = 800
+private const val JIGGLE_MS = 1250
 
 @Composable
 fun LiquidNavScaffold(
@@ -222,7 +223,7 @@ private fun LiquidNavBar(
         launch {
             delay(HEAD_MS - 40L)
             pulse.snapTo(1.16f)
-            pulse.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 380f))
+            pulse.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 280f))
         }
     }
 

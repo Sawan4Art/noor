@@ -83,26 +83,31 @@ object GooeyMath {
     /**
      * التموج السطحي الدائم — قلب «السائل الحي»:
      * ثلاث موجات سفر بترددات مختلفة في الثبات، وموجتان أقوى بطاقة الهبوط [energy]
-     * (0..1) التي تذبل بعد وصول الرأس. الناتج إزاحة نسبية لنصف القطر (±7% تقريباً).
+     * (0..1) التي تذبل بعد وصول الرأس. الناتج إزاحة نسبية لنصف القطر (±8% تقريباً).
+     *
+     * دفعة alpha4 (بطلب المالك: لزوجة أعلى وحركة أبطأ): ترددات مكانية وزمنية أقل
+     * (موجات أطول وأبطأ = سائل ألزق كالعسل) وسعات أوضح — وقمة الثبات+الطاقة مجتمعة
+     * ≤ 0.187 داخل سقف الأمان 0.2. ومعاينة بايثون scripts/make_liquid_preview_gif.py
+     * بنفس هذه الأرقام حرفياً.
      */
     fun surfaceWave(angle: Float, time: Float, energy: Float, phase: Float = 0f): Float {
-        val idle = 0.030f * sin(3f * angle + 1.9f * time + phase) +
-            0.022f * sin(5f * angle - 2.7f * time + 2.1f * phase) +
-            0.013f * sin(8f * angle + 3.6f * time + 4.2f * phase)
+        val idle = 0.038f * sin(2f * angle + 1.0f * time + phase) +
+            0.028f * sin(4f * angle - 1.5f * time + 2.1f * phase) +
+            0.017f * sin(6f * angle + 2.1f * time + 4.2f * phase)
         val live = energy * (
-            0.055f * sin(5f * angle + 8.5f * time + phase) +
-                0.035f * sin(9f * angle - 6.3f * time + 1.7f * phase)
+            0.062f * sin(4f * angle + 4.8f * time + phase) +
+                0.042f * sin(7f * angle - 3.6f * time + 1.7f * phase)
             )
         return idle + live
     }
 
-    /** انسياب رأسي بطيء للمركز — السائل يعوم في الزجاج بدل أن يثبت */
+    /** انسياب رأسي بطيء للمركز — السائل يعوم في الزجاج بدل أن يثبت (أبطأ في alpha4) */
     fun centerDrift(time: Float, phase: Float = 0f): Float =
-        0.035f * sin(1.1f * time + phase) + 0.020f * sin(2.3f * time + 1.3f + phase)
+        0.040f * sin(0.7f * time + phase) + 0.024f * sin(1.3f * time + 1.3f + phase)
 
-    /** موجة الجسر (−1..1) — تُضرب في مقياس صغير فترفرف الرقبة كماء حي */
+    /** موجة الجسر (−1..1) — تُضرب في مقياس صغير فترفرف الرقبة كماء حي (أبطأ في alpha4) */
     fun bridgeSway(time: Float, phase: Float = 0f): Float =
-        0.6f * sin(2.1f * time + phase) + 0.4f * sin(3.3f * time + 1.9f + phase)
+        0.6f * sin(1.2f * time + phase) + 0.4f * sin(1.9f * time + 1.9f + phase)
 }
 
 /**
