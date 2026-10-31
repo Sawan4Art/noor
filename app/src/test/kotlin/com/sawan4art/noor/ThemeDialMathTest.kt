@@ -5,21 +5,16 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlin.math.abs
-import kotlin.math.PI
-import kotlin.math.cos
 
 /**
- * اختبارات «مزلاج الشمس والقمر» — قواعد المالك حتى تعديل مساء 2026-10-31 (alpha10):
+ * اختبارات «مزلاج الشمس والقمر» — قواعد المالك حتى تعديل 2026-10-31 عصراً (alpha11):
  * 1) يمين = فاتح، يسار = مظلم، والأيقونة مع اليد حرفياً.
- * 2) الانقسام: الفاتح خلف الأيقونة والمظلم أمامها — **الفاصل غير مرئي إطلاقاً**
- *    (قرار المالك: «عايز الفاصل غير مرئي وبدون خطوط باينه») — لا توهج ولا خطوط،
- *    والشروق هو اللقاء نفسه: نص فاتح ونص مظلم بريش جيبي **قصير** (56dp)
- *    ناعم بلا خط حادّ ولا شفق واسع يمحو وضوح النصفين.
+ * 2) الانقسام: النصف الفاتح يسار الحدّ والمظلم يمينه — **قصّ صلب** بلا قناع
+ *    (الآلية القديمة فشلت بصمت على جهاز المالك — بلاغ بلقطة شاشة)، وعلى الحدّ
+ *    **شعاع كشاف**: «بلور جامد زي ضوء كشاف ينير جزءاً ويترك جزءاً منفصلاً».
  * 3) الرفع يحسم بالضفة التي عبرها، والنقرة تبدّل فوراً.
  * 4) الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه.
  * 5) المزلاج في الرئيسية فقط — لا أثر له في بقية الصفحات.
- * نفس الأرقام تُستخدم في معاينة بايثون للمالك.
  */
 class ThemeDialMathTest {
 
@@ -120,28 +115,18 @@ class ThemeDialMathTest {
         }
     }
 
-    // ===== الحد غير المرئي — قرار المالك: الفاصل بلا خطوط، الشروق نص/نص =====
+    // ===== شعاع الكشاف — عقد المالك alpha11: ينير جزءاً ويترك جزءاً منفصلاً =====
 
     @Test
-    fun `الشفق قصير كي تقرأ النصفة فاتحة ومظلمة بوضوح`() {
-        // عقد المالك alpha10: الفاصل غير مرئي والشروق نص فاتح ونص مظلم —
-        // الشفق الواسع يمحو النصفين فلا يجوز أن يتجاوز 64dp
-        assertTrue("الشفق ${ThemeDialMath.MASK_FADE_DP}dp أوسع من العقد", ThemeDialMath.MASK_FADE_DP <= 64f)
-    }
-
-    @Test
-    fun `الريش متماثل حول الحد فمركز التمويه على الأيقونة نفسها`() {
-        // الحدّ مستقيم عند موضع الأيقونة، والشفق يمتد نصفه عن يمينه ونصفه عن يساره —
-        // هذا ما يجعل الإمساك في المنتصف = نص فاتح ونص مظلم بالضبط
-        val fade = ThemeDialMath.MASK_FADE_DP * 3f // بكسل افتراضي للأرقام
-        val offs = ThemeDialMath.featherOffsets(fade)
-        assertEquals(-fade / 2f, offs.first(), 1e-4f)
-        assertEquals(fade / 2f, offs.last(), 1e-4f)
-        // تماثل الإزاحات: off(i) = -off(K-i)
-        val k = offs.size - 1
-        for (i in offs.indices) {
-            assertEquals("تماثل عند i=$i", -offs[k - i], offs[i], 1e-4f)
-        }
+    fun `سقوط الكشاف أطول في المضيء وأقصر في المظلم والنواة داخل السقوط`() {
+        // «ينير جزءاً ويترك جزءاً منفصلاً» — الهالة تغسل النصف الفاتح طويلاً
+        // وتترك المظلم قصيراً، والنواة الحارّة (كاشف الحدّ) أصغر منهما
+        assertTrue(
+            "سقوط المضيء ${ThemeDialMath.BEAM_LIT_FALL_DP} قصير جداً",
+            ThemeDialMath.BEAM_LIT_FALL_DP > ThemeDialMath.BEAM_DARK_FALL_DP,
+        )
+        assertTrue("النواة أكبر من الهالة", ThemeDialMath.BEAM_CORE_LIT_DP < ThemeDialMath.BEAM_LIT_FALL_DP)
+        assertTrue("النواة المظلمة أكبر من هالتها", ThemeDialMath.BEAM_CORE_DARK_DP < ThemeDialMath.BEAM_DARK_FALL_DP)
     }
 
     @Test
@@ -153,87 +138,31 @@ class ThemeDialMathTest {
         assertTrue(ThemeDialMath.commitLight(w / 2f, anchorLeft, anchorRight))
     }
 
-    // ===== ريش الحافة — البلور الجيبي =====
+    // ===== هدف المسح — الحد وشعاعه يغادران الشاشة كليا بلا بقايا =====
 
     @Test
-    fun `إزاحات الريش صاعدة متساوية الخطوات بعرض الشفق كاملا`() {
-        val fade = 56f
-        val offs = ThemeDialMath.featherOffsets(fade)
-        assertEquals(ThemeDialMath.FEATHER_BANDS + 1, offs.size)
-        assertEquals(-fade / 2f, offs.first(), 1e-4f)
-        assertEquals(fade / 2f, offs.last(), 1e-4f)
-        for (i in 0 until offs.size - 1) {
-            assertTrue("صاعدة عند i=$i", offs[i + 1] > offs[i])
-            assertEquals("خطوات متساوية عند i=$i", offs[1] - offs[0], offs[i + 1] - offs[i], 1e-4f)
-        }
-    }
-
-    @Test
-    fun `شفافية الريش جيبية ناعمة من شبه الكامل إلى الصفر`() {
-        val bands = ThemeDialMath.FEATHER_BANDS
-        var prev = Float.MAX_VALUE
-        for (k in 0 until bands) {
-            val a = ThemeDialMath.featherAlpha(k)
-            assertTrue("داخل النطاق عند k=$k", a in 0f..1f)
-            assertTrue("تنازلية عند k=$k", a < prev)
-            prev = a
-        }
-        // عقدة الصيغة المغلقة: (cos(π(b+½)/K)+1)/2 — تمنع أي تغيير صامت في التدرج
-        val k16 = 16
-        val expected = { b: Int -> (cos(PI * (b + 0.5f) / k16).toFloat() + 1f) / 2f }
-        for (b in intArrayOf(0, 3, 7, 8, 12, 15)) {
-            assertEquals(expected(b), ThemeDialMath.featherAlpha(b, k16), 1e-5f)
-        }
-        // الطرفان: شبه الكامل ثم شبه الصفر — لا انقطاع حاد عند حافتي الشفق
-        assertTrue("بداية الشفق تكاد كاملة", ThemeDialMath.featherAlpha(0, k16) > 0.97f)
-        assertTrue("نهاية الشفق تكاد صفر", ThemeDialMath.featherAlpha(k16 - 1, k16) < 0.03f)
-    }
-
-    @Test
-    fun `متناظرة الريش تحيط بالحد بلا انحياز - مجموعها مع معكوسها واحد`() {
-        val bands = ThemeDialMath.FEATHER_BANDS
-        for (b in 0 until bands) {
-            assertEquals(
-                "تماثل عند b=$b",
-                1f,
-                ThemeDialMath.featherAlpha(b) + ThemeDialMath.featherAlpha(bands - 1 - b),
-                1e-5f,
-            )
-        }
-        // ومنتصف الشفق ≈ نصف — الحد المموه متماثل حول موضع الأيقونة
-        val midA = ThemeDialMath.featherAlpha(bands / 2)
-        assertTrue("منتصف الشفق قريب من النصف: $midA", abs(midA - 0.5f) < 0.06f)
-    }
-
-    // ===== هدف المسح — الحد يغادر الشاشة كليا بلا حافة ظاهرة =====
-
-    @Test
-    fun `التثبيت الفاتح يساق الحد والريش خارج الحافة اليمنى والعكس يسارا`() {
+    fun `التثبيت الفاتح يساق الحد وشعاعه خارج الحافة والعكس يسارا`() {
         val w = 1080f
-        val fade = 56f
-        // فاتح: الحد المستقيم عند w+fade ومعه نصف الريش خلفه — لا بقايا على الشاشة
-        val endLight = ThemeDialMath.sweepTargetX(true, w, fade)
-        assertTrue("بقايا حد فاتح عند الطرف", endLight - fade / 2f >= w)
-        // مظلم: المرآة يساراً
-        val endDark = ThemeDialMath.sweepTargetX(false, w, fade)
-        assertTrue("بقايا حد مظلم عند الطرف", endDark + fade / 2f <= 0f)
+        val litFall = 412f // BEAM_LIT_FALL_DP بكسل تقريبا
+        val darkFall = 248f
+        // فاتح: الحد عند w+سقوط_المضيء — الشعاع بكامل سقوطه خلفه خارج الشاشة
+        val endLight = ThemeDialMath.sweepTargetX(true, w, litFall, darkFall)
+        assertTrue("بقايا شعاع فاتح عند الطرف", endLight - litFall >= w)
+        // مظلم: المرآة يساراً بسقوط الجهة المظلمة
+        val endDark = ThemeDialMath.sweepTargetX(false, w, litFall, darkFall)
+        assertTrue("بقايا شعاع مظلم عند الطرف", endDark + darkFall <= 0f)
     }
 
     // ===== متانة الحواف =====
 
     @Test
-    fun `الريش والتمويه لا ينهاران على حواف متطرفة`() {
-        // شفق معدوم ومسار معدوم — لا استثناءات ولا قيم متلاعبة
-        val offs = ThemeDialMath.featherOffsets(0f)
-        assertTrue(offs.size >= 2)
-        for (i in 0 until offs.size - 1) {
-            assertTrue(offs[i + 1] >= offs[i])
-        }
-        ThemeDialMath.featherAlpha(0, 1)
-        ThemeDialMath.featherAlpha(-5, 1)
-        ThemeDialMath.featherAlpha(99, 3)
+    fun `هدف المسح لا ينهار على حواف متطرفة`() {
+        // سقوط معدوم ومسار معدوم — لا استثناءات ولا قيم متلاعبة
+        val zeroLight = ThemeDialMath.sweepTargetX(true, 0f, 0f, 0f)
+        assertTrue("يجب هامش أمان موجب للفاتح", zeroLight >= 1f)
+        val zeroDark = ThemeDialMath.sweepTargetX(false, 0f, 0f, 0f)
+        assertTrue("يجب هامش أمان سالب للمظلم", zeroDark <= -1f)
+        ThemeDialMath.sweepTargetX(false, -100f, 0f, 0f)
         ThemeDialMath.progress(50f, 100f, 100f) // مسار معدوم
-        ThemeDialMath.sweepTargetX(true, 0f, 0f)
-        ThemeDialMath.sweepTargetX(false, -100f, 0f)
     }
 }

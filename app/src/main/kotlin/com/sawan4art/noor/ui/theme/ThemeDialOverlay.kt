@@ -61,11 +61,13 @@ import kotlin.math.roundToInt
  * الإصلاح: الطبقة ترسم فقط بلا أي قبضة لمس، والإيماءة على **صندوق يركب الأيقونة
  * وحدها** — الفراغ يمر للطبقات تحتيه طبيعياً، والانقسام لا يشتغل إلا بسحب فعلي.
  *
- * قرار المالك (alpha10): «عايز الفاصل غير مرئي وبدون خطوط باينه و عايز نص
- * الصفحه تكون فاتحه والنص التاني تكون مظلم تأثير شروق الشمس يعني» —
- * **لا شيء يُرسم عند الحدّ إطلاقاً**: لا شرائط توهج ولا وهج شعاعي؛ الشروق
- * هو اللقاء نفسه بين نصف فاتح ونصف مظلم (قناع الطبقة الهدف في NoorApp)
- * بريش قصير ناعم لا يُظهر خطاً ولا يمحو وضوح النصفين.
+ * قرار المالك (alpha11، بلقطة شاشة): الانقسام لم يظهر على جهازه قط — آلية
+ * القناع (Offscreen + DstIn) تفشل بصمت على بعض معالجات الرسوميات. الإصلاح:
+ * المعاينة قصّ صلب (في NoorApp) وعلى الحدّ **شعاع كشاف** يرسم هنا: هالة عريضة
+ * بتدرج أفقي متصل (بلور جامد بلا أي خط) نواتها الحارّة شبه معتمة عند الحدّ،
+ * تسقط طويلاً في الجهة المضيئة وقصيراً في المظلمة — «ضوء كشاف ينير جزءاً
+ * ويترك جزءاً منفصلاً» (كلام المالك حرفياً). تدرّجات متصلة بلا شرائح
+ * ولا أنماط مزج — ترسم على أي جهاز.
  *
  * الاتجاه داخلياً LTR دائماً — الرسم كله بإحداثيات فيزيائية مطلقة محصّنة من RTL.
  */
@@ -84,14 +86,20 @@ fun ThemeDialOverlay(
 
     // مقاييس بالبكسل — نفس لغة الشريط السفلي (قطرات أكبر قليلاً من شريط رفيع)
     val blobR = with(density) { 17.dp.toPx() }
-    val fadePx = with(density) { ThemeDialMath.MASK_FADE_DP.dp.toPx() }
+    val beamLitPx = with(density) { ThemeDialMath.BEAM_LIT_FALL_DP.dp.toPx() }
+    val beamDarkPx = with(density) { ThemeDialMath.BEAM_DARK_FALL_DP.dp.toPx() }
+    val beamCoreLitPx = with(density) { ThemeDialMath.BEAM_CORE_LIT_DP.dp.toPx() }
+    val beamCoreDarkPx = with(density) { ThemeDialMath.BEAM_CORE_DARK_DP.dp.toPx() }
     val iconPx = with(density) { 24.dp.toPx() }
     val strokePx = with(density) { 1.dp.toPx() }
     val anchorPad = blobR * 1.6f
     val touchHalf = with(density) { 32.dp.toPx() } // هدف لمس 64dp يركب الأيقونة
 
     SideEffect {
-        dial.configure(dial.screenWidth, dial.screenHeight, blobR, fadePx, anchorPad)
+        dial.configure(
+            dial.screenWidth, dial.screenHeight, blobR,
+            beamLitPx, beamDarkPx, beamCoreLitPx, beamCoreDarkPx, anchorPad,
+        )
     }
 
     // مزامنة المرسى مع الثيم المثبت (أول قياس + تغيّر الإعدادات + الدوران)
@@ -134,7 +142,10 @@ fun ThemeDialOverlay(
         modifier = Modifier
             .fillMaxSize()
             .onSizeChanged {
-                dial.configure(it.width.toFloat(), it.height.toFloat(), blobR, fadePx, anchorPad)
+                dial.configure(
+                    it.width.toFloat(), it.height.toFloat(), blobR,
+                    beamLitPx, beamDarkPx, beamCoreLitPx, beamCoreDarkPx, anchorPad,
+                )
             }
             .drawBehind {
                 if (dial.trackWidth <= 0f || dial.screenWidth <= 0f) return@drawBehind
@@ -147,7 +158,85 @@ fun ThemeDialOverlay(
                 val energy = dial.energy()
                 val p = ThemeDialMath.progress(headXv, dial.anchorLeft, dial.anchorRight)
 
-                // ===== 1) كبسولة المسار (زخرفة لا إيماءة) =====
+                // ===== 1) شعاع الكشاف على حدّ الانقسام (تحت الكبسولة والسائل) =====
+                // هالة عريضة بتدرج أفقي متصل + نواة حارّة شبه معتمة تخفي حدّ القص،
+                // وسقوط طويل في الجهة المضيئة (يسار) وقصير في المظلمة —
+                // «ينير جزءاً ويترك جزءاً منفصلاً» — بلا خطوط ولا أنماط مزج.
+                if (dial.splitActive) {
+                    val power = dial.beam.value
+                    if (power > 0.004f) {
+                        val edgeX = dial.maskX.value
+                        val h = size.height
+                        val warm = dial.overlayIsLight
+                        val dim = if (warm) 1f else 0.82f // ضوء أكثر هدوءاً والمظلم يتراجع
+                        val bandColor = if (warm) Color(0xFFFFC47E) else Color(0xFFB9CDEC)
+                        val coreColor = if (warm) Color(0xFFFFF1D6) else Color(0xFFE6EFFB)
+                        // الهالة العريضة — الحدّ عند كسر edgeFrac من عرض الشعاع
+                        val litFall = dial.beamLitPx
+                        val darkFall = dial.beamDarkPx
+                        val beamLeft = edgeX - litFall
+                        val beamW = litFall + darkFall
+                        val edgeFrac = if (beamW > 1f) litFall / beamW else 0.5f
+                        val beamStops = arrayOf(
+                            0.00f to bandColor.copy(alpha = 0.00f),
+                            (edgeFrac * 0.35f) to bandColor.copy(alpha = 0.10f * dim * power),
+                            (edgeFrac * 0.70f) to bandColor.copy(alpha = 0.22f * dim * power),
+                            edgeFrac to bandColor.copy(alpha = 0.46f * dim * power),
+                            (edgeFrac + (1f - edgeFrac) * 0.55f) to bandColor.copy(alpha = 0.16f * dim * power),
+                            (edgeFrac + (1f - edgeFrac) * 0.85f) to bandColor.copy(alpha = 0.05f * dim * power),
+                            1.00f to bandColor.copy(alpha = 0.00f),
+                        )
+                        drawRect(
+                            brush = Brush.horizontalGradient(
+                                *beamStops,
+                                startX = beamLeft,
+                                endX = edgeX + darkFall,
+                            ),
+                            topLeft = Offset(beamLeft, 0f),
+                            size = Size(beamW, h),
+                        )
+                        // النواة الحارّة القاتمة على الحدّ نفسه — تخفي حدّ القص تحت النور
+                        val coreLit = dial.beamCoreLitPx
+                        val coreDark = dial.beamCoreDarkPx
+                        val coreLeft = edgeX - coreLit
+                        val coreW = coreLit + coreDark
+                        val coreFrac = if (coreW > 1f) coreLit / coreW else 0.5f
+                        val coreStops = arrayOf(
+                            0.00f to coreColor.copy(alpha = 0.00f),
+                            (coreFrac * 0.45f) to coreColor.copy(alpha = 0.52f * dim * power),
+                            (coreFrac * 0.80f) to coreColor.copy(alpha = 0.86f * dim * power),
+                            coreFrac to coreColor.copy(alpha = 0.94f * dim * power),
+                            (coreFrac + (1f - coreFrac) * 0.55f) to coreColor.copy(alpha = 0.50f * dim * power),
+                            1.00f to coreColor.copy(alpha = 0.00f),
+                        )
+                        drawRect(
+                            brush = Brush.horizontalGradient(
+                                *coreStops,
+                                startX = coreLeft,
+                                endX = coreLeft + coreW,
+                            ),
+                            topLeft = Offset(coreLeft, 0f),
+                            size = Size(coreW, h),
+                        )
+                        // وهج مصدر الكشاف حول الأيقونة نفسها
+                        val lamp = Offset(edgeX, y)
+                        val lampR = litFall * 0.55f
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    coreColor.copy(alpha = 0.30f * dim * power),
+                                    Color.Transparent,
+                                ),
+                                center = lamp,
+                                radius = lampR,
+                            ),
+                            radius = lampR,
+                            center = lamp,
+                        )
+                    }
+                }
+
+                // ===== 2) كبسولة المسار (زخرفة لا إيماءة) =====
                 val topLeft = Offset(dial.trackLeft, dial.trackTop)
                 val capsule = Size(dial.trackWidth, dial.trackHeight)
                 drawRoundRect(
@@ -164,9 +253,7 @@ fun ThemeDialOverlay(
                     style = Stroke(strokePx),
                 )
 
-                // ===== 2) السائل الحي: ذيل ينقص + رأس + جسر بلا فصل =====
-                // الفاصل غير مرئي بلا خطوط (قرار المالك alpha10) — الشروق
-                // يظهر من قناع الطبقة الهدف في NoorApp: نصف فاتح ونصف مظلم.
+                // ===== 3) السائل الحي: ذيل ينقص + رأس + جسر بلا فصل =====
                 val blobTop = lerp(moonTop, sunTop, p)
                 val blobBottom = lerp(moonBottom, sunBottom, p)
                 val blobBrush = Brush.verticalGradient(
@@ -209,7 +296,7 @@ fun ThemeDialOverlay(
                 }
                 if (!liquid.isEmpty) drawPath(liquid, blobBrush)
 
-                // ===== 3) الشمس والقمر فوق السائل — تتقاطفان بموضع اليد =====
+                // ===== 4) الشمس والقمر فوق السائل — تتقاطفان بموضع اليد =====
                 // رسم مباشر داخل اللوحة: محصّن من انعكاس RTL ومتزامن مع السائل بالإطار
                 if (headRv > GooeyMath.MIN_RADIUS) {
                     translate(headXv - iconPx / 2f, y - iconPx / 2f) {

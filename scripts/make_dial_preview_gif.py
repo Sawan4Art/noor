@@ -27,8 +27,6 @@ DOWNLOAD = '/home/z/my-project/download'
 DENS = W / 411.0
 TRACK_H = 46 * DENS
 BLOB_R = 17 * DENS
-FADE = 56 * DENS       # MASK_FADE_DP — ريش قصير: نص فاتح ونص مظلم واضحان بلا خط حاد
-FEATHER_BANDS = 16     # عدد شرائح الريش — تدرج جيبي أقرب للبلور
 TRACK_X = 20 * DENS
 TRACK_W = W - 2 * TRACK_X
 PAD = BLOB_R * 1.6
@@ -166,35 +164,23 @@ def bridge_polygon(b, time):
     return pts
 
 
-# ===== نقل ThemeDialMath حرفياً =====
+# ===== نقل ThemeDialMath حرفياً (alpha11: قصّ صلب + شعاع كشاف) =====
+BEAM_LIT = 150 * DENS      # BEAM_LIT_FALL_DP — سقوط الهالة في الجهة المضيئة (يسار)
+BEAM_DARK = 90 * DENS      # BEAM_DARK_FALL_DP — سقوطها في المظلمة
+CORE_LIT = 34 * DENS       # BEAM_CORE_LIT_DP — نواة حارّة شبه معتمة تخفي حدّ القص
+CORE_DARK = 26 * DENS      # BEAM_CORE_DARK_DP
+
+BAND_COL = (255, 196, 126)   # الهالة الدافئة (شروق)
+CORE_COL = (255, 241, 214)   # النواة الحارّة
+BAND_COL_C = (185, 205, 236) # الهالة الباردة (المظلم يتراجع)
+CORE_COL_C = (230, 239, 251)
+
+
 def edge_x(boundary):
-    """حدّ الانقسام — مستقيم رأسي عند موضع الأيقونة نفسها، غير مرئي بلا خطوط:
-    التمويه كله في الريش الجيبي حول الخط ولا شيء يُرسم عنده."""
+    """حدّ الانقسام — مستقيم رأسي عند موضع الأيقونة، والمعاينة **قصّ صلب**
+    (clipRect): الفاتح يسار الحدّ والمظلم يمينه دائماً بلا أي تدرج في القص،
+    وحدّ القص يخفيه شعاع الكشاف المرسوم فوقه."""
     return boundary
-
-
-def feather_alpha(k):
-    """شفافية شريحة الريش k — تدرج جيبي (cos): نفس featherAlpha في كوتلن."""
-    return (math.cos(math.pi * (k + 0.5) / FEATHER_BANDS) + 1) / 2
-
-
-def mask_alpha_at(x, y, boundary, light_on_left):
-    """قيمة قناع DstIn عند (x, y) — جسم المنطقة الهدف + شرائح الريش الجيبية."""
-    d = x - edge_x(boundary)  # موجب = خارج المنطقة الهدف
-    half = FADE / 2
-    if light_on_left:
-        if d <= -half:
-            return 1.0
-        if d >= half:
-            return 0.0
-        k = int((d + half) / (FADE / FEATHER_BANDS))
-    else:
-        if d >= half:
-            return 1.0
-        if d <= -half:
-            return 0.0
-        k = int((half - d) / (FADE / FEATHER_BANDS))
-    return feather_alpha(k)
 
 
 def sun_alpha(p):
@@ -321,46 +307,92 @@ def render_frame(state, t_sec):
     # الطبقة الأساسية بثيمها
     draw_app(d, 'dark' if base_dark else 'light')
 
-    # طبقة الهدف مقنّعة بالحدّ المستقيم الريشي (نفس آلية DstIn بشرائح جيبية)
+    # طبقة الهدف **قصّاً صلباً** (نفس clipRect في كوتلن): الفاتح يسار الحدّ والمظلم يمينه
     if split:
         ov = Image.new('RGB', (W, H), 0)
         draw_app(ImageDraw.Draw(ov), 'light' if overlay_light else 'dark')
         mask = Image.new('L', (W, H), 0)
         buf = bytearray(W * H)
-        half = FADE / 2
-        step = FADE / FEATHER_BANDS
+        edge = int(boundary)
         for y in range(H):
-            edge = boundary
             base = y * W
             if overlay_light:
+                # الفاتح (الهدف) على يسار الحدّ
                 for x in range(W):
-                    dlt = x - edge
-                    if dlt <= -half:
-                        a = 1.0
-                    elif dlt >= half:
-                        a = 0.0
-                    else:
-                        a = feather_alpha(int((dlt + half) / step))
-                    buf[base + x] = int(255 * a)
+                    buf[base + x] = 255 if x < edge else 0
             else:
+                # المظلم (الهدف) على يمين الحدّ — والفاتح (الأساس) يساره
                 for x in range(W):
-                    dlt = edge - x
-                    if dlt <= -half:
-                        a = 1.0
-                    elif dlt >= half:
-                        a = 0.0
-                    else:
-                        a = feather_alpha(int((dlt + half) / step))
-                    buf[base + x] = int(255 * a)
+                    buf[base + x] = 255 if x >= edge else 0
         mask.putdata(bytes(buf))
         img.paste(ov, (0, 0), mask)
+
+    # ===== شعاع الكشاف على حدّ الانقسام — نفس طبقات كوتلن حرفياً =====
+    if split:
+        power = state['beam']
+        if power > 0.004:
+            warm = overlay_light
+            band_col = BAND_COL if warm else BAND_COL_C
+            core_col = CORE_COL if warm else CORE_COL_C
+            dim = 1.0 if warm else 0.82
+
+            def beam_alpha(x, left, right, edge_frac, peak):
+                """شفافية الشعاع عند x — تدرج متصل يبلغ ذروته عند الحدّ،
+                سقوطه طويل يساراً (المضيء) وقصير يميناً (المظلم)."""
+                if x < left or x >= right:
+                    return 0.0
+                frac = (x - left) / (right - left)
+                if frac <= edge_frac:
+                    t = frac / edge_frac if edge_frac > 0 else 1.0
+                    return peak * dim * (t ** 1.8)
+                t = (frac - edge_frac) / (1 - edge_frac)
+                return peak * dim * ((1 - t) ** 2.2)
+
+            beam_mask = Image.new('L', (W, H), 0)
+            bbuf = bytearray(W * H)
+            bcol = bytearray(W * H * 3)
+            left0, right0 = boundary - BEAM_LIT, boundary + BEAM_DARK
+            edge_frac = BEAM_LIT / (BEAM_LIT + BEAM_DARK)
+            core_left, core_right = boundary - CORE_LIT, boundary + CORE_DARK
+            core_frac = CORE_LIT / (CORE_LIT + CORE_DARK)
+            for y in range(H):
+                base = y * W
+                for x in range(W):
+                    i3 = base * 3 + x * 3
+                    aa = beam_alpha(x, left0, right0, edge_frac, 0.46)
+                    if aa > 0:
+                        bbuf[base + x] = int(255 * aa)
+                        bcol[i3:i3 + 3] = bytes(band_col)
+                    ac = beam_alpha(x, core_left, core_right, core_frac, 0.94)
+                    if ac > 0:
+                        # النواة تركب الهالة (نفس تراكب SrcOver التقريبي بالأعلى)
+                        old_a = bbuf[base + x] / 255.0
+                        new_a = ac + old_a * (1 - ac)
+                        mixed = tuple(int((core_col[k] * ac + band_col[k] * old_a * (1 - ac)) / new_a) for k in range(3))
+                        bbuf[base + x] = int(255 * new_a)
+                        bcol[i3:i3 + 3] = bytes(mixed)
+            beam_mask.putdata(bytes(bbuf))
+            beam_img = Image.frombytes('RGB', (W, H), bytes(bcol))
+            img.paste(beam_img, (0, 0), beam_mask)
+            d = ImageDraw.Draw(img, 'RGBA')
+            # وهج مصدر الكشاف حول الأيقونة (radial)
+            hx0, hy0 = boundary, TRACK_TOP + TRACK_H / 2
+            lamp_r = BEAM_LIT * 0.55
+            lamp_mask = Image.new('L', (int(lamp_r * 2), int(lamp_r * 2)), 0)
+            dl = ImageDraw.Draw(lamp_mask)
+            steps = 24
+            for i in range(steps, 0, -1):
+                rr = lamp_r * i / steps
+                aa = (1 - i / steps) ** 2 * 0.30 * dim * power
+                dl.ellipse([lamp_r - rr, lamp_r - rr, lamp_r + rr, lamp_r + rr], fill=int(255 * aa))
+            tinted = Image.new('RGB', lamp_mask.size, core_col)
+            img.paste(tinted, (int(hx0 - lamp_r), int(hy0 - lamp_r)), lamp_mask)
+            d = ImageDraw.Draw(img, 'RGBA')
 
     # كبسولة المسار
     d.rounded_rectangle([TRACK_X, TRACK_TOP, TRACK_X + TRACK_W, TRACK_TOP + TRACK_H],
                         radius=TRACK_H / 2,
                         fill=(100, 100, 100, 70), outline=(150, 150, 150, 90), width=1)
-
-    # (لا توهج عند الحدّ — قرار المالك alpha10: الفاصل غير مرئي بلا خطوط)
 
     # السائل: ذيل + رأس + جسر
     p_top = lerp_c(MOON_TOP, SUN_TOP, state['p'])
@@ -399,7 +431,7 @@ frame = None
 
 def empty_state():
     return dict(base_dark=True, split_active=False, overlay_is_light=False,
-                mask_x=0.0, head_x=A_L, head_r=BLOB_R,
+                mask_x=0.0, beam=0.0, head_x=A_L, head_r=BLOB_R,
                 tail_x=A_L, tail_r=0.0, p=0.0, dragging=False, energy=0.0, label='')
 
 
@@ -423,20 +455,20 @@ def build_timeline():
         t = i / (drag_frames - 1)
         finger = lerp(A_L, (A_L + A_R) / 2, t)
         st = empty_state()
-        st.update(split_active=True, overlay_is_light=True, mask_x=finger,
+        st.update(split_active=True, overlay_is_light=True, mask_x=finger, beam=1.0,
                   head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=max(0.0, (finger - A_L) / (A_R - A_L)), dragging=True, energy=1.0)
-        st['label'] = 'سحب يمين = فاتح — الأيقونة مع اليد والفاتح خلفها بلا خط مرئي'
+        st['label'] = 'سحب يمين = فاتح — الفاتح يسار الحدّ والكشاف ينيره'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 3) إمساك في المنتصف 1.0s — نصف فاتح ونصف مظلم
     for i in range(int(1.0 * FPS)):
         st = empty_state()
         mid = (A_L + A_R) / 2
-        st.update(split_active=True, overlay_is_light=True, mask_x=mid,
+        st.update(split_active=True, overlay_is_light=True, mask_x=mid, beam=1.0,
                   head_x=mid, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=0.5, dragging=True, energy=1.0)
-        st['label'] = 'ممسوك في المنتصف: نصف فاتح ونصف مظلم والفاصل غير مرئي خالص'
+        st['label'] = 'ممسوك في المنتصف: نص فاتح ونص مظلم وشعاع الكشاف يفصلهما'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 4) سحب لليمين حتى 70% خلال 0.6s
@@ -445,7 +477,7 @@ def build_timeline():
         t = i / (drag_frames - 1)
         finger = lerp((A_L + A_R) / 2, lerp(A_L, A_R, 0.7), t)
         st = empty_state()
-        st.update(split_active=True, overlay_is_light=True, mask_x=finger,
+        st.update(split_active=True, overlay_is_light=True, mask_x=finger, beam=1.0,
                   head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=(finger - A_L) / (A_R - A_L), dragging=True, energy=1.0)
         st['label'] = 'الرفع بعد المنتصف يثبت الفاتح'
@@ -460,10 +492,10 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         frac = fast_out_slow_in(sweep_t)
-        end_b = W + FADE   # sweepTargetX: الريش كاملاً خارج الشاشة
+        end_b = W + BEAM_LIT   # sweepTargetX(true): الشعاع بكامل سقوطه خارج الشاشة
         start_b = lerp(A_L, A_R, 0.7)
         st.update(split_active=True, overlay_is_light=True,
-                  mask_x=lerp(start_b, end_b, frac),
+                  mask_x=lerp(start_b, end_b, frac), beam=1.0,
                   head_x=lerp(lerp(A_L, A_R, 0.7), A_R, ease_out_back(head_t)),
                   head_r=BLOB_R * (1 + 0.16 * max(0.0, 1 - abs(ft - HEAD_MS / 1000) / 0.35)),
                   tail_x=A_L, tail_r=BLOB_R * (1 - drain_t),
@@ -487,7 +519,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         st.update(base_dark=False, split_active=True, overlay_is_light=False,
-                  mask_x=lerp(A_R, -FADE, fast_out_slow_in(sweep_t)),
+                  mask_x=lerp(A_R, -BEAM_DARK, fast_out_slow_in(sweep_t)), beam=1.0,
                   head_x=lerp(A_R, A_L, ease_out_back(head_t)),
                   head_r=BLOB_R * (1 + 0.16 * max(0.0, 1 - abs(ft - HEAD_MS / 1000) / 0.35)),
                   tail_x=A_R, tail_r=BLOB_R * (1 - drain_t),

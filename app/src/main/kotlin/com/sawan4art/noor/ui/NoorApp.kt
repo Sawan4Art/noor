@@ -23,13 +23,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,7 +37,6 @@ import com.sawan4art.noor.ui.nav.NoorTab
 import com.sawan4art.noor.ui.sections.ComingSoonScreen
 import com.sawan4art.noor.ui.settings.SettingsScreen
 import com.sawan4art.noor.ui.theme.NoorTheme
-import com.sawan4art.noor.ui.theme.ThemeDialMath
 import com.sawan4art.noor.ui.theme.ThemeDialOverlay
 import com.sawan4art.noor.ui.theme.ThemeDialState
 import com.sawan4art.noor.ui.update.UpdateDialog
@@ -103,10 +96,11 @@ fun NoorApp(viewModel: HomeViewModel) {
             }
 
             // ===== طبقة المعاينة المقسومة — الثيم الهدف خلف الأيقونة (الرئيسية فقط) =====
-            // الفاتح يسار الحدّ (خلف الشمس المسحوبة يميناً) والمظلم يمينه،
-            // والفاصل **غير مرئي إطلاقاً** (قرار المالك alpha10): لا توهج ولا خطوط،
-            // قناع DstIn بريش قصير ناعم (56dp جيبي) يُظهر اللقاء نصف فاتح ونصف مظلم
-            // بلا خط حادّ وبلا شفق واسع يمحو وضوح النصفين.
+            // **قصّ صلب** (قرار alpha11 بعد بلاغ المالك بلقطة شاشة: الانقسام لم
+            // يظهر على جهازه قط) — آلية القناع القديمة (Offscreen + DstIn بشرائح
+            // ريشية) تفشل بصمت على بعض معالجات الرسوميات فتُخفي المعاينة كاملة.
+            // clipRect عمل قصّ أساسي مستحيل الفشل: الفاتح يسار الحدّ والمظلم
+            // يمينه دائماً، وحدّ القص يخفيه شعاع الكشاف المرسوم في المزلاج فوقه.
             if (onHome && dial.splitActive) {
                 NoorTheme(
                     themeMode = if (dial.overlayIsLight) ThemeMode.LIGHT else ThemeMode.DARK,
@@ -114,11 +108,15 @@ fun NoorApp(viewModel: HomeViewModel) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                             .drawWithContent {
-                                drawContent()
-                                if (dial.screenWidth > 0f && dial.screenHeight > 0f && dial.fadePx > 0f) {
-                                    drawStraightSplitMask(dial)
+                                val edge = dial.maskX.value
+                                clipRect(
+                                    left = if (dial.overlayIsLight) 0f else edge,
+                                    top = 0f,
+                                    right = if (dial.overlayIsLight) edge else size.width,
+                                    bottom = size.height,
+                                ) {
+                                    this@drawWithContent.drawContent()
                                 }
                             },
                     ) {
@@ -184,59 +182,6 @@ fun NoorApp(viewModel: HomeViewModel) {
             onInstall = UpdateManager::installApk,
             onRetry = UpdateManager::startDownload,
         )
-    }
-}
-
-/**
- * قناع الانقسام — يُرسم على طبقة الثيم الهدف بـ DstIn:
- * جسم المنطقة الهدف كامل حتى أول إزاحة ريشية، ثم شرائح الريش تتناوب
- * بالشفافية من شبه الكامل إلى الصفر حول الحدّ الرأسي — الشفق **قصير**
- * (56dp بتدرّج جيبي كوس) فاللقاء يُقرأ «نص فاتح ونص مظلم» بوضوح،
- * وبلا أي خط حادّ ولا أي عنصر مرسوم عند الحدّ (قرار المالك alpha10:
- * الفاصل غير مرئي بلا خطوط باينة). الشرائح مستطيلات متجاورة لا تتراكب
- * فلا تتضاعف شفافية بكسل.
- */
-private fun DrawScope.drawStraightSplitMask(dial: ThemeDialState) {
-    val w = dial.screenWidth
-    val h = dial.screenHeight
-    val maskX = dial.maskX.value
-    val lightOnLeft = dial.overlayIsLight
-    val offsets = ThemeDialMath.featherOffsets(dial.fadePx)
-    val bands = offsets.size - 1
-    if (lightOnLeft) {
-        // المنطقة الهدف يسار الحدّ: الجسم الكامل حتى أول إزاحة ريشية
-        val bodyRight = (maskX + offsets[0]).coerceAtLeast(0f)
-        drawRect(
-            Color.Black,
-            topLeft = Offset(-1f, 0f),
-            size = Size(bodyRight + 1f, h),
-            blendMode = BlendMode.DstIn,
-        )
-        for (k in 0 until bands) {
-            drawRect(
-                Color.Black.copy(alpha = ThemeDialMath.featherAlpha(k)),
-                topLeft = Offset(maskX + offsets[k], 0f),
-                size = Size(offsets[k + 1] - offsets[k], h),
-                blendMode = BlendMode.DstIn,
-            )
-        }
-    } else {
-        // المنطقة الهدف يمين الحدّ: الجسم الكامل من آخر إزاحة ريشية
-        val bodyLeft = (maskX + offsets[bands]).coerceAtLeast(0f)
-        drawRect(
-            Color.Black,
-            topLeft = Offset(bodyLeft, 0f),
-            size = Size(w - bodyLeft + 1f, h),
-            blendMode = BlendMode.DstIn,
-        )
-        for (k in 0 until bands) {
-            drawRect(
-                Color.Black.copy(alpha = ThemeDialMath.featherAlpha(k)),
-                topLeft = Offset(maskX + offsets[bands - 1 - k], 0f),
-                size = Size(offsets[bands - k] - offsets[bands - 1 - k], h),
-                blendMode = BlendMode.DstIn,
-            )
-        }
     }
 }
 

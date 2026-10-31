@@ -23,10 +23,10 @@ import kotlin.math.abs
  *
  * قواعد المالك (2026-10-31):
  * - الأيقونة مع اليد حرفياً أثناء السحب (ما لم تُرفع اليد تبقى حيث هي).
- * - الفاتح خلف الأيقونة والمظلم أمامها — **الفاصل غير مرئي إطلاقاً**
- *   (قرار المالك مساء اليوم: «عايز الفاصل غير مرئي وبدون خطوط باينه»):
- *   لا توهج ولا خطوط عند الحدّ — الشروق هو اللقاء نفسه نصف فاتح ونصف مظلم
- *   بريش قصير ناعم، والمنتصف نص/نص بالضبط.
+ * - النصف الفاتح يسار الحدّ والمظلم يمينه دائماً — المعاينة **قصّ صلب**
+ *   (clipRect بلا أي DstIn/Offscreen — آلية القناع القديمة كانت تفشل بصمت
+ *   على جهاز المالك فلم يرَ الانقسام قط)، وعلى الحدّ **شعاع الكشاف**:
+ *   «ضوء كشاف ينير جزءاً ويترك جزءاً منفصلاً» (كلام المالك حرفياً).
  * - الرفع يحسم بالضفة التي عبرت المنتصف، والنقرة تبدّل فوراً برحلة كاملة.
  * - الإيماءة من الأيقونة وحدها (صندوق لمس يركب الأيقونة) — الفراغ والمسار
  *   يمرّان للطبقات تحتيهما فلا لاج ولا ابتلاع لمسات (درس alpha7).
@@ -44,7 +44,10 @@ class ThemeDialState {
 
     // مقاييس مرسلة من الواجهة بالبكسل
     var blobRadiusPx by mutableFloatStateOf(0f); private set
-    var fadePx by mutableFloatStateOf(0f); private set
+    var beamLitPx by mutableFloatStateOf(0f); private set
+    var beamDarkPx by mutableFloatStateOf(0f); private set
+    var beamCoreLitPx by mutableFloatStateOf(0f); private set
+    var beamCoreDarkPx by mutableFloatStateOf(0f); private set
     var anchorPadPx by mutableFloatStateOf(0f); private set
 
     // ===== السائل الحي — نفس نمط الشريط السفلي =====
@@ -55,6 +58,8 @@ class ThemeDialState {
     val pulse = Animatable(1f)
     val jiggle = Animatable(0f)
     val maskX = Animatable(0f)
+    /** قوة شعاع الكشاف 0..1 — يخفت مع الرجوع لمرسى البداية كي لا يُطفأ فجأة */
+    val beam = Animatable(0f)
 
     // ===== أطوار المزلاج =====
     var dragging by mutableStateOf(false); private set
@@ -87,13 +92,19 @@ class ThemeDialState {
         screenW: Float,
         screenH: Float,
         blobRadius: Float,
-        fade: Float,
+        beamLit: Float,
+        beamDark: Float,
+        beamCoreLit: Float,
+        beamCoreDark: Float,
         anchorPad: Float,
     ) {
         screenWidth = screenW
         screenHeight = screenH
         blobRadiusPx = blobRadius
-        fadePx = fade
+        beamLitPx = beamLit
+        beamDarkPx = beamDark
+        beamCoreLitPx = beamCoreLit
+        beamCoreDarkPx = beamCoreDark
         anchorPadPx = anchorPad
     }
 
@@ -130,6 +141,7 @@ class ThemeDialState {
         headR.snapTo(blobRadiusPx)
         tailR.snapTo(0f)
         maskX.snapTo(headX.value)
+        beam.snapTo(0f)
         jiggle.snapTo(0f)
         pulse.snapTo(1f)
     }
@@ -149,6 +161,7 @@ class ThemeDialState {
         tailR.snapTo(blobRadiusPx)
         headR.snapTo(blobRadiusPx)
         maskX.snapTo(headX.value)
+        beam.snapTo(1f)
     }
 
     /** الأيقونة مع اليد حرفياً — إزاحة عن نقطة القبض محصورة بين المرسى */
@@ -182,6 +195,7 @@ class ThemeDialState {
         tailR.snapTo(blobRadiusPx)
         headR.snapTo(blobRadiusPx)
         maskX.snapTo(headX.value)
+        beam.snapTo(1f)
         sweepToTarget(committedDark, onCommitLight, scope)
     }
 
@@ -218,10 +232,10 @@ class ThemeDialState {
         }
     }
 
-    /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والقناع يُساق خارج الشاشة */
+    /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والحدّ وشعاعه يُساقان خارج الشاشة */
     private fun sweepToTarget(commitLight: Boolean, onCommitLight: (Boolean) -> Unit, scope: CoroutineScope) {
         busy = true
-        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, fadePx)
+        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, beamLitPx, beamDarkPx)
         val anchor = if (commitLight) anchorRight else anchorLeft
         scope.launch { tailR.animateTo(0f, tween(DRAIN_MS, easing = FastOutSlowInEasing)) }
         scope.launch { headX.animateTo(anchor, tween(HEAD_MS, easing = EaseOutBack)) }
@@ -243,12 +257,13 @@ class ThemeDialState {
         }
     }
 
-    /** الرجوع: الرأس يعود لمرساه والمصدر يُسحب إليه حتى آخر قطرة */
+    /** الرجوع: الرأس يعود لمرساه والمصدر يُسحب إليه حتى آخر قطرة، والكشاف يخفت معه */
     private fun revertTo(startAnchor: Float, scope: CoroutineScope) {
         busy = true
         scope.launch { headX.animateTo(startAnchor, tween(HEAD_MS, easing = EaseOutBack)) }
         scope.launch { maskX.animateTo(startAnchor, tween(HEAD_MS, easing = FastOutSlowInEasing)) }
         scope.launch { tailR.animateTo(0f, tween(HEAD_MS, easing = FastOutSlowInEasing)) }
+        scope.launch { beam.animateTo(0f, tween(HEAD_MS, easing = FastOutSlowInEasing)) }
         scope.launch {
             delay(HEAD_MS - 40L)
             jiggle.snapTo(1f)

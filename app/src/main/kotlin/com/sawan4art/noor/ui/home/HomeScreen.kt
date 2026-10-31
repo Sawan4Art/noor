@@ -54,17 +54,18 @@ import java.time.ZonedDateTime
 
 /**
  * الشاشة الرئيسية — **بلا تمرير** (بطلب المالك 2026-10-30):
- * مربع الهيدر (أيقونة التطبيق + اسم التطبيق + المدينة وتحديد الموقع) ثم مسار
- * مزلاج الشمس/القمر السائل، وبطاقة الهيرو تملأ المساحة الباقية بحلقة تقدم
+ * مربع الهيدر (المدينة وتحديد الموقع) وتحته شريط التذكير المتغير (أيقونة
+ * التطبيق + تذكير يتبدل كل فتح — بطلب المالك alpha11)، ثم مسار مزلاج
+ * الشمس/القمر السائل، وبطاقة الهيرو تملأ المساحة الباقية بحلقة تقدم
  * متكيفة، وشبكة مواقيت اليوم، وسطر الصدقة — والمساحة للشريط الزجاجي العائم
  * محفوظة دائماً أسفل الشاشة مهما كان ارتفاع الجهاز.
  *
  * مزلاج المظهر نفسه يُرسم فوق كل الشاشة من جذر التطبيق (ThemeDialOverlay)
  * **في الرئيسية فقط** (بطلب المالك alpha9) — هنا مساره الفارغ كي يستقر السائل.
  *
- * تعديلات alpha9 (بطلب المالك): مربع الهيدر حمل أيقونة التطبيق واسمها،
- * وحُذفت التحية واسم التطبيق من بطاقة الهيرو نهائياً، وصار سطر الصدقة:
- * «هذا التطبيق صدقة جارية على روح والدي أرجو منكم الدعاء له».
+ * تعديلات alpha11 (بطلب المالك): أيقونة التطبيق انتقلت تحت مربع الهيدر،
+ * وجملة «نور المسلم» صارت **تذكيراً متغيراً** يتبدل مع كل فتح للتطبيق —
+ * أهمية الصلاة والأذكار وحفظ القرآن — من نصوص ثابتة موثقة التسند.
  */
 @Composable
 fun HomeScreen(
@@ -99,6 +100,8 @@ fun HomeScreen(
             locating = locating,
             onDetectLocation = onDetectLocation,
         )
+        // التذكير المتغير — أيقونة التطبيق + تذكير يتبدل مع كل فتح (بطلب المالك)
+        ReminderBadge(modifier = Modifier.padding(top = 8.dp))
         // مسار مزلاج الشمس/القمر — السائل نفسه يُرسم فوق الكل من الجذر
         ThemeDialTrack(
             onPlaced = onDialPlaced,
@@ -137,9 +140,8 @@ fun HomeScreen(
 }
 
 /**
- * مربع الهيدر — بطاقة تحمل أيقونة التطبيق (الهلال الهندسي بلغة أيقونة اللانشر)
- * واسمها «نور المسلم» (بطلب المالك alpha9: انقل الأيقونة والاسم في مربع الهيدر)
- * والمدينة مع زر تحديد الموقع في الطرف المقابل كما كانت.
+ * مربع الهيدر — بطاقة المدينة مع زر تحديد الموقع.
+ * (alpha11: أيقونة التطبيق واسمها انتقلا إلى شريط التذكير تحته بطلب المالك).
  */
 @Composable
 private fun HomeHeader(
@@ -157,31 +159,6 @@ private fun HomeHeader(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
         ) {
-            // أيقونة التطبيق — هلال هندسي في مربع متدرج بلغة «قريبًا» والهوية
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(scheme.primaryContainer, scheme.secondaryContainer),
-                        ),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    NoorIcons.Moon,
-                    contentDescription = null,
-                    tint = scheme.primary,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-            Spacer(Modifier.size(10.dp))
-            Text(
-                text = "نور المسلم",
-                style = MaterialTheme.typography.titleMedium,
-                color = scheme.onBackground,
-            )
             Spacer(Modifier.weight(1f))
             Icon(
                 Icons.Filled.LocationOn,
@@ -215,6 +192,67 @@ private fun HomeHeader(
                 )
             }
         }
+    }
+}
+
+/**
+ * تذكيرات الشريط العلوي — نصوص ثابتة موثقة التسند (قرآن وحديث صحيح)،
+ * يُختار أحدها **عشوائياً مع كل فتح للتطبيق** (بطلب المالك alpha11):
+ * تنبيه بأهمية الصلاة والأذكار وحفظ القرآن.
+ */
+private val HomeReminders = listOf(
+    "«أحبّ الأعمال إلى الله الصلاة على وقتها» — متفق عليه",
+    "«من صلّى البردين دخل الجنة» — متفق عليه",
+    "﴿فاذكروني أذكركم﴾ — البقرة ١٥٢",
+    "«خيركم من تعلّم القرآن وعلّمه» — رواه البخاري",
+    "«لا يزال لسانك رطبًا بذكر الله» — رواه الترمذي",
+    "«سبحان الله وبحمده، سبحان الله العظيم» — كلمتان خفيفتان على اللسان",
+    "«من قرأ سورة الكهف يوم الجمعة أضاء له من النور ما بين الجمعتين» — رواه الحاكم",
+    "«الصلوات الخمس والجمعة إلى الجمعة كفارةٌ لما بينهن» — رواه مسلم",
+    "«الطُّهور شطر الإيمان» — رواه مسلم",
+    "﴿إنّ الصلاة تنهى عن الفحشاء والمنكر﴾ — العنكبوت ٤٥",
+    "«أكثر من السجود فإنك لا تسجد لله سجدة إلا رفعك الله بها درجة» — رواه مسلم",
+    "«من صلّى عليّ صلاة صلّى الله عليه بها عشراً» — رواه مسلم",
+)
+
+/**
+ * شريط التذكير المتغير — أيقونة التطبيق (الهلال الهندسي بلغة الهوية)
+ * وبجانبه تذكير يتبدل مع كل فتح للتطبيق بدل اسم التطبيق (بطلب المالك alpha11).
+ */
+@Composable
+private fun ReminderBadge(modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val reminder = remember { HomeReminders.random() }
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    Brush.linearGradient(
+                        listOf(scheme.primaryContainer, scheme.secondaryContainer),
+                    ),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                NoorIcons.Moon,
+                contentDescription = null,
+                tint = scheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(Modifier.size(10.dp))
+        Text(
+            text = reminder,
+            style = MaterialTheme.typography.bodySmall,
+            color = scheme.onSurfaceVariant,
+            maxLines = 2,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
