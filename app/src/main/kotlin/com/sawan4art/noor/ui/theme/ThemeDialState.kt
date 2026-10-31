@@ -31,6 +31,12 @@ import kotlin.math.abs
  * - الإيماءة من الأيقونة وحدها (صندوق لمس يركب الأيقونة) — الفراغ والمسار
  *   يمرّان للطبقات تحتيهما فلا لاج ولا ابتلاع لمسات (درس alpha7).
  * - المزلاج كلّه في الرئيسية فقط — مغادرتها تُحبط أي رحلة معلّقة بأمان (abort).
+ * - **قاتل الومضة** (بلاغ المالك alpha12: «ومضة بعد ما الوضع يتفعل سواء
+ *   المظلم أو الفاتح»): نهاية الرحلة **لا تُسقط** غطاء المعاينة فوراً —
+ *   الغطاء صورة كاملة للثيم الجديد ويبقى معلقاً حتى يلتقط الثيم المثبت
+ *   هدفه فعلاً (وصوله متأخر عبر DataStore إطاراتٍ قليلة) ثم يُسقط من NoorApp
+ *   في لحظة الوصول نفسها. الإسقاط الفوري كان يكشف الثيم القديم لحظةً =
+ *   الومضة. ومهلة أمان قصيرة تمنع تجمّد المزلاج لو تأخر الوصول عنها.
  */
 class ThemeDialState {
 
@@ -70,6 +76,12 @@ class ThemeDialState {
 
     private var dragStartTouch = 0f
     private var dragStartHead = 0f
+
+    /**
+     * جيل الرحلة الحالية — كل تفاعل جديد يُبطل مهلة الأمان المعلّقة لرحلة
+     * أقدم كي لا تُسقط غطاءً هي لعبة جديدة تماماً (انظر sweepToTarget).
+     */
+    private var sweepGeneration = 0
 
     val anchorLeft: Float get() = trackLeft + anchorPadPx
     val anchorRight: Float get() = trackLeft + trackWidth - anchorPadPx
@@ -149,9 +161,22 @@ class ThemeDialState {
     /** طاقة حياة السائل: اشتعال أثناء السحب، رجفة بعد الهبوط، سكون هادئ في الثبات */
     fun energy(): Float = if (dragging) 1f else jiggle.value
 
+    /**
+     * إسقاط غطاء المعاينة بعد وصول الثيم المثبت إلى هدفه — **لحظة القلب الآمنة**.
+     * يُستدعى من NoorApp لحظة تغيّر الثيم المثبت (الوصول عبر DataStore متأخر
+     * عن طلب التثبيت) — الغطاء والأساس يعرضان الثيم الجديد معاً فلا ومضة.
+     */
+    suspend fun dropPreview() {
+        if (!splitActive || dragging) return
+        splitActive = false
+        busy = false
+        maskX.snapTo(headX.value)
+    }
+
     // ===== بداية السحب: وُلد المصدر عند مرسى الرأس وامتلأ =====
     suspend fun beginDrag(touchX: Float, committedDark: Boolean) {
         if (busy || dragging || trackWidth <= 0f) return
+        sweepGeneration++ // أي تفاعل جديد يُبطل مهلة أمان رحلة أقدم
         dragging = true
         overlayIsLight = committedDark // الهدف دائماً عكس المثبت
         splitActive = true
@@ -234,6 +259,7 @@ class ThemeDialState {
 
     /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والحدّ وشعاعه يُساقان خارج الشاشة */
     private fun sweepToTarget(commitLight: Boolean, onCommitLight: (Boolean) -> Unit, scope: CoroutineScope) {
+        val gen = ++sweepGeneration
         busy = true
         val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, beamLitPx, beamDarkPx)
         val anchor = if (commitLight) anchorRight else anchorLeft
@@ -250,15 +276,25 @@ class ThemeDialState {
         scope.launch {
             delay(SWEEP_MS + 40L)
             onCommitLight(commitLight)
-            splitActive = false
-            busy = false
             tailR.snapTo(0f)
             maskX.snapTo(endB)
+            // قاتل الومضة (بلاغ المالك alpha12): الإسقاط الفوري كان يكشف
+            // الثيم القديم إطاراتٍ قليلة قبل وصول تثبيت DataStore — الغطاء
+            // (صورة كاملة للثيم الجديد) يبقى معلقاً حتى يُسقطه NoorApp لحظة
+            // وصول الثيم المثبت. ومهلة الأمان تحمي من تعطّل الكتابة كي لا
+            // يتجمّد المزلاج أبداً — وجيل الرحلة يُبطلها لو بدأ تفاعل جديد.
+            delay(COMMIT_LANDING_GRACE_MS)
+            if (splitActive && sweepGeneration == gen) {
+                splitActive = false
+                busy = false
+                maskX.snapTo(headX.value)
+            }
         }
     }
 
     /** الرجوع: الرأس يعود لمرساه والمصدر يُسحب إليه حتى آخر قطرة، والكشاف يخفت معه */
     private fun revertTo(startAnchor: Float, scope: CoroutineScope) {
+        sweepGeneration++ // يُبطل أي مهلة أمان معلّقة كي لا تُسقط هذا الرجوع
         busy = true
         scope.launch { headX.animateTo(startAnchor, tween(HEAD_MS, easing = EaseOutBack)) }
         scope.launch { maskX.animateTo(startAnchor, tween(HEAD_MS, easing = FastOutSlowInEasing)) }
@@ -285,5 +321,11 @@ class ThemeDialState {
         const val JIGGLE_MS = 1250
         /** المسح النهائي أطول قليلاً من رحلة الرأس ليغمر الثيم كاملاً قبل القلب */
         const val SWEEP_MS = HEAD_MS + 160
+        /**
+         * مهلة أمان انتظار وصول الثيم المثبت بعد طلب التثبيت — وصوله العادي
+         * خلال إطار أو إطارين، وهذه المهلة شبكة أمان فقط (كتابة معطوبة)
+         * كي لا يبقى الغطاء معلقاً والمزلاج مشغولاً إلى الأبد.
+         */
+        const val COMMIT_LANDING_GRACE_MS = 700L
     }
 }

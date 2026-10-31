@@ -2,7 +2,6 @@ package com.sawan4art.noor.ui.home
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -17,12 +16,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,18 +53,16 @@ import java.time.ZonedDateTime
 
 /**
  * الشاشة الرئيسية — **بلا تمرير** (بطلب المالك 2026-10-30):
- * مربع الهيدر (المدينة وتحديد الموقع) وتحته شريط التذكير المتغير (أيقونة
- * التطبيق + تذكير يتبدل كل فتح — بطلب المالك alpha11)، ثم مسار مزلاج
- * الشمس/القمر السائل، وبطاقة الهيرو تملأ المساحة الباقية بحلقة تقدم
- * متكيفة، وشبكة مواقيت اليوم، وسطر الصدقة — والمساحة للشريط الزجاجي العائم
- * محفوظة دائماً أسفل الشاشة مهما كان ارتفاع الجهاز.
+ * تعديلات alpha12 (بطلب المالك حرفياً):
+ * - «الحاجة الوحيدة اللي هتبقى فوق هي هيدر تغيير المظهر» — بطاقة المدينة
+ *   المستقلة أُزيلت من الأعلى، ومسار المزلاج صار وحده أول عنصر في الشاشة.
+ * - المدينة ودبوسها وزر التحديد انتقلوا **داخل الهيدر المربع (بطاقة الهيرو)
+ *   تحت التواريخ** مباشرة.
+ * - «مواقيت اليوم» أُزيلت ومكانها **هيدر التذكيرات الجديد** (التذكير المتغير
+ *   بأيقونة التطبيق) فوق شبكة المواقيت.
  *
- * مزلاج المظهر نفسه يُرسم فوق كل الشاشة من جذر التطبيق (ThemeDialOverlay)
+ * المزلاج نفسه يُرسم فوق كل الشاشة من جذر التطبيق (ThemeDialOverlay)
  * **في الرئيسية فقط** (بطلب المالك alpha9) — هنا مساره الفارغ كي يستقر السائل.
- *
- * تعديلات alpha11 (بطلب المالك): أيقونة التطبيق انتقلت تحت مربع الهيدر،
- * وجملة «نور المسلم» صارت **تذكيراً متغيراً** يتبدل مع كل فتح للتطبيق —
- * أهمية الصلاة والأذكار وحفظ القرآن — من نصوص ثابتة موثقة التسند.
  */
 @Composable
 fun HomeScreen(
@@ -95,14 +92,8 @@ fun HomeScreen(
             .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(8.dp))
-        HomeHeader(
-            city = settings.city,
-            locating = locating,
-            onDetectLocation = onDetectLocation,
-        )
-        // التذكير المتغير — أيقونة التطبيق + تذكير يتبدل مع كل فتح (بطلب المالك)
-        ReminderBadge(modifier = Modifier.padding(top = 8.dp))
-        // مسار مزلاج الشمس/القمر — السائل نفسه يُرسم فوق الكل من الجذر
+        // مسار مزلاج الشمس/القمر — **الوحيد أعلى الشاشة** (بطلب المالك alpha12)
+        // والسائل نفسه يُرسم فوق الكل من الجذر
         ThemeDialTrack(
             onPlaced = onDialPlaced,
             modifier = Modifier.padding(top = 4.dp),
@@ -111,17 +102,16 @@ fun HomeScreen(
         HeroCard(
             next = next,
             now = now,
+            city = settings.city,
+            locating = locating,
+            onDetectLocation = onDetectLocation,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
         )
         Spacer(Modifier.height(12.dp))
-        // التاريخ مأخوذ من بطاقة الهيرو — العنوان وحده (بطلب المالك)
-        Text(
-            text = "مواقيت اليوم",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+        // هيدر التذكيرات — مكان «مواقيت اليوم» المحذوفة (بطلب المالك alpha12)
+        ReminderBadge()
         Spacer(Modifier.height(10.dp))
         PrayerTimesGrid(times = times, activeKey = next.key)
         Spacer(Modifier.height(10.dp))
@@ -140,65 +130,10 @@ fun HomeScreen(
 }
 
 /**
- * مربع الهيدر — بطاقة المدينة مع زر تحديد الموقع.
- * (alpha11: أيقونة التطبيق واسمها انتقلا إلى شريط التذكير تحته بطلب المالك).
- */
-@Composable
-private fun HomeHeader(
-    city: String,
-    locating: Boolean,
-    onDetectLocation: () -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
-    Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = scheme.surface,
-        border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.28f)),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-        ) {
-            Spacer(Modifier.weight(1f))
-            Icon(
-                Icons.Filled.LocationOn,
-                contentDescription = null,
-                tint = scheme.secondary,
-                modifier = Modifier.size(16.dp),
-            )
-            Spacer(Modifier.size(4.dp))
-            Text(
-                text = city,
-                style = MaterialTheme.typography.bodyMedium,
-                color = scheme.onSurfaceVariant,
-                maxLines = 1,
-            )
-            if (locating) {
-                Spacer(Modifier.size(6.dp))
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
-                    color = scheme.secondary,
-                )
-            }
-            IconButton(
-                onClick = onDetectLocation,
-                modifier = Modifier.size(40.dp),
-            ) {
-                Icon(
-                    Icons.Filled.LocationOn,
-                    contentDescription = "تحديد الموقع تلقائياً",
-                    tint = scheme.primary,
-                )
-            }
-        }
-    }
-}
-
-/**
- * تذكيرات الشريط العلوي — نصوص ثابتة موثقة التسند (قرآن وحديث صحيح)،
+ * تذكيرات الشريط — نصوص ثابتة موثقة التسند (قرآن وحديث صحيح)،
  * يُختار أحدها **عشوائياً مع كل فتح للتطبيق** (بطلب المالك alpha11):
  * تنبيه بأهمية الصلاة والأذكار وحفظ القرآن.
+ * (alpha12: انتقل الشريط إلى مكان «مواقيت اليوم» فوق الشبكة بطلب المالك).
  */
 private val HomeReminders = listOf(
     "«أحبّ الأعمال إلى الله الصلاة على وقتها» — متفق عليه",
@@ -217,7 +152,8 @@ private val HomeReminders = listOf(
 
 /**
  * شريط التذكير المتغير — أيقونة التطبيق (الهلال الهندسي بلغة الهوية)
- * وبجانبه تذكير يتبدل مع كل فتح للتطبيق بدل اسم التطبيق (بطلب المالك alpha11).
+ * وبجانبه تذكير يتبدل مع كل فتح للتطبيق بدل اسم التطبيق (بطلب المالك alpha11)،
+ * وأصبح من alpha12 **هيدر التذكيرات** فوق شبكة المواقيت مكان «مواقيت اليوم».
  */
 @Composable
 private fun ReminderBadge(modifier: Modifier = Modifier) {
@@ -280,6 +216,9 @@ private fun ThemeDialTrack(
 private fun HeroCard(
     next: com.sawan4art.noor.domain.prayer.NextPrayer,
     now: ZonedDateTime,
+    city: String,
+    locating: Boolean,
+    onDetectLocation: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val noorColors = LocalNoorColors.current
@@ -346,6 +285,68 @@ private fun HeroCard(
             ) {
                 HeroChip(text = Hijri.of(now.toLocalDate()).formatted)
                 HeroChip(text = Hijri.gregorianArabic(now.toLocalDate()))
+            }
+            // صف الموقع — انتقل من البطاقة المستقلة إلى **داخل الهيدر المربع
+            // تحت التواريخ مباشرة** (بطلب المالك alpha12)
+            Spacer(Modifier.height(10.dp))
+            HeroLocationRow(
+                city = city,
+                locating = locating,
+                onDetectLocation = onDetectLocation,
+            )
+        }
+    }
+}
+
+/**
+ * صف الموقع داخل بطاقة الهيرو تحت التواريخ — دبوس المدينة واسمها وزر
+ * التحديد التلقائي بألوان بطاقة الهيرو نفسها (بطلب المالك alpha12).
+ */
+@Composable
+private fun HeroLocationRow(
+    city: String,
+    locating: Boolean,
+    onDetectLocation: () -> Unit,
+) {
+    val noorColors = LocalNoorColors.current
+    val gold = MaterialTheme.colorScheme.secondary
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            Icons.Filled.LocationOn,
+            contentDescription = null,
+            tint = noorColors.heroMuted,
+            modifier = Modifier.size(14.dp),
+        )
+        Text(
+            text = city,
+            style = MaterialTheme.typography.labelLarge,
+            color = noorColors.heroContent,
+            maxLines = 1,
+        )
+        if (locating) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(13.dp),
+                strokeWidth = 2.dp,
+                color = noorColors.heroContent,
+            )
+        }
+        Spacer(Modifier.size(2.dp))
+        Surface(
+            onClick = onDetectLocation,
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.10f),
+            modifier = Modifier.size(26.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Filled.LocationOn,
+                    contentDescription = "تحديد الموقع تلقائياً",
+                    tint = gold,
+                    modifier = Modifier.size(14.dp),
+                )
             }
         }
     }

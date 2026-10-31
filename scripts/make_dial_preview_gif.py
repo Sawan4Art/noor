@@ -13,6 +13,14 @@
 السيناريو (بطلب المالك): مظلم → سحب لليمين (الأيقونة مع اليد، الفاتح خلفها
 بلا أي خط مرئي) → إمساك في المنتصف (نصف فاتح ونصف مظلم بلا فاصل باين)
 → رفع عند 70% (تثبيت فاتح: طفح ومرسى يمين برجفة) → نقرة (عودة للظلام برحلة القمر).
+
+تخطيط alpha12 (بطلب المالك): المسار وحده أعلى الشاشة، المدينة ودبوسها وزر
+التحديد داخل بطاقة الهيرو تحت التواريخ، وهيدر التذكيرات مكان «مواقيت اليوم».
+
+قتل الومضة (alpha12): نهاية الرحلة لا تُسقط غطاء المعاينة فوراً — يبقى
+معلقاً (صورة كاملة للثيم الجديد) حتى يصل الثيم المثبت ثم يُسقط في اللحظة
+نفسها؛ هنا لا يتغير شكل الإطارات لأن الغطاء يطابق الأساس بكسلياً — عقد
+الومضة مُختبر وحدةً في ThemeDialStateCommitTest.
 """
 import math
 import os
@@ -30,7 +38,7 @@ BLOB_R = 17 * DENS
 TRACK_X = 20 * DENS
 TRACK_W = W - 2 * TRACK_X
 PAD = BLOB_R * 1.6
-TRACK_TOP = 88 * DENS
+TRACK_TOP = 40 * DENS  # alpha12: المسار وحده أعلى الشاشة (تحت شريط الحالة)
 ICON_PX = 24 * DENS
 A_L = TRACK_X + PAD
 A_R = TRACK_X + TRACK_W - PAD
@@ -225,7 +233,7 @@ def lerp_c(c1, c2, t):
     return tuple(int(lerp(c1[i], c2[i], t)) for i in range(3))
 
 
-# ===== واجهة مُبسطة بثيم معين =====
+# ===== واجهة مُبسطة بثيم معين — تخطيط alpha12 =====
 def draw_app(draw, theme):
     if theme == 'dark':
         bg, surf, card, txt, mut, hero_t, hero_b, prim = \
@@ -234,24 +242,46 @@ def draw_app(draw, theme):
         bg, surf, card, txt, mut, hero_t, hero_b, prim = \
             LIGHT_BG, LIGHT_SURF, LIGHT_CARD, LIGHT_TXT, LIGHT_MUT, LIGHT_HERO_TOP, LIGHT_HERO_BOT, LIGHT_PRIMARY
     draw.rectangle([0, 0, W, H], fill=bg)
-    # بطاقة الهيرو — تدرج علوي/سفلي كبطاقة التطبيق
-    draw.rounded_rectangle([TRACK_X, 150 * DENS, W - TRACK_X, 390 * DENS], radius=32 * DENS,
+    # بطاقة الهيرو المربعة — تمتد بعد خروج بطاقة المدينة من الأعلى (alpha12)
+    HERO_TOP, HERO_BOT = 94 * DENS, 440 * DENS
+    draw.rounded_rectangle([TRACK_X, HERO_TOP, W - TRACK_X, HERO_BOT], radius=32 * DENS,
                            fill=hero_b)
-    draw.rounded_rectangle([TRACK_X, 150 * DENS, W - TRACK_X, 390 * DENS - 46 * DENS], radius=32 * DENS,
+    draw.rounded_rectangle([TRACK_X, HERO_TOP, W - TRACK_X, HERO_BOT - 40 * DENS], radius=32 * DENS,
                            fill=hero_t)
     # حلقة العدّاد + علامة موضع الصلاة
-    cx, cy, r = W / 2, 252 * DENS, 42 * DENS
+    cx, cy, r = W / 2, 250 * DENS, 46 * DENS
     draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=prim, width=int(4 * DENS))
     draw.ellipse([cx - 5 * DENS, cy - 5 * DENS, cx + 5 * DENS, cy + 5 * DENS], fill=prim)
     # شجرتا التواريخ تحت الحلقة
     for i, wdt in enumerate((70, 56)):
         x0 = cx - (i == 0) * (10 * DENS + wdt * DENS / 2) + (i == 1) * 10 * DENS
         draw.rounded_rectangle([cx - wdt * DENS / 2 - (i == 0) * 10 * DENS,
-                                316 * DENS,
+                                366 * DENS,
                                 cx + wdt * DENS / 2 + (i == 1) * 10 * DENS,
-                                340 * DENS], radius=12 * DENS, fill=(255, 255, 255, 26))
+                                390 * DENS], radius=12 * DENS, fill=(255, 255, 255, 26))
+    # صف الموقع داخل البطاقة تحت التواريخ (alpha12): كبسولة المدينة يميناً + زر تحديد دائري يساراً
+    cy_loc = 412 * DENS
+    pill_w, pill_h = 108 * DENS, 20 * DENS
+    pill_x1 = cx + 34 * DENS
+    draw.rounded_rectangle([pill_x1 - pill_w, cy_loc - pill_h / 2, pill_x1, cy_loc + pill_h / 2],
+                           radius=pill_h / 2, fill=(255, 255, 255, 26))
+    draw.ellipse([pill_x1 - pill_w + 6 * DENS, cy_loc - 3.5 * DENS,
+                  pill_x1 - pill_w + 13 * DENS, cy_loc + 3.5 * DENS], fill=prim)
+    btn_r = 13 * DENS
+    draw.ellipse([pill_x1 - pill_w - 10 * DENS - btn_r, cy_loc - btn_r,
+                  pill_x1 - pill_w - 10 * DENS + btn_r, cy_loc + btn_r],
+                 fill=(255, 255, 255, 26), outline=prim, width=2)
+    # هيدر التذكيرات — مكان «مواقيت اليوم» (alpha12): صندوق الأيقونة يميناً RTL وسطرا تذكير
+    ry = 456 * DENS
+    draw.rounded_rectangle([W - TRACK_X - 36 * DENS, ry, W - TRACK_X, ry + 36 * DENS],
+                           radius=12 * DENS, fill=prim)
+    for k, lw in enumerate((0.62, 0.38)):
+        draw.rounded_rectangle([TRACK_X, ry + 6 * DENS + k * 14 * DENS,
+                                TRACK_X + (W - 2 * TRACK_X - 44 * DENS) * lw,
+                                ry + 14 * DENS + k * 14 * DENS],
+                               radius=4 * DENS, fill=mut)
     # شبكة المواقيت
-    gx, gy = TRACK_X, 406 * DENS
+    gx, gy = TRACK_X, 504 * DENS
     gw = (W - 2 * TRACK_X - 2 * 10 * DENS) / 3
     for row in range(2):
         for col in range(3):
