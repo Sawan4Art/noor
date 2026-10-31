@@ -25,10 +25,11 @@ import kotlin.math.abs
  * - الأيقونة مع اليد حرفياً أثناء السحب (ما لم تُرفع اليد تبقى حيث هي).
  * - النصف الفاتح يسار الحدّ والمظلم يمينه دائماً — المعاينة **قصّ صلب**
  *   (clipRect بلا أي DstIn/Offscreen — آلية القناع القديمة كانت تفشل بصمت
- *   على جهاز المالك فلم يرَ الانقسام قط)، وعلى الحدّ **توهج خافت**:
- *   «الوضع الفاتح يبان كأنه ضوءه باهت على الوضع المظلم والعكس صحيح —
- *   ليس شعاع نور مستقيم وواضح» (كلام المالك alpha13 حرفياً).
+ *   على جهاز المالك فلم يرَ الانقسام قط).
  * - الرفع يحسم بالضفة التي عبرت المنتصف، والنقرة تبدّل فوراً برحلة كاملة.
+ * - على حدّ الانقسام **حزام انسياب** بخلفية الثيم الهدف نفسها (موك-أب
+ *   المالك المرسوم يدوياً: خلفية الجهة القادمة تنساب فوق الحاضرة وتتلاشى
+ *   خطّياً عبر 0.22 من عرض الشاشة — منتظم الارتفاع بلا حدّ ولا بؤرة).
  * - الإيماءة من الأيقونة وحدها (صندوق لمس يركب الأيقونة) — الفراغ والمسار
  *   يمرّان للطبقات تحتيهما فلا لاج ولا ابتلاع لمسات (درس alpha7).
  * - المزلاج كلّه في الرئيسية فقط — مغادرتها **تُطبّع الحالة بلا شرط**
@@ -55,8 +56,6 @@ class ThemeDialState {
 
     // مقاييس مرسلة من الواجهة بالبكسل
     var blobRadiusPx by mutableFloatStateOf(0f); private set
-    var glowInPx by mutableFloatStateOf(0f); private set
-    var glowOutPx by mutableFloatStateOf(0f); private set
     var anchorPadPx by mutableFloatStateOf(0f); private set
 
     // ===== السائل الحي — نفس نمط الشريط السفلي =====
@@ -107,15 +106,11 @@ class ThemeDialState {
         screenW: Float,
         screenH: Float,
         blobRadius: Float,
-        glowIn: Float,
-        glowOut: Float,
         anchorPad: Float,
     ) {
         screenWidth = screenW
         screenHeight = screenH
         blobRadiusPx = blobRadius
-        glowInPx = glowIn
-        glowOutPx = glowOut
         anchorPadPx = anchorPad
     }
 
@@ -266,11 +261,12 @@ class ThemeDialState {
         }
     }
 
-    /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والحدّ وتوهجه يُساقان خارج الشاشة */
+    /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والحدّ وحزامه يُساقان خارج الشاشة */
     private fun sweepToTarget(commitLight: Boolean, onCommitLight: (Boolean) -> Unit, scope: CoroutineScope) {
         val gen = ++sweepGeneration
         busy = true
-        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, glowOutPx)
+        val bandPx = ThemeDialMath.bandWidthPx(screenWidth)
+        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, bandPx)
         val anchor = if (commitLight) anchorRight else anchorLeft
         scope.launch { tailR.animateTo(0f, tween(DRAIN_MS, easing = FastOutSlowInEasing)) }
         scope.launch { headX.animateTo(anchor, tween(HEAD_MS, easing = EaseOutBack)) }

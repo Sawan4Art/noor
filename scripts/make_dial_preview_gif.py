@@ -5,11 +5,11 @@
 - surfaceWave / centerDrift / bridgeSway / waistFor / bridge (الجسر بلا فصل)
 - addLiquidBlob (كاتمول-روم مغلق) + مسار الجسر بقبتيه
 - حدّ انقسام مستقيم رأسي **قصّ صلب** (clipRect — قرار alpha11 بعد فشل القناع
-  بصمتاً على جهاز المالك) وعلى الحدّ **توهج خافت** (تلعيم alpha13: «الوضع
-  الفاتح يبان كأنه ضوءه باهت على الوضع المظلم والعكس صحيح — ليس شعاع نور
-  مستقيم وواضح»): ستارة بذروة 0.05 تنساب أطول في الجهة المُنارة (GLOW_OUT)
-  وأقصر في جهة الهدف (GLOW_IN) + توهج إهليلجي مفلطح 0.42 حول الأيقونة —
-  شعاع الكشاف الساطع بنواته الحارّة **أُزيل كلياً** (طلب alpha13)
+  بصمتاً على جهاز المالك) وعلى الحدّ **حزام انسياب** (موك-أب المالك المرسوم
+  يدوياً 2026-10-31 مساءً «علشان تحاكي زيه» — قيس بالبكسل): خلفية الثيم
+  الهدف نفسها تنساب من الحدّ فوق جهة الثيم الحاضر وتتلاشى خطّياً عبر
+  0.22 من عرض الشاشة، منتظمة الارتفاع بلا حدّ مرئي ولا بؤرة إهليلجية —
+  ستارة alpha13 (5%) وتوهجها الإهليلجي (11%) أُزيليا
 - الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه (درس alpha7)
 - المدد: DRAIN=1040 HEAD=800 JIGGLE=1250 SWEEP=960 و EaseOutBack(0.34,1.56,0.64,1)
 
@@ -175,12 +175,12 @@ def bridge_polygon(b, time):
     return pts
 
 
-# ===== نقل ThemeDialMath حرفياً (alpha13: قصّ صلب + توهج خافت) =====
-GLOW_IN = 44 * DENS        # GLOW_IN_DP — انسياب التوهج في جهة الهدف (أقصر)
-GLOW_OUT = 120 * DENS      # GLOW_OUT_DP — انسيابه في الجهة المُنارة (أطول)
+# ===== نقل ThemeDialMath حرفياً (alpha14: قصّ صلب + حزام انسياب) =====
+WASH_FRACTION = 0.22       # WASH_FRACTION — عرض الحزام جزءاً من عرض الشاشة
+BAND = WASH_FRACTION * W   # bandWidthPx(screenWidth) — عرض الحزام بالبكسل
 
-GLOW_COL = (255, 196, 126)   # توهج دافئ خافت (نور الفاتح على المظلم)
-GLOW_COL_C = (185, 205, 236) # توهج بارد خافت (المظلم على الفاتح) — متناسب
+WASH_DAY = (246, 242, 233)   # DayBackground — كريمة الفاتح تنساب على المظلم
+WASH_NIGHT = (12, 21, 18)    # NightBackground — خضرة المظلم تنساب على الفاتح
 
 
 def edge_x(boundary):
@@ -356,67 +356,32 @@ def render_frame(state, t_sec):
         mask.putdata(bytes(buf))
         img.paste(ov, (0, 0), mask)
 
-    # ===== التوهج الخافت على حدّ الانقسام — نفس طبقات كوتلن حرفياً =====
-    # (١) الستارة الخافتة كاملة الارتفاع: ذروة 0.05 عند الحدّ تنساب أطول في
-    # الجهة المُنارة وأقصر في جهة الهدف — تُذيب حدّ القص ولا تُقرأ جداراً
+    # ===== حزام الانسياب على حدّ الانقسام — نفس طبقات كوتلن حرفياً =====
+    # خلفية الثيم الهدف نفسها تنساب من الحدّ فوق جهة الثيم الحاضر وتتلاشى
+    # خطّياً عبر 0.22 من عرض الشاشة — منتظمة الارتفاع بلا بؤرة، وعند الحدّ
+    # بشفافية كاملة فتكمّل الطبقة الهدف ولا يُرى حدّ قصّ مستقيم
     if split:
         power = state['beam']
         if power > 0.004:
-            warm = overlay_light
-            glow_col = GLOW_COL if warm else GLOW_COL_C
-
-            def curtain_alpha(x, left, right, edge_frac):
-                """شفافية الستارة عند x — ذروة 0.05*power عند الحدّ، سقوطها
-                أطول يميناً (المُنارة) وأقصر يساراً (جهة الهدف)."""
-                if x < left or x >= right:
-                    return 0.0
-                frac = (x - left) / (right - left)
-                if frac <= edge_frac:
-                    t = frac / edge_frac if edge_frac > 0 else 1.0
-                    return 0.050 * power * (t ** 1.8)
-                t = (frac - edge_frac) / (1 - edge_frac)
-                return 0.050 * power * ((1 - t) ** 2.2)
-
-            curtain_mask = Image.new('L', (W, H), 0)
-            cbuf = bytearray(W * H)
-            ccol = bytearray(W * H * 3)
-            left0, right0 = boundary - GLOW_IN, boundary + GLOW_OUT
-            edge_frac = GLOW_IN / (GLOW_IN + GLOW_OUT)
+            wash_col = WASH_DAY if overlay_light else WASH_NIGHT
+            wash_mask = Image.new('L', (W, H), 0)
+            wbuf = bytearray(W * H)
+            wcol = bytearray(W * H * 3)
             for y in range(H):
                 base = y * W
                 for x in range(W):
-                    aa = curtain_alpha(x, left0, right0, edge_frac)
-                    if aa > 0:
-                        i3 = base * 3 + x * 3
-                        cbuf[base + x] = int(255 * aa)
-                        ccol[i3:i3 + 3] = bytes(glow_col)
-            curtain_mask.putdata(bytes(cbuf))
-            curtain_img = Image.frombytes('RGB', (W, H), bytes(ccol))
-            img.paste(curtain_img, (0, 0), curtain_mask)
-            d = ImageDraw.Draw(img, 'RGBA')
-            # (٢) التوهج الإهليلجي حول الأيقونة — ينساب من المصدر مفلطحاً
-            # رأسياً (0.42) كي لا يُقرأ كجدار ضوء مستقيم — نفس تدرج كوتلن:
-            # ذروة 0.11 عند المركز و0.05 عند نصف نصف القطر ثم 0 عند الحافة
-            hx0, hy0 = boundary, TRACK_TOP + TRACK_H / 2
-            halo_r = GLOW_OUT * 1.35
-            halo_h = halo_r * 0.42
-            halo = Image.new('L', (max(2, int(halo_r * 2)), max(2, int(halo_h * 2))), 0)
-            dh = ImageDraw.Draw(halo)
-            pw, ph = halo.size
-            for py in range(ph):
-                ny = (py - ph / 2) / (ph / 2)
-                for px_ in range(pw):
-                    nx = (px_ - pw / 2) / (pw / 2)
-                    rr = math.hypot(nx, ny)
-                    if rr < 1.0:
-                        if rr <= 0.5:
-                            aa = (0.11 - (0.11 - 0.05) * (rr / 0.5)) * power
-                        else:
-                            aa = 0.05 * ((1.0 - rr) / 0.5) * power
-                        dh.point((px_, py), fill=int(255 * aa))
-            tinted = Image.new('RGB', halo.size, glow_col)
-            img.paste(tinted, (int(hx0 - pw / 2), int(hy0 - ph / 2)), halo)
-            d = ImageDraw.Draw(img, 'RGBA')
+                    # الفاتح يسار الحدّ: كريمته تنساب يميناً؛ والمظلم يمينه:
+                    # خلفيته تنساب يساراً — متناسبان («والعكس صحيح»)
+                    t = ((x - boundary) if overlay_light else (boundary - x)) / BAND
+                    if 0.0 <= t < 1.0:
+                        aa = power * (1.0 - t)
+                        if aa > 0:
+                            i3 = base * 3 + x * 3
+                            wbuf[base + x] = int(255 * aa)
+                            wcol[i3:i3 + 3] = bytes(wash_col)
+            wash_mask.putdata(bytes(wbuf))
+            wash_img = Image.frombytes('RGB', (W, H), bytes(wcol))
+            img.paste(wash_img, (0, 0), wash_mask)
 
     # كبسولة المسار
     d.rounded_rectangle([TRACK_X, TRACK_TOP, TRACK_X + TRACK_W, TRACK_TOP + TRACK_H],
@@ -521,7 +486,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         frac = fast_out_slow_in(sweep_t)
-        end_b = W + GLOW_OUT   # sweepTargetX(true): التوهج بكامل انسيابه خارج الشاشة
+        end_b = W + BAND       # sweepTargetX(true): الحزام بكامل عرضه خارج الشاشة
         start_b = lerp(A_L, A_R, 0.7)
         st.update(split_active=True, overlay_is_light=True,
                   mask_x=lerp(start_b, end_b, frac), beam=1.0,
@@ -548,7 +513,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         st.update(base_dark=False, split_active=True, overlay_is_light=False,
-                  mask_x=lerp(A_R, -GLOW_OUT, fast_out_slow_in(sweep_t)), beam=1.0,
+                  mask_x=lerp(A_R, -BAND, fast_out_slow_in(sweep_t)), beam=1.0,
                   head_x=lerp(A_R, A_L, ease_out_back(head_t)),
                   head_r=BLOB_R * (1 + 0.16 * max(0.0, 1 - abs(ft - HEAD_MS / 1000) / 0.35)),
                   tail_x=A_R, tail_r=BLOB_R * (1 - drain_t),

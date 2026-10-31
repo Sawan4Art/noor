@@ -28,7 +28,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -62,13 +61,14 @@ import kotlin.math.roundToInt
  * الإصلاح: الطبقة ترسم فقط بلا أي قبضة لمس، والإيماءة على **صندوق يركب الأيقونة
  * وحدها** — الفراغ يمر للطبقات تحتيه طبيعياً، والانقسام لا يشتغل إلا بسحب فعلي.
  *
- * قرار المالك (alpha13): «شعاع الكشاف» الساطع أُزيل — المالك: «الوضع الفاتح
- * يبان كأنه ضوءه باهت على الوضع المظلم والعكس صحيح، ليس شعاع نور مستقيم
- * وواضح». على الحدّ الآن طبقتان خافتتان: ستارة كاملة الارتفاع بذروة باهتة
- * (~5%) تُذيب حدّ القص الصلب، وتوهج إهليلجي مفلطح حول الأيقونة (~11%)
- * ينساب من المصدر نحو الجهة المُنارة أطولَ منه في جهة الهدف — نور باهت
- * متناسب الاتجاهين بلا نواة حارّة ولا جدار مستقيم. تدرّجات متصلة بلا
- * شرائح ولا أنماط مزج — ترسم على أي جهاز.
+ * شكل الفاصل — موك-أب المالك المرسوم يدوياً (2026-10-31 مساءً: «انا عدلتها
+ * للشكل اللي انا عاوزه بالنسبه للفاصل علشان تحاكي زيه») مقيساً بالبكسل:
+ * هضبتان كاملتان (كل ثيم ظاهر بكامل قوته) وبينهما حزام انسياب عريض
+ * **منتظم الارتفاع** بخلفية الثيم الهدف نفسها تتلاشى خطّياً — لا حدّ قصّ
+ * مرئي (خلفية الحزام عند الحدّ مكمّلة للطبقة الهدف بشفافية كاملة فلا خط
+ * مستقيم) ولا بؤرة إهليلجية (مركز الانتقال ثابت رأسياً في القياس). ستارة
+ * alpha13 (5%) وتوهجها الإهليلجي (11%) أُزيليا. تدرّج واحد متصل بلا
+ * شرائح ولا أنماط مزج — يرسم على أي جهاز.
  *
  * الاتجاه داخلياً LTR دائماً — الرسم كله بإحداثيات فيزيائية مطلقة محصّنة من RTL.
  */
@@ -87,8 +87,6 @@ fun ThemeDialOverlay(
 
     // مقاييس بالبكسل — نفس لغة الشريط السفلي (قطرات أكبر قليلاً من شريط رفيع)
     val blobR = with(density) { 17.dp.toPx() }
-    val glowInPx = with(density) { ThemeDialMath.GLOW_IN_DP.dp.toPx() }
-    val glowOutPx = with(density) { ThemeDialMath.GLOW_OUT_DP.dp.toPx() }
     val iconPx = with(density) { 24.dp.toPx() }
     val strokePx = with(density) { 1.dp.toPx() }
     val anchorPad = blobR * 1.6f
@@ -97,7 +95,7 @@ fun ThemeDialOverlay(
     SideEffect {
         dial.configure(
             dial.screenWidth, dial.screenHeight, blobR,
-            glowInPx, glowOutPx, anchorPad,
+            anchorPad,
         )
     }
 
@@ -143,7 +141,7 @@ fun ThemeDialOverlay(
             .onSizeChanged {
                 dial.configure(
                     it.width.toFloat(), it.height.toFloat(), blobR,
-                    glowInPx, glowOutPx, anchorPad,
+                    anchorPad,
                 )
             }
             .drawBehind {
@@ -157,59 +155,45 @@ fun ThemeDialOverlay(
                 val energy = dial.energy()
                 val p = ThemeDialMath.progress(headXv, dial.anchorLeft, dial.anchorRight)
 
-                // ===== 1) التوهج الخافت على حدّ الانقسام (تحت الكبسولة والسائل) =====
-                // ستارة خافتة كاملة الارتفاع تُذيب حدّ القص + توهج إهليلجي حول
-                // الأيقونة ينساب من المصدر نحو الجهة المُنارة — «نور خافت وليس
-                // شعاع نور مستقيم وواضح» (كلام المالك alpha13 حرفياً) — بلا
-                // نواة ساطعة ولا خطوط ولا أنماط مزج، ترسم على أي جهاز.
+                // ===== 1) حزام الانسياب على حدّ الانقسام (تحت الكبسولة والسائل) =====
+                // موك-أب المالك المرسوم يدوياً (قيس بالبكسل): خلفية الثيم الهدف
+                // نفسها تنساب من الحدّ فوق جهة الثيم الحاضر وتتلاشى خطّياً عبر
+                // 0.22 من عرض الشاشة — منتظمة الارتفاع بلا بؤرة، وعند الحدّ
+                // بشفافية كاملة فتكمّل الطبقة الهدف ولا يُرى حدّ قصّ مستقيم.
+                // الاتجاهان متماثلان («والعكس صحيح» — كلام المالك alpha13).
                 if (dial.splitActive) {
                     val power = dial.beam.value
                     if (power > 0.004f) {
                         val edgeX = dial.maskX.value
-                        val warm = dial.overlayIsLight
-                        // لون واحد لكل الاتجاهين وبذروة واحدة — متناسب («والعكس صحيح»)
-                        val glowColor = if (warm) Color(0xFFFFC47E) else Color(0xFFB9CDEC)
-                        // (١) الستارة الخافتة — ذروة باهتة عند الحدّ تنساب أطول في
-                        // الجهة المُنارة وأقصر في جهة الهدف كي لا يُغسل لونها
-                        val inPx = dial.glowInPx
-                        val outPx = dial.glowOutPx
-                        val curtainLeft = edgeX - inPx
-                        val curtainW = inPx + outPx
-                        val inFrac = if (curtainW > 1f) inPx / curtainW else 0.5f
-                        val curtainStops = arrayOf(
-                            0.00f to glowColor.copy(alpha = 0.00f),
-                            (inFrac * 0.55f) to glowColor.copy(alpha = 0.018f * power),
-                            inFrac to glowColor.copy(alpha = 0.050f * power),
-                            (inFrac + (1f - inFrac) * 0.30f) to glowColor.copy(alpha = 0.028f * power),
-                            (inFrac + (1f - inFrac) * 0.62f) to glowColor.copy(alpha = 0.012f * power),
-                            1.00f to glowColor.copy(alpha = 0.00f),
-                        )
-                        drawRect(
-                            brush = Brush.horizontalGradient(
-                                *curtainStops,
-                                startX = curtainLeft,
-                                endX = edgeX + outPx,
-                            ),
-                            topLeft = Offset(curtainLeft, 0f),
-                            size = Size(curtainW, size.height),
-                        )
-                        // (٢) التوهج الإهليلجي حول الأيقونة — النور ينساب من
-                        // المصدر مفلطحاً رأسياً كي لا يُقرأ كجدار ضوء مستقيم
-                        val haloR = outPx * 1.35f
-                        scale(1f, 0.42f, pivot = Offset(edgeX, y)) {
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        glowColor.copy(alpha = 0.11f * power),
-                                        glowColor.copy(alpha = 0.05f * power),
-                                        Color.Transparent,
+                        val band = ThemeDialMath.bandWidthPx(dial.screenWidth)
+                        if (band > 1f) {
+                            // الضوء ليس صبغة غريبة بل لون الجهة القادمة ذاته
+                            val washColor = if (dial.overlayIsLight) DayBackground else NightBackground
+                            if (dial.overlayIsLight) {
+                                // الفاتح يسار الحدّ: كريمته تنساب يميناً فوق جهة المظلم
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        0f to washColor.copy(alpha = power),
+                                        1f to washColor.copy(alpha = 0f),
+                                        startX = edgeX,
+                                        endX = edgeX + band,
                                     ),
-                                    center = Offset(edgeX, y),
-                                    radius = haloR,
-                                ),
-                                radius = haloR,
-                                center = Offset(edgeX, y),
-                            )
+                                    topLeft = Offset(edgeX, 0f),
+                                    size = Size(band, size.height),
+                                )
+                            } else {
+                                // المظلم يمين الحدّ: خلفيته تنساب يساراً فوق جهة الفاتح
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        0f to washColor.copy(alpha = 0f),
+                                        1f to washColor.copy(alpha = power),
+                                        startX = edgeX - band,
+                                        endX = edgeX,
+                                    ),
+                                    topLeft = Offset(edgeX - band, 0f),
+                                    size = Size(band, size.height),
+                                )
+                            }
                         }
                     }
                 }
