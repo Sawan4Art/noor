@@ -5,17 +5,18 @@
 - surfaceWave / centerDrift / bridgeSway / waistFor / bridge (الجسر بلا فصل)
 - addLiquidBlob (كاتمول-روم مغلق) + مسار الجسر بقبتيه
 - حدّ انقسام مستقيم رأسي **قصّ صلب** (clipRect — قرار alpha11 بعد فشل القناع
-  بصمتاً على جهاز المالك) وعلى الحدّ **حزام انسياب** (موك-أب المالك المرسوم
-  يدوياً 2026-10-31 مساءً «علشان تحاكي زيه» — قيس بالبكسل): خلفية الثيم
-  الهدف نفسها تنساب من الحدّ فوق جهة الثيم الحاضر وتتلاشى خطّياً عبر
-  0.22 من عرض الشاشة، منتظمة الارتفاع بلا حدّ مرئي ولا بؤرة إهليلجية —
-  ستارة alpha13 (5%) وتوهجها الإهليلجي (11%) أُزيليا
+  بصمتاً على جهاز المالك)، والفصل **حاد وصريح** — النصفان كاملان بوضوح، وعلى
+  الحدّ **خط ضوء رفيع ساطع** (توجيه المالك alpha15 — كلمة أخيرة تلغي الحزام
+  العريض 0.22 الذي حاكى موك-أب alpha14): هالة ضيقة 14dp بثلاث وقفات فقط
+  (صفر → ذروة → صفر) متماثلة حول الحدّ + خط صلب رفيع 2.5dp فوقها —
+  منطقة الانتقال بضع بكسلات والتوهج مركّز حصرياً على حافة خط الحركة
 - الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه (درس alpha7)
 - المدد: DRAIN=1040 HEAD=800 JIGGLE=1250 SWEEP=960 و EaseOutBack(0.34,1.56,0.64,1)
 
 السيناريو (بطلب المالك): مظلم → سحب لليمين (الأيقونة مع اليد، الفاتح خلفها
-بلا أي خط مرئي) → إمساك في المنتصف (نصف فاتح ونصف مظلم بلا فاصل باين)
-→ رفع عند 70% (تثبيت فاتح: طفح ومرسى يمين برجفة) → نقرة (عودة للظلام برحلة القمر).
+وخط الضوء الحي عند الحدّ) → إمساك في المنتصف (نصف فاتح ونصف مظلم يفصل
+بينهما خط الضوء الساطع) → رفع عند 70% (تثبيت فاتح: المسح والمرسى يمين
+برجفة) → نقرة (عودة للظلام برحلة القمر).
 
 تخطيط alpha12 (بطلب المالك): المسار وحده أعلى الشاشة، المدينة ودبوسها وزر
 التحديد داخل بطاقة الهيرو تحت التواريخ، وهيدر التذكيرات مكان «مواقيت اليوم».
@@ -175,18 +176,19 @@ def bridge_polygon(b, time):
     return pts
 
 
-# ===== نقل ThemeDialMath حرفياً (alpha14: قصّ صلب + حزام انسياب) =====
-WASH_FRACTION = 0.22       # WASH_FRACTION — عرض الحزام جزءاً من عرض الشاشة
-BAND = WASH_FRACTION * W   # bandWidthPx(screenWidth) — عرض الحزام بالبكسل
-
-WASH_DAY = (246, 242, 233)   # DayBackground — كريمة الفاتح تنساب على المظلم
-WASH_NIGHT = (12, 21, 18)    # NightBackground — خضرة المظلم تنساب على الفاتح
+# ===== نقل طبقات كوتلن حرفياً (alpha15: خط ضوء حي على حدّ القص) =====
+GLOW_HALF = 7 * DENS        # نصف هالة الضوء (ThemeDialOverlay: 7.dp)
+CORE_HALF = 1.25 * DENS     # نصف الخط الرفيع الساطع (1.25.dp)
+GLOW_PEAK = 0.42            # ذروة شفافية الهالة عند الحدّ
+CORE_ALPHA = 0.95           # شفافية الخط الصلب
+EDGE_GLOW = (255, 233, 176) # Color(0xFFFFE9B0) — دفء شمسي
+EDGE_CORE = (255, 247, 224) # Color(0xFFFFF7E0) — ساطع محدد
 
 
 def edge_x(boundary):
     """حدّ الانقسام — مستقيم رأسي عند موضع الأيقونة، والمعاينة **قصّ صلب**
     (clipRect): الفاتح يسار الحدّ والمظلم يمينه دائماً بلا أي تدرج في القص،
-    وحدّ القص يُذيبه التوهج الخافت المرسوم فوقه."""
+    وحدّ القص يعلوه خط الضوء الحي (هالة ضيقة + خط رفيع ساطع)."""
     return boundary
 
 
@@ -356,32 +358,47 @@ def render_frame(state, t_sec):
         mask.putdata(bytes(buf))
         img.paste(ov, (0, 0), mask)
 
-    # ===== حزام الانسياب على حدّ الانقسام — نفس طبقات كوتلن حرفياً =====
-    # خلفية الثيم الهدف نفسها تنساب من الحدّ فوق جهة الثيم الحاضر وتتلاشى
-    # خطّياً عبر 0.22 من عرض الشاشة — منتظمة الارتفاع بلا بؤرة، وعند الحدّ
-    # بشفافية كاملة فتكمّل الطبقة الهدف ولا يُرى حدّ قصّ مستقيم
+    # ===== خط الضوء الحي على حدّ الانقسام — نفس طبقات كوتلن حرفياً =====
+    # هالة ضيقة بثلاث وقفات (صفر → ذروة → صفر) متماثلة حول الحدّ + خط صلب
+    # رفيع ساطع فوقها — الانتقال بضع بكسلات والتوهج مركّز حصرياً على حافة
+    # خط الحركة (توجيه المالك alpha15)
     if split:
         power = state['beam']
         if power > 0.004:
-            wash_col = WASH_DAY if overlay_light else WASH_NIGHT
-            wash_mask = Image.new('L', (W, H), 0)
-            wbuf = bytearray(W * H)
-            wcol = bytearray(W * H * 3)
+            glow_mask = Image.new('L', (W, H), 0)
+            gbuf = bytearray(W * H)
+            gcol = bytearray(W * H * 3)
+            x0 = max(0, int(boundary - GLOW_HALF))
+            x1 = min(W, int(boundary + GLOW_HALF) + 1)
             for y in range(H):
                 base = y * W
-                for x in range(W):
-                    # الفاتح يسار الحدّ: كريمته تنساب يميناً؛ والمظلم يمينه:
-                    # خلفيته تنساب يساراً — متناسبان («والعكس صحيح»)
-                    t = ((x - boundary) if overlay_light else (boundary - x)) / BAND
-                    if 0.0 <= t < 1.0:
-                        aa = power * (1.0 - t)
+                for x in range(x0, x1):
+                    # ثلاث وقفات متماثلة: abs(x-حد)/نصف الهالة → خطّي صاعد وهابط
+                    t = abs(x - boundary) / GLOW_HALF
+                    if t < 1.0:
+                        aa = power * GLOW_PEAK * (1.0 - t)
                         if aa > 0:
                             i3 = base * 3 + x * 3
-                            wbuf[base + x] = int(255 * aa)
-                            wcol[i3:i3 + 3] = bytes(wash_col)
-            wash_mask.putdata(bytes(wbuf))
-            wash_img = Image.frombytes('RGB', (W, H), bytes(wcol))
-            img.paste(wash_img, (0, 0), wash_mask)
+                            gbuf[base + x] = int(255 * aa)
+                            gcol[i3:i3 + 3] = bytes(EDGE_GLOW)
+            glow_mask.putdata(bytes(gbuf))
+            glow_img = Image.frombytes('RGB', (W, H), bytes(gcol))
+            img.paste(glow_img, (0, 0), glow_mask)
+            # الخط الرفيع الساطع — صلب فوق الهالة (لا تدرج)
+            cbuf = bytearray(W * H)
+            ccol = bytearray(W * H * 3)
+            cx0 = max(0, int(boundary - CORE_HALF))
+            cx1 = min(W, int(boundary + CORE_HALF) + 1)
+            for y in range(H):
+                base = y * W
+                for x in range(cx0, cx1):
+                    i3 = base * 3 + x * 3
+                    cbuf[base + x] = int(255 * power * CORE_ALPHA)
+                    ccol[i3:i3 + 3] = bytes(EDGE_CORE)
+            core_mask = Image.new('L', (W, H), 0)
+            core_mask.putdata(bytes(cbuf))
+            core_img = Image.frombytes('RGB', (W, H), bytes(ccol))
+            img.paste(core_img, (0, 0), core_mask)
 
     # كبسولة المسار
     d.rounded_rectangle([TRACK_X, TRACK_TOP, TRACK_X + TRACK_W, TRACK_TOP + TRACK_H],
@@ -452,7 +469,7 @@ def build_timeline():
         st.update(split_active=True, overlay_is_light=True, mask_x=finger, beam=1.0,
                   head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=max(0.0, (finger - A_L) / (A_R - A_L)), dragging=True, energy=1.0)
-        st['label'] = 'سحب يمين = فاتح — الفاتح يسار الحدّ وتوهج خافت ينساب فيه'
+        st['label'] = 'سحب يمين = فاتح — الفاتح يسار الحدّ وخط الضوء الحي عند الحدّ'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 3) إمساك في المنتصف 1.0s — نصف فاتح ونصف مظلم
@@ -462,7 +479,7 @@ def build_timeline():
         st.update(split_active=True, overlay_is_light=True, mask_x=mid, beam=1.0,
                   head_x=mid, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=0.5, dragging=True, energy=1.0)
-        st['label'] = 'ممسوك في المنتصف: نص فاتح ونص مظلم وتوهج خافت يذيب حدّهما'
+        st['label'] = 'ممسوك في المنتصف: نص فاتح ونص مظلم يفصل بينهما خط ضوء ساطع'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 4) سحب لليمين حتى 70% خلال 0.6s
@@ -486,7 +503,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         frac = fast_out_slow_in(sweep_t)
-        end_b = W + BAND       # sweepTargetX(true): الحزام بكامل عرضه خارج الشاشة
+        end_b = W + GLOW_HALF  # sweepTargetX(true): الحد وخط ضوئه خارجا الشاشة
         start_b = lerp(A_L, A_R, 0.7)
         st.update(split_active=True, overlay_is_light=True,
                   mask_x=lerp(start_b, end_b, frac), beam=1.0,
@@ -513,7 +530,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         st.update(base_dark=False, split_active=True, overlay_is_light=False,
-                  mask_x=lerp(A_R, -BAND, fast_out_slow_in(sweep_t)), beam=1.0,
+                  mask_x=lerp(A_R, -GLOW_HALF, fast_out_slow_in(sweep_t)), beam=1.0,
                   head_x=lerp(A_R, A_L, ease_out_back(head_t)),
                   head_r=BLOB_R * (1 + 0.16 * max(0.0, 1 - abs(ft - HEAD_MS / 1000) / 0.35)),
                   tail_x=A_R, tail_r=BLOB_R * (1 - drain_t),

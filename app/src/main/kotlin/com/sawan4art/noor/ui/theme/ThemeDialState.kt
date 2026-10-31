@@ -27,9 +27,10 @@ import kotlin.math.abs
  *   (clipRect بلا أي DstIn/Offscreen — آلية القناع القديمة كانت تفشل بصمت
  *   على جهاز المالك فلم يرَ الانقسام قط).
  * - الرفع يحسم بالضفة التي عبرت المنتصف، والنقرة تبدّل فوراً برحلة كاملة.
- * - على حدّ الانقسام **حزام انسياب** بخلفية الثيم الهدف نفسها (موك-أب
- *   المالك المرسوم يدوياً: خلفية الجهة القادمة تنساب فوق الحاضرة وتتلاشى
- *   خطّياً عبر 0.22 من عرض الشاشة — منتظم الارتفاع بلا حدّ ولا بؤرة).
+ * - الفصل **حاد وصريح** وعلى حدّ الانقسام **خط ضوء رفيع ساطع** بهالة ضيقة
+ *   مركّزة عليه حصرياً (توجيه المالك alpha15: «خط فاصل رفيع ومشرق... المنطقة
+ *   الانتقالية لا تتعدى بضع بكسلات... النصف الأيمن داكن بالكامل والأيسر فاتح
+ *   بالكامل») — لا حزام عريض ولا بؤرة.
  * - الإيماءة من الأيقونة وحدها (صندوق لمس يركب الأيقونة) — الفراغ والمسار
  *   يمرّان للطبقات تحتيهما فلا لاج ولا ابتلاع لمسات (درس alpha7).
  * - المزلاج كلّه في الرئيسية فقط — مغادرتها **تُطبّع الحالة بلا شرط**
@@ -57,6 +58,8 @@ class ThemeDialState {
     // مقاييس مرسلة من الواجهة بالبكسل
     var blobRadiusPx by mutableFloatStateOf(0f); private set
     var anchorPadPx by mutableFloatStateOf(0f); private set
+    /** نصف هالة خط الضوء بالبكسل — أوسع ما يُرسم حول حدّ الانقسام (سُمت المسح) */
+    var edgeGlowPx by mutableFloatStateOf(0f); private set
 
     // ===== السائل الحي — نفس نمط الشريط السفلي =====
     val headX = Animatable(0f)
@@ -107,11 +110,13 @@ class ThemeDialState {
         screenH: Float,
         blobRadius: Float,
         anchorPad: Float,
+        glowExtent: Float,
     ) {
         screenWidth = screenW
         screenHeight = screenH
         blobRadiusPx = blobRadius
         anchorPadPx = anchorPad
+        edgeGlowPx = glowExtent
     }
 
     fun progressOfHead(): Float = ThemeDialMath.progress(headX.value, anchorLeft, anchorRight)
@@ -261,12 +266,11 @@ class ThemeDialState {
         }
     }
 
-    /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والحدّ وحزامه يُساقان خارج الشاشة */
+    /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والحدّ وخط ضوئه يُساقان خارج الشاشة */
     private fun sweepToTarget(commitLight: Boolean, onCommitLight: (Boolean) -> Unit, scope: CoroutineScope) {
         val gen = ++sweepGeneration
         busy = true
-        val bandPx = ThemeDialMath.bandWidthPx(screenWidth)
-        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, bandPx)
+        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, edgeGlowPx)
         val anchor = if (commitLight) anchorRight else anchorLeft
         scope.launch { tailR.animateTo(0f, tween(DRAIN_MS, easing = FastOutSlowInEasing)) }
         scope.launch { headX.animateTo(anchor, tween(HEAD_MS, easing = EaseOutBack)) }

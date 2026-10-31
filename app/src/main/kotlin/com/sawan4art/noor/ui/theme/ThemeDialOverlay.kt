@@ -61,14 +61,13 @@ import kotlin.math.roundToInt
  * الإصلاح: الطبقة ترسم فقط بلا أي قبضة لمس، والإيماءة على **صندوق يركب الأيقونة
  * وحدها** — الفراغ يمر للطبقات تحتيه طبيعياً، والانقسام لا يشتغل إلا بسحب فعلي.
  *
- * شكل الفاصل — موك-أب المالك المرسوم يدوياً (2026-10-31 مساءً: «انا عدلتها
- * للشكل اللي انا عاوزه بالنسبه للفاصل علشان تحاكي زيه») مقيساً بالبكسل:
- * هضبتان كاملتان (كل ثيم ظاهر بكامل قوته) وبينهما حزام انسياب عريض
- * **منتظم الارتفاع** بخلفية الثيم الهدف نفسها تتلاشى خطّياً — لا حدّ قصّ
- * مرئي (خلفية الحزام عند الحدّ مكمّلة للطبقة الهدف بشفافية كاملة فلا خط
- * مستقيم) ولا بؤرة إهليلجية (مركز الانتقال ثابت رأسياً في القياس). ستارة
- * alpha13 (5%) وتوهجها الإهليلجي (11%) أُزيليا. تدرّج واحد متصل بلا
- * شرائح ولا أنماط مزج — يرسم على أي جهاز.
+ * شكل الفاصل — توجيه المالك alpha15 (2026-10-31 مساءً — كلمة أخيرة تلغي
+ * الحزام العريض الذي حاكى موك-أب alpha14): الفصل **حاد وصريح** — النصف
+ * الفاتح كامل بوضوح والمظلم كامل بوضوح (قصّ صلب)، والفاصل بينهما **خط ضوء
+ * رفيع ساطع** لا غير: هالة ضيقة (14dp) بثلاث وقفات فقط (صفر → ذروة → صفر)
+ * متماثلة حول الحدّ + خط صلب رفيع (2.5dp) فوقها — منطقة الانتقال بضع بكسلات،
+ * والتوهج مركّز حصرياً على حافة خط الحركة (لا حزام في الجهة المسيطرة ولا
+ * بؤرة إهليلجية). يُرسم فوق حدّ القص فيُغطي أي ميز قطع بالمحتوى.
  *
  * الاتجاه داخلياً LTR دائماً — الرسم كله بإحداثيات فيزيائية مطلقة محصّنة من RTL.
  */
@@ -91,11 +90,14 @@ fun ThemeDialOverlay(
     val strokePx = with(density) { 1.dp.toPx() }
     val anchorPad = blobR * 1.6f
     val touchHalf = with(density) { 32.dp.toPx() } // هدف لمس 64dp يركب الأيقونة
+    // خط الضوء الحي (alpha15): نصف هالة 7dp + نصف خط رفيع 1.25dp
+    val glowHalf = with(density) { 7.dp.toPx() }
+    val coreHalf = with(density) { 1.25.dp.toPx() }
 
     SideEffect {
         dial.configure(
             dial.screenWidth, dial.screenHeight, blobR,
-            anchorPad,
+            anchorPad, glowHalf,
         )
     }
 
@@ -132,6 +134,10 @@ fun ThemeDialOverlay(
     val sunPainter = rememberVectorPainter(NoorIcons.Sun)
     val moonPainter = rememberVectorPainter(NoorIcons.Moon)
 
+    // خط الضوء الحي — دفء شمسي يقرأ على الجهتين الفاتحة والمظلمة
+    val edgeGlow = Color(0xFFFFE9B0)
+    val edgeCore = Color(0xFFFFF7E0)
+
     // اتجاه داخلي LTR: صندوق الإيماءة يُثبَّت TopStart الفيزيائي (أعلى اليسار)
     // مهما كان اتجاه التطبيق RTL — فالإزاحة الخام = إحداثيات مطلقة صحيحة
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -141,7 +147,7 @@ fun ThemeDialOverlay(
             .onSizeChanged {
                 dial.configure(
                     it.width.toFloat(), it.height.toFloat(), blobR,
-                    anchorPad,
+                    anchorPad, glowHalf,
                 )
             }
             .drawBehind {
@@ -155,46 +161,34 @@ fun ThemeDialOverlay(
                 val energy = dial.energy()
                 val p = ThemeDialMath.progress(headXv, dial.anchorLeft, dial.anchorRight)
 
-                // ===== 1) حزام الانسياب على حدّ الانقسام (تحت الكبسولة والسائل) =====
-                // موك-أب المالك المرسوم يدوياً (قيس بالبكسل): خلفية الثيم الهدف
-                // نفسها تنساب من الحدّ فوق جهة الثيم الحاضر وتتلاشى خطّياً عبر
-                // 0.22 من عرض الشاشة — منتظمة الارتفاع بلا بؤرة، وعند الحدّ
-                // بشفافية كاملة فتكمّل الطبقة الهدف ولا يُرى حدّ قصّ مستقيم.
-                // الاتجاهان متماثلان («والعكس صحيح» — كلام المالك alpha13).
+                // ===== 1) خط الضوء الحي على حدّ الانقسام (تحت الكبسولة والسائل) =====
+                // توجيه المالك alpha15: الفصل حاد وصريح (النصان كاملان بوضوح
+                // بقصّ صلب) والفاصل **خط ضوء رفيع ساطع** لا غير — هالة ضيقة
+                // بثلاث وقفات فقط (صفر → ذروة → صفر) متماثلة حول الحدّ، وفوقها
+                // خط صلب رفيع — الانتقال بضع بكسلات والتوهج مركّز حصرياً على
+                // حافة خط الحركة. متناسب الاتجاهين («والعكس صحيح»).
                 if (dial.splitActive) {
                     val power = dial.beam.value
                     if (power > 0.004f) {
                         val edgeX = dial.maskX.value
-                        val band = ThemeDialMath.bandWidthPx(dial.screenWidth)
-                        if (band > 1f) {
-                            // الضوء ليس صبغة غريبة بل لون الجهة القادمة ذاته
-                            val washColor = if (dial.overlayIsLight) DayBackground else NightBackground
-                            if (dial.overlayIsLight) {
-                                // الفاتح يسار الحدّ: كريمته تنساب يميناً فوق جهة المظلم
-                                drawRect(
-                                    brush = Brush.horizontalGradient(
-                                        0f to washColor.copy(alpha = power),
-                                        1f to washColor.copy(alpha = 0f),
-                                        startX = edgeX,
-                                        endX = edgeX + band,
-                                    ),
-                                    topLeft = Offset(edgeX, 0f),
-                                    size = Size(band, size.height),
-                                )
-                            } else {
-                                // المظلم يمين الحدّ: خلفيته تنساب يساراً فوق جهة الفاتح
-                                drawRect(
-                                    brush = Brush.horizontalGradient(
-                                        0f to washColor.copy(alpha = 0f),
-                                        1f to washColor.copy(alpha = power),
-                                        startX = edgeX - band,
-                                        endX = edgeX,
-                                    ),
-                                    topLeft = Offset(edgeX - band, 0f),
-                                    size = Size(band, size.height),
-                                )
-                            }
-                        }
+                        // الهالة — ثلاث وقفات متماثلة حول الحدّ (قلّة وقفات بطلب المالك)
+                        drawRect(
+                            brush = Brush.horizontalGradient(
+                                0f to edgeGlow.copy(alpha = 0f),
+                                0.5f to edgeGlow.copy(alpha = 0.42f * power),
+                                1f to edgeGlow.copy(alpha = 0f),
+                                startX = edgeX - glowHalf,
+                                endX = edgeX + glowHalf,
+                            ),
+                            topLeft = Offset(edgeX - glowHalf, 0f),
+                            size = Size(glowHalf * 2f, size.height),
+                        )
+                        // خط الضوء الرفيع الساطع — محدد بدقة فوق الهالة
+                        drawRect(
+                            color = edgeCore.copy(alpha = 0.95f * power),
+                            topLeft = Offset(edgeX - coreHalf, 0f),
+                            size = Size(coreHalf * 2f, size.height),
+                        )
                     }
                 }
 

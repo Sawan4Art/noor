@@ -31,7 +31,7 @@ class ThemeDialStateCommitTest {
 
     private fun newDial(): ThemeDialState = ThemeDialState().apply {
         placeTrack(0f, 100f, 1080f, 46f)
-        configure(1080f, 2000f, 40f, 64f)
+        configure(1080f, 2000f, 40f, 64f, glowExtent = 21f) // نصف هالة الضوء (7dp عند 3x)
     }
 
     private fun scope(): CoroutineScope = CoroutineScope(
