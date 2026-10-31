@@ -22,12 +22,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -61,16 +65,17 @@ import kotlin.math.roundToInt
  * الإصلاح: الطبقة ترسم فقط بلا أي قبضة لمس، والإيماءة على **صندوق يركب الأيقونة
  * وحدها** — الفراغ يمر للطبقات تحتيه طبيعياً، والانقسام لا يشتغل إلا بسحب فعلي.
  *
- * شكل الفاصل — توجيه المالك alpha16 (2026-10-31 ليلًا — تصحيح لشكل alpha15
- * الذي كان خطاً واحداً ساطعاً بلون ثابت وقوة ثابتة): الفاصل **خط ضوء منبعث
- * من الوضع النهاري نفسه** — خيط **أرفع بكثير** (1dp لا 2.5dp) يقرأ كإضاءة
- * لا كجسم صلب، **متدرّج بألوان كثيرة** (طيف نهاري دافئ بسبع وقفات بطول
- * الشاشة: ذهب الصباح ← قلب أبيض ساطع ← ذهبي ← كهرماني ← وردة الغروب)،
- * وفوقه هالتان ضيقتان ناعمتان شفافتان (7dp و16dp بثلاث وقفات متماثلة حول
- * الحدّ) كأن النهار يضيء الليلي بسلاسة وشفافية، وشدة الإضاءة كلها
- * **ديناميكية مع السحب** (ThemeDialMath.beamIntensity): تبدأ خافتة وتزداد
- * تدريجياً حتى شدة إضاءة النهار الكاملة لحظة غمر الشاشة، والعكس نحو المظلم
- * تبدأ عالية وتنحدر حتى الانطفاء. يُرسم فوق حدّ القص فيُغطي أي ميز قطع بالمحتوى.
+ * شكل الفاصل — توجيه المالك alpha17 (2026-10-31 ليلًا، بعد alpha16): «كبر عرض
+ * الخط شويه وشيل الخط وخلّي التوهج فقط» — الفاصل لم يعد يضم أي خط خالص:
+ * **حقل توهج واحد ناعم أعرض من قبل** (30dp بدل 16dp) لا حافة له ولا خيط —
+ * طيف نهاري دافئ بسبع وقفات بطول الشاشة (ذهب الصباح ← قلب أبيض ساطع ←
+ * ذهبي ← كهرماني ← وردة الغروب — روح alpha16 كما هي) يُقنّع أفقيّاً بتلاشٍ
+ * جرسّي متماثل حول حدّ الانقسام (saveLayer + BlendMode.DstIn): أسطع نقطة
+ * على الحدّ نفسه تتلاشى ناعمة في الاتجاهين — إضاءة خالصة لا جسم مرسوم.
+ * شدة الإضاءة كلها **ديناميكية مع السحب** (ThemeDialMath.beamIntensity):
+ * تبدأ خافتة وتزداد تدريجياً حتى شدة إضاءة النهار الكاملة لحظة غمر الشاشة،
+ * والعكس نحو المظلم تبدأ عالية وتنحدر حتى الانطفاء. يُرسم فوق حدّ القص
+ * فيُغطي أي ميز قطع بالمحتوى.
  *
  * الاتجاه داخلياً LTR دائماً — الرسم كله بإحداثيات فيزيائية مطلقة محصّنة من RTL.
  */
@@ -93,11 +98,10 @@ fun ThemeDialOverlay(
     val strokePx = with(density) { 1.dp.toPx() }
     val anchorPad = blobR * 1.6f
     val touchHalf = with(density) { 32.dp.toPx() } // هدف لمس 64dp يركب الأيقونة
-    // خط الضوء الحي (alpha16): خيط طيفي 1dp + هالتان ضيقتان (7dp و16dp)
-    // — الامتداد الأوسع يُمرر للمزلاج كي يُساق كل الرسم خارج الشاشة عند المسح
-    val glowHalfOuter = with(density) { 8.dp.toPx() }
-    val glowHalfInner = with(density) { 3.5.dp.toPx() }
-    val coreHalf = with(density) { 0.5.dp.toPx() }
+    // توهج الضوء الحي (alpha17): حقل توهج طيفي ناعم بلا خط — أعرض شويه من
+    // هالة alpha16 (30dp بدل 16dp). الامتداد يُمرر للمزلاج كي يُساق كل الرسم
+    // خارج الشاشة عند المسح دون أي بقايا توهج
+    val glowHalfOuter = with(density) { 15.dp.toPx() }
 
     SideEffect {
         dial.configure(
@@ -139,9 +143,9 @@ fun ThemeDialOverlay(
     val sunPainter = rememberVectorPainter(NoorIcons.Sun)
     val moonPainter = rememberVectorPainter(NoorIcons.Moon)
 
-    // خط الضوء الحي — طيف نهاري كامل (توجيه المالك alpha16): «متدرج بالوان
-    // كثيرة... كأن الوضع النهاري يضيء الليلي بسلاسة وشفافية» — سبعة ألوان
-    // دافئة من أعلى الشاشة لأسفلها، وأسطع نقطة في قلبها
+    // توهج الضوء الحي — طيف نهاري كامل (روح توجيه المالك alpha16 كما هي):
+    // «متدرج بالوان كثيرة... كأن الوضع النهاري يضيء الليلي بسلاسة وشفافية» —
+    // سبعة ألوان دافئة من أعلى الشاشة لأسفلها، وأسطع نقطة في قلبها
     val beamSpectrum = listOf(
         0.00f to Color(0xFFFFDFA0), // ذهب الصباح
         0.16f to Color(0xFFFFF1C8), // كريمي دافئ
@@ -151,8 +155,6 @@ fun ThemeDialOverlay(
         0.86f to Color(0xFFFFC084), // كهرماني
         1.00f to Color(0xFFFFA97C), // وردة الغروب
     )
-    val beamHaloInner = Color(0xFFFFF3D2) // هالة قريبة — قلب التوهج الفاتح
-    val beamHaloOuter = Color(0xFFFFCF8F) // هالة خارجية — انسكاب كهرماني ناعم
 
     // اتجاه داخلي LTR: صندوق الإيماءة يُثبَّت TopStart الفيزيائي (أعلى اليسار)
     // مهما كان اتجاه التطبيق RTL — فالإزاحة الخام = إحداثيات مطلقة صحيحة
@@ -177,58 +179,66 @@ fun ThemeDialOverlay(
                 val energy = dial.energy()
                 val p = ThemeDialMath.progress(headXv, dial.anchorLeft, dial.anchorRight)
 
-                // ===== 1) خط الضوء الحي على حدّ الانقسام (تحت الكبسولة والسائل) =====
-                // توجيه المالك alpha16: الخيط **إضاءة منبعثة من النهار نفسه** —
-                // شدته ديناميكية = نسبة النهار على الشاشة (ThemeDialMath.
+                // ===== 1) توهج الضوء الحي على حدّ الانقسام (تحت الكبسولة والسائل) =====
+                // توجيه المالك alpha17: «شيل الخط وخلّي التوهج فقط» — لا خيط
+                // ولا هالة منفصلة بعد اليوم: **حقل توهج واحد ناعم أعرض من
+                // قبل** (30dp). الطيف الرأسي متعدد الألوان (روح alpha16)
+                // يُقنّع أفقيّاً بتلاشٍ جرسّي متماثل حول الحدّ داخل طبقة
+                // معزولة (saveLayer + BlendMode.DstIn) — أسطع نقطة على الحدّ
+                // نفسه تتلاشى ناعمة في الاتجاهين بلا أي حافة ولا خيط صلب.
+                // الشدة ديناميكية = نسبة النهار على الشاشة (ThemeDialMath.
                 // beamIntensity): السحب نحو الفاتح يبدأ خافتاً ويزداد مع كل
                 // بكسل حتى شدة إضاءة النهار الكاملة لحظة الغمر، والسحب نحو
                 // المظلم يبدأ ساطعاً وينحدر حتى الانطفاء («والعكس صحيح»).
-                // الهالتان ضيقتان شفافتان متماثلتان حول الحدّ، والخيط نفسه
-                // طيف بألوان كثيرة بطول الشاشة. متناسب الاتجاهين بلا تفرّع.
                 if (dial.splitActive) {
                     val visibility = dial.beam.value
                     val dayLight = ThemeDialMath.beamIntensity(dial.maskX.value, dial.screenWidth)
                     val power = visibility * dayLight
                     if (power > 0.004f) {
                         val edgeX = dial.maskX.value
-                        // الهالة الخارجية الكهرمانية — انسكاب ناعم واسع خافت
-                        drawRect(
-                            brush = Brush.horizontalGradient(
-                                0f to beamHaloOuter.copy(alpha = 0f),
-                                0.5f to beamHaloOuter.copy(alpha = 0.16f * power),
-                                1f to beamHaloOuter.copy(alpha = 0f),
-                                startX = edgeX - glowHalfOuter,
-                                endX = edgeX + glowHalfOuter,
-                            ),
-                            topLeft = Offset(edgeX - glowHalfOuter, 0f),
-                            size = Size(glowHalfOuter * 2f, size.height),
-                        )
-                        // الهالة الداخلية القريبة — قلب التوهج المضيء
-                        drawRect(
-                            brush = Brush.horizontalGradient(
-                                0f to beamHaloInner.copy(alpha = 0f),
-                                0.5f to beamHaloInner.copy(alpha = 0.30f * power),
-                                1f to beamHaloInner.copy(alpha = 0f),
-                                startX = edgeX - glowHalfInner,
-                                endX = edgeX + glowHalfInner,
-                            ),
-                            topLeft = Offset(edgeX - glowHalfInner, 0f),
-                            size = Size(glowHalfInner * 2f, size.height),
-                        )
-                        // خيط الضوء الطيفي — أرفع بكثير (1dp) وبألوان كثيرة
-                        // من أعلى الشاشة لأسفلها، شفافيته مع شدة الضوء نفسها
+                        val glowLeft = edgeX - glowHalfOuter
+                        val glowWidth = glowHalfOuter * 2f
                         val gradH = if (size.height > 1f) size.height else 1f
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                *beamSpectrum.map { (stop, c) ->
-                                    stop to c.copy(alpha = 0.92f * power)
-                                }.toTypedArray(),
-                                startY = 0f,
-                                endY = gradH,
-                            ),
-                            topLeft = Offset(edgeX - coreHalf, 0f),
-                            size = Size(coreHalf * 2f, size.height),
-                        )
+                        drawIntoCanvas { canvas ->
+                            canvas.saveLayer(
+                                Rect(glowLeft, 0f, glowLeft + glowWidth, size.height),
+                                Paint(),
+                            )
+                            // الطيف الرأسي بألوان كثيرة بطول الشاشة — يُرسم
+                            // معتماً ثم يُخفّف بالقناع الأفقي في الخطوة التالية
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    *beamSpectrum.map { (stop, c) -> stop to c }.toTypedArray(),
+                                    startY = 0f,
+                                    endY = gradH,
+                                ),
+                                topLeft = Offset(glowLeft, 0f),
+                                size = Size(glowWidth, size.height),
+                            )
+                            // قناع التلاشٍ الأفقي — جرس ناعم متماثل حول الحدّ:
+                            // هذا ما يجعله «توهجاً فقط» بلا خط، فلا حافة صلبة
+                            // عند الطرفين ولا قلب خيطي عند المركز (DstIn يضرب
+                            // شفافية الطيف بمنحنى التلاشٍ)
+                            drawRect(
+                                brush = Brush.horizontalGradient(
+                                    0.00f to Color.Black.copy(alpha = 0f),
+                                    0.10f to Color.Black.copy(alpha = 0.06f * power),
+                                    0.25f to Color.Black.copy(alpha = 0.20f * power),
+                                    0.38f to Color.Black.copy(alpha = 0.44f * power),
+                                    0.50f to Color.Black.copy(alpha = 0.72f * power),
+                                    0.62f to Color.Black.copy(alpha = 0.44f * power),
+                                    0.75f to Color.Black.copy(alpha = 0.20f * power),
+                                    0.90f to Color.Black.copy(alpha = 0.06f * power),
+                                    1.00f to Color.Black.copy(alpha = 0f),
+                                    startX = glowLeft,
+                                    endX = glowLeft + glowWidth,
+                                ),
+                                topLeft = Offset(glowLeft, 0f),
+                                size = Size(glowWidth, size.height),
+                                blendMode = BlendMode.DstIn,
+                            )
+                            canvas.restore()
+                        }
                     }
                 }
 

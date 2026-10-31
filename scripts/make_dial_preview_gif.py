@@ -6,16 +6,16 @@
 - addLiquidBlob (كاتمول-روم مغلق) + مسار الجسر بقبتيه
 - حدّ انقسام مستقيم رأسي **قصّ صلب** (clipRect — قرار alpha11 بعد فشل القناع
   بصمتاً على جهاز المالك)، والفصل **حاد وصريح** — النصفان كاملان بوضوح، وعلى
-  الحدّ **خط ضوء رفيع ساطع** (توجيه المالك alpha15 — كلمة أخيرة تلغي الحزام
-  العريض 0.22 الذي حاكى موك-أب alpha14): هالة ضيقة 14dp بثلاث وقفات فقط
-  (صفر → ذروة → صفر) متماثلة حول الحدّ + خط صلب رفيع 2.5dp فوقها —
-  منطقة الانتقال بضع بكسلات والتوهج مركّز حصرياً على حافة خط الحركة
+  الحدّ **حقل توهج طيفي ناعم بلا أي خط** (توجيه المالك alpha17: «كبر عرض
+  الخط شويه وشيل الخط وخلّي التوهج فقط» — يلغي خيط alpha16 وهالته): عرض
+  كلي 30dp بمنحنى تلاشٍ جرسّي متماثل حول الحدّ (saveLayer + DstIn في كوتلن)،
+  الطيف الرأسي متعدد الألوان بطول الشاشة، والشدة ديناميكية = نسبة النهار
 - الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه (درس alpha7)
 - المدد: DRAIN=1040 HEAD=800 JIGGLE=1250 SWEEP=960 و EaseOutBack(0.34,1.56,0.64,1)
 
 السيناريو (بطلب المالك): مظلم → سحب لليمين (الأيقونة مع اليد، الفاتح خلفها
-وخط الضوء الحي عند الحدّ) → إمساك في المنتصف (نصف فاتح ونصف مظلم يفصل
-بينهما خط الضوء الساطع) → رفع عند 70% (تثبيت فاتح: المسح والمرسى يمين
+وتوهج الضوء الحي عند الحدّ) → إمساك في المنتصف (نصف فاتح ونصف مظلم يفصل
+بينهما التوهج الناعم بلا خط) → رفع عند 70% (تثبيت فاتح: المسح والمرسى يمين
 برجفة) → نقرة (عودة للظلام برحلة القمر).
 
 تخطيط alpha12 (بطلب المالك): المسار وحده أعلى الشاشة، المدينة ودبوسها وزر
@@ -176,16 +176,13 @@ def bridge_polygon(b, time):
     return pts
 
 
-# ===== نقل طبقات كوتلن حرفياً (alpha16: خط الضوء المنبعث من النهار نفسه) =====
-GLOW_OUTER_HALF = 8 * DENS    # نصف الهالة الخارجية (ThemeDialOverlay: 8.dp)
-GLOW_INNER_HALF = 3.5 * DENS  # نصف الهالة الداخلية (3.5.dp)
-CORE_HALF = 0.5 * DENS        # نصف الخيط الطيفي (0.5.dp = خط 1dp — أرفع بكثير من alpha15)
-GLOW_OUTER_PEAK = 0.16        # ذروة شفافية الهالة الخارجية الكهرمانية
-GLOW_INNER_PEAK = 0.30        # ذروة شفافية الهالة الداخلية
-CORE_ALPHA = 0.92             # شفافية الخيط عند أقصى شدة
-HALO_INNER = (255, 243, 210)  # Color(0xFFFFF3D2) — قلب التوهج الفاتح
-HALO_OUTER = (255, 207, 143)  # Color(0xFFFFCF8F) — انسكاب كهرماني ناعم
-# طيف الضوء النهاري — سبع وقفات بطول الشاشة (ThemeDialOverlay.beamSpectrum):
+# ===== نقل طبقات كوتلن حرفياً (alpha17: توهج خالص بلا خط) =====
+GLOW_OUTER_HALF = 15 * DENS   # نصف حقل التوهج (ThemeDialOverlay: 15.dp — عرض كلي 30dp بدل 16dp)
+GLOW_BELL = ((0.0, 0.72), (0.24, 0.44), (0.5, 0.20), (0.8, 0.06), (1.0, 0.0))
+                              # منحنى التلاشٍ الجرسّي حول الحدّ — نفس وقفات قناع
+                              # DstIn في كوتلن (u: .10/.25/.38/.50/.62/.75/.90)
+                              # والذروة 0.72 على الحدّ نفسه بلا أي خيط صلب
+# طيف التوهج النهاري — سبع وقفات بطول الشاشة (ThemeDialOverlay.beamSpectrum):
 # «متدرج بالوان كثيرة... كأن الوضع النهاري يضيء الليلي بسلاسة وشفافية»
 BEAM_SPECTRUM = [
     (0.00, (255, 223, 160)),  # ذهب الصباح
@@ -211,7 +208,7 @@ def beam_intensity(mask_x, screen_w):
 def edge_x(boundary):
     """حدّ الانقسام — مستقيم رأسي عند موضع الأيقونة، والمعاينة **قصّ صلب**
     (clipRect): الفاتح يسار الحدّ والمظلم يمينه دائماً بلا أي تدرج في القص،
-    وحدّ القص يعلوه خط الضوء الحي (هالة ضيقة + خط رفيع ساطع)."""
+    وحدّ القص يعلوه حقل توهج الضوء الحي الناعم بلا أي خط."""
     return boundary
 
 
@@ -381,39 +378,22 @@ def render_frame(state, t_sec):
         mask.putdata(bytes(buf))
         img.paste(ov, (0, 0), mask)
 
-    # ===== خط الضوء الحي على حدّ الانقسام — نفس طبقات كوتلن حرفياً (alpha16) =====
-    # خيط طيفي رفيع (1dp) بألوان كثيرة بطول الشاشة + هالتان ضيقتان شفافتان
-    # متماثلتان حول الحدّ — والشدة كلها ديناميكية = نسبة النهار على الشاشة:
+    # ===== توهج الضوء الحي على حدّ الانقسام — نفس حقل كوتلن حرفياً (alpha17) =====
+    # حقل توهج واحد ناعم بلا أي خط: الطيف الرأسي متعدد الألوان بطول الشاشة
+    # يُقنّع أفقياً بمنحنى تلاشٍ جرسّي متماثل حول الحدّ (نفس saveLayer + DstIn
+    # في كوتلن) — والشدة كلها ديناميكية = نسبة النهار على الشاشة:
     # تبدأ ضعيفة وتزداد مع السحب نحو الفاتح، وتبدأ عالية وتنحدر نحو المظلم
     if split:
         power = state['beam'] * beam_intensity(boundary, W)
         if power > 0.004:
-            # الهالتان — انسكاب الضوء الناعم حول الحدّ (خارجية ثم داخلية)
-            for half, peak, color in (
-                (GLOW_OUTER_HALF, GLOW_OUTER_PEAK, HALO_OUTER),
-                (GLOW_INNER_HALF, GLOW_INNER_PEAK, HALO_INNER),
-            ):
-                halo_mask = Image.new('L', (W, H), 0)
-                hbuf = bytearray(W * H)
-                hcol = bytearray(W * H * 3)
-                x0 = max(0, int(boundary - half))
-                x1 = min(W, int(boundary + half) + 1)
-                for y in range(H):
-                    base = y * W
-                    for x in range(x0, x1):
-                        # ثلاث وقفات متماثلة: خطّي صاعد وهابط حول الحدّ
-                        t = abs(x - boundary) / half
-                        if t < 1.0:
-                            aa = power * peak * (1.0 - t)
-                            if aa > 0:
-                                i3 = base * 3 + x * 3
-                                hbuf[base + x] = int(255 * aa)
-                                hcol[i3:i3 + 3] = bytes(color)
-                halo_mask.putdata(bytes(hbuf))
-                halo_img = Image.frombytes('RGB', (W, H), bytes(hcol))
-                img.paste(halo_img, (0, 0), halo_mask)
+            def bell(t):
+                """منحنى التلاشٍ الجرسّي — نفس وقفات قناع DstIn في كوتلن حرفياً."""
+                for (t0, a0), (t1, a1) in zip(GLOW_BELL, GLOW_BELL[1:]):
+                    if t <= t1:
+                        f = 0.0 if t1 == t0 else (t - t0) / (t1 - t0)
+                        return a0 + (a1 - a0) * f
+                return 0.0
 
-            # الخيط الطيفي — ألوان كثيرة من أعلى الشاشة لأسفلها (تدرج رأسي)
             def spectrum_at(y):
                 tt = y / max(1, H - 1)
                 for (s0, c0), (s1, c1) in zip(BEAM_SPECTRUM, BEAM_SPECTRUM[1:]):
@@ -422,21 +402,25 @@ def render_frame(state, t_sec):
                         return lerp_c(c0, c1, f)
                 return BEAM_SPECTRUM[-1][1]
 
-            cbuf = bytearray(W * H)
-            ccol = bytearray(W * H * 3)
-            cx0 = max(0, int(boundary - CORE_HALF))
-            cx1 = min(W, int(boundary + CORE_HALF) + 1)
+            gbuf = bytearray(W * H)
+            gcol = bytearray(W * H * 3)
+            x0 = max(0, int(boundary - GLOW_OUTER_HALF))
+            x1 = min(W, int(boundary + GLOW_OUTER_HALF) + 1)
             for y in range(H):
                 base = y * W
                 col = spectrum_at(y)
-                for x in range(cx0, cx1):
-                    i3 = base * 3 + x * 3
-                    cbuf[base + x] = int(255 * power * CORE_ALPHA)
-                    ccol[i3:i3 + 3] = bytes(col)
-            core_mask = Image.new('L', (W, H), 0)
-            core_mask.putdata(bytes(cbuf))
-            core_img = Image.frombytes('RGB', (W, H), bytes(ccol))
-            img.paste(core_img, (0, 0), core_mask)
+                for x in range(x0, x1):
+                    t = abs(x - boundary) / GLOW_OUTER_HALF
+                    if t < 1.0:
+                        aa = power * bell(t)
+                        if aa > 0:
+                            i3 = base * 3 + x * 3
+                            gbuf[base + x] = int(255 * aa)
+                            gcol[i3:i3 + 3] = bytes(col)
+            glow_mask = Image.new('L', (W, H), 0)
+            glow_mask.putdata(bytes(gbuf))
+            glow_img = Image.frombytes('RGB', (W, H), bytes(gcol))
+            img.paste(glow_img, (0, 0), glow_mask)
 
     # كبسولة المسار
     d.rounded_rectangle([TRACK_X, TRACK_TOP, TRACK_X + TRACK_W, TRACK_TOP + TRACK_H],
@@ -507,7 +491,7 @@ def build_timeline():
         st.update(split_active=True, overlay_is_light=True, mask_x=finger, beam=1.0,
                   head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=max(0.0, (finger - A_L) / (A_R - A_L)), dragging=True, energy=1.0)
-        st['label'] = 'سحب يمين = فاتح — الضوء المنبعث من النهار يزداد شدة مع السحب'
+        st['label'] = 'سحب يمين = فاتح — التوهج المنبعث من النهار يزداد شدة مع السحب'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 3) إمساك في المنتصف 1.0s — نصف فاتح ونصف مظلم
@@ -517,7 +501,7 @@ def build_timeline():
         st.update(split_active=True, overlay_is_light=True, mask_x=mid, beam=1.0,
                   head_x=mid, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=0.5, dragging=True, energy=1.0)
-        st['label'] = 'ممسوك في المنتصف: نص فاتح ونص مظلم يفصل بينهما خيط الضوء الطيفي (شدته = نسبة النهار على الشاشة)'
+        st['label'] = 'ممسوك في المنتصف: نص فاتح ونص مظلم يفصل بينهما حقل التوهج الطيفي بلا أي خط (شدته = نسبة النهار على الشاشة)'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 4) سحب لليمين حتى 70% خلال 0.6s
