@@ -58,7 +58,7 @@ class ThemeDialState {
     // مقاييس مرسلة من الواجهة بالبكسل
     var blobRadiusPx by mutableFloatStateOf(0f); private set
     var anchorPadPx by mutableFloatStateOf(0f); private set
-    /** نصف هالة خط الضوء بالبكسل — أوسع ما يُرسم حول حدّ الانقسام (سُمت المسح) */
+    /** نصف أوسع امتداد لرسم خط الضوء (الهالة الخارجية) بالبكسل — سُمت المسح */
     var edgeGlowPx by mutableFloatStateOf(0f); private set
 
     // ===== السائل الحي — نفس نمط الشريط السفلي =====
@@ -69,7 +69,12 @@ class ThemeDialState {
     val pulse = Animatable(1f)
     val jiggle = Animatable(0f)
     val maskX = Animatable(0f)
-    /** قوة التوهج الخافت 0..1 — يخفت مع الرجوع لمرسى البداية كي لا يُطفأ فجأة */
+    /**
+     * مرئية خط الضوء 0..1 — مضاعِف الظهور فقط. **شدة** الخط نفسها ديناميكية
+     * = نسبة النهار على الشاشة (ThemeDialMath.beamIntensity — توجيه المالك
+     * alpha16: تبدأ ضعيفة وتزداد مع السحب نحو الفاتح، والعكس نحو المظلم)،
+     * وهذه القيمة تبقي الانطفاء ناعماً عند رجوع السحب المرفوض كي لا يُقطع فجأة.
+     */
     val beam = Animatable(0f)
 
     // ===== أطوار المزلاج =====

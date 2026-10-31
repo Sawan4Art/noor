@@ -7,16 +7,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * اختبارات «مزلاج الشمس والقمر» — قواعد المالك حتى تعديل alpha15:
+ * اختبارات «مزلاج الشمس والقمر» — قواعد المالك حتى تعديل alpha16:
  * 1) يمين = فاتح، يسار = مظلم، والأيقونة مع اليد حرفياً.
  * 2) الانقسام: النصف الفاتح يسار الحدّ والمظلم يمينه — **قصّ صلب** بلا قناع
  *    (الآلية القديمة فشلت بصمت على جهاز المالك — بلاغ بلقطة شاشة)، والفصل
- *    **حاد وصريح** (توجيه المالك alpha15: «النصف الأيمن داكن بالكامل والأيسر
- *    فاتح بالكامل») وعلى الحدّ **خط ضوء رفيع ساطع** بهالة ضيقة مركّزة عليه
- *    حصرياً — لا حزام عريض ولا بؤرة.
+ *    **حاد وصريح** وعلى الحدّ خط ضوء رفيع بهالة ضيقة مركّزة عليه حصرياً.
  * 3) الرفع يحسم بالضفة التي عبرها، والنقرة تبدّل فوراً.
  * 4) الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه.
  * 5) المزلاج في الرئيسية فقط — لا أثر له في بقية الصفحات.
+ * 6) خط الضوء (alpha16): **شدة إضاءته ديناميكية = نسبة النهار على الشاشة** —
+ *    تبدأ ضعيفة وتزداد مع السحب نحو الفاتح حتى شدة النهار الكاملة، والعكس
+ *    نحو المظلم تبدأ عالية وتنحدر حتى الانطفاء تماماً («والعكس صحيح»).
  */
 class ThemeDialMathTest {
 
@@ -139,6 +140,65 @@ class ThemeDialMathTest {
         // مظلم: المرآة يساراً بنفس الامتداد (متناسب — «والعكس صحيح»)
         val endDark = ThemeDialMath.sweepTargetX(false, w, extent)
         assertTrue("بقايا توهج مظلم عند الطرف", endDark + extent <= 0f)
+    }
+
+    // ===== شدة الضوء المنبعث من النهار — توجيه المالك alpha16 =====
+
+    @Test
+    fun `شدة الضوء صفر في المظلم الكامل وكاملة في الفاتح الكامل`() {
+        val w = 1080f
+        assertEquals(0f, ThemeDialMath.beamIntensity(0f, w), 1e-5f)
+        // الحدّ مسوق خارج الشاشة — المظلم الكامل بلا أي بقايا ضوء
+        assertEquals(0f, ThemeDialMath.beamIntensity(-40f, w), 1e-5f)
+        // الفاتح الكامل: نفس شدة إضاءة الوضع النهاري حرفياً
+        assertEquals(1f, ThemeDialMath.beamIntensity(w, w), 1e-5f)
+        assertEquals(1f, ThemeDialMath.beamIntensity(w + 40f, w), 1e-5f)
+    }
+
+    @Test
+    fun `شدة الضوء تبدأ ضعيفة مرئية وتزداد مع كل بكسل سحب نحو الفاتح`() {
+        val w = 1080f
+        // بداية السحب من مرسى المظلم: ضعيفة لكنها تُرى — لا صفر ولا سطوع كامل
+        val start = ThemeDialMath.beamIntensity(54f, w)
+        assertTrue("البداية يجب أن تكون ضعيفة: $start", start < 0.45f)
+        assertTrue("البداية يجب أن تُرى: $start", start > 0.05f)
+        // النمو رتيب مع كل بكسل سحب حتى آخر الشاشة
+        var x = 54f
+        var prev = start
+        while (x < w) {
+            x += 30f
+            val cur = ThemeDialMath.beamIntensity(x, w)
+            assertTrue("الشدة يجب أن تزداد مع السحب عند x=$x", cur > prev)
+            prev = cur
+        }
+        assertEquals(1f, ThemeDialMath.beamIntensity(w, w), 1e-5f)
+    }
+
+    @Test
+    fun `شدة الضوء تبدأ عالية عند السحب نحو المظلم وتنحدر حتى الانطفاء`() {
+        val w = 1080f
+        // البداية من مرسى الفاتح: شديدة عالية
+        val start = ThemeDialMath.beamIntensity(1026f, w)
+        assertTrue("البداية من الفاتح يجب أن تكون عالية: $start", start > 0.9f)
+        // الانحدار رتيب نحو الصفر تماماً في النهاية
+        var x = 1026f
+        var prev = start
+        while (x > 0f) {
+            x -= 30f
+            val cur = ThemeDialMath.beamIntensity(x, w)
+            assertTrue("الشدة يجب أن تنحدر تدريجياً عند x=$x", cur < prev)
+            prev = cur
+        }
+        assertEquals(0f, ThemeDialMath.beamIntensity(0f, w), 1e-5f)
+    }
+
+    @Test
+    fun `شدة الضوء محصورة ومتينة على الحواف المتطرفة`() {
+        assertTrue(ThemeDialMath.beamIntensity(5000f, 1080f) <= 1f)
+        assertTrue(ThemeDialMath.beamIntensity(-5000f, 1080f) >= 0f)
+        // شاشة معدومة أو سالبة — صفر بلا استثناءات ولا قيم متلاعبة
+        assertEquals(0f, ThemeDialMath.beamIntensity(100f, 0f), 1e-5f)
+        assertEquals(0f, ThemeDialMath.beamIntensity(100f, -50f), 1e-5f)
     }
 
     // ===== متانة الحواف =====

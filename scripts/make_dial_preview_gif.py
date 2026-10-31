@@ -176,13 +176,36 @@ def bridge_polygon(b, time):
     return pts
 
 
-# ===== نقل طبقات كوتلن حرفياً (alpha15: خط ضوء حي على حدّ القص) =====
-GLOW_HALF = 7 * DENS        # نصف هالة الضوء (ThemeDialOverlay: 7.dp)
-CORE_HALF = 1.25 * DENS     # نصف الخط الرفيع الساطع (1.25.dp)
-GLOW_PEAK = 0.42            # ذروة شفافية الهالة عند الحدّ
-CORE_ALPHA = 0.95           # شفافية الخط الصلب
-EDGE_GLOW = (255, 233, 176) # Color(0xFFFFE9B0) — دفء شمسي
-EDGE_CORE = (255, 247, 224) # Color(0xFFFFF7E0) — ساطع محدد
+# ===== نقل طبقات كوتلن حرفياً (alpha16: خط الضوء المنبعث من النهار نفسه) =====
+GLOW_OUTER_HALF = 8 * DENS    # نصف الهالة الخارجية (ThemeDialOverlay: 8.dp)
+GLOW_INNER_HALF = 3.5 * DENS  # نصف الهالة الداخلية (3.5.dp)
+CORE_HALF = 0.5 * DENS        # نصف الخيط الطيفي (0.5.dp = خط 1dp — أرفع بكثير من alpha15)
+GLOW_OUTER_PEAK = 0.16        # ذروة شفافية الهالة الخارجية الكهرمانية
+GLOW_INNER_PEAK = 0.30        # ذروة شفافية الهالة الداخلية
+CORE_ALPHA = 0.92             # شفافية الخيط عند أقصى شدة
+HALO_INNER = (255, 243, 210)  # Color(0xFFFFF3D2) — قلب التوهج الفاتح
+HALO_OUTER = (255, 207, 143)  # Color(0xFFFFCF8F) — انسكاب كهرماني ناعم
+# طيف الضوء النهاري — سبع وقفات بطول الشاشة (ThemeDialOverlay.beamSpectrum):
+# «متدرج بالوان كثيرة... كأن الوضع النهاري يضيء الليلي بسلاسة وشفافية»
+BEAM_SPECTRUM = [
+    (0.00, (255, 223, 160)),  # ذهب الصباح
+    (0.16, (255, 241, 200)),  # كريمي دافئ
+    (0.34, (255, 255, 255)),  # القلب الساطع
+    (0.52, (255, 243, 206)),  # كريمي
+    (0.70, (255, 220, 150)),  # ذهبي
+    (0.86, (255, 192, 132)),  # كهرماني
+    (1.00, (255, 169, 124)),  # وردة الغروب
+]
+
+
+def beam_intensity(mask_x, screen_w):
+    """شدة الضوء المنبعث من النهار = نسبة النهار على الشاشة (توجيه alpha16).
+    نفس ThemeDialMath.beamIntensity حرفياً: جذر النسبة — يبدأ ضعيفاً مرئياً
+    من أول سحبة، 0 عند مظلم كامل و1 عند فاتح كامل، ينمو رتيباً مع السحب
+    نحو الفاتح وينحدر رتيباً حتى الانطفاء نحو المظلم («والعكس صحيح» بلا تفرّع)."""
+    if screen_w <= 0:
+        return 0.0
+    return math.sqrt(min(max(mask_x / screen_w, 0.0), 1.0))
 
 
 def edge_x(boundary):
@@ -358,43 +381,58 @@ def render_frame(state, t_sec):
         mask.putdata(bytes(buf))
         img.paste(ov, (0, 0), mask)
 
-    # ===== خط الضوء الحي على حدّ الانقسام — نفس طبقات كوتلن حرفياً =====
-    # هالة ضيقة بثلاث وقفات (صفر → ذروة → صفر) متماثلة حول الحدّ + خط صلب
-    # رفيع ساطع فوقها — الانتقال بضع بكسلات والتوهج مركّز حصرياً على حافة
-    # خط الحركة (توجيه المالك alpha15)
+    # ===== خط الضوء الحي على حدّ الانقسام — نفس طبقات كوتلن حرفياً (alpha16) =====
+    # خيط طيفي رفيع (1dp) بألوان كثيرة بطول الشاشة + هالتان ضيقتان شفافتان
+    # متماثلتان حول الحدّ — والشدة كلها ديناميكية = نسبة النهار على الشاشة:
+    # تبدأ ضعيفة وتزداد مع السحب نحو الفاتح، وتبدأ عالية وتنحدر نحو المظلم
     if split:
-        power = state['beam']
+        power = state['beam'] * beam_intensity(boundary, W)
         if power > 0.004:
-            glow_mask = Image.new('L', (W, H), 0)
-            gbuf = bytearray(W * H)
-            gcol = bytearray(W * H * 3)
-            x0 = max(0, int(boundary - GLOW_HALF))
-            x1 = min(W, int(boundary + GLOW_HALF) + 1)
-            for y in range(H):
-                base = y * W
-                for x in range(x0, x1):
-                    # ثلاث وقفات متماثلة: abs(x-حد)/نصف الهالة → خطّي صاعد وهابط
-                    t = abs(x - boundary) / GLOW_HALF
-                    if t < 1.0:
-                        aa = power * GLOW_PEAK * (1.0 - t)
-                        if aa > 0:
-                            i3 = base * 3 + x * 3
-                            gbuf[base + x] = int(255 * aa)
-                            gcol[i3:i3 + 3] = bytes(EDGE_GLOW)
-            glow_mask.putdata(bytes(gbuf))
-            glow_img = Image.frombytes('RGB', (W, H), bytes(gcol))
-            img.paste(glow_img, (0, 0), glow_mask)
-            # الخط الرفيع الساطع — صلب فوق الهالة (لا تدرج)
+            # الهالتان — انسكاب الضوء الناعم حول الحدّ (خارجية ثم داخلية)
+            for half, peak, color in (
+                (GLOW_OUTER_HALF, GLOW_OUTER_PEAK, HALO_OUTER),
+                (GLOW_INNER_HALF, GLOW_INNER_PEAK, HALO_INNER),
+            ):
+                halo_mask = Image.new('L', (W, H), 0)
+                hbuf = bytearray(W * H)
+                hcol = bytearray(W * H * 3)
+                x0 = max(0, int(boundary - half))
+                x1 = min(W, int(boundary + half) + 1)
+                for y in range(H):
+                    base = y * W
+                    for x in range(x0, x1):
+                        # ثلاث وقفات متماثلة: خطّي صاعد وهابط حول الحدّ
+                        t = abs(x - boundary) / half
+                        if t < 1.0:
+                            aa = power * peak * (1.0 - t)
+                            if aa > 0:
+                                i3 = base * 3 + x * 3
+                                hbuf[base + x] = int(255 * aa)
+                                hcol[i3:i3 + 3] = bytes(color)
+                halo_mask.putdata(bytes(hbuf))
+                halo_img = Image.frombytes('RGB', (W, H), bytes(hcol))
+                img.paste(halo_img, (0, 0), halo_mask)
+
+            # الخيط الطيفي — ألوان كثيرة من أعلى الشاشة لأسفلها (تدرج رأسي)
+            def spectrum_at(y):
+                tt = y / max(1, H - 1)
+                for (s0, c0), (s1, c1) in zip(BEAM_SPECTRUM, BEAM_SPECTRUM[1:]):
+                    if tt <= s1:
+                        f = 0.0 if s1 == s0 else (tt - s0) / (s1 - s0)
+                        return lerp_c(c0, c1, f)
+                return BEAM_SPECTRUM[-1][1]
+
             cbuf = bytearray(W * H)
             ccol = bytearray(W * H * 3)
             cx0 = max(0, int(boundary - CORE_HALF))
             cx1 = min(W, int(boundary + CORE_HALF) + 1)
             for y in range(H):
                 base = y * W
+                col = spectrum_at(y)
                 for x in range(cx0, cx1):
                     i3 = base * 3 + x * 3
                     cbuf[base + x] = int(255 * power * CORE_ALPHA)
-                    ccol[i3:i3 + 3] = bytes(EDGE_CORE)
+                    ccol[i3:i3 + 3] = bytes(col)
             core_mask = Image.new('L', (W, H), 0)
             core_mask.putdata(bytes(cbuf))
             core_img = Image.frombytes('RGB', (W, H), bytes(ccol))
@@ -469,7 +507,7 @@ def build_timeline():
         st.update(split_active=True, overlay_is_light=True, mask_x=finger, beam=1.0,
                   head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=max(0.0, (finger - A_L) / (A_R - A_L)), dragging=True, energy=1.0)
-        st['label'] = 'سحب يمين = فاتح — الفاتح يسار الحدّ وخط الضوء الحي عند الحدّ'
+        st['label'] = 'سحب يمين = فاتح — الضوء المنبعث من النهار يزداد شدة مع السحب'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 3) إمساك في المنتصف 1.0s — نصف فاتح ونصف مظلم
@@ -479,7 +517,7 @@ def build_timeline():
         st.update(split_active=True, overlay_is_light=True, mask_x=mid, beam=1.0,
                   head_x=mid, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=0.5, dragging=True, energy=1.0)
-        st['label'] = 'ممسوك في المنتصف: نص فاتح ونص مظلم يفصل بينهما خط ضوء ساطع'
+        st['label'] = 'ممسوك في المنتصف: نص فاتح ونص مظلم يفصل بينهما خيط الضوء الطيفي (شدته = نسبة النهار على الشاشة)'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 4) سحب لليمين حتى 70% خلال 0.6s
@@ -503,7 +541,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         frac = fast_out_slow_in(sweep_t)
-        end_b = W + GLOW_HALF  # sweepTargetX(true): الحد وخط ضوئه خارجا الشاشة
+        end_b = W + GLOW_OUTER_HALF  # sweepTargetX(true): الحد وخط ضوئه خارجا الشاشة
         start_b = lerp(A_L, A_R, 0.7)
         st.update(split_active=True, overlay_is_light=True,
                   mask_x=lerp(start_b, end_b, frac), beam=1.0,
@@ -530,7 +568,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         st.update(base_dark=False, split_active=True, overlay_is_light=False,
-                  mask_x=lerp(A_R, -GLOW_HALF, fast_out_slow_in(sweep_t)), beam=1.0,
+                  mask_x=lerp(A_R, -GLOW_OUTER_HALF, fast_out_slow_in(sweep_t)), beam=1.0,
                   head_x=lerp(A_R, A_L, ease_out_back(head_t)),
                   head_r=BLOB_R * (1 + 0.16 * max(0.0, 1 - abs(ft - HEAD_MS / 1000) / 0.35)),
                   tail_x=A_R, tail_r=BLOB_R * (1 - drain_t),
