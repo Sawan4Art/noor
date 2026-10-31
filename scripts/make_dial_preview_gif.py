@@ -6,10 +6,12 @@
 - addLiquidBlob (كاتمول-روم مغلق) + مسار الجسر بقبتيه
 - حدّ انقسام مستقيم رأسي **قصّ صلب** (clipRect — قرار alpha11 بعد فشل القناع
   بصمتاً على جهاز المالك)، والفصل **حاد وصريح** — النصفان كاملان بوضوح، وعلى
-  الحدّ **حقل توهج طيفي ناعم بلا أي خط** (توجيه المالك alpha17: «كبر عرض
-  الخط شويه وشيل الخط وخلّي التوهج فقط» — يلغي خيط alpha16 وهالته): عرض
-  كلي 30dp بمنحنى تلاشٍ جرسّي متماثل حول الحدّ (saveLayer + DstIn في كوتلن)،
-  الطيف الرأسي متعدد الألوان بطول الشاشة، والشدة ديناميكية = نسبة النهار
+  الحدّ **توهج من الجهة الخارجية وحدها** (توجيه المالك alpha18: «في خطين
+  صغيرين يمين ويسار الضوء... خلّي الضوء من جهة واحدة فقط وهي الجهة الخارجية
+  وكبّر مساحة تشتت الضوء شويه كمان» — يلغي التوهج المتماثل alpha17): النهار
+  مصدر الضوء فيضيء الليلي الخارج منه — انسكاق 28dp يمين الحدّ (الجهة المظلمة
+  الثابتة) ومنحنى يصل صفراً حقيقياً قبل الطرف (وقفات صفرية مزدوجة كيموت أي
+  خط هامشي)، والطيف الرأسي متعدد الألوان والشدة الديناميكية كما هما
 - الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه (درس alpha7)
 - المدد: DRAIN=1040 HEAD=800 JIGGLE=1250 SWEEP=960 و EaseOutBack(0.34,1.56,0.64,1)
 
@@ -176,12 +178,13 @@ def bridge_polygon(b, time):
     return pts
 
 
-# ===== نقل طبقات كوتلن حرفياً (alpha17: توهج خالص بلا خط) =====
-GLOW_OUTER_HALF = 15 * DENS   # نصف حقل التوهج (ThemeDialOverlay: 15.dp — عرض كلي 30dp بدل 16dp)
-GLOW_BELL = ((0.0, 0.72), (0.24, 0.44), (0.5, 0.20), (0.8, 0.06), (1.0, 0.0))
-                              # منحنى التلاشٍ الجرسّي حول الحدّ — نفس وقفات قناع
-                              # DstIn في كوتلن (u: .10/.25/.38/.50/.62/.75/.90)
-                              # والذروة 0.72 على الحدّ نفسه بلا أي خيط صلب
+# ===== نقل طبقات كوتلن حرفياً (alpha18: توهج من الجهة الخارجية وحدها) =====
+GLOW_SPREAD = 28 * DENS       # امتداد الانسكاق يمين الحدّ (ThemeDialOverlay: 28.dp — جهة واحدة كاملة)
+GLOW_DECAY = ((0.0, 0.72), (0.18, 0.44), (0.38, 0.22), (0.6, 0.09), (0.82, 0.025),
+              (0.94, 0.0), (1.0, 0.0))
+                              # منحنى الانسكاق من الحدّ (ذروة 0.72) نحو الخارج —
+                              # نفس وقفات قناع DstIn في كوتلن، والوقفات الصفرية
+                              # المزدوجة (0.94→1.0) كيموت أي خط هامشي على حرف الطبقة
 # طيف التوهج النهاري — سبع وقفات بطول الشاشة (ThemeDialOverlay.beamSpectrum):
 # «متدرج بالوان كثيرة... كأن الوضع النهاري يضيء الليلي بسلاسة وشفافية»
 BEAM_SPECTRUM = [
@@ -378,17 +381,17 @@ def render_frame(state, t_sec):
         mask.putdata(bytes(buf))
         img.paste(ov, (0, 0), mask)
 
-    # ===== توهج الضوء الحي على حدّ الانقسام — نفس حقل كوتلن حرفياً (alpha17) =====
-    # حقل توهج واحد ناعم بلا أي خط: الطيف الرأسي متعدد الألوان بطول الشاشة
-    # يُقنّع أفقياً بمنحنى تلاشٍ جرسّي متماثل حول الحدّ (نفس saveLayer + DstIn
-    # في كوتلن) — والشدة كلها ديناميكية = نسبة النهار على الشاشة:
+    # ===== توهج الضوء الحي على حدّ الانقسام — نفس حقل كوتلن حرفياً (alpha18) =====
+    # توهج من الجهة الخارجية وحدها (يمين الحدّ — الجهة المظلمة): الطيف الرأسي
+    # متعدد الألوان بطول الشاشة يُقنّع أفقياً بمنحنى انسكاق يصل صفراً حقيقياً
+    # قبل الطرف الخارجي — والشدة كلها ديناميكية = نسبة النهار على الشاشة:
     # تبدأ ضعيفة وتزداد مع السحب نحو الفاتح، وتبدأ عالية وتنحدر نحو المظلم
     if split:
         power = state['beam'] * beam_intensity(boundary, W)
         if power > 0.004:
-            def bell(t):
-                """منحنى التلاشٍ الجرسّي — نفس وقفات قناع DstIn في كوتلن حرفياً."""
-                for (t0, a0), (t1, a1) in zip(GLOW_BELL, GLOW_BELL[1:]):
+            def decay(t):
+                """منحنى الانسكاق من الحدّ نحو الخارج — وقفات DstIn في كوتلن حرفياً."""
+                for (t0, a0), (t1, a1) in zip(GLOW_DECAY, GLOW_DECAY[1:]):
                     if t <= t1:
                         f = 0.0 if t1 == t0 else (t - t0) / (t1 - t0)
                         return a0 + (a1 - a0) * f
@@ -404,15 +407,15 @@ def render_frame(state, t_sec):
 
             gbuf = bytearray(W * H)
             gcol = bytearray(W * H * 3)
-            x0 = max(0, int(boundary - GLOW_OUTER_HALF))
-            x1 = min(W, int(boundary + GLOW_OUTER_HALF) + 1)
+            x0 = max(0, int(boundary))
+            x1 = min(W, int(boundary + GLOW_SPREAD) + 1)
             for y in range(H):
                 base = y * W
                 col = spectrum_at(y)
                 for x in range(x0, x1):
-                    t = abs(x - boundary) / GLOW_OUTER_HALF
-                    if t < 1.0:
-                        aa = power * bell(t)
+                    t = (x - boundary) / GLOW_SPREAD
+                    if 0.0 <= t < 1.0:
+                        aa = power * decay(t)
                         if aa > 0:
                             i3 = base * 3 + x * 3
                             gbuf[base + x] = int(255 * aa)
@@ -501,7 +504,7 @@ def build_timeline():
         st.update(split_active=True, overlay_is_light=True, mask_x=mid, beam=1.0,
                   head_x=mid, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=0.5, dragging=True, energy=1.0)
-        st['label'] = 'ممسوك في المنتصف: نص فاتح ونص مظلم يفصل بينهما حقل التوهج الطيفي بلا أي خط (شدته = نسبة النهار على الشاشة)'
+        st['label'] = 'ممسوك في المنتصف: نص فاتح ونص مظلم والتوهج من الجهة الخارجية وحدها بلا أي خط (شدته = نسبة النهار على الشاشة)'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 4) سحب لليمين حتى 70% خلال 0.6s
@@ -525,7 +528,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         frac = fast_out_slow_in(sweep_t)
-        end_b = W + GLOW_OUTER_HALF  # sweepTargetX(true): الحد وخط ضوئه خارجا الشاشة
+        end_b = W + GLOW_SPREAD  # sweepTargetX(true): الحد وتوهجه الخارجي خارجا الشاشة
         start_b = lerp(A_L, A_R, 0.7)
         st.update(split_active=True, overlay_is_light=True,
                   mask_x=lerp(start_b, end_b, frac), beam=1.0,
@@ -552,7 +555,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         st.update(base_dark=False, split_active=True, overlay_is_light=False,
-                  mask_x=lerp(A_R, -GLOW_OUTER_HALF, fast_out_slow_in(sweep_t)), beam=1.0,
+                  mask_x=lerp(A_R, -GLOW_SPREAD, fast_out_slow_in(sweep_t)), beam=1.0,
                   head_x=lerp(A_R, A_L, ease_out_back(head_t)),
                   head_r=BLOB_R * (1 + 0.16 * max(0.0, 1 - abs(ft - HEAD_MS / 1000) / 0.35)),
                   tail_x=A_R, tail_r=BLOB_R * (1 - drain_t),

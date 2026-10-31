@@ -36,13 +36,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 import com.sawan4art.noor.domain.prayer.PrayerMath
 import com.sawan4art.noor.domain.prayer.PrayerTimes
+import com.sawan4art.noor.ui.theme.DialTrackLayout
 import com.sawan4art.noor.ui.theme.LocalNoorColors
 import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.util.Hijri
@@ -69,7 +68,6 @@ fun HomeScreen(
     state: HomeViewModel.HomeUiState,
     locating: Boolean,
     onDetectLocation: () -> Unit,
-    onDialPlaced: (Float, Float, Float, Float) -> Unit,
 ) {
     val zone = remember { ZoneId.systemDefault() }
     val now: ZonedDateTime = remember(state.nowMillis) {
@@ -93,10 +91,14 @@ fun HomeScreen(
     ) {
         Spacer(Modifier.height(8.dp))
         // مسار مزلاج الشمس/القمر — **الوحيد أعلى الشاشة** (بطلب المالك alpha12)
-        // والسائل نفسه يُرسم فوق الكل من الجذر
-        ThemeDialTrack(
-            onPlaced = onDialPlaced,
-            modifier = Modifier.padding(top = 4.dp),
+        // والسائل نفسه يُرسم فوق الكل من الجذر. درس alpha18: هذه **فجوة تخطيط
+        // فقط** بلا أي قياس — القياس من مسار ثابت على النافذة في ThemeDialOverlay
+        // (DialTrackLayout) كي لا يركب المزلاج انزلاق التبويب فيعلق في النص
+        Spacer(
+            Modifier
+                .padding(top = DialTrackLayout.SelfTopPad)
+                .fillMaxWidth()
+                .height(DialTrackLayout.Height),
         )
         Spacer(Modifier.height(4.dp))
         HeroCard(
@@ -192,26 +194,6 @@ private fun ReminderBadge(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * مسار مزلاج المظهر — فجوة محجوزة في الهيدر يُوضع فوقها السائل من الجذر.
- * لا ترسم شيئاً هنا؛ موقعها فقط هو ما يهم (بإحداثيات الجذر).
- */
-@Composable
-private fun ThemeDialTrack(
-    onPlaced: (Float, Float, Float, Float) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(46.dp)
-            .onGloballyPositioned { coords ->
-                val pos = coords.positionInRoot()
-                onPlaced(pos.x, pos.y, coords.size.width.toFloat(), coords.size.height.toFloat())
-            },
-    )
-}
-
 @Composable
 private fun HeroCard(
     next: com.sawan4art.noor.domain.prayer.NextPrayer,
@@ -299,8 +281,10 @@ private fun HeroCard(
 }
 
 /**
- * صف الموقع داخل بطاقة الهيرو تحت التواريخ — دبوس المدينة واسمها وزر
- * التحديد التلقائي بألوان بطاقة الهيرو نفسها (بطلب المالك alpha12).
+ * صف الموقع داخل بطاقة الهيرو تحت التواريخ — زر التحديد التلقائي بألوان
+ * بطاقة الهيرو نفسها. alpha18: دبوس الخرائط الذي كان يمين اسم الموقع أُزيل
+ * (توجيه المالك: «على يمين اسم الموقع في ايقونة الخرائط شيلها») — يكفي زر
+ * التحديد جهة اليسار.
  */
 @Composable
 private fun HeroLocationRow(
@@ -314,12 +298,6 @@ private fun HeroLocationRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(
-            Icons.Filled.LocationOn,
-            contentDescription = null,
-            tint = noorColors.heroMuted,
-            modifier = Modifier.size(14.dp),
-        )
         Text(
             text = city,
             style = MaterialTheme.typography.labelLarge,

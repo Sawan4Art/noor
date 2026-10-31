@@ -3,9 +3,15 @@ package com.sawan4art.noor.ui.theme
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -38,7 +44,9 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -65,17 +73,16 @@ import kotlin.math.roundToInt
  * الإصلاح: الطبقة ترسم فقط بلا أي قبضة لمس، والإيماءة على **صندوق يركب الأيقونة
  * وحدها** — الفراغ يمر للطبقات تحتيه طبيعياً، والانقسام لا يشتغل إلا بسحب فعلي.
  *
- * شكل الفاصل — توجيه المالك alpha17 (2026-10-31 ليلًا، بعد alpha16): «كبر عرض
- * الخط شويه وشيل الخط وخلّي التوهج فقط» — الفاصل لم يعد يضم أي خط خالص:
- * **حقل توهج واحد ناعم أعرض من قبل** (30dp بدل 16dp) لا حافة له ولا خيط —
- * طيف نهاري دافئ بسبع وقفات بطول الشاشة (ذهب الصباح ← قلب أبيض ساطع ←
- * ذهبي ← كهرماني ← وردة الغروب — روح alpha16 كما هي) يُقنّع أفقيّاً بتلاشٍ
- * جرسّي متماثل حول حدّ الانقسام (saveLayer + BlendMode.DstIn): أسطع نقطة
- * على الحدّ نفسه تتلاشى ناعمة في الاتجاهين — إضاءة خالصة لا جسم مرسوم.
- * شدة الإضاءة كلها **ديناميكية مع السحب** (ThemeDialMath.beamIntensity):
- * تبدأ خافتة وتزداد تدريجياً حتى شدة إضاءة النهار الكاملة لحظة غمر الشاشة،
- * والعكس نحو المظلم تبدأ عالية وتنحدر حتى الانطفاء. يُرسم فوق حدّ القص
- * فيُغطي أي ميز قطع بالمحتوى.
+ * شكل الفاصل — توجيه المالك alpha18 (2026-10-31 منتصف الليل، بعد alpha17):
+ * «في خطين صغيرين يمين ويسار الضوء... خلّي الضوء من جهة واحدة فقط وهي الجهة
+ * الخارجية وكبّر مساحة تشتت الضوء شويه كمان» — التوهج **من الجهة الخارجية
+ * وحدها**: النهار مصدر الضوء فيضيء الليلي الخارج منه — الحدّ نفسه (الجهة
+ * النهارية) بلا توهج، وكل الانسكاب في الجهة المظلمة يمين الحدّ دائماً
+ * (الاتجاه ثابت فيزيائياً: الفاتح يسار الحدّ والمظلم يمينه). التشتت أوسع
+ * (28dp بدل 30dp متماثلةً كانت تعطي 15dp لكل جهة — الآن جهة واحدة كاملة)،
+ * ومنحنى التلاشٍ يهبط حتى صفر حقيقي قبل الطرف الخارجي (وقفات صفرية
+ * مزدوجة 0.94→1.0) كيموت أي خط هامشي — علاج «الخطّين الصغيرين» الحاملين
+ * على حرف الطبقة. الطيف متعدد الألوان والشدة الديناميكية كما هما.
  *
  * الاتجاه داخلياً LTR دائماً — الرسم كله بإحداثيات فيزيائية مطلقة محصّنة من RTL.
  */
@@ -98,15 +105,15 @@ fun ThemeDialOverlay(
     val strokePx = with(density) { 1.dp.toPx() }
     val anchorPad = blobR * 1.6f
     val touchHalf = with(density) { 32.dp.toPx() } // هدف لمس 64dp يركب الأيقونة
-    // توهج الضوء الحي (alpha17): حقل توهج طيفي ناعم بلا خط — أعرض شويه من
-    // هالة alpha16 (30dp بدل 16dp). الامتداد يُمرر للمزلاج كي يُساق كل الرسم
-    // خارج الشاشة عند المسح دون أي بقايا توهج
-    val glowHalfOuter = with(density) { 15.dp.toPx() }
+    // توهج الضوء الحي (alpha18): من الجهة الخارجية وحدها (يمين الحدّ — الجهة
+    // المظلمة) بتشتت أوسع (28dp) ومنحنى يصل صفراً حقيقياً قبل الطرف الخارجي
+    // كيموت أي خط هامشي. الامتداد يُمرر للمزلاج كي يُساق كل الرسم خارج الشاشة
+    val glowSpread = with(density) { 28.dp.toPx() }
 
     SideEffect {
         dial.configure(
             dial.screenWidth, dial.screenHeight, blobR,
-            anchorPad, glowHalfOuter,
+            anchorPad, glowSpread,
         )
     }
 
@@ -115,8 +122,8 @@ fun ThemeDialOverlay(
         dial.syncTo(committedDark, scope)
     }
 
-    // انزلاق إحداثيات الجذر (عودة الرئيسية منزاحةً أثناء انتقال التبويب):
-    // الرأس يُلصق بمرساه كل إطار فلا يتخلف السائل عن كبسولته
+    // انزلاق إحداثيات الجذر (دوران أو تغيّر إنسِت): الرأس يُلصق بمرساه كل إطار
+    // — قياس المسار نفسه أصبح من النافذة لا من المحتوى المنزلق فلا انزلاق تبويب يعده
     LaunchedEffect(dial.trackLeft, dial.trackTop) {
         dial.followAnchors(currentCommittedDark)
     }
@@ -165,7 +172,7 @@ fun ThemeDialOverlay(
             .onSizeChanged {
                 dial.configure(
                     it.width.toFloat(), it.height.toFloat(), blobR,
-                    anchorPad, glowHalfOuter,
+                    anchorPad, glowSpread,
                 )
             }
             .drawBehind {
@@ -180,28 +187,24 @@ fun ThemeDialOverlay(
                 val p = ThemeDialMath.progress(headXv, dial.anchorLeft, dial.anchorRight)
 
                 // ===== 1) توهج الضوء الحي على حدّ الانقسام (تحت الكبسولة والسائل) =====
-                // توجيه المالك alpha17: «شيل الخط وخلّي التوهج فقط» — لا خيط
-                // ولا هالة منفصلة بعد اليوم: **حقل توهج واحد ناعم أعرض من
-                // قبل** (30dp). الطيف الرأسي متعدد الألوان (روح alpha16)
-                // يُقنّع أفقيّاً بتلاشٍ جرسّي متماثل حول الحدّ داخل طبقة
-                // معزولة (saveLayer + BlendMode.DstIn) — أسطع نقطة على الحدّ
-                // نفسه تتلاشى ناعمة في الاتجاهين بلا أي حافة ولا خيط صلب.
-                // الشدة ديناميكية = نسبة النهار على الشاشة (ThemeDialMath.
-                // beamIntensity): السحب نحو الفاتح يبدأ خافتاً ويزداد مع كل
-                // بكسل حتى شدة إضاءة النهار الكاملة لحظة الغمر، والسحب نحو
-                // المظلم يبدأ ساطعاً وينحدر حتى الانطفاء («والعكس صحيح»).
+                // توجيه المالك alpha18: «الضوء من جهة واحدة فقط وهي الجهة الخارجية
+                // وكبّر مساحة تشتت الضوء» — النهار مصدر الضوء فيضيء الليلي الخارج
+                // منه: لا توهج على الجهة النهارية (يسار الحدّ)، وكل الانسكاب يمين
+                // الحدّ (الجهة المظلمة — جهة ثابتة فيزيائياً). منحنى التلاشٍ يصل
+                // صفراً حقيقياً قبل الطرف الخارجي (وقفات صفرية مزدوجة) كيموت أي
+                // خط هامشي على حرف الطبقة. الشدة ديناميكية = نسبة النهار على
+                // الشاشة (ThemeDialMath.beamIntensity) بلا تفرّع («والعكس صحيح»).
                 if (dial.splitActive) {
                     val visibility = dial.beam.value
                     val dayLight = ThemeDialMath.beamIntensity(dial.maskX.value, dial.screenWidth)
                     val power = visibility * dayLight
                     if (power > 0.004f) {
                         val edgeX = dial.maskX.value
-                        val glowLeft = edgeX - glowHalfOuter
-                        val glowWidth = glowHalfOuter * 2f
+                        val glowWidth = glowSpread
                         val gradH = if (size.height > 1f) size.height else 1f
                         drawIntoCanvas { canvas ->
                             canvas.saveLayer(
-                                Rect(glowLeft, 0f, glowLeft + glowWidth, size.height),
+                                Rect(edgeX, 0f, edgeX + glowWidth, size.height),
                                 Paint(),
                             )
                             // الطيف الرأسي بألوان كثيرة بطول الشاشة — يُرسم
@@ -212,28 +215,26 @@ fun ThemeDialOverlay(
                                     startY = 0f,
                                     endY = gradH,
                                 ),
-                                topLeft = Offset(glowLeft, 0f),
+                                topLeft = Offset(edgeX, 0f),
                                 size = Size(glowWidth, size.height),
                             )
-                            // قناع التلاشٍ الأفقي — جرس ناعم متماثل حول الحدّ:
-                            // هذا ما يجعله «توهجاً فقط» بلا خط، فلا حافة صلبة
-                            // عند الطرفين ولا قلب خيطي عند المركز (DstIn يضرب
-                            // شفافية الطيف بمنحنى التلاشٍ)
+                            // قناع الانسكاق الأفقي — من الحدّ نفسه (ذروة) نحو
+                            // الخارج بتلاشٍ ناعم يصل صفراً حقيقياً عند 0.94
+                            // ويستمر صفراً حتى الطرف (وقفة مزدوجة كيموت أي
+                            // خط هامشي على حرف الطبقة)
                             drawRect(
                                 brush = Brush.horizontalGradient(
-                                    0.00f to Color.Black.copy(alpha = 0f),
-                                    0.10f to Color.Black.copy(alpha = 0.06f * power),
-                                    0.25f to Color.Black.copy(alpha = 0.20f * power),
-                                    0.38f to Color.Black.copy(alpha = 0.44f * power),
-                                    0.50f to Color.Black.copy(alpha = 0.72f * power),
-                                    0.62f to Color.Black.copy(alpha = 0.44f * power),
-                                    0.75f to Color.Black.copy(alpha = 0.20f * power),
-                                    0.90f to Color.Black.copy(alpha = 0.06f * power),
+                                    0.00f to Color.Black.copy(alpha = 0.72f * power),
+                                    0.18f to Color.Black.copy(alpha = 0.44f * power),
+                                    0.38f to Color.Black.copy(alpha = 0.22f * power),
+                                    0.60f to Color.Black.copy(alpha = 0.09f * power),
+                                    0.82f to Color.Black.copy(alpha = 0.025f * power),
+                                    0.94f to Color.Black.copy(alpha = 0f),
                                     1.00f to Color.Black.copy(alpha = 0f),
-                                    startX = glowLeft,
-                                    endX = glowLeft + glowWidth,
+                                    startX = edgeX,
+                                    endX = edgeX + glowWidth,
                                 ),
-                                topLeft = Offset(glowLeft, 0f),
+                                topLeft = Offset(edgeX, 0f),
                                 size = Size(glowWidth, size.height),
                                 blendMode = BlendMode.DstIn,
                             )
@@ -399,6 +400,43 @@ fun ThemeDialOverlay(
                     }
                 },
         )
+
+        // ===== مسار القياس المثبّت على النافذة (درس alpha18) =====
+        // علاج بلاغ المالك «أيقونة المظهر تتأثر بحركة التنقل السفلية وتعلق
+        // في النص وترجع تاني»: القياس القديم كان من عنصر داخل محتوى الرئيسية
+        // **المنزلق** أثناء انتقال التبويب فمسّم المرسى بإحداثيات متحركة ورحب
+        // الأيقونة مع الانزلاق. القياس الآن من هذا المسار اليتيم فوق كل شيء —
+        // ليس تحت أي انتقال لا يتحرك أبداً، وتخطيطه مطابق لتخطيط فجوة المسار
+        // في الرئيسية (DialTrackLayout — ثوابت مشتركة مصدر واحد للحقيقة)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(horizontal = DialTrackLayout.HorizontalPad),
+        ) {
+            Spacer(Modifier.height(DialTrackLayout.TopSpacer))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = DialTrackLayout.SelfTopPad)
+                    .height(DialTrackLayout.Height)
+                    .onGloballyPositioned { coords ->
+                        val pos = coords.positionInRoot()
+                        dial.placeTrack(
+                            pos.x, pos.y,
+                            coords.size.width.toFloat(), coords.size.height.toFloat(),
+                        )
+                    },
+            )
+        }
     }
     }
+}
+
+/** تخطيط فجوة مسار المزلاج — مصدر واحد لثوابت الرئيسية ومسار القياس المثبّت */
+object DialTrackLayout {
+    val HorizontalPad = 20.dp
+    val TopSpacer = 8.dp
+    val SelfTopPad = 4.dp
+    val Height = 46.dp
 }

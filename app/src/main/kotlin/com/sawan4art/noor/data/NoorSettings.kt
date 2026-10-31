@@ -30,6 +30,7 @@ data class UpdatePrefs(
 /**
  * إعدادات التطبيق — DataStore (الخليفة الحديث لـ SharedPreferences).
  * القيم الافتراضية: القاهرة (نفس المرجع) — أول تحديد موقع يستبدلها.
+ * accentId معرّف لون التطبيق (ui.theme.AccentPalette) — زمردي افتراضياً.
  */
 data class NoorSettingsState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -40,6 +41,8 @@ data class NoorSettingsState(
     val longitude: Double = 31.2357,
     /** هل حدد المستخدم موقعه بنفسه ولو مرة (لعرض زر التحديد كإجراء أول) */
     val locationResolved: Boolean = false,
+    /** لون التطبيق (مُعرّف من AccentPalette) — تغييره من الإعدادات (alpha18) */
+    val accentId: String = "emerald",
 )
 
 class SettingsRepository(private val context: Context) {
@@ -52,6 +55,7 @@ class SettingsRepository(private val context: Context) {
         val LAT = doublePreferencesKey("latitude")
         val LNG = doublePreferencesKey("longitude")
         val LOCATION_RESOLVED = booleanPreferencesKey("location_resolved")
+        val ACCENT = stringPreferencesKey("accent_color")
         val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check_at")
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
         val UPDATE_DISMISSED = stringPreferencesKey("update_dismissed_version")
@@ -67,7 +71,12 @@ class SettingsRepository(private val context: Context) {
             latitude = p[Keys.LAT] ?: 30.0444,
             longitude = p[Keys.LNG] ?: 31.2357,
             locationResolved = p[Keys.LOCATION_RESOLVED] ?: false,
+            accentId = p[Keys.ACCENT] ?: "emerald",
         )
+    }
+
+    suspend fun setAccentId(id: String) {
+        context.noorDataStore.edit { it[Keys.ACCENT] = id }
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {

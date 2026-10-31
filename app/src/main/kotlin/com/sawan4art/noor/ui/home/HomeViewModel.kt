@@ -7,6 +7,8 @@ import com.sawan4art.noor.data.NoorSettingsState
 import com.sawan4art.noor.data.SettingsRepository
 import com.sawan4art.noor.data.ThemeMode
 import com.sawan4art.noor.domain.location.CityGeocoder
+import com.sawan4art.noor.domain.location.LocationGate
+import com.sawan4art.noor.domain.location.LocationGateChecker
 import com.sawan4art.noor.domain.location.LocationSource
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,8 +57,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _locating = MutableStateFlow(false)
     val locating: StateFlow<Boolean> = _locating
 
+    /**
+     * رسالة بوابات الموقع (توجيه المالك alpha18) — كل بوابة مقفولة تُنهي
+     * الطلب فوراً برسالة عربية وإجراء فتح الإعدادات المناسب، بلا انتظار
+     * عقد المهلة القديم الذي كان يُقرأ لاجاً
+     */
+    private val _locationGate = MutableStateFlow<LocationGate?>(null)
+    val locationGate: StateFlow<LocationGate?> = _locationGate
+
+    fun dismissLocationGate() {
+        _locationGate.value = null
+    }
+
     fun detectLocation() {
         if (_locating.value) return
+        // البوابات أولاً — فحص رخيص فوري يمنع اللاج القديم (انتظار مهلة
+        // كاملة ثم محاولتا شبكة ثم سكوت بلا رسالة)
+        val gate = LocationGateChecker.check(getApplication())
+        if (gate.blocked) {
+            _locationGate.value = gate
+            return
+        }
         _locating.value = true
         viewModelScope.launch {
             try {
@@ -69,6 +90,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         geo.city
                     }
                     repository.setLocation(city, coords.first, coords.second)
+                } else {
+                    // البوابات مفتوحة والقراءة فشلت (مهلة الموقع انقضت) — رسالة عامة
+                    _locationGate.value = LocationGate.READING_FAILED
                 }
             } finally {
                 _locating.value = false
@@ -77,6 +101,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { repository.setThemeMode(mode) }
+
+    /** لون التطبيق الجديد من إعدادات الألوان (alpha18) */
+    fun setAccent(id: String) = viewModelScope.launch { repository.setAccentId(id) }
 
     fun setMethod(method: CalculationMethod) =
         viewModelScope.launch { repository.setMethod(method) }

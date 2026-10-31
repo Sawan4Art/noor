@@ -75,6 +75,8 @@ private val NightColors = darkColorScheme(
 @Composable
 fun NoorTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
+    /** لون التطبيق — من إعدادات الألوان الجديدة (alpha18: عشرة ألوان) */
+    accent: AccentColor = AccentPalette.default,
     content: @Composable () -> Unit,
 ) {
     val dark = when (themeMode) {
@@ -82,12 +84,25 @@ fun NoorTheme(
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    val scheme = if (dark) NightColors else DayColors
-    val noorColors = if (dark) {
-        NoorColors(NightHeroTop, NightHeroBottom, NightHeroContent, NightHeroMuted)
+    val set = if (dark) accent.night else accent.day
+    // الحياد (خلفيات/أسطح/حدود/ذهبي ثانوي) ثابت هوية — واللون يغذّي الأساسي
+    // والحاويات؛ بطاقة الهيرو كاملة من اللون المختار
+    val scheme = if (dark) {
+        NightColors.copy(
+            primary = set.primary,
+            onPrimary = set.onPrimary,
+            primaryContainer = set.primaryContainer,
+            onPrimaryContainer = set.onPrimaryContainer,
+        )
     } else {
-        NoorColors(DayHeroTop, DayHeroBottom, DayHeroContent, DayHeroMuted)
+        DayColors.copy(
+            primary = set.primary,
+            onPrimary = set.onPrimary,
+            primaryContainer = set.primaryContainer,
+            onPrimaryContainer = set.onPrimaryContainer,
+        )
     }
+    val noorColors = NoorColors(set.heroTop, set.heroBottom, set.heroContent, set.heroMuted)
 
     CompositionLocalProvider(LocalNoorColors provides noorColors) {
         MaterialTheme(

@@ -1,6 +1,7 @@
 package com.sawan4art.noor.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,8 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -22,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,14 +36,16 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.sawan4art.noor.BuildConfig
 import com.sawan4art.noor.data.NoorSettingsState
-import com.sawan4art.noor.data.ThemeMode
 import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.domain.prayer.CalculationMethod
+import com.sawan4art.noor.ui.theme.AccentPalette
 import java.util.Locale
 
 /**
- * إعدادات المرحلة الأولى: الموقع + طريقة الحساب + مذهب العصر + المظهر + التحديثات.
+ * إعدادات المرحلة الأولى: الموقع + طريقة الحساب + مذهب العصر + ألوان التطبيق + التحديثات.
  * صارت تبويبًا في الشريط الزجاجي — زر الرجوع لم يعد له معنى.
+ * alpha18: إعداد المظهر أُزيل (المزلاج في الرئيسية هو المتحكم بالوضعين
+ * بطلب المالك) ومحله بطاقة ألوان التطبيق الجديدة بعشرة ألوان.
  */
 @Composable
 fun SettingsScreen(
@@ -47,7 +54,7 @@ fun SettingsScreen(
     onDetectLocation: () -> Unit,
     onSetMethod: (CalculationMethod) -> Unit,
     onSetHanafi: (Boolean) -> Unit,
-    onSetThemeMode: (ThemeMode) -> Unit,
+    onSetAccent: (String) -> Unit,
     updateState: UpdateUiState,
     onCheckUpdates: () -> Unit,
     onInstallUpdate: () -> Unit,
@@ -144,24 +151,8 @@ fun SettingsScreen(
             }
         }
 
-        SettingsCard(title = "المظهر") {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ThemeButton(
-                    label = "النظام",
-                    selected = settings.themeMode == ThemeMode.SYSTEM,
-                    modifier = Modifier.weight(1f),
-                ) { onSetThemeMode(ThemeMode.SYSTEM) }
-                ThemeButton(
-                    label = "نهاري",
-                    selected = settings.themeMode == ThemeMode.LIGHT,
-                    modifier = Modifier.weight(1f),
-                ) { onSetThemeMode(ThemeMode.LIGHT) }
-                ThemeButton(
-                    label = "ليلي",
-                    selected = settings.themeMode == ThemeMode.DARK,
-                    modifier = Modifier.weight(1f),
-                ) { onSetThemeMode(ThemeMode.DARK) }
-            }
+        SettingsCard(title = "ألوان التطبيق") {
+            AccentGrid(selectedId = settings.accentId, onPick = onSetAccent)
         }
 
         UpdatesCard(
@@ -297,23 +288,53 @@ private fun updateStatusText(state: UpdateUiState): String = when (state) {
     is UpdateUiState.UpToDate -> "أنت على أحدث نسخة — لا يوجد تحديث جديد"
 }
 
+/**
+ * شبكة الألوان العشرة — صفّان بخمس دوائر في الصف، دائرة لكل لون
+ * بلونه النهاري واسمه عربياً تحته، والمختار بإطار مميز (توجيه المالك alpha18).
+ */
 @Composable
-private fun ThemeButton(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun AccentGrid(selectedId: String, onPick: (String) -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    androidx.compose.material3.Surface(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        color = if (selected) scheme.secondaryContainer else scheme.surfaceVariant,
-        contentColor = if (selected) scheme.onSecondaryContainer else scheme.onSurfaceVariant,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp),
-        )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        AccentPalette.All.chunked(5).forEach { rowAccents ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                rowAccents.forEach { accent ->
+                    val selected = accent.id == selectedId
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Surface(
+                            onClick = { onPick(accent.id) },
+                            shape = CircleShape,
+                            color = accent.day.primary,
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = if (selected) 2.5.dp else 1.dp,
+                                color = if (selected) scheme.secondary else scheme.outline.copy(alpha = 0.35f),
+                            ),
+                            modifier = Modifier.size(38.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                if (selected) {
+                                    Icon(
+                                        Icons.Filled.Check,
+                                        contentDescription = null,
+                                        tint = accent.day.onPrimary,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = accent.arabicName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (selected) scheme.secondary else scheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
     }
 }

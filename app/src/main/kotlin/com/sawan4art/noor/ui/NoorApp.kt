@@ -11,8 +11,11 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -24,18 +27,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sawan4art.noor.data.ThemeMode
 import com.sawan4art.noor.data.update.UpdateManager
 import com.sawan4art.noor.data.update.UpdateUiState
+import com.sawan4art.noor.domain.location.LocationGate
 import com.sawan4art.noor.ui.home.HomeScreen
 import com.sawan4art.noor.ui.home.HomeViewModel
 import com.sawan4art.noor.ui.nav.LiquidNavScaffold
 import com.sawan4art.noor.ui.nav.NoorTab
 import com.sawan4art.noor.ui.sections.ComingSoonScreen
 import com.sawan4art.noor.ui.settings.SettingsScreen
+import com.sawan4art.noor.ui.theme.AccentPalette
 import com.sawan4art.noor.ui.theme.NoorTheme
 import com.sawan4art.noor.ui.theme.ThemeDialOverlay
 import com.sawan4art.noor.ui.theme.ThemeDialState
@@ -68,17 +74,18 @@ fun NoorApp(viewModel: HomeViewModel) {
     val commitThemeFromDial: (Boolean) -> Unit = { light ->
         viewModel.setThemeMode(if (light) ThemeMode.LIGHT else ThemeMode.DARK)
     }
-    // كتابة إحداثيات المسار من الرئيسية **الحاضرة** فقط — الصفحة المغادرة
-    // أثناء انزلاق التبويب تُبلّغ بمواضع منزلقة تسمّم المرسى فيُرسم السائل
-    // منزاحاً وترجع الأيقونة «معلقة في النص» عند العودة (بلاغ المالك alpha13)
-    val placeDialTrack: (Float, Float, Float, Float) -> Unit = { l, t, w, h ->
-        if (tab == NoorTab.PRAYER) dial.placeTrack(l, t, w, h)
+    // لون التطبيق المختار من الإعدادات (alpha18) — يغذّي الثيمات الثلاث كلها
+    val accent = remember(uiState.settings.accentId) {
+        AccentPalette.byId(uiState.settings.accentId)
     }
+    // بوابات الموقع — حوار الرسالة مع إجراء فتح الإعدادات المناسب (alpha18)
+    val locationGate by viewModel.locationGate.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     CompositionLocalProvider(LocalLayoutDirection provides AppDirection) {
         Box(modifier = Modifier.fillMaxSize()) {
             // ===== الطبقة الأساسية — الثيم المثبت =====
-            NoorTheme(themeMode = uiState.settings.themeMode) {
+            NoorTheme(themeMode = uiState.settings.themeMode, accent = accent) {
                 NoorBody(
                     tab = tab,
                     onTab = { tab = it },
@@ -87,14 +94,13 @@ fun NoorApp(viewModel: HomeViewModel) {
                     onDetectLocation = viewModel::detectLocation,
                     onSetMethod = viewModel::setMethod,
                     onSetHanafi = viewModel::setHanafi,
-                    onSetThemeMode = viewModel::setThemeMode,
+                    onSetAccent = viewModel::setAccent,
                     updateState = updateState,
                     onCheckUpdates = UpdateManager::checkNow,
                     onInstallUpdate = {
                         (updateState as? UpdateUiState.ReadyToInstall)
                             ?.let { UpdateManager.installApk(it.apk) }
                     },
-                    onDialPlaced = placeDialTrack,
                 )
             }
 
@@ -108,6 +114,7 @@ fun NoorApp(viewModel: HomeViewModel) {
             if (onHome && dial.splitActive) {
                 NoorTheme(
                     themeMode = if (dial.overlayIsLight) ThemeMode.LIGHT else ThemeMode.DARK,
+                    accent = accent,
                 ) {
                     Box(
                         modifier = Modifier
@@ -132,14 +139,13 @@ fun NoorApp(viewModel: HomeViewModel) {
                             onDetectLocation = viewModel::detectLocation,
                             onSetMethod = viewModel::setMethod,
                             onSetHanafi = viewModel::setHanafi,
-                            onSetThemeMode = viewModel::setThemeMode,
+                            onSetAccent = viewModel::setAccent,
                             updateState = updateState,
                             onCheckUpdates = UpdateManager::checkNow,
                             onInstallUpdate = {
                                 (updateState as? UpdateUiState.ReadyToInstall)
                                     ?.let { UpdateManager.installApk(it.apk) }
                             },
-                            onDialPlaced = placeDialTrack,
                         )
                     }
                 }
@@ -148,7 +154,7 @@ fun NoorApp(viewModel: HomeViewModel) {
             // ===== المزلاج فوق كل شيء — السائل والتوهج الخافت والأيقونة والإيماءة =====
             // في الرئيسية فقط (بطلب المالك) — بقية الصفحات بلا أيقونة ولا طبقة
             if (onHome) {
-                NoorTheme(themeMode = uiState.settings.themeMode) {
+                NoorTheme(themeMode = uiState.settings.themeMode, accent = accent) {
                     ThemeDialOverlay(
                         dial = dial,
                         committedDark = darkTheme,
@@ -201,6 +207,49 @@ fun NoorApp(viewModel: HomeViewModel) {
             onRetry = UpdateManager::startDownload,
         )
     }
+
+    // حوار بوابات الموقع (توجيه المالك alpha18): «لا تظهر رسالة تفيد بتفعيل
+    // الموقع والانترنت» — الرسالة الآن إلزامية على كل بوابة مقفولة، مع زر
+    // يفتح الإعدادات المناسبة مباشرة، وزر إغلاق دائم
+    locationGate?.let { gate ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissLocationGate,
+            title = { Text("تحديد الموقع") },
+            text = { Text(gate.message.orEmpty()) },
+            confirmButton = {
+                if (gate.action != LocationGate.Action.NONE) {
+                    TextButton(
+                        onClick = {
+                            viewModel.dismissLocationGate()
+                            // فشل فتح الإعدادات على أجهزة غريبة لا يكسر التطبيق
+                            runCatching {
+                                val intent = when (gate.action) {
+                                    LocationGate.Action.OPEN_APP_SETTINGS ->
+                                        android.content.Intent(
+                                            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                            android.net.Uri.fromParts("package", context.packageName, null),
+                                        )
+                                    LocationGate.Action.OPEN_LOCATION_SETTINGS ->
+                                        android.content.Intent(
+                                            android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS,
+                                        )
+                                    LocationGate.Action.OPEN_INTERNET_SETTINGS ->
+                                        android.content.Intent(
+                                            android.provider.Settings.ACTION_WIRELESS_SETTINGS,
+                                        )
+                                    LocationGate.Action.NONE -> null
+                                }?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                intent?.let(context::startActivity)
+                            }
+                        },
+                    ) { Text(gate.actionLabel) }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissLocationGate) { Text("حسناً") }
+            },
+        )
+    }
 }
 
 /**
@@ -217,11 +266,10 @@ private fun NoorBody(
     onDetectLocation: () -> Unit,
     onSetMethod: (com.sawan4art.noor.domain.prayer.CalculationMethod) -> Unit,
     onSetHanafi: (Boolean) -> Unit,
-    onSetThemeMode: (ThemeMode) -> Unit,
+    onSetAccent: (String) -> Unit,
     updateState: UpdateUiState,
     onCheckUpdates: () -> Unit,
     onInstallUpdate: () -> Unit,
-    onDialPlaced: (Float, Float, Float, Float) -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -251,7 +299,6 @@ private fun NoorBody(
                         state = uiState,
                         locating = locating,
                         onDetectLocation = onDetectLocation,
-                        onDialPlaced = onDialPlaced,
                     )
                     NoorTab.SETTINGS -> SettingsScreen(
                         settings = uiState.settings,
@@ -259,7 +306,7 @@ private fun NoorBody(
                         onDetectLocation = onDetectLocation,
                         onSetMethod = onSetMethod,
                         onSetHanafi = onSetHanafi,
-                        onSetThemeMode = onSetThemeMode,
+                        onSetAccent = onSetAccent,
                         updateState = updateState,
                         onCheckUpdates = onCheckUpdates,
                         onInstallUpdate = onInstallUpdate,

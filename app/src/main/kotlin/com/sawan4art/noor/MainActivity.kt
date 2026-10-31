@@ -1,6 +1,7 @@
 package com.sawan4art.noor
 
 import android.Manifest
+import android.app.AlarmManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -21,6 +22,15 @@ class MainActivity : ComponentActivity() {
      * الأذونات تُطلب في حوارات منفصلة بالتتابع — درس v0.4.2:
      * الطلب المجمّع يجعل بعض الأجهزة تعرض حوار الموقع فقط وتُسقط الباقي صامتاً.
      * والموقع أولاً ثم الإشعارات، والممنوح يُتخطى تلقائياً.
+     *
+     * السلسلة الكاملة (توجيه المالك alpha18: «في اذونات لازمه اخرى لعمل
+     * التطبيق بشكل صحيح»):
+     * 1) الموقع الدقيق + التقريبي — المواقيت والقبلة.
+     * 2) الإشعارات (33+) — تنبيهات التحديث وما سيأتي من الأذان والأذكار.
+     * 3) المنبهات الدقيقة (31-32) — مواعيد الأذان بالثانية؛ على 33+
+     *    USE_EXACT_ALARM ممنوح تلقائياً فلا خطوة.
+     * أما بقية الأذونات في المانيفست (الإنترنت، الاهتزاز، الاستيقاظ،
+     * الإقلاع، تثبيت التحديث) فممنوحة تلقائياً بلا حوار نظام.
      */
     private val permissionQueue = ArrayDeque<List<String>>()
     private var permissionFlowStarted = false
@@ -32,6 +42,11 @@ class MainActivity : ComponentActivity() {
         // يمرّ صامتاً فوراً فتنهي السلسلة بالحالة الفعلية.
         launchNextPermissionGroup()
     }
+
+    /** خطوة المنبهات الدقيقة: شاشة النظام (لا حوار إذن قياسي على 31-32) */
+    private val exactAlarmLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { /* إعادة الجدولة تُسأل عند الحاجة الفعلية للأذان — لا حاجة للنتيجة */ }
 
     private fun enqueueMissingPermissions() {
         val fine = Manifest.permission.ACCESS_FINE_LOCATION
@@ -51,6 +66,22 @@ class MainActivity : ComponentActivity() {
     private fun launchNextPermissionGroup() {
         permissionQueue.removeFirstOrNull()?.let { group ->
             permissionLauncher.launch(group.toTypedArray())
+            return
+        }
+        // الطابور فاضى — الخطوة الأخيرة: المنبهات الدقيقة على 31-32 فقط
+        maybeRequestExactAlarm()
+    }
+
+    private fun maybeRequestExactAlarm() {
+        if (Build.VERSION.SDK_INT !in 31..32) return // 33+ ممنوح تلقائياً بـ USE_EXACT_ALARM
+        val alarm = getSystemService(ALARM_SERVICE) as? AlarmManager ?: return
+        val canSchedule = runCatching { alarm.canScheduleExactAlarms() }.getOrDefault(true)
+        if (!canSchedule) {
+            runCatching {
+                exactAlarmLauncher.launch(
+                    Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM),
+                )
+            } // جهاز لا يعرّف الشاشة — الأذان يُجدول تقريبياً ولن يكسر شيئاً
         }
     }
 
