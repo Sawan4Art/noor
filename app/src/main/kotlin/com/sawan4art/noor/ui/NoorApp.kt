@@ -68,8 +68,11 @@ fun NoorApp(viewModel: HomeViewModel) {
     val commitThemeFromDial: (Boolean) -> Unit = { light ->
         viewModel.setThemeMode(if (light) ThemeMode.LIGHT else ThemeMode.DARK)
     }
+    // كتابة إحداثيات المسار من الرئيسية **الحاضرة** فقط — الصفحة المغادرة
+    // أثناء انزلاق التبويب تُبلّغ بمواضع منزلقة تسمّم المرسى فيُرسم السائل
+    // منزاحاً وترجع الأيقونة «معلقة في النص» عند العودة (بلاغ المالك alpha13)
     val placeDialTrack: (Float, Float, Float, Float) -> Unit = { l, t, w, h ->
-        dial.placeTrack(l, t, w, h)
+        if (tab == NoorTab.PRAYER) dial.placeTrack(l, t, w, h)
     }
 
     CompositionLocalProvider(LocalLayoutDirection provides AppDirection) {
@@ -100,7 +103,7 @@ fun NoorApp(viewModel: HomeViewModel) {
             // يظهر على جهازه قط) — آلية القناع القديمة (Offscreen + DstIn بشرائح
             // ريشية) تفشل بصمت على بعض معالجات الرسوميات فتُخفي المعاينة كاملة.
             // clipRect عمل قصّ أساسي مستحيل الفشل: الفاتح يسار الحدّ والمظلم
-            // يمينه دائماً، وحدّ القص يخفيه شعاع الكشاف المرسوم في المزلاج فوقه.
+            // يمينه دائماً، وحدّ القص يُذيبه التوهج الخافت المرسوم في المزلاج فوقه.
             if (onHome && dial.splitActive) {
                 NoorTheme(
                     themeMode = if (dial.overlayIsLight) ThemeMode.LIGHT else ThemeMode.DARK,
@@ -141,7 +144,7 @@ fun NoorApp(viewModel: HomeViewModel) {
                 }
             }
 
-            // ===== المزلاج فوق كل شيء — السائل والتوهج والأيقونة والإيماءة =====
+            // ===== المزلاج فوق كل شيء — السائل والتوهج الخافت والأيقونة والإيماءة =====
             // في الرئيسية فقط (بطلب المالك) — بقية الصفحات بلا أيقونة ولا طبقة
             if (onHome) {
                 NoorTheme(themeMode = uiState.settings.themeMode) {
@@ -159,8 +162,10 @@ fun NoorApp(viewModel: HomeViewModel) {
         tab = NoorTab.PRAYER
     }
 
-    // مغادرة الرئيسية تُحبط أي سحب أو رحلة معلّقة — الطبقة أُزيلت فنطاقها مات
-    // وأنيميشناتها أُلغيت؛ هنا تُنظّف الحالة كي لا يعود المزلاج عالقاً عند العودة
+    // مغادرة الرئيسية (أو تغيّر الثيم بعيداً عنها) تُطبّع حالة المزلاج كاملة —
+    // الطبقة أُزيلت فنطاقها مات وأنيميشناتها أُلغيت؛ التطبيع **بلا شرط** (درس
+    // alpha13: الإحباط المشروط كان يترك عالقاً خارج شرطه فترجع الأيقونة
+    // «معلقة في النص») — كي تعود الرئيسية نظيفة عند العودة دائماً
     LaunchedEffect(tab, darkTheme) {
         if (tab != NoorTab.PRAYER) dial.abort(darkTheme)
     }

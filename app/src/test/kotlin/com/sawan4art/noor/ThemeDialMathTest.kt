@@ -7,11 +7,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * اختبارات «مزلاج الشمس والقمر» — قواعد المالك حتى تعديل 2026-10-31 عصراً (alpha11):
+ * اختبارات «مزلاج الشمس والقمر» — قواعد المالك حتى تعديل alpha13:
  * 1) يمين = فاتح، يسار = مظلم، والأيقونة مع اليد حرفياً.
  * 2) الانقسام: النصف الفاتح يسار الحدّ والمظلم يمينه — **قصّ صلب** بلا قناع
  *    (الآلية القديمة فشلت بصمت على جهاز المالك — بلاغ بلقطة شاشة)، وعلى الحدّ
- *    **شعاع كشاف**: «بلور جامد زي ضوء كشاف ينير جزءاً ويترك جزءاً منفصلاً».
+ *    **توهج خافت**: «الوضع الفاتح يبان كأنه ضوءه باهت على الوضع المظلم
+ *    والعكس صحيح — ليس شعاع نور مستقيم وواضح» (كلام المالك alpha13).
  * 3) الرفع يحسم بالضفة التي عبرها، والنقرة تبدّل فوراً.
  * 4) الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه.
  * 5) المزلاج في الرئيسية فقط — لا أثر له في بقية الصفحات.
@@ -115,18 +116,19 @@ class ThemeDialMathTest {
         }
     }
 
-    // ===== شعاع الكشاف — عقد المالك alpha11: ينير جزءاً ويترك جزءاً منفصلاً =====
+    // ===== التوهج الخافت — عقد المالك alpha13: نور باهت ينساب لا شعاع مستقيم =====
 
     @Test
-    fun `سقوط الكشاف أطول في المضيء وأقصر في المظلم والنواة داخل السقوط`() {
-        // «ينير جزءاً ويترك جزءاً منفصلاً» — الهالة تغسل النصف الفاتح طويلاً
-        // وتترك المظلم قصيراً، والنواة الحارّة (كاشف الحدّ) أصغر منهما
+    fun `انسياب التوهج أطول في الجهة المنارة وأقصر في جهة الهدف وبحدود خافتة`() {
+        // «الجزء المنور يبينر الجزء المظلم بنور خافت» — الانسياب الأطول للجهة
+        // التي يقعل عليها نور الهدف، وأقصره في جهة الهدف كي لا يُغسل لونها
         assertTrue(
-            "سقوط المضيء ${ThemeDialMath.BEAM_LIT_FALL_DP} قصير جداً",
-            ThemeDialMath.BEAM_LIT_FALL_DP > ThemeDialMath.BEAM_DARK_FALL_DP,
+            "انسياب الجهة المُنارة ${ThemeDialMath.GLOW_OUT_DP} قصير جداً",
+            ThemeDialMath.GLOW_OUT_DP > ThemeDialMath.GLOW_IN_DP,
         )
-        assertTrue("النواة أكبر من الهالة", ThemeDialMath.BEAM_CORE_LIT_DP < ThemeDialMath.BEAM_LIT_FALL_DP)
-        assertTrue("النواة المظلمة أكبر من هالتها", ThemeDialMath.BEAM_CORE_DARK_DP < ThemeDialMath.BEAM_DARK_FALL_DP)
+        // التوهج خافت: انسيابه محدود العرض كي لا يُقرأ شعاعاً مستقيماً عريضاً
+        assertTrue("التوهج يجب أن يبقى ضيقاً لا شعاعاً عريضاً", ThemeDialMath.GLOW_OUT_DP <= 200f)
+        assertTrue("لا انسياب معدوم في جهة الهدف", ThemeDialMath.GLOW_IN_DP >= 24f)
     }
 
     @Test
@@ -138,31 +140,30 @@ class ThemeDialMathTest {
         assertTrue(ThemeDialMath.commitLight(w / 2f, anchorLeft, anchorRight))
     }
 
-    // ===== هدف المسح — الحد وشعاعه يغادران الشاشة كليا بلا بقايا =====
+    // ===== هدف المسح — الحد وتوهجه يغادران الشاشة كليا بلا بقايا =====
 
     @Test
-    fun `التثبيت الفاتح يساق الحد وشعاعه خارج الحافة والعكس يسارا`() {
+    fun `التثبيت الفاتح يساق الحد وتوهجه خارج الحافة والعكس يسارا`() {
         val w = 1080f
-        val litFall = 412f // BEAM_LIT_FALL_DP بكسل تقريبا
-        val darkFall = 248f
-        // فاتح: الحد عند w+سقوط_المضيء — الشعاع بكامل سقوطه خلفه خارج الشاشة
-        val endLight = ThemeDialMath.sweepTargetX(true, w, litFall, darkFall)
-        assertTrue("بقايا شعاع فاتح عند الطرف", endLight - litFall >= w)
-        // مظلم: المرآة يساراً بسقوط الجهة المظلمة
-        val endDark = ThemeDialMath.sweepTargetX(false, w, litFall, darkFall)
-        assertTrue("بقايا شعاع مظلم عند الطرف", endDark + darkFall <= 0f)
+        val glowOut = 330f // GLOW_OUT_DP بكسلاً تقريباً
+        // فاتح: الحد عند w+انسياب_المُنارة — التوهج بكامل انسيابه خلفه خارج الشاشة
+        val endLight = ThemeDialMath.sweepTargetX(true, w, glowOut)
+        assertTrue("بقايا توهج فاتح عند الطرف", endLight - glowOut >= w)
+        // مظلم: المرآة يساراً بنفس الانسياب (متناسب — «والعكس صحيح»)
+        val endDark = ThemeDialMath.sweepTargetX(false, w, glowOut)
+        assertTrue("بقايا توهج مظلم عند الطرف", endDark + glowOut <= 0f)
     }
 
     // ===== متانة الحواف =====
 
     @Test
     fun `هدف المسح لا ينهار على حواف متطرفة`() {
-        // سقوط معدوم ومسار معدوم — لا استثناءات ولا قيم متلاعبة
-        val zeroLight = ThemeDialMath.sweepTargetX(true, 0f, 0f, 0f)
+        // انسياب معدوم ومسار معدوم — لا استثناءات ولا قيم متلاعبة
+        val zeroLight = ThemeDialMath.sweepTargetX(true, 0f, 0f)
         assertTrue("يجب هامش أمان موجب للفاتح", zeroLight >= 1f)
-        val zeroDark = ThemeDialMath.sweepTargetX(false, 0f, 0f, 0f)
+        val zeroDark = ThemeDialMath.sweepTargetX(false, 0f, 0f)
         assertTrue("يجب هامش أمان سالب للمظلم", zeroDark <= -1f)
-        ThemeDialMath.sweepTargetX(false, -100f, 0f, 0f)
+        ThemeDialMath.sweepTargetX(false, -100f, 0f)
         ThemeDialMath.progress(50f, 100f, 100f) // مسار معدوم
     }
 }

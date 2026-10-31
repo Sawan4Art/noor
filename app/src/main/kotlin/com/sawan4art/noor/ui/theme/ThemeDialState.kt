@@ -25,12 +25,17 @@ import kotlin.math.abs
  * - الأيقونة مع اليد حرفياً أثناء السحب (ما لم تُرفع اليد تبقى حيث هي).
  * - النصف الفاتح يسار الحدّ والمظلم يمينه دائماً — المعاينة **قصّ صلب**
  *   (clipRect بلا أي DstIn/Offscreen — آلية القناع القديمة كانت تفشل بصمت
- *   على جهاز المالك فلم يرَ الانقسام قط)، وعلى الحدّ **شعاع الكشاف**:
- *   «ضوء كشاف ينير جزءاً ويترك جزءاً منفصلاً» (كلام المالك حرفياً).
+ *   على جهاز المالك فلم يرَ الانقسام قط)، وعلى الحدّ **توهج خافت**:
+ *   «الوضع الفاتح يبان كأنه ضوءه باهت على الوضع المظلم والعكس صحيح —
+ *   ليس شعاع نور مستقيم وواضح» (كلام المالك alpha13 حرفياً).
  * - الرفع يحسم بالضفة التي عبرت المنتصف، والنقرة تبدّل فوراً برحلة كاملة.
  * - الإيماءة من الأيقونة وحدها (صندوق لمس يركب الأيقونة) — الفراغ والمسار
  *   يمرّان للطبقات تحتيهما فلا لاج ولا ابتلاع لمسات (درس alpha7).
- * - المزلاج كلّه في الرئيسية فقط — مغادرتها تُحبط أي رحلة معلّقة بأمان (abort).
+ * - المزلاج كلّه في الرئيسية فقط — مغادرتها **تُطبّع الحالة بلا شرط**
+ *   (الإحباط المشروط كان فخ alpha13: بلاغ المالك «الأيقونة معلقة في النص»
+ *   عند العودة من صفحة أخرى — الصفحة المغادرة أثناء انزلاق التبويب كانت
+ *   تُبلّغ بإحداثيات منزلقة تسمّم المرسى، ورحلة التصحيح آنذاك كانت تهبط
+ *   على المرسى المسموم وتبقى فيه).
  * - **قاتل الومضة** (بلاغ المالك alpha12: «ومضة بعد ما الوضع يتفعل سواء
  *   المظلم أو الفاتح»): نهاية الرحلة **لا تُسقط** غطاء المعاينة فوراً —
  *   الغطاء صورة كاملة للثيم الجديد ويبقى معلقاً حتى يلتقط الثيم المثبت
@@ -50,10 +55,8 @@ class ThemeDialState {
 
     // مقاييس مرسلة من الواجهة بالبكسل
     var blobRadiusPx by mutableFloatStateOf(0f); private set
-    var beamLitPx by mutableFloatStateOf(0f); private set
-    var beamDarkPx by mutableFloatStateOf(0f); private set
-    var beamCoreLitPx by mutableFloatStateOf(0f); private set
-    var beamCoreDarkPx by mutableFloatStateOf(0f); private set
+    var glowInPx by mutableFloatStateOf(0f); private set
+    var glowOutPx by mutableFloatStateOf(0f); private set
     var anchorPadPx by mutableFloatStateOf(0f); private set
 
     // ===== السائل الحي — نفس نمط الشريط السفلي =====
@@ -64,7 +67,7 @@ class ThemeDialState {
     val pulse = Animatable(1f)
     val jiggle = Animatable(0f)
     val maskX = Animatable(0f)
-    /** قوة شعاع الكشاف 0..1 — يخفت مع الرجوع لمرسى البداية كي لا يُطفأ فجأة */
+    /** قوة التوهج الخافت 0..1 — يخفت مع الرجوع لمرسى البداية كي لا يُطفأ فجأة */
     val beam = Animatable(0f)
 
     // ===== أطوار المزلاج =====
@@ -104,19 +107,15 @@ class ThemeDialState {
         screenW: Float,
         screenH: Float,
         blobRadius: Float,
-        beamLit: Float,
-        beamDark: Float,
-        beamCoreLit: Float,
-        beamCoreDark: Float,
+        glowIn: Float,
+        glowOut: Float,
         anchorPad: Float,
     ) {
         screenWidth = screenW
         screenHeight = screenH
         blobRadiusPx = blobRadius
-        beamLitPx = beamLit
-        beamDarkPx = beamDark
-        beamCoreLitPx = beamCoreLit
-        beamCoreDarkPx = beamCoreDark
+        glowInPx = glowIn
+        glowOutPx = glowOut
         anchorPadPx = anchorPad
     }
 
@@ -140,12 +139,15 @@ class ThemeDialState {
     }
 
     /**
-     * إحباط أي سحب أو رحلة معلّقة — عند مغادرة الرئيسية تترك الطبقة التركيب
-     * فيموت نطاقها وتُلغى أنيميشناتها، وهنا تُنظّف الحالة كي لا يعود المزلاج
-     * عالقاً بلا استجابة عند العودة (الانقطاع أثناء رحلة = بلا تثبيت ثم مزامنة).
+     * تطبيع كامل للحالة — يُستدعى عند مغادرة الرئيسية وتغيّر الثيم بعيداً عنها.
+     *
+     * درس alpha13 (بلاغ المالك: «الأيقونة معلقة في النص» بعد العودة من صفحة
+     * أخرى): الإحباط المشروط بـ `if (!dragging && !busy)` كان يترك أي عالق
+     * خارج شرطه بلا تنظيف — التطبيع **بلا شرط** أرخص من تشخيص كل سبب عالق:
+     * الطبقة أُزيلت فنطاقها مات وأنيميشناتها أُلغيت، وهنا تُصفّر كل القيم
+     * وتُلصق الأيقونة بمرسى الثيم المثبت الحاضر، فتعود الرئيسية نظيفة دائماً.
      */
     suspend fun abort(committedDark: Boolean) {
-        if (!dragging && !busy) return
         dragging = false
         busy = false
         splitActive = false
@@ -253,15 +255,22 @@ class ThemeDialState {
             scope.launch {
                 delay(HEAD_MS + 40L)
                 busy = false
+                // لصق الهبوط (بلاغ المالك alpha13: «الأيقونة معلقة في النص»):
+                // لو انزاحت مراسي المسار أثناء الرحلة (انتقال تبويب مثلاً)
+                // يُلصق الرأس بالمرسى الحاضر لحظة الهبوط — لا يبقى عالقاً
+                // بمرسى قديم بلا شيء يعيد تفعيله بعد زوال الانشغال
+                val fresh = if (committedDark) anchorLeft else anchorRight
+                headX.snapTo(fresh)
+                maskX.snapTo(fresh)
             }
         }
     }
 
-    /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والحدّ وشعاعه يُساقان خارج الشاشة */
+    /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والحدّ وتوهجه يُساقان خارج الشاشة */
     private fun sweepToTarget(commitLight: Boolean, onCommitLight: (Boolean) -> Unit, scope: CoroutineScope) {
         val gen = ++sweepGeneration
         busy = true
-        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, beamLitPx, beamDarkPx)
+        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, glowOutPx)
         val anchor = if (commitLight) anchorRight else anchorLeft
         scope.launch { tailR.animateTo(0f, tween(DRAIN_MS, easing = FastOutSlowInEasing)) }
         scope.launch { headX.animateTo(anchor, tween(HEAD_MS, easing = EaseOutBack)) }
@@ -292,7 +301,7 @@ class ThemeDialState {
         }
     }
 
-    /** الرجوع: الرأس يعود لمرساه والمصدر يُسحب إليه حتى آخر قطرة، والكشاف يخفت معه */
+    /** الرجوع: الرأس يعود لمرساه والمصدر يُسحب إليه حتى آخر قطرة، والتوهج يخفت معه */
     private fun revertTo(startAnchor: Float, scope: CoroutineScope) {
         sweepGeneration++ // يُبطل أي مهلة أمان معلّقة كي لا تُسقط هذا الرجوع
         busy = true
@@ -310,7 +319,10 @@ class ThemeDialState {
             splitActive = false
             busy = false
             headR.snapTo(blobRadiusPx)
-            maskX.snapTo(startAnchor)
+            // لصق الهبوط نفسه: المرسى الحاضر يفوز على المرسي المُمرّر لو انزاح
+            val fresh = if (overlayIsLight) anchorLeft else anchorRight
+            headX.snapTo(fresh)
+            maskX.snapTo(fresh)
         }
     }
 
