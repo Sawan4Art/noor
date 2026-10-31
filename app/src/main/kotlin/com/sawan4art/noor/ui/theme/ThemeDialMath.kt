@@ -1,9 +1,8 @@
 package com.sawan4art.noor.ui.theme
 
 import kotlin.math.PI
-import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.hypot
-import kotlin.math.sin
 
 /**
  * رياضيات «مزلاج الشمس والقمر» — كوتلن خالص بلا أي اعتماديات Compose كي تُختبر وحدةً.
@@ -12,8 +11,9 @@ import kotlin.math.sin
  * 1) السحب لليمين = فاتح، وليسار = مظلم، والأيقونة تمشي مع اليد حرفياً
  *    (ما لم تُرفع اليد تبقى ممسوكة حيث هي — حتى في منتصف المسار).
  * 2) أثناء السحب تنقسم الشاشة نفسها: الفاتح خلف الأيقونة (جهة المغادرة)
- *    والمظلم أمامها — وحدّ الانقسام **قوس منحنٍ ينتفخ حول الأيقونة** لا خط مستقيم:
- *    «الضوء لا يستقيم بل يظهر كقوس»، وحافته **مموّهة** (ريش متدرج) لا حادة.
+ *    والمظلم أمامها — وحدّ الانقسام **خط مستقيم رأسي** (قرار المالك 2026-10-31
+ *    مساءً: «خليه مستقيم تاني لكن اعمل عليه بلور») بحافة ريشية مموّهة
+ *    بتدرج جيبي كوس — الضوء ينزلق ناعماً لا خط حادّ، والمنتصف نص/نص بالضبط.
  * 3) عند الرفع: الضفة التي عبرها الإصبع من المنتصف تحسم الوضع،
  *    وإلا رجعت الأيقونة إلى مرساها بالسائل نفسه.
  * 4) النقرة (بلا سحب) = تبديل فوري برحلة الشمس من مرساها — نفس حيوية الشريط السفلي.
@@ -26,8 +26,8 @@ object ThemeDialMath {
     /** أقصى مسافة حركة تُعدّ نقرة لا سحباً */
     const val TAP_SLOP_PX = 14f
 
-    /** عرض ريش حافة الانقسام (التمويه بين الوضعين) — يُمرَّر بالبكسل من الواجهة */
-    const val MASK_FADE_DP = 120f
+    /** عرض ريش حافة الانقسام (التمويه بين الوضعين) — أوسع = ضوء أسموزي */
+    const val MASK_FADE_DP = 168f
 
     /** عرض حزمة توهج الفاصل (شروق/غروب) */
     const val GLOW_BAND_DP = 176f
@@ -35,14 +35,8 @@ object ThemeDialMath {
     /** نصف قطر توهج الأيقونة الشعاعي (مصدر الضوء) */
     const val GLOW_RADIAL_DP = 120f
 
-    /** انفتاح القوس: أقصى انسحاب للحافّة عن قمتها — كسر من ارتفاع الشاشة */
-    const val ARC_SAG_FRACTION = 0.085f
-
-    /** مدى القوس الرأسي: تبلغ الرجفة أقصاها ثم يستقيم الحدّ — كسر من ارتفاع الشاشة */
-    const val ARC_REACH_FRACTION = 0.55f
-
-    /** عدد شرائح ريش الحافة — كل شريحة شفافية ثابتة وتتتابع فتشبه التمويه */
-    const val FEATHER_BANDS = 9
+    /** عدد شرائح ريش الحافة — أكبر عدد = تدرّج أنعمط أقرب للبلور الحقيقي */
+    const val FEATHER_BANDS = 16
 
     /** تقدّم المزلاج: 0 = مظلم (مرسى اليسار)، 1 = فاتح (مرسى اليمين) */
     fun progress(iconX: Float, anchorLeft: Float, anchorRight: Float): Float {
@@ -75,36 +69,9 @@ object ThemeDialMath {
     fun moonAlpha(p: Float): Float = sunAlpha(1f - p)
 
     /**
-     * رجفة القوس عند بُعد رأسي عن قمته: sin² ناعمة — صفر عند القمة تماماً
-     * (الحدّ يلمس الأيقونة نفسها) وأقصاها عند مدى القوس ثم تثبت، بلا انكسار عند القطع.
-     */
-    fun arcSag(dyAbs: Float, reachPx: Float, sagPx: Float): Float {
-        val reach = reachPx.coerceAtLeast(1f)
-        val t = (abs(dyAbs) / reach).coerceIn(0f, 1f)
-        val s = sin(PI / 2.0 * t).toFloat()
-        return sagPx * s * s
-    }
-
-    /**
-     * موضع حدّ الانقسام المنحني عند ارتفاع y بالبكسل:
-     * القمة عند الأيقونة نفسها، والطرفان ينسحبان **خلف** اتجاه التقدم —
-     * فاتح يسار الحدّ (سحب يميناً): القمة أقصى نقطة يميناً والطرفان يسارها، والعكس صحيح.
-     */
-    fun edgeX(
-        y: Float,
-        apexX: Float,
-        centerY: Float,
-        reachPx: Float,
-        sagPx: Float,
-        lightOnLeft: Boolean,
-    ): Float {
-        val sag = arcSag(abs(y - centerY), reachPx, sagPx)
-        return if (lightOnLeft) apexX - sag else apexX + sag
-    }
-
-    /**
      * إزاحات شرائح الريش عن الحدّ — [K+1] قيمة صاعدة من −الشفق/2 إلى +الشفق/2:
      * المنطقة الهدف كاملة قبلهما، وشرائح ما بينها تتناوب بالشفافيات.
+     * الحدّ مستقيم رأسياً فالإزاحات أفقية خالصة حول الأيقونة.
      */
     fun featherOffsets(fadePx: Float, bands: Int = FEATHER_BANDS): FloatArray {
         val k = bands.coerceAtLeast(1)
@@ -115,22 +82,25 @@ object ThemeDialMath {
     }
 
     /**
-     * شفافية شريحة الريش رقم band (0..bands−1): تنزلق من شبه الكامل إلى الصفر
-     * بتتابع ناعم — مجموع الشرائح يرسم شفقيةً مموّهة بدل خط حادّ.
+     * شفافية شريحة الريش رقم band (0..bands−1) — **تدرج جيبي (كوس) ناعم**:
+     * تنزلق من شبه الكامل إلى الصفر بمشتقة صفرية عند الطرفين، فلا تبدو
+     * الشرائح درجات متراصة بل بلوراً واحداً متصلاً — ومجموع متناظرتها 1 دائماً
+     * (alpha(b) + alpha(k−1−b) = 1) فيبقى مركز التمويه على الحدّ نفسه نص/نص.
      */
     fun featherAlpha(band: Int, bands: Int = FEATHER_BANDS): Float {
         val k = bands.coerceAtLeast(1)
         val b = band.coerceIn(0, k - 1)
-        return 1f - (b + 0.5f) / k
+        val c = cos(PI * (b + 0.5f) / k).toFloat()
+        return (c + 1f) / 2f
     }
 
     /**
-     * هدف امتداد الحدّ عند التثبيت: يُساق خارج الشاشة بمقدار الريش كاملاً **ورجفة القوس**
+     * هدف امتداد الحدّ عند التثبيت: يُساق خارج الشاشة بمقدار الريش كاملاً
      * كي تغطي الطبقة الهدف الشاشة كلها بلا حافة ظاهرة لحظة قلب الثيم
-     * (أقصى نقطة للحدّ عند الطرف: القمة − رجفة القوس، والريش يمتد نصفه خلفها).
+     * (الحدّ مستقيم فالهامش = نصف الريش خلف طرفه + هامش أمان).
      */
-    fun sweepTargetX(commitLight: Boolean, screenW: Float, fadePx: Float, sagPx: Float): Float {
-        val margin = fadePx.coerceAtLeast(1f) + sagPx.coerceAtLeast(0f)
+    fun sweepTargetX(commitLight: Boolean, screenW: Float, fadePx: Float): Float {
+        val margin = fadePx.coerceAtLeast(1f)
         return if (commitLight) screenW + margin else -margin
     }
 

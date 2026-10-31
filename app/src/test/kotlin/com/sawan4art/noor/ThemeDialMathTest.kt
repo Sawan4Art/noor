@@ -7,15 +7,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
 import kotlin.math.PI
-import kotlin.math.sin
+import kotlin.math.cos
 
 /**
- * اختبارات «مزلاج الشمس والقمر» — قواعد المالك (2026-10-31) وتعديلات مساء اليوم:
+ * اختبارات «مزلاج الشمس والقمر» — قواعد المالك حتى تعديل مساء 2026-10-31 (alpha9):
  * 1) يمين = فاتح، يسار = مظلم، والأيقونة مع اليد حرفياً.
- * 2) الانقسام: الفاتح خلف الأيقونة والمظلم أمامها — والحدّ **قوس منحنٍ** ينتفخ
- *    حول الأيقونة بحافة ريشية مموّهة (الضوء لا يستقيم — درس alpha7).
+ * 2) الانقسام: الفاتح خلف الأيقونة والمظلم أمامها — والحدّ **مستقيم رأسي**
+ *    (قرار المالك: «خليه مستقيم تاني لكن اعمل عليه بلور») بحافة ريشية
+ *    جيبية التدرج — الضوء سموزي لا خط حادّ، والمنتصف نص/نص بالضبط.
  * 3) الرفع يحسم بالضفة التي عبرها، والنقرة تبدّل فوراً.
  * 4) الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه.
+ * 5) المزلاج في الرئيسية فقط — لا أثر له في بقية الصفحات.
  * نفس الأرقام تُستخدم في معاينة بايثون للمالك.
  */
 class ThemeDialMathTest {
@@ -117,79 +119,37 @@ class ThemeDialMathTest {
         }
     }
 
-    // ===== القوس — الضوء لا يستقيم بل يظهر كقوس =====
+    // ===== الحد المستقيم — قرار المالك: مستقيم + بلور =====
 
     @Test
-    fun `رجفة القوس صفر عند القمة تماما فالحد يلمس الأيقونة`() {
-        assertEquals(0f, ThemeDialMath.arcSag(0f, 900f, 140f), 1e-5f)
-    }
-
-    @Test
-    fun `رجفة القوس تبلغ أقصاها عند المدى ثم تثبت`() {
-        val sag = 140f
-        val reach = 900f
-        assertEquals(sag, ThemeDialMath.arcSag(reach, reach, sag), 1e-5f)
-        assertEquals(sag, ThemeDialMath.arcSag(reach * 3f, reach, sag), 1e-5f)
-        // عند نصف المدى: sin²(π/4) = نصف الرجفة بالضبط
-        assertEquals(sag / 2f, ThemeDialMath.arcSag(reach / 2f, reach, sag), 1e-4f)
-    }
-
-    @Test
-    fun `رجفة القوس رتيبة الصعود ومتماثلة أعلى وأسفل القمة`() {
-        val reach = 900f
-        val sag = 140f
-        var prev = -1f
-        var dy = 0f
-        while (dy <= reach) {
-            val s = ThemeDialMath.arcSag(dy, reach, sag)
-            assertTrue("رتيبة عند dy=$dy", s >= prev)
-            assertEquals("تماثل عند dy=$dy", s, ThemeDialMath.arcSag(-dy, reach, sag), 1e-6f)
-            prev = s
-            dy += 60f
+    fun `الريش متماثل حول الحد فمركز التمويه على الأيقونة نفسها`() {
+        // الحدّ مستقيم عند موضع الأيقونة، والشفق يمتد نصفه عن يمينه ونصفه عن يساره —
+        // هذا ما يجعل الإمساك في المنتصف = نص فاتح ونص مظلم بالضبط
+        val fade = ThemeDialMath.MASK_FADE_DP * 3f // بكسل افتراضي للأرقام
+        val offs = ThemeDialMath.featherOffsets(fade)
+        assertEquals(-fade / 2f, offs.first(), 1e-4f)
+        assertEquals(fade / 2f, offs.last(), 1e-4f)
+        // تماثل الإزاحات: off(i) = -off(K-i)
+        val k = offs.size - 1
+        for (i in offs.indices) {
+            assertEquals("تماثل عند i=$i", -offs[k - i], offs[i], 1e-4f)
         }
     }
 
     @Test
-    fun `حد القوس قمته عند الأيقونة وطرفه ينسحب خلف اتجاه التقدم`() {
-        val apex = 540f
-        val cy = 200f
-        val reach = 900f
-        val sag = 140f
-        // الفاتح خلف الأيقونة (يسار الحدّ): القمة أقصى نقطة يميناً والطرفان يسارها
-        assertEquals(apex, ThemeDialMath.edgeX(cy, apex, cy, reach, sag, lightOnLeft = true), 1e-5f)
-        assertTrue(ThemeDialMath.edgeX(0f, apex, cy, reach, sag, lightOnLeft = true) < apex)
-        assertTrue(ThemeDialMath.edgeX(cy + 400f, apex, cy, reach, sag, lightOnLeft = true) < apex)
-        // المظلم خلف الأيقونة (يمين الحدّ): المرآة المعاكسة
-        assertEquals(apex, ThemeDialMath.edgeX(cy, apex, cy, reach, sag, lightOnLeft = false), 1e-5f)
-        assertTrue(ThemeDialMath.edgeX(0f, apex, cy, reach, sag, lightOnLeft = false) > apex)
-        assertTrue(ThemeDialMath.edgeX(cy + 400f, apex, cy, reach, sag, lightOnLeft = false) > apex)
-        // تماثل رأسي حول القمة في الاتجاهين
-        assertEquals(
-            ThemeDialMath.edgeX(cy - 300f, apex, cy, reach, sag, true),
-            ThemeDialMath.edgeX(cy + 300f, apex, cy, reach, sag, true),
-            1e-4f,
-        )
+    fun `منتصف المسار بموضع اليد الحقيقي - نصف الشاشة لكل وضع`() {
+        // المالك: «ممسك في المنتصف = نصف فاتح ونص مظلم» — الحدّ المستقيم عند الأيقونة
+        // والتقدم عنده نصفاً تماماً والقرار عند العبور للفاتح
+        val w = 1080f
+        assertEquals(0.5f, ThemeDialMath.progress(mid, anchorLeft, anchorRight), 1e-5f)
+        assertTrue(ThemeDialMath.commitLight(w / 2f, anchorLeft, anchorRight))
     }
 
-    @Test
-    fun `حد القوس قوس حقيقي لا خط - الانحناء ملموس لا صفري`() {
-        val apex = 540f
-        val cy = 200f
-        val reach = 900f
-        val sag = 140f
-        val bottom = ThemeDialMath.edgeX(cy + reach, apex, cy, reach, sag, lightOnLeft = true)
-        // الانسحاب عند بلوغ المدى = أقصى الرجفة تقريبا — قوس واضح للعين لا شبه مستقيم
-        assertTrue("القوس ضحل أكثر من اللازم", apex - bottom > sag * 0.9f)
-        // وعند منتصف المدى نحو نصف الرجفة — انحناء تدريجي مقوّس لا قطعة مستقيمة
-        val midReach = ThemeDialMath.edgeX(cy + reach / 2f, apex, cy, reach, sag, lightOnLeft = true)
-        assertEquals(sag / 2f, apex - midReach, sag * 0.02f)
-    }
-
-    // ===== ريش الحافة — التمويه المتدرج =====
+    // ===== ريش الحافة — البلور الجيبي =====
 
     @Test
-    fun `إزاحات الريش صاعدة متماثلة حول الحد بعرض الشفق كاملا`() {
-        val fade = 120f
+    fun `إزاحات الريش صاعدة متساوية الخطوات بعرض الشفق كاملا`() {
+        val fade = 168f
         val offs = ThemeDialMath.featherOffsets(fade)
         assertEquals(ThemeDialMath.FEATHER_BANDS + 1, offs.size)
         assertEquals(-fade / 2f, offs.first(), 1e-4f)
@@ -201,7 +161,7 @@ class ThemeDialMathTest {
     }
 
     @Test
-    fun `شفافية الريش تنزلق من شبه الكامل إلى الصفر بلا قيم خارج النطاق`() {
+    fun `شفافية الريش جيبية ناعمة من شبه الكامل إلى الصفر`() {
         val bands = ThemeDialMath.FEATHER_BANDS
         var prev = Float.MAX_VALUE
         for (k in 0 until bands) {
@@ -210,23 +170,31 @@ class ThemeDialMathTest {
             assertTrue("تنازلية عند k=$k", a < prev)
             prev = a
         }
-        // منتصف الريش ≈ نصف — الحد المموه متماثل
-        assertEquals(0.5f, ThemeDialMath.featherAlpha(bands / 2), 0.02f)
+        // عقدة الصيغة المغلقة: (cos(π(b+½)/K)+1)/2 — تمنع أي تغيير صامت في التدرج
+        val k16 = 16
+        val expected = { b: Int -> (cos(PI * (b + 0.5f) / k16).toFloat() + 1f) / 2f }
+        for (b in intArrayOf(0, 3, 7, 8, 12, 15)) {
+            assertEquals(expected(b), ThemeDialMath.featherAlpha(b, k16), 1e-5f)
+        }
+        // الطرفان: شبه الكامل ثم شبه الصفر — لا انقطاع حاد عند حافتي الشفق
+        assertTrue("بداية الشفق تكاد كاملة", ThemeDialMath.featherAlpha(0, k16) > 0.97f)
+        assertTrue("نهاية الشفق تكاد صفر", ThemeDialMath.featherAlpha(k16 - 1, k16) < 0.03f)
     }
 
     @Test
-    fun `منتصف المسار بموضع اليد الحقيقي - نصف الشاشة لكل وضع`() {
-        // المالك: «ممسك في المنتصف = نصف فاتح ونصف مظلم» — الحدّ عند الأيقونة نفسها
-        val w = 1080f
-        val apex = w / 2f
-        val cy = 200f
-        val reach = 950f
-        val sag = w * 0f // القمة عند منتصف الارتفاع تقريبا للتبسيط — نتحقق من المركز
-        val edge = ThemeDialMath.edgeX(cy, apex, cy, reach, sag, lightOnLeft = true)
-        assertEquals(w / 2f, edge, 1e-5f)
-        // والقرار عند المنتصف: العبور يثبت الفاتح
-        assertTrue(ThemeDialMath.commitLight(w / 2f, anchorLeft, anchorRight))
-        assertTrue(abs(ThemeDialMath.progress(mid, anchorLeft, anchorRight) - 0.5f) < 1e-5f)
+    fun `متناظرة الريش تحيط بالحد بلا انحياز - مجموعها مع معكوسها واحد`() {
+        val bands = ThemeDialMath.FEATHER_BANDS
+        for (b in 0 until bands) {
+            assertEquals(
+                "تماثل عند b=$b",
+                1f,
+                ThemeDialMath.featherAlpha(b) + ThemeDialMath.featherAlpha(bands - 1 - b),
+                1e-5f,
+            )
+        }
+        // ومنتصف الشفق ≈ نصف — الحد المموه متماثل حول موضع الأيقونة
+        val midA = ThemeDialMath.featherAlpha(bands / 2)
+        assertTrue("منتصف الشفق قريب من النصف: $midA", abs(midA - 0.5f) < 0.06f)
     }
 
     // ===== هدف المسح — الحد يغادر الشاشة كليا بلا حافة ظاهرة =====
@@ -234,19 +202,13 @@ class ThemeDialMathTest {
     @Test
     fun `التثبيت الفاتح يساق الحد والريش خارج الحافة اليمنى والعكس يسارا`() {
         val w = 1080f
-        val h = 1900f
-        val fade = 120f
-        val cy = 200f
-        val sag = h * ThemeDialMath.ARC_SAG_FRACTION
-        val reach = h * ThemeDialMath.ARC_REACH_FRACTION
-        // فاتح: أبعد نقطة يسرى للحد القوسي (عند أقصى رجفة) مع نصف الريش تجاوزت يمين الشاشة
-        val endLight = ThemeDialMath.sweepTargetX(true, w, fade, sag)
-        val leftmost = ThemeDialMath.edgeX(0f, endLight, cy, reach, sag, lightOnLeft = true)
-        assertTrue("بقايا حد فاتح عند الطرف: $leftmost", leftmost - fade / 2f >= w)
-        // مظلم: أبعد نقطة يمنى مع نصف الريش قبلت يسار الشاشة
-        val endDark = ThemeDialMath.sweepTargetX(false, w, fade, sag)
-        val rightmost = ThemeDialMath.edgeX(0f, endDark, cy, reach, sag, lightOnLeft = false)
-        assertTrue("بقايا حد مظلم عند الطرف: $rightmost", rightmost + fade / 2f <= 0f)
+        val fade = 168f
+        // فاتح: الحد المستقيم عند w+fade ومعه نصف الريش خلفه — لا بقايا على الشاشة
+        val endLight = ThemeDialMath.sweepTargetX(true, w, fade)
+        assertTrue("بقايا حد فاتح عند الطرف", endLight - fade / 2f >= w)
+        // مظلم: المرآة يساراً
+        val endDark = ThemeDialMath.sweepTargetX(false, w, fade)
+        assertTrue("بقايا حد مظلم عند الطرف", endDark + fade / 2f <= 0f)
     }
 
     // ===== توهج الفاصل =====
@@ -262,33 +224,18 @@ class ThemeDialMathTest {
     // ===== متانة الحواف =====
 
     @Test
-    fun `القوس والريش لا ينهاران على حواف متطرفة`() {
-        // شاشة معدومة ومدى معدوم وشفق معدوم — لا استثناءات ولا قيم متلاعبة
-        ThemeDialMath.arcSag(0f, 0f, 0f)
-        ThemeDialMath.arcSag(100f, 0f, 140f)
-        ThemeDialMath.edgeX(-5000f, 0f, 200f, 0f, 0f, true)
-        ThemeDialMath.edgeX(5000f, 0f, 200f, 1f, 0f, false)
+    fun `الريش والتمويه لا ينهاران على حواف متطرفة`() {
+        // شفق معدوم ومسار معدوم — لا استثناءات ولا قيم متلاعبة
         val offs = ThemeDialMath.featherOffsets(0f)
         assertTrue(offs.size >= 2)
         for (i in 0 until offs.size - 1) {
             assertTrue(offs[i + 1] >= offs[i])
         }
+        ThemeDialMath.featherAlpha(0, 1)
+        ThemeDialMath.featherAlpha(-5, 1)
+        ThemeDialMath.featherAlpha(99, 3)
         ThemeDialMath.progress(50f, 100f, 100f) // مسار معدوم
-        // حدود خارج الشاشة كليا — إزاحات ريش سليمة
-        for (apex in listOf(-500f, 0f, 1080f, 1580f)) {
-            ThemeDialMath.edgeX(0f, apex, 200f, 900f, 140f, true)
-            ThemeDialMath.edgeX(1900f, apex, 200f, 900f, 140f, false)
-        }
-    }
-
-    @Test
-    fun `صيغة الرجفة sin محصورة رياضيا - عينة مرجعية مثبتة`() {
-        // مرجع مغلق: sin²(π/2 · t) — يمنع أي تغيير صامت في شكل القوس
-        val sag = 100f
-        val reach = 1000f
-        val expected = { t: Float -> sag * sin(PI / 2.0 * t).toFloat() * sin(PI / 2.0 * t).toFloat() }
-        for (t in listOf(0f, 0.1f, 0.25f, 0.5f, 0.75f, 0.9f, 1f)) {
-            assertEquals(expected(t), ThemeDialMath.arcSag(t * reach, reach, sag), 1e-3f)
-        }
+        ThemeDialMath.sweepTargetX(true, 0f, 0f)
+        ThemeDialMath.sweepTargetX(false, -100f, 0f)
     }
 }

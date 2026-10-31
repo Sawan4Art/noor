@@ -52,14 +52,17 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * مزلاج الشمس والقمر — طبقة فوق كل شيء (فوق طبقتي الثيم):
- * كبسولة المسار + السائل الحي (ذيل ورأس وجسر بلا فصل) + توهج الشروق **قوساً منحنياً**
- * حول الأيقونة + أيقونتا الشمس والقمر تتقاطفان بموضع اليد.
+ * مزلاج الشمس والقمر — طبقة فوق كل شيء (فوق طبقتي الثيم) في الرئيسية فقط:
+ * كبسولة المسار + السائل الحي (ذيل ورأس وجسر بلا فصل) + توهج الشروق
+ * **حدّاً مستقيماً مموّهاً** يركب الأيقونة + أيقونتا الشمس والقمر تتقاطفان بموضع اليد.
  *
  * درس alpha7 (ملاحظة المالك): الإيماءة كانت على الطبقة الكاملة فصارت حاجز لمس
  * يبتلع ضربات الشريط السفلي، والإمساك بالمسار الفارغ يولّد الانقسام الثقيل (لاج).
  * الإصلاح: الطبقة ترسم فقط بلا أي قبضة لمس، والإيماءة على **صندوق يركب الأيقونة
  * وحدها** — الفراغ يمر للطبقات تحتيه طبيعياً، والانقسام لا يشتغل إلا بسحب فعلي.
+ *
+ * قرار المالك (alpha9): «خلي الفاصل مستقيم تاني لكن اعمل عليه بلور» —
+ * الحدّ رأسي مستقيم بشرائط توهج متدرجة جيبياً يذيب الضوء حوله، والمنتصف نص/نص.
  *
  * الاتجاه داخلياً LTR دائماً — الرسم كله بإحداثيات فيزيائية مطلقة محصّنة من RTL.
  */
@@ -95,6 +98,12 @@ fun ThemeDialOverlay(
         dial.syncTo(committedDark, scope)
     }
 
+    // انزلاق إحداثيات الجذر (عودة الرئيسية منزاحةً أثناء انتقال التبويب):
+    // الرأس يُلصق بمرساه كل إطار فلا يتخلف السائل عن كبسولته
+    LaunchedEffect(dial.trackLeft, dial.trackTop) {
+        dial.followAnchors(currentCommittedDark)
+    }
+
     // زمن حي لا يتوقف — السائل لا يسكن أبداً
     var frameNanos by remember { mutableLongStateOf(0L) }
     LaunchedEffect(Unit) {
@@ -120,9 +129,6 @@ fun ThemeDialOverlay(
 
     val sunPainter = rememberVectorPainter(NoorIcons.Sun)
     val moonPainter = rememberVectorPainter(NoorIcons.Moon)
-
-    // منحنى حدّ الشروق — يُعاد بناؤه كل إطار فوق المسار نفسه بلا تخصيصات
-    val glowEdge = remember { Path() }
 
     // اتجاه داخلي LTR: صندوق الإيماءة يُثبَّت TopStart الفيزيائي (أعلى اليسار)
     // مهما كان اتجاه التطبيق RTL — فالإزاحة الخام = إحداثيات مطلقة صحيحة
@@ -161,27 +167,18 @@ fun ThemeDialOverlay(
                     style = Stroke(strokePx),
                 )
 
-                // ===== 2) توهج الشروق — قوس منحنٍ ينتفخ حول الأيقونة لا خط مستقيم =====
-                // «الضوء لا يستقيم بل يظهر كقوس» — شرائط مرسومة على المنحنى نفسه:
-                // عريضة خافتة في الخارج ونواة لامعة في الداخل (تمويه تحليلي رخيص).
+                // ===== 2) توهج الشروق — حدّ مستقيم رأسي بشفق مموّه =====
+                // «خليه مستقيم تاني لكن اعمل عليه بلور» — شرائط متراكزة على الحدّ
+                // الرأسي نفسه: عريضة خافتة في الخارج ونواة لامعة في الداخل
+                // بتدرج يذيب الضوء حول الخط (تمويه تحليلي رخيص).
                 if (dial.splitActive) {
                     val gf = dial.glow.value * ThemeDialMath.glowDuringSweep(dial.sweepFraction())
                     if (gf > 0.004f) {
                         val warm = dial.overlayIsLight
                         val bandColor = if (warm) sunriseBand else moonBand
                         val coreColor = if (warm) sunriseCore else moonCore
-                        val sagPx = dial.arcSagPx
-                        val reachPx = dial.arcReachPx
                         val h = size.height
-                        glowEdge.rewind()
-                        val steps = 28
-                        var i = 0
-                        while (i <= steps) {
-                            val sy = h * i / steps
-                            val sx = ThemeDialMath.edgeX(sy, dial.maskX.value, y, reachPx, sagPx, dial.overlayIsLight)
-                            if (i == 0) glowEdge.moveTo(sx, sy) else glowEdge.lineTo(sx, sy)
-                            i++
-                        }
+                        val edgeX = dial.maskX.value
                         val midColor = lerp(bandColor, coreColor, 0.45f)
                         val nearCore = lerp(bandColor, coreColor, 0.75f)
                         val layers = arrayOf(
@@ -194,10 +191,15 @@ fun ThemeDialOverlay(
                             Triple(0.045f, 0.340f, coreColor),
                         )
                         for ((wf, af, c) in layers) {
-                            drawPath(glowEdge, c.copy(alpha = af * gf), style = Stroke(wf * bandPx))
+                            drawLine(
+                                color = c.copy(alpha = af * gf),
+                                start = Offset(edgeX, 0f),
+                                end = Offset(edgeX, h),
+                                strokeWidth = wf * bandPx,
+                            )
                         }
                         // وهج شعاعي عند مصدر الضوء — الأيقونة نفسها
-                        val center = Offset(dial.maskX.value, y)
+                        val center = Offset(edgeX, y)
                         drawCircle(
                             brush = Brush.radialGradient(
                                 colors = listOf(

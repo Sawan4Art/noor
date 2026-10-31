@@ -4,13 +4,13 @@
 المنهج: كل صيغة تُنقل حرفياً من ThemeDialMath/GooeyMath/ThemeDialState
 - surfaceWave / centerDrift / bridgeSway / waistFor / bridge (الجسر بلا فصل)
 - addLiquidBlob (كاتمول-روم مغلق) + مسار الجسر بقبتيه
-- edgeX (حدّ قوسي sin² ينتفخ حول الأيقونة) + featherOffsets/featherAlpha
-  (ريش 9 شرائح مموّه) — درس المالك: الضوء لا يستقيم بل يظهر كقوس (alpha8)
+- حدّ انقسام **مستقيم رأسي** (قرار المالك alpha9: «خليه مستقيم لكن اعمل عليه بلور»)
+  + featherOffsets/featherAlpha (ريش 16 شريحة بتدرج جيبي كوس) — الضوء سموزي لا خط حاد
 - الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه (درس alpha7)
 - المدد: DRAIN=1040 HEAD=800 JIGGLE=1250 SWEEP=960 و EaseOutBack(0.34,1.56,0.64,1)
 
 السيناريو (بطلب المالك): مظلم → سحب لليمين (الأيقونة مع اليد، الفاتح خلفها
-بحدّ قوسي مموّه بتوهج شروق) → إمساك في المنتصف (نصف فاتح ونصف مظلم بقوس فاصل)
+بحدّ مستقيم مموّه بتوهج شروق) → إمساك في المنتصف (نصف فاتح ونصف مظلم بحدّ مستقيم)
 → رفع عند 70% (تثبيت فاتح: طفح ومرسى يمين برجفة) → نقرة (عودة للظلام برحلة القمر).
 """
 import math
@@ -26,12 +26,10 @@ DOWNLOAD = '/home/z/my-project/download'
 DENS = W / 411.0
 TRACK_H = 46 * DENS
 BLOB_R = 17 * DENS
-FADE = 120 * DENS      # MASK_FADE_DP — عرض ريش الحافة
+FADE = 168 * DENS      # MASK_FADE_DP — عرض ريش الحافة (أوسع = بلور أسموزي)
 BAND = 176 * DENS      # GLOW_BAND_DP
 RADIAL = 120 * DENS    # GLOW_RADIAL_DP
-SAG = H * 0.085        # ARC_SAG_FRACTION — أقصى انسحاب رأسي للحدّ القوسي
-REACH = H * 0.55       # ARC_REACH_FRACTION — مدى القوس ثم يستقيم
-FEATHER_BANDS = 9      # عدد شرائح الريش
+FEATHER_BANDS = 16     # عدد شرائح الريش — تدرج جيبي أقرب للبلور
 TRACK_X = 20 * DENS
 TRACK_W = W - 2 * TRACK_X
 PAD = BLOB_R * 1.6
@@ -174,18 +172,20 @@ def bridge_polygon(b, time):
 
 
 # ===== نقل ThemeDialMath حرفياً =====
-def arc_edge_x(y, boundary, light_on_left):
-    """حدّ الانقسام القوسي عند ارتفاع y — edgeX: قمة عند الأيقونة (سق=0)
-    والطرفان ينسحبان خلف اتجاه التقدم بـ sin² حتى أقصى الرجفة عند المدى."""
-    t = min(1.0, abs(y - (TRACK_TOP + TRACK_H / 2)) / REACH)
-    s = math.sin(math.pi / 2 * t) ** 2
-    return boundary - (SAG * s if light_on_left else -SAG * s)
+def edge_x(boundary):
+    """حدّ الانقسام — مستقيم رأسي عند موضع الأيقونة نفسها (قرار المالك alpha9):
+    لا انحناء إطلاقاً، والتمويه كله في الريش الجيبي حول الخط."""
+    return boundary
+
+
+def feather_alpha(k):
+    """شفافية شريحة الريش k — تدرج جيبي (cos): نفس featherAlpha في كوتلن."""
+    return (math.cos(math.pi * (k + 0.5) / FEATHER_BANDS) + 1) / 2
 
 
 def mask_alpha_at(x, y, boundary, light_on_left):
-    """قيمة قناع DstIn عند (x, y) — جسم المنطقة الهدف + شرائح الريش التسع:
-    شفافية الشريحة k = 1 − (k+0.5)/9 من شبه الكامل إلى الصفر حول الحدّ."""
-    d = x - arc_edge_x(y, boundary, light_on_left)  # موجب = خارج المنطقة الهدف
+    """قيمة قناع DstIn عند (x, y) — جسم المنطقة الهدف + شرائح الريش الجيبية."""
+    d = x - edge_x(boundary)  # موجب = خارج المنطقة الهدف
     half = FADE / 2
     if light_on_left:
         if d <= -half:
@@ -199,10 +199,10 @@ def mask_alpha_at(x, y, boundary, light_on_left):
         if d <= -half:
             return 0.0
         k = int((half - d) / (FADE / FEATHER_BANDS))
-    return 1 - (k + 0.5) / FEATHER_BANDS
+    return feather_alpha(k)
 
 
-# شرائط التوهج على القوس — نفس طبقات ThemeDialOverlay (عرض نسبي، شفافية نسبية)
+# شرائط التوهج على الحدّ المستقيم — نفس طبقات ThemeDialOverlay (عرض نسبي، شفافية نسبية)
 GLOW_LAYERS = (
     (1.00, 0.050), (0.74, 0.070), (0.52, 0.095), (0.36, 0.135),
     (0.22, 0.185), (0.11, 0.260), (0.045, 0.340),
@@ -337,7 +337,7 @@ def render_frame(state, t_sec):
     # الطبقة الأساسية بثيمها
     draw_app(d, 'dark' if base_dark else 'light')
 
-    # طبقة الهدف مقنّعة بالحدّ القوسي الريشي (نفس آلية DstIn بشرائح)
+    # طبقة الهدف مقنّعة بالحدّ المستقيم الريشي (نفس آلية DstIn بشرائح جيبية)
     if split:
         ov = Image.new('RGB', (W, H), 0)
         draw_app(ImageDraw.Draw(ov), 'light' if overlay_light else 'dark')
@@ -346,7 +346,7 @@ def render_frame(state, t_sec):
         half = FADE / 2
         step = FADE / FEATHER_BANDS
         for y in range(H):
-            edge = arc_edge_x(y, boundary, overlay_light)
+            edge = boundary
             base = y * W
             if overlay_light:
                 for x in range(W):
@@ -356,7 +356,7 @@ def render_frame(state, t_sec):
                     elif dlt >= half:
                         a = 0.0
                     else:
-                        a = 1 - (int((dlt + half) / step) + 0.5) / FEATHER_BANDS
+                        a = feather_alpha(int((dlt + half) / step))
                     buf[base + x] = int(255 * a)
             else:
                 for x in range(W):
@@ -366,7 +366,7 @@ def render_frame(state, t_sec):
                     elif dlt >= half:
                         a = 0.0
                     else:
-                        a = 1 - (int((dlt + half) / step) + 0.5) / FEATHER_BANDS
+                        a = feather_alpha(int((dlt + half) / step))
                     buf[base + x] = int(255 * a)
         mask.putdata(bytes(buf))
         img.paste(ov, (0, 0), mask)
@@ -378,21 +378,16 @@ def render_frame(state, t_sec):
                         radius=TRACK_H / 2,
                         fill=(100, 100, 100, 70), outline=(150, 150, 150, 90), width=1)
 
-    # توهج الشروق: شرائط مرسومة على القوس نفسه + وهج شعاعي عند الأيقونة
+    # توهج الشروق: شرائط على الحدّ المستقيم نفسه + وهج شعاعي عند الأيقونة
     if gf > 0.004:
         warm = overlay_light
         band_col = SUNRISE_BAND if warm else MOON_BAND
         core_col = SUNRISE_CORE if warm else MOON_CORE
-        pts_step = 6
-        ys = list(range(0, H + 1, pts_step))
-        if ys[-1] != H:
-            ys.append(H)
 
         def band_polygon(halfw):
-            """شريحة القوس كمضلع مغلق بين منحنيين متوازيين — بلا مفاصل قطع."""
-            left = [(arc_edge_x(y, boundary, overlay_light) - halfw, y) for y in ys]
-            right = [(arc_edge_x(y, boundary, overlay_light) + halfw, y) for y in reversed(ys)]
-            return left + right
+            """شريحة الحدّ المستقيم كمستطيل مغلق بعرض halfw حول الخط."""
+            x0, x1 = boundary - halfw, boundary + halfw
+            return [(x0, 0), (x1, 0), (x1, H), (x0, H)]
 
         mid_col = lerp_c(band_col, core_col, 0.45)
         near_col = lerp_c(band_col, core_col, 0.75)
@@ -481,7 +476,7 @@ def build_timeline():
         st.update(split_active=True, overlay_is_light=True, mask_x=finger,
                   glow=1.0, head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=max(0.0, (finger - A_L) / (A_R - A_L)), dragging=True, energy=1.0)
-        st['label'] = 'سحب يمين = فاتح — الأيقونة مع اليد والفاتح خلفها بحدّ قوسي مموّه'
+        st['label'] = 'سحب يمين = فاتح — الأيقونة مع اليد والفاتح خلفها بحدّ مستقيم مموّه'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 3) إمساك في المنتصف 1.0s — نصف فاتح ونصف مظلم
@@ -491,7 +486,7 @@ def build_timeline():
         st.update(split_active=True, overlay_is_light=True, mask_x=mid, glow=1.0,
                   head_x=mid, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=0.5, dragging=True, energy=1.0)
-        st['label'] = 'ممسوك في المنتصف: نصف فاتح ونصف مظلم والفاصل قوس شروق مموّه'
+        st['label'] = 'ممسوك في المنتصف: نصف فاتح ونصف مظلم والفاصل حدّ مستقيم مموّه'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 4) سحب لليمين حتى 70% خلال 0.6s
@@ -515,7 +510,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         frac = fast_out_slow_in(sweep_t)
-        end_b = W + FADE + SAG   # sweepTargetX: الريش كاملاً + رجفة القوس
+        end_b = W + FADE   # sweepTargetX: الريش كاملاً خارج الشاشة
         start_b = lerp(A_L, A_R, 0.7)
         st.update(split_active=True, overlay_is_light=True,
                   mask_x=lerp(start_b, end_b, frac),
@@ -544,7 +539,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         st.update(base_dark=False, split_active=True, overlay_is_light=False,
-                  mask_x=lerp(A_R, -(FADE + SAG), fast_out_slow_in(sweep_t)),
+                  mask_x=lerp(A_R, -FADE, fast_out_slow_in(sweep_t)),
                   glow=1.0 * glow_during_sweep(sweep_t), sweep_frac=sweep_t,
                   head_x=lerp(A_R, A_L, ease_out_back(head_t)),
                   head_r=BLOB_R * (1 + 0.16 * max(0.0, 1 - abs(ft - HEAD_MS / 1000) / 0.35)),

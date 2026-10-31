@@ -2,6 +2,7 @@ package com.sawan4art.noor.ui.home
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +45,7 @@ import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 import com.sawan4art.noor.domain.prayer.PrayerMath
 import com.sawan4art.noor.domain.prayer.PrayerTimes
 import com.sawan4art.noor.ui.theme.LocalNoorColors
+import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.util.Hijri
 import com.sawan4art.noor.util.TimeFormat
 import java.time.Instant
@@ -52,15 +54,17 @@ import java.time.ZonedDateTime
 
 /**
  * الشاشة الرئيسية — **بلا تمرير** (بطلب المالك 2026-10-30):
- * الهيدر (المدينة + تحديد الموقع) ثم مسار مزلاج الشمس/القمر السائل، وبطاقة الهيرو
- * تملأ المساحة الباقية بحلقة تقدم متكيفة، وشبكة مواقيت اليوم، وسطر الصدقة — والمساحة
- * للشريط الزجاجي العائم محفوظة دائماً أسفل الشاشة مهما كان ارتفاع الجهاز.
+ * مربع الهيدر (أيقونة التطبيق + اسم التطبيق + المدينة وتحديد الموقع) ثم مسار
+ * مزلاج الشمس/القمر السائل، وبطاقة الهيرو تملأ المساحة الباقية بحلقة تقدم
+ * متكيفة، وشبكة مواقيت اليوم، وسطر الصدقة — والمساحة للشريط الزجاجي العائم
+ * محفوظة دائماً أسفل الشاشة مهما كان ارتفاع الجهاز.
  *
- * مزلاج المظهر نفسه يُرسم فوق كل الشاشة من جذر التطبيق (ThemeDialOverlay) —
- * هنا مساره الفارغ فقط كي يستقر السائل في مكانه الصحيح فوق الهيدر.
+ * مزلاج المظهر نفسه يُرسم فوق كل الشاشة من جذر التطبيق (ThemeDialOverlay)
+ * **في الرئيسية فقط** (بطلب المالك alpha9) — هنا مساره الفارغ كي يستقر السائل.
  *
- * الترتيب داخل بطاقة الهيرو: الصلاة القادمة + العدّاد + التواريخ ثم التحية
- * واسم التطبيق تحتها بخط صغير واضح (نُقلا من أعلى الشاشة بطلب المالك).
+ * تعديلات alpha9 (بطلب المالك): مربع الهيدر حمل أيقونة التطبيق واسمها،
+ * وحُذفت التحية واسم التطبيق من بطاقة الهيرو نهائياً، وصار سطر الصدقة:
+ * «هذا التطبيق صدقة جارية على روح والدي أرجو منكم الدعاء له».
  */
 @Composable
 fun HomeScreen(
@@ -119,7 +123,7 @@ fun HomeScreen(
         PrayerTimesGrid(times = times, activeKey = next.key)
         Spacer(Modifier.height(10.dp))
         Text(
-            text = "هذا التطبيق صدقة جارية على روح والد المالك — رحمه الله رحمة واسعة",
+            text = "هذا التطبيق صدقة جارية على روح والدي أرجو منكم الدعاء له",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -132,47 +136,84 @@ fun HomeScreen(
     }
 }
 
+/**
+ * مربع الهيدر — بطاقة تحمل أيقونة التطبيق (الهلال الهندسي بلغة أيقونة اللانشر)
+ * واسمها «نور المسلم» (بطلب المالك alpha9: انقل الأيقونة والاسم في مربع الهيدر)
+ * والمدينة مع زر تحديد الموقع في الطرف المقابل كما كانت.
+ */
 @Composable
 private fun HomeHeader(
     city: String,
     locating: Boolean,
     onDetectLocation: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = scheme.surface,
+        border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.28f)),
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
         ) {
+            // أيقونة التطبيق — هلال هندسي في مربع متدرج بلغة «قريبًا» والهوية
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(scheme.primaryContainer, scheme.secondaryContainer),
+                        ),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    NoorIcons.Moon,
+                    contentDescription = null,
+                    tint = scheme.primary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            Spacer(Modifier.size(10.dp))
+            Text(
+                text = "نور المسلم",
+                style = MaterialTheme.typography.titleMedium,
+                color = scheme.onBackground,
+            )
+            Spacer(Modifier.weight(1f))
             Icon(
                 Icons.Filled.LocationOn,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(18.dp),
+                tint = scheme.secondary,
+                modifier = Modifier.size(16.dp),
             )
             Spacer(Modifier.size(4.dp))
             Text(
                 text = city,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.bodyMedium,
+                color = scheme.onSurfaceVariant,
+                maxLines = 1,
             )
             if (locating) {
-                Spacer(Modifier.size(8.dp))
+                Spacer(Modifier.size(6.dp))
                 CircularProgressIndicator(
                     modifier = Modifier.size(14.dp),
                     strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.secondary,
+                    color = scheme.secondary,
                 )
             }
-        }
-        IconButton(
-            onClick = onDetectLocation,
-            modifier = Modifier.size(40.dp),
-        ) {
-            Icon(
-                Icons.Filled.LocationOn,
-                contentDescription = "تحديد الموقع تلقائياً",
-                tint = MaterialTheme.colorScheme.primary,
-            )
+            IconButton(
+                onClick = onDetectLocation,
+                modifier = Modifier.size(40.dp),
+            ) {
+                Icon(
+                    Icons.Filled.LocationOn,
+                    contentDescription = "تحديد الموقع تلقائياً",
+                    tint = scheme.primary,
+                )
+            }
         }
     }
 }
@@ -268,15 +309,6 @@ private fun HeroCard(
                 HeroChip(text = Hijri.of(now.toLocalDate()).formatted)
                 HeroChip(text = Hijri.gregorianArabic(now.toLocalDate()))
             }
-            Spacer(Modifier.height(10.dp))
-            // التحية واسم التطبيق — نُقلا هنا تحت التواريخ بخط صغير واضح (بطلب المالك)
-            Text(
-                text = "السلام عليكم ورحمة الله • نور المسلم",
-                style = MaterialTheme.typography.labelMedium,
-                color = noorColors.heroContent.copy(alpha = 0.9f),
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-            )
         }
     }
 }

@@ -23,11 +23,13 @@ import kotlin.math.abs
  *
  * قواعد المالك (2026-10-31):
  * - الأيقونة مع اليد حرفياً أثناء السحب (ما لم تُرفع اليد تبقى حيث هي).
- * - الفاتح خلف الأيقونة (جهة المغادرة) والمظلم أمامها — حدّ الانقسام قوس منحنٍ
- *   ينتفخ حول الأيقونة بحافة ريشية مموّهة تحاكي انحناء الضوء عند الشروق.
+ * - الفاتح خلف الأيقونة (جهة المغادرة) والمظلم أمامها — حدّ الانقسام **مستقيم**
+ *   (قرار المالك مساء اليوم: «خليه مستقيم تاني لكن اعمل عليه بلور»)
+ *   بحافة ريشية جيبية مموّهة، والمنتصف نص/نص بالضبط.
  * - الرفع يحسم بالضفة التي عبرت المنتصف، والنقرة تبدّل فوراً برحلة كاملة.
  * - الإيماءة من الأيقونة وحدها (صندوق لمس يركب الأيقونة) — الفراغ والمسار
  *   يمرّان للطبقات تحتيهما فلا لاج ولا ابتلاع لمسات (درس alpha7).
+ * - المزلاج كلّه في الرئيسية فقط — مغادرتها تُحبط أي رحلة معلّقة بأمان (abort).
  */
 class ThemeDialState {
 
@@ -105,12 +107,6 @@ class ThemeDialState {
         anchorPadPx = anchorPad
     }
 
-    /** أقصى انسحاب رأسي لحدّ القوس عن قمته (عند الأيقونة) — كسر من ارتفاع الشاشة */
-    val arcSagPx: Float get() = screenHeight * ThemeDialMath.ARC_SAG_FRACTION
-
-    /** مدى القوس الرأسي حتى يستقيم الحدّ — كسر من ارتفاع الشاشة */
-    val arcReachPx: Float get() = screenHeight * ThemeDialMath.ARC_REACH_FRACTION
-
     fun progressOfHead(): Float = ThemeDialMath.progress(headX.value, anchorLeft, anchorRight)
 
     /** قبضة الأيقونة وحدها — مربع لمس حول رأس السائل (الإيماءة لا تعمل من فراغ المسار) */
@@ -122,6 +118,38 @@ class ThemeDialState {
         val span = sweepTo - sweepFrom
         if (abs(span) < 1e-4f) return 0f
         return ((maskX.value - sweepFrom) / span).coerceIn(0f, 1f)
+    }
+
+    /**
+     * لصق الرأس بمرسى الثيم المثبت عندما تنزلق إحداثيات الجذر (عودة الرئيسية
+     * منزاحةً أثناء انتقال التبويب) — بلا أي أثر أثناء السحب أو الرحلة أو أول قياس.
+     */
+    suspend fun followAnchors(committedDark: Boolean) {
+        if (dragging || busy || !settled || trackWidth <= 0f) return
+        val target = if (committedDark) anchorLeft else anchorRight
+        if (abs(headX.value - target) > 0.5f) {
+            headX.snapTo(target)
+            maskX.snapTo(target)
+        }
+    }
+
+    /**
+     * إحباط أي سحب أو رحلة معلّقة — عند مغادرة الرئيسية تترك الطبقة التركيب
+     * فيموت نطاقها وتُلغى أنيميشناتها، وهنا تُنظّف الحالة كي لا يعود المزلاج
+     * عالقاً بلا استجابة عند العودة (الانقطاع أثناء رحلة = بلا تثبيت ثم مزامنة).
+     */
+    suspend fun abort(committedDark: Boolean) {
+        if (!dragging && !busy) return
+        dragging = false
+        busy = false
+        splitActive = false
+        headX.snapTo(if (committedDark) anchorLeft else anchorRight)
+        headR.snapTo(blobRadiusPx)
+        tailR.snapTo(0f)
+        maskX.snapTo(headX.value)
+        glow.snapTo(0f)
+        jiggle.snapTo(0f)
+        pulse.snapTo(1f)
     }
 
     /** طاقة حياة السائل: اشتعال أثناء السحب، رجفة بعد الهبوط، سكون هادئ في الثبات */
@@ -215,7 +243,7 @@ class ThemeDialState {
     /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والقناع يُساق خارج الشاشة */
     private fun sweepToTarget(commitLight: Boolean, onCommitLight: (Boolean) -> Unit, scope: CoroutineScope) {
         busy = true
-        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, fadePx, arcSagPx)
+        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, fadePx)
         sweepFrom = maskX.value
         sweepTo = endB
         val anchor = if (commitLight) anchorRight else anchorLeft
