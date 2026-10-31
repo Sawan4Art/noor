@@ -23,9 +23,10 @@ import kotlin.math.abs
  *
  * قواعد المالك (2026-10-31):
  * - الأيقونة مع اليد حرفياً أثناء السحب (ما لم تُرفع اليد تبقى حيث هي).
- * - الفاتح خلف الأيقونة (جهة المغادرة) والمظلم أمامها — حدّ الانقسام **مستقيم**
- *   (قرار المالك مساء اليوم: «خليه مستقيم تاني لكن اعمل عليه بلور»)
- *   بحافة ريشية جيبية مموّهة، والمنتصف نص/نص بالضبط.
+ * - الفاتح خلف الأيقونة والمظلم أمامها — **الفاصل غير مرئي إطلاقاً**
+ *   (قرار المالك مساء اليوم: «عايز الفاصل غير مرئي وبدون خطوط باينه»):
+ *   لا توهج ولا خطوط عند الحدّ — الشروق هو اللقاء نفسه نصف فاتح ونصف مظلم
+ *   بريش قصير ناعم، والمنتصف نص/نص بالضبط.
  * - الرفع يحسم بالضفة التي عبرت المنتصف، والنقرة تبدّل فوراً برحلة كاملة.
  * - الإيماءة من الأيقونة وحدها (صندوق لمس يركب الأيقونة) — الفراغ والمسار
  *   يمرّان للطبقات تحتيهما فلا لاج ولا ابتلاع لمسات (درس alpha7).
@@ -44,8 +45,6 @@ class ThemeDialState {
     // مقاييس مرسلة من الواجهة بالبكسل
     var blobRadiusPx by mutableFloatStateOf(0f); private set
     var fadePx by mutableFloatStateOf(0f); private set
-    var bandPx by mutableFloatStateOf(0f); private set
-    var radialPx by mutableFloatStateOf(0f); private set
     var anchorPadPx by mutableFloatStateOf(0f); private set
 
     // ===== السائل الحي — نفس نمط الشريط السفلي =====
@@ -55,7 +54,6 @@ class ThemeDialState {
     val tailR = Animatable(0f)
     val pulse = Animatable(1f)
     val jiggle = Animatable(0f)
-    val glow = Animatable(0f)
     val maskX = Animatable(0f)
 
     // ===== أطوار المزلاج =====
@@ -64,10 +62,6 @@ class ThemeDialState {
     var splitActive by mutableStateOf(false); private set
     var overlayIsLight by mutableStateOf(false); private set
     var settled by mutableStateOf(false); private set
-
-    // نطاق المسح الحالي — كسر التقدم يذوّب التوهج أثناء الرسم
-    var sweepFrom by mutableFloatStateOf(0f); private set
-    var sweepTo by mutableFloatStateOf(1f); private set
 
     private var dragStartTouch = 0f
     private var dragStartHead = 0f
@@ -94,16 +88,12 @@ class ThemeDialState {
         screenH: Float,
         blobRadius: Float,
         fade: Float,
-        band: Float,
-        radial: Float,
         anchorPad: Float,
     ) {
         screenWidth = screenW
         screenHeight = screenH
         blobRadiusPx = blobRadius
         fadePx = fade
-        bandPx = band
-        radialPx = radial
         anchorPadPx = anchorPad
     }
 
@@ -112,13 +102,6 @@ class ThemeDialState {
     /** قبضة الأيقونة وحدها — مربع لمس حول رأس السائل (الإيماءة لا تعمل من فراغ المسار) */
     fun isInsideIcon(x: Float, y: Float, halfTouch: Float): Boolean =
         abs(x - headX.value) <= halfTouch && abs(y - trackCenterY) <= halfTouch
-
-    /** كسر المسح الحالي 0..1 — التوهج يذبل به في الرحلة النهائية */
-    fun sweepFraction(): Float {
-        val span = sweepTo - sweepFrom
-        if (abs(span) < 1e-4f) return 0f
-        return ((maskX.value - sweepFrom) / span).coerceIn(0f, 1f)
-    }
 
     /**
      * لصق الرأس بمرسى الثيم المثبت عندما تنزلق إحداثيات الجذر (عودة الرئيسية
@@ -147,7 +130,6 @@ class ThemeDialState {
         headR.snapTo(blobRadiusPx)
         tailR.snapTo(0f)
         maskX.snapTo(headX.value)
-        glow.snapTo(0f)
         jiggle.snapTo(0f)
         pulse.snapTo(1f)
     }
@@ -167,9 +149,6 @@ class ThemeDialState {
         tailR.snapTo(blobRadiusPx)
         headR.snapTo(blobRadiusPx)
         maskX.snapTo(headX.value)
-        glow.snapTo(1f)
-        sweepFrom = headX.value
-        sweepTo = headX.value
     }
 
     /** الأيقونة مع اليد حرفياً — إزاحة عن نقطة القبض محصورة بين المرسى */
@@ -203,7 +182,6 @@ class ThemeDialState {
         tailR.snapTo(blobRadiusPx)
         headR.snapTo(blobRadiusPx)
         maskX.snapTo(headX.value)
-        glow.snapTo(1f)
         sweepToTarget(committedDark, onCommitLight, scope)
     }
 
@@ -244,8 +222,6 @@ class ThemeDialState {
     private fun sweepToTarget(commitLight: Boolean, onCommitLight: (Boolean) -> Unit, scope: CoroutineScope) {
         busy = true
         val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, fadePx)
-        sweepFrom = maskX.value
-        sweepTo = endB
         val anchor = if (commitLight) anchorRight else anchorLeft
         scope.launch { tailR.animateTo(0f, tween(DRAIN_MS, easing = FastOutSlowInEasing)) }
         scope.launch { headX.animateTo(anchor, tween(HEAD_MS, easing = EaseOutBack)) }
@@ -270,8 +246,6 @@ class ThemeDialState {
     /** الرجوع: الرأس يعود لمرساه والمصدر يُسحب إليه حتى آخر قطرة */
     private fun revertTo(startAnchor: Float, scope: CoroutineScope) {
         busy = true
-        sweepFrom = maskX.value
-        sweepTo = startAnchor
         scope.launch { headX.animateTo(startAnchor, tween(HEAD_MS, easing = EaseOutBack)) }
         scope.launch { maskX.animateTo(startAnchor, tween(HEAD_MS, easing = FastOutSlowInEasing)) }
         scope.launch { tailR.animateTo(0f, tween(HEAD_MS, easing = FastOutSlowInEasing)) }

@@ -4,13 +4,14 @@
 المنهج: كل صيغة تُنقل حرفياً من ThemeDialMath/GooeyMath/ThemeDialState
 - surfaceWave / centerDrift / bridgeSway / waistFor / bridge (الجسر بلا فصل)
 - addLiquidBlob (كاتمول-روم مغلق) + مسار الجسر بقبتيه
-- حدّ انقسام **مستقيم رأسي** (قرار المالك alpha9: «خليه مستقيم لكن اعمل عليه بلور»)
-  + featherOffsets/featherAlpha (ريش 16 شريحة بتدرج جيبي كوس) — الضوء سموزي لا خط حاد
+- حدّ انقسام **مستقيم رأسي غير مرئي** (قرار المالك alpha10: «الفاصل غير مرئي
+  وبدون خطوط باينة») — لا توهج ولا خطوط عند الحدّ؛ الشروق هو اللقاء نفسه
+  نص فاتح ونص مظلم بريش قصير 56dp (featherOffsets/featherAlpha جيبي كوس 16 شريحة)
 - الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه (درس alpha7)
 - المدد: DRAIN=1040 HEAD=800 JIGGLE=1250 SWEEP=960 و EaseOutBack(0.34,1.56,0.64,1)
 
 السيناريو (بطلب المالك): مظلم → سحب لليمين (الأيقونة مع اليد، الفاتح خلفها
-بحدّ مستقيم مموّه بتوهج شروق) → إمساك في المنتصف (نصف فاتح ونصف مظلم بحدّ مستقيم)
+بلا أي خط مرئي) → إمساك في المنتصف (نصف فاتح ونصف مظلم بلا فاصل باين)
 → رفع عند 70% (تثبيت فاتح: طفح ومرسى يمين برجفة) → نقرة (عودة للظلام برحلة القمر).
 """
 import math
@@ -26,9 +27,7 @@ DOWNLOAD = '/home/z/my-project/download'
 DENS = W / 411.0
 TRACK_H = 46 * DENS
 BLOB_R = 17 * DENS
-FADE = 168 * DENS      # MASK_FADE_DP — عرض ريش الحافة (أوسع = بلور أسموزي)
-BAND = 176 * DENS      # GLOW_BAND_DP
-RADIAL = 120 * DENS    # GLOW_RADIAL_DP
+FADE = 56 * DENS       # MASK_FADE_DP — ريش قصير: نص فاتح ونص مظلم واضحان بلا خط حاد
 FEATHER_BANDS = 16     # عدد شرائح الريش — تدرج جيبي أقرب للبلور
 TRACK_X = 20 * DENS
 TRACK_W = W - 2 * TRACK_X
@@ -66,10 +65,6 @@ MOON_TOP = (215, 227, 244)
 MOON_BOT = (143, 166, 200)
 SUN_TINT = (69, 43, 16)
 MOON_TINT = (26, 36, 51)
-SUNRISE_BAND = (255, 185, 104)
-SUNRISE_CORE = (255, 223, 166)
-MOON_BAND = (175, 198, 234)
-MOON_CORE = (214, 228, 250)
 
 
 # ===== نقل GooeyMath حرفياً =====
@@ -173,8 +168,8 @@ def bridge_polygon(b, time):
 
 # ===== نقل ThemeDialMath حرفياً =====
 def edge_x(boundary):
-    """حدّ الانقسام — مستقيم رأسي عند موضع الأيقونة نفسها (قرار المالك alpha9):
-    لا انحناء إطلاقاً، والتمويه كله في الريش الجيبي حول الخط."""
+    """حدّ الانقسام — مستقيم رأسي عند موضع الأيقونة نفسها، غير مرئي بلا خطوط:
+    التمويه كله في الريش الجيبي حول الخط ولا شيء يُرسم عنده."""
     return boundary
 
 
@@ -200,17 +195,6 @@ def mask_alpha_at(x, y, boundary, light_on_left):
             return 0.0
         k = int((half - d) / (FADE / FEATHER_BANDS))
     return feather_alpha(k)
-
-
-# شرائط التوهج على الحدّ المستقيم — نفس طبقات ThemeDialOverlay (عرض نسبي، شفافية نسبية)
-GLOW_LAYERS = (
-    (1.00, 0.050), (0.74, 0.070), (0.52, 0.095), (0.36, 0.135),
-    (0.22, 0.185), (0.11, 0.260), (0.045, 0.340),
-)
-
-
-def glow_during_sweep(frac):
-    return max(0.0, min(1.0, 1 - (frac - 0.7) / 0.3))
 
 
 def sun_alpha(p):
@@ -371,46 +355,12 @@ def render_frame(state, t_sec):
         mask.putdata(bytes(buf))
         img.paste(ov, (0, 0), mask)
 
-    gf = state['glow'] * glow_during_sweep(state['sweep_frac']) if split else 0.0
-
     # كبسولة المسار
     d.rounded_rectangle([TRACK_X, TRACK_TOP, TRACK_X + TRACK_W, TRACK_TOP + TRACK_H],
                         radius=TRACK_H / 2,
                         fill=(100, 100, 100, 70), outline=(150, 150, 150, 90), width=1)
 
-    # توهج الشروق: شرائط على الحدّ المستقيم نفسه + وهج شعاعي عند الأيقونة
-    if gf > 0.004:
-        warm = overlay_light
-        band_col = SUNRISE_BAND if warm else MOON_BAND
-        core_col = SUNRISE_CORE if warm else MOON_CORE
-
-        def band_polygon(halfw):
-            """شريحة الحدّ المستقيم كمستطيل مغلق بعرض halfw حول الخط."""
-            x0, x1 = boundary - halfw, boundary + halfw
-            return [(x0, 0), (x1, 0), (x1, H), (x0, H)]
-
-        mid_col = lerp_c(band_col, core_col, 0.45)
-        near_col = lerp_c(band_col, core_col, 0.75)
-        cols = (band_col, band_col, band_col, mid_col, near_col, core_col, core_col)
-        for (wf, af), col in zip(GLOW_LAYERS, cols):
-            # كل شريط في قناع L مستقل (الرسم في L يستبدل لا يتراكم)
-            lm = Image.new('L', (W, H), 0)
-            ld = ImageDraw.Draw(lm)
-            ld.polygon(band_polygon(wf * BAND / 2), fill=int(255 * af * gf))
-            img.paste(Image.new('RGB', (W, H), col), (0, 0), lm)
-        hx = state['head_x']
-        hy = TRACK_TOP + TRACK_H / 2
-        glow_img = Image.new('L', (int(RADIAL * 2), int(RADIAL * 2)), 0)
-        dg = ImageDraw.Draw(glow_img)
-        steps = 24
-        for i in range(steps, 0, -1):
-            rr = RADIAL * i / steps
-            aa = (1 - i / steps) ** 2 * (0.34 if warm else 0.26) * gf
-            dg.ellipse([RADIAL - rr, RADIAL - rr, RADIAL + rr, RADIAL + rr],
-                       fill=int(255 * aa))
-        tinted = Image.new('RGB', glow_img.size, core_col)
-        img.paste(tinted, (int(hx - RADIAL), int(hy - RADIAL)), glow_img)
-        d = ImageDraw.Draw(img, 'RGBA')
+    # (لا توهج عند الحدّ — قرار المالك alpha10: الفاصل غير مرئي بلا خطوط)
 
     # السائل: ذيل + رأس + جسر
     p_top = lerp_c(MOON_TOP, SUN_TOP, state['p'])
@@ -449,7 +399,7 @@ frame = None
 
 def empty_state():
     return dict(base_dark=True, split_active=False, overlay_is_light=False,
-                mask_x=0.0, glow=0.0, sweep_frac=0.0, head_x=A_L, head_r=BLOB_R,
+                mask_x=0.0, head_x=A_L, head_r=BLOB_R,
                 tail_x=A_L, tail_r=0.0, p=0.0, dragging=False, energy=0.0, label='')
 
 
@@ -474,19 +424,19 @@ def build_timeline():
         finger = lerp(A_L, (A_L + A_R) / 2, t)
         st = empty_state()
         st.update(split_active=True, overlay_is_light=True, mask_x=finger,
-                  glow=1.0, head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
+                  head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=max(0.0, (finger - A_L) / (A_R - A_L)), dragging=True, energy=1.0)
-        st['label'] = 'سحب يمين = فاتح — الأيقونة مع اليد والفاتح خلفها بحدّ مستقيم مموّه'
+        st['label'] = 'سحب يمين = فاتح — الأيقونة مع اليد والفاتح خلفها بلا خط مرئي'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 3) إمساك في المنتصف 1.0s — نصف فاتح ونصف مظلم
     for i in range(int(1.0 * FPS)):
         st = empty_state()
         mid = (A_L + A_R) / 2
-        st.update(split_active=True, overlay_is_light=True, mask_x=mid, glow=1.0,
+        st.update(split_active=True, overlay_is_light=True, mask_x=mid,
                   head_x=mid, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=0.5, dragging=True, energy=1.0)
-        st['label'] = 'ممسوك في المنتصف: نصف فاتح ونصف مظلم والفاصل حدّ مستقيم مموّه'
+        st['label'] = 'ممسوك في المنتصف: نصف فاتح ونصف مظلم والفاصل غير مرئي خالص'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 4) سحب لليمين حتى 70% خلال 0.6s
@@ -496,12 +446,12 @@ def build_timeline():
         finger = lerp((A_L + A_R) / 2, lerp(A_L, A_R, 0.7), t)
         st = empty_state()
         st.update(split_active=True, overlay_is_light=True, mask_x=finger,
-                  glow=1.0, head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
+                  head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=(finger - A_L) / (A_R - A_L), dragging=True, energy=1.0)
         st['label'] = 'الرفع بعد المنتصف يثبت الفاتح'
         frames.append((ms, st)); ms += 1000 // FPS
 
-    # 5) تثبيت: رحلة الرأس EaseOutBack للمرسى + طفح القناع + ذوبان المصدر والتوهج
+    # 5) تثبيت: رحلة الرأس EaseOutBack للمرسى + طفح القناع + ذوبان المصدر
     for i in range(int(1.35 * FPS)):
         ft = i / FPS
         head_t = min(1.0, ft / (HEAD_MS / 1000))
@@ -514,8 +464,6 @@ def build_timeline():
         start_b = lerp(A_L, A_R, 0.7)
         st.update(split_active=True, overlay_is_light=True,
                   mask_x=lerp(start_b, end_b, frac),
-                  glow=1.0 * glow_during_sweep(sweep_t),
-                  sweep_frac=sweep_t,
                   head_x=lerp(lerp(A_L, A_R, 0.7), A_R, ease_out_back(head_t)),
                   head_r=BLOB_R * (1 + 0.16 * max(0.0, 1 - abs(ft - HEAD_MS / 1000) / 0.35)),
                   tail_x=A_L, tail_r=BLOB_R * (1 - drain_t),
@@ -540,7 +488,6 @@ def build_timeline():
         st = empty_state()
         st.update(base_dark=False, split_active=True, overlay_is_light=False,
                   mask_x=lerp(A_R, -FADE, fast_out_slow_in(sweep_t)),
-                  glow=1.0 * glow_during_sweep(sweep_t), sweep_frac=sweep_t,
                   head_x=lerp(A_R, A_L, ease_out_back(head_t)),
                   head_r=BLOB_R * (1 + 0.16 * max(0.0, 1 - abs(ft - HEAD_MS / 1000) / 0.35)),
                   tail_x=A_R, tail_r=BLOB_R * (1 - drain_t),

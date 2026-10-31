@@ -53,16 +53,19 @@ import kotlin.math.roundToInt
 
 /**
  * مزلاج الشمس والقمر — طبقة فوق كل شيء (فوق طبقتي الثيم) في الرئيسية فقط:
- * كبسولة المسار + السائل الحي (ذيل ورأس وجسر بلا فصل) + توهج الشروق
- * **حدّاً مستقيماً مموّهاً** يركب الأيقونة + أيقونتا الشمس والقمر تتقاطفان بموضع اليد.
+ * كبسولة المسار + السائل الحي (ذيل ورأس وجسر بلا فصل) + أيقونتا الشمس والقمر
+ * تتقاطفان بموضع اليد.
  *
  * درس alpha7 (ملاحظة المالك): الإيماءة كانت على الطبقة الكاملة فصارت حاجز لمس
  * يبتلع ضربات الشريط السفلي، والإمساك بالمسار الفارغ يولّد الانقسام الثقيل (لاج).
  * الإصلاح: الطبقة ترسم فقط بلا أي قبضة لمس، والإيماءة على **صندوق يركب الأيقونة
  * وحدها** — الفراغ يمر للطبقات تحتيه طبيعياً، والانقسام لا يشتغل إلا بسحب فعلي.
  *
- * قرار المالك (alpha9): «خلي الفاصل مستقيم تاني لكن اعمل عليه بلور» —
- * الحدّ رأسي مستقيم بشرائط توهج متدرجة جيبياً يذيب الضوء حوله، والمنتصف نص/نص.
+ * قرار المالك (alpha10): «عايز الفاصل غير مرئي وبدون خطوط باينه و عايز نص
+ * الصفحه تكون فاتحه والنص التاني تكون مظلم تأثير شروق الشمس يعني» —
+ * **لا شيء يُرسم عند الحدّ إطلاقاً**: لا شرائط توهج ولا وهج شعاعي؛ الشروق
+ * هو اللقاء نفسه بين نصف فاتح ونصف مظلم (قناع الطبقة الهدف في NoorApp)
+ * بريش قصير ناعم لا يُظهر خطاً ولا يمحو وضوح النصفين.
  *
  * الاتجاه داخلياً LTR دائماً — الرسم كله بإحداثيات فيزيائية مطلقة محصّنة من RTL.
  */
@@ -82,15 +85,13 @@ fun ThemeDialOverlay(
     // مقاييس بالبكسل — نفس لغة الشريط السفلي (قطرات أكبر قليلاً من شريط رفيع)
     val blobR = with(density) { 17.dp.toPx() }
     val fadePx = with(density) { ThemeDialMath.MASK_FADE_DP.dp.toPx() }
-    val bandPx = with(density) { ThemeDialMath.GLOW_BAND_DP.dp.toPx() }
-    val radialPx = with(density) { ThemeDialMath.GLOW_RADIAL_DP.dp.toPx() }
     val iconPx = with(density) { 24.dp.toPx() }
     val strokePx = with(density) { 1.dp.toPx() }
     val anchorPad = blobR * 1.6f
     val touchHalf = with(density) { 32.dp.toPx() } // هدف لمس 64dp يركب الأيقونة
 
     SideEffect {
-        dial.configure(dial.screenWidth, dial.screenHeight, blobR, fadePx, bandPx, radialPx, anchorPad)
+        dial.configure(dial.screenWidth, dial.screenHeight, blobR, fadePx, anchorPad)
     }
 
     // مزامنة المرسى مع الثيم المثبت (أول قياس + تغيّر الإعدادات + الدوران)
@@ -112,7 +113,7 @@ fun ThemeDialOverlay(
         }
     }
 
-    // ألوان الثيم المثبت — الكبسولة والحدود والسائل والتوهج
+    // ألوان الثيم المثبت — الكبسولة والحدود والسائل
     val scheme = MaterialTheme.colorScheme
     val capsuleFill = scheme.surface.copy(alpha = 0.45f)
     val capsuleBorder = scheme.outline.copy(alpha = 0.35f)
@@ -122,10 +123,6 @@ fun ThemeDialOverlay(
     val moonBottom = Color(0xFF8FA6C8)
     val sunTint = Color(0xFF452B10)
     val moonTint = Color(0xFF1A2433)
-    val sunriseBand = Color(0xFFFFB968)
-    val sunriseCore = Color(0xFFFFDFA6)
-    val moonBand = Color(0xFFAFC6EA)
-    val moonCore = Color(0xFFD6E4FA)
 
     val sunPainter = rememberVectorPainter(NoorIcons.Sun)
     val moonPainter = rememberVectorPainter(NoorIcons.Moon)
@@ -137,7 +134,7 @@ fun ThemeDialOverlay(
         modifier = Modifier
             .fillMaxSize()
             .onSizeChanged {
-                dial.configure(it.width.toFloat(), it.height.toFloat(), blobR, fadePx, bandPx, radialPx, anchorPad)
+                dial.configure(it.width.toFloat(), it.height.toFloat(), blobR, fadePx, anchorPad)
             }
             .drawBehind {
                 if (dial.trackWidth <= 0f || dial.screenWidth <= 0f) return@drawBehind
@@ -167,55 +164,9 @@ fun ThemeDialOverlay(
                     style = Stroke(strokePx),
                 )
 
-                // ===== 2) توهج الشروق — حدّ مستقيم رأسي بشفق مموّه =====
-                // «خليه مستقيم تاني لكن اعمل عليه بلور» — شرائط متراكزة على الحدّ
-                // الرأسي نفسه: عريضة خافتة في الخارج ونواة لامعة في الداخل
-                // بتدرج يذيب الضوء حول الخط (تمويه تحليلي رخيص).
-                if (dial.splitActive) {
-                    val gf = dial.glow.value * ThemeDialMath.glowDuringSweep(dial.sweepFraction())
-                    if (gf > 0.004f) {
-                        val warm = dial.overlayIsLight
-                        val bandColor = if (warm) sunriseBand else moonBand
-                        val coreColor = if (warm) sunriseCore else moonCore
-                        val h = size.height
-                        val edgeX = dial.maskX.value
-                        val midColor = lerp(bandColor, coreColor, 0.45f)
-                        val nearCore = lerp(bandColor, coreColor, 0.75f)
-                        val layers = arrayOf(
-                            Triple(1.00f, 0.050f, bandColor),
-                            Triple(0.74f, 0.070f, bandColor),
-                            Triple(0.52f, 0.095f, bandColor),
-                            Triple(0.36f, 0.135f, midColor),
-                            Triple(0.22f, 0.185f, nearCore),
-                            Triple(0.11f, 0.260f, coreColor),
-                            Triple(0.045f, 0.340f, coreColor),
-                        )
-                        for ((wf, af, c) in layers) {
-                            drawLine(
-                                color = c.copy(alpha = af * gf),
-                                start = Offset(edgeX, 0f),
-                                end = Offset(edgeX, h),
-                                strokeWidth = wf * bandPx,
-                            )
-                        }
-                        // وهج شعاعي عند مصدر الضوء — الأيقونة نفسها
-                        val center = Offset(edgeX, y)
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    coreColor.copy(alpha = (if (warm) 0.34f else 0.26f) * gf),
-                                    Color.Transparent,
-                                ),
-                                center = center,
-                                radius = dial.radialPx,
-                            ),
-                            radius = dial.radialPx,
-                            center = center,
-                        )
-                    }
-                }
-
-                // ===== 3) السائل الحي: ذيل ينقص + رأس + جسر بلا فصل =====
+                // ===== 2) السائل الحي: ذيل ينقص + رأس + جسر بلا فصل =====
+                // الفاصل غير مرئي بلا خطوط (قرار المالك alpha10) — الشروق
+                // يظهر من قناع الطبقة الهدف في NoorApp: نصف فاتح ونصف مظلم.
                 val blobTop = lerp(moonTop, sunTop, p)
                 val blobBottom = lerp(moonBottom, sunBottom, p)
                 val blobBrush = Brush.verticalGradient(
@@ -258,7 +209,7 @@ fun ThemeDialOverlay(
                 }
                 if (!liquid.isEmpty) drawPath(liquid, blobBrush)
 
-                // ===== 4) الشمس والقمر فوق السائل — تتقاطفان بموضع اليد =====
+                // ===== 3) الشمس والقمر فوق السائل — تتقاطفان بموضع اليد =====
                 // رسم مباشر داخل اللوحة: محصّن من انعكاس RTL ومتزامن مع السائل بالإطار
                 if (headRv > GooeyMath.MIN_RADIUS) {
                     translate(headXv - iconPx / 2f, y - iconPx / 2f) {
