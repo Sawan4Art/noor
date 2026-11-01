@@ -84,11 +84,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val coords = locationSource.currentLocation()
                 if (coords != null) {
                     val geo = geocoder.reverseGeocode(coords.first, coords.second)
-                    val city = if (geo.country != null && !geo.city.contains(geo.country)) {
-                        "${geo.city}، ${geo.country}"
-                    } else {
-                        geo.city
-                    }
+                    // توجيه المالك alpha19: «اسم القرية إن توفر واسم المحافظة» —
+                    // سطر الموقع = القرية/المدينة ثم المحافظة (وبدونها الدولة)
+                    val city = CityGeocoder.buildLocationLabel(
+                        geo.primary, geo.region, geo.country,
+                    )
                     repository.setLocation(city, coords.first, coords.second)
                 } else {
                     // البوابات مفتوحة والقراءة فشلت (مهلة الموقع انقضت) — رسالة عامة

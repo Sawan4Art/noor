@@ -7,7 +7,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.sawan4art.noor.MainActivity
@@ -17,6 +19,12 @@ import com.sawan4art.noor.R
  * إشعار التحديث — قناة مخصصة عالية الأهمية كي يظهر مع كل نسخة جديدة،
  * وضغطه يفتح التطبيق ويطلب فحصاً فورياً فيفتح ملخص «ما الجديد» وتسلسل التنزيل.
  * الإشعار الواحد لكل نسخة يضمنه المدير (يخزن آخر نسخة أُشعر عنها).
+ *
+ * alpha19 (بلاغ المالك: «الاشعارات التفاعلية والغير التفاعلية ليست بنفس لون
+ * الثيم ولا بنفس التصميم»): الإشعار الآن **بلون الثيم المختار**
+ * (NotificationCompat.setColor — يصبغ الأيقونة وخلفية الترويسة على أجهزة
+ * أندرويد الحديثة) **وبزر إجراء تفاعلي «تحديث الآن»** يفتح التطبيق على مسار
+ * التحديث مباشرة — فالإشعار التفاعلي وغير التفاعلي من التطبيق بلغة واحدة.
  */
 object UpdateNotifier {
 
@@ -44,7 +52,24 @@ object UpdateNotifier {
                 Manifest.permission.POST_NOTIFICATIONS,
             ) == PackageManager.PERMISSION_GRANTED
 
-    fun notifyNewVersion(context: Context, info: UpdateInfo) {
+    /**
+     * لون الثيم الجاهز للإشعار — حسب وضع النظام الحالي (الإشعار يُعرض على
+     * خلفية النظام لا على خلفية التطبيق): أساس النهاري على نظام فاتح
+     * وأساس الليلي على نظام مظلم.
+     */
+    fun themedAccentArgb(context: Context, accentId: String): Int {
+        val accent = com.sawan4art.noor.ui.theme.AccentPalette.byId(accentId)
+        val night = (context.resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val color = if (night) accent.night.primary else accent.day.primary
+        return color.toArgb()
+    }
+
+    fun notifyNewVersion(
+        context: Context,
+        info: UpdateInfo,
+        accentArgb: Int? = null,
+    ) {
         if (!canNotify(context)) return
         ensureChannel(context)
 
@@ -59,7 +84,7 @@ object UpdateNotifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_update)
             .setContentTitle("تحديث جديد: ${info.versionName}")
             .setContentText(ChangelogFormatter.firstLine(info.body))
@@ -71,10 +96,16 @@ object UpdateNotifier {
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_SYSTEM)
-            .build()
+        // لون الثيم + زر الإجراء التفاعلي — نفس لغة الإشعارات الداخلية
+        accentArgb?.let { builder.color = it }
+        builder.addAction(
+            0,
+            "تحديث الآن",
+            pending,
+        )
 
         context.getSystemService(Context.NOTIFICATION_SERVICE)
             .let { it as NotificationManager }
-            .notify(NOTIFICATION_ID, notification)
+            .notify(NOTIFICATION_ID, builder.build())
     }
 }

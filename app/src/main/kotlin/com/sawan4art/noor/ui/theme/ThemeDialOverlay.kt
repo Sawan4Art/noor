@@ -73,16 +73,18 @@ import kotlin.math.roundToInt
  * الإصلاح: الطبقة ترسم فقط بلا أي قبضة لمس، والإيماءة على **صندوق يركب الأيقونة
  * وحدها** — الفراغ يمر للطبقات تحتيه طبيعياً، والانقسام لا يشتغل إلا بسحب فعلي.
  *
- * شكل الفاصل — توجيه المالك alpha18 (2026-10-31 منتصف الليل، بعد alpha17):
- * «في خطين صغيرين يمين ويسار الضوء... خلّي الضوء من جهة واحدة فقط وهي الجهة
- * الخارجية وكبّر مساحة تشتت الضوء شويه كمان» — التوهج **من الجهة الخارجية
- * وحدها**: النهار مصدر الضوء فيضيء الليلي الخارج منه — الحدّ نفسه (الجهة
- * النهارية) بلا توهج، وكل الانسكاب في الجهة المظلمة يمين الحدّ دائماً
- * (الاتجاه ثابت فيزيائياً: الفاتح يسار الحدّ والمظلم يمينه). التشتت أوسع
- * (28dp بدل 30dp متماثلةً كانت تعطي 15dp لكل جهة — الآن جهة واحدة كاملة)،
- * ومنحنى التلاشٍ يهبط حتى صفر حقيقي قبل الطرف الخارجي (وقفات صفرية
- * مزدوجة 0.94→1.0) كيموت أي خط هامشي — علاج «الخطّين الصغيرين» الحاملين
- * على حرف الطبقة. الطيف متعدد الألوان والشدة الديناميكية كما هما.
+ * شكل الفاصل — توجيه المالك alpha19 (2026-11-01، بصورة معلّمين أحمر وأزرق):
+ * «العلام الاحمر ده خط رفيع جدا عايزك تشيله والازرق عايزك تعمل عليه بلور
+ * علشان يسيح مع اللون وكبّر عرض انتشار الضوء» —
+ * **الخط الأحمر** كان حرف طبقة التوهج نفسه: الحقل ينتهي عند طرف الـsaveLayer
+ * فتُرى حلّة قفزة ولو صغيرة — العلاج: الطبقة أوسع من المنظور بحزام ميت
+ * (14dp) يبلغ فيه القناع صفراً حقيقياً قبل الطرف ببعده محسوس (0.90→0.955
+ * صفر) فلا يبقى أي حرف مرئي مهما كانت دقة الرسم،
+ * **الحدّ الأزرق** هو حدّ الانقسام الصلب نفسه — بُلور بحزام مزج (ريشة 12dp
+ * في NoorApp: طبقة معزولة بقناع DstIn متدرّج) فتمتزج الثيمتان تدريجياً
+ * «تسيح مع اللون»، ومعه صعود التوهج نفسه صار ناعماً عبر الحزام (يرتفع من
+ * صفر عند بداية الحزام إلى ذروته بعد الحدّ) بدل قفزة 0.72 عند الحدّ،
+ * **والانتشار أوسع**: 44dp بدل 28dp.
  *
  * الاتجاه داخلياً LTR دائماً — الرسم كله بإحداثيات فيزيائية مطلقة محصّنة من RTL.
  */
@@ -105,15 +107,18 @@ fun ThemeDialOverlay(
     val strokePx = with(density) { 1.dp.toPx() }
     val anchorPad = blobR * 1.6f
     val touchHalf = with(density) { 32.dp.toPx() } // هدف لمس 64dp يركب الأيقونة
-    // توهج الضوء الحي (alpha18): من الجهة الخارجية وحدها (يمين الحدّ — الجهة
-    // المظلمة) بتشتت أوسع (28dp) ومنحنى يصل صفراً حقيقياً قبل الطرف الخارجي
-    // كيموت أي خط هامشي. الامتداد يُمرر للمزلاج كي يُساق كل الرسم خارج الشاشة
-    val glowSpread = with(density) { 28.dp.toPx() }
+    // توهج الضوء الحي (alpha19): انتشار أوسع، صعود ناعم عبر حزام البلور،
+    // وهامش ميت يقتل أي حرف مرئي لطبقة التوهج (الخط الأحمر) — الثوابت من
+    // ThemeDialMath.GlowGeometry مصدر واحد للرسم والمرآة والاختبارات
+    val glowSpread = with(density) { ThemeDialMath.GlowGeometry.SPREAD_DP.dp.toPx() }
+    val glowFeather = with(density) { ThemeDialMath.GlowGeometry.FEATHER_DP.dp.toPx() }
+    // الامتداد الكلي الذي يُساق به الحدّ خارج الشاشة عند التثبيت
+    val glowTotal = with(density) { ThemeDialMath.GlowGeometry.TOTAL_DP.dp.toPx() }
 
     SideEffect {
         dial.configure(
             dial.screenWidth, dial.screenHeight, blobR,
-            anchorPad, glowSpread,
+            anchorPad, glowTotal,
         )
     }
 
@@ -172,7 +177,7 @@ fun ThemeDialOverlay(
             .onSizeChanged {
                 dial.configure(
                     it.width.toFloat(), it.height.toFloat(), blobR,
-                    anchorPad, glowSpread,
+                    anchorPad, glowTotal,
                 )
             }
             .drawBehind {
@@ -187,24 +192,24 @@ fun ThemeDialOverlay(
                 val p = ThemeDialMath.progress(headXv, dial.anchorLeft, dial.anchorRight)
 
                 // ===== 1) توهج الضوء الحي على حدّ الانقسام (تحت الكبسولة والسائل) =====
-                // توجيه المالك alpha18: «الضوء من جهة واحدة فقط وهي الجهة الخارجية
-                // وكبّر مساحة تشتت الضوء» — النهار مصدر الضوء فيضيء الليلي الخارج
-                // منه: لا توهج على الجهة النهارية (يسار الحدّ)، وكل الانسكاب يمين
-                // الحدّ (الجهة المظلمة — جهة ثابتة فيزيائياً). منحنى التلاشٍ يصل
-                // صفراً حقيقياً قبل الطرف الخارجي (وقفات صفرية مزدوجة) كيموت أي
-                // خط هامشي على حرف الطبقة. الشدة ديناميكية = نسبة النهار على
-                // الشاشة (ThemeDialMath.beamIntensity) بلا تفرّع («والعكس صحيح»).
+                // توجيه المالك alpha19 (صورة العلامتين): «شيل الخط الرفيع (الأحمر)
+                // واعمل بلور على الحدّ (الأزرق) وكبّر انتشار الضوء» — الطبقة
+                // أوسع من المرئي بحزام ميت يبلغ القناع فيه صفراً حقيقياً قبل
+                // طرفها ببعده محسوس كيموت الخط الأحمر على حرف الطبقة، والصعود
+                // عبر حزام البلور ناعم (لا قفزة عند الحدّ) والانتشار 44dp.
+                // الشدة ديناميكية = نسبة النهار على الشاشة بلا تفرّع.
                 if (dial.splitActive) {
                     val visibility = dial.beam.value
                     val dayLight = ThemeDialMath.beamIntensity(dial.maskX.value, dial.screenWidth)
                     val power = visibility * dayLight
                     if (power > 0.004f) {
                         val edgeX = dial.maskX.value
-                        val glowWidth = glowSpread
+                        val glowWidth = glowTotal
+                        val glowLeft = edgeX - glowFeather
                         val gradH = if (size.height > 1f) size.height else 1f
                         drawIntoCanvas { canvas ->
                             canvas.saveLayer(
-                                Rect(edgeX, 0f, edgeX + glowWidth, size.height),
+                                Rect(glowLeft, 0f, glowLeft + glowWidth, size.height),
                                 Paint(),
                             )
                             // الطيف الرأسي بألوان كثيرة بطول الشاشة — يُرسم
@@ -215,26 +220,22 @@ fun ThemeDialOverlay(
                                     startY = 0f,
                                     endY = gradH,
                                 ),
-                                topLeft = Offset(edgeX, 0f),
+                                topLeft = Offset(glowLeft, 0f),
                                 size = Size(glowWidth, size.height),
                             )
-                            // قناع الانسكاق الأفقي — من الحدّ نفسه (ذروة) نحو
-                            // الخارج بتلاشٍ ناعم يصل صفراً حقيقياً عند 0.94
-                            // ويستمر صفراً حتى الطرف (وقفة مزدوجة كيموت أي
-                            // خط هامشي على حرف الطبقة)
+                            // قناع الانسكاق الأفقي — يصعد ناعماً عبر حزام البلور
+                            // (صفر ← ذروة بعد الحدّ) ثم ينحدر حتى صفر حقيقي عند
+                            // 0.955 ويستمر صفراً حتى الطرف (هامش ميت كيموت أي
+                            // حرف مرئي للطبقة = موت الخط الأحمر نهائياً)
                             drawRect(
                                 brush = Brush.horizontalGradient(
-                                    0.00f to Color.Black.copy(alpha = 0.72f * power),
-                                    0.18f to Color.Black.copy(alpha = 0.44f * power),
-                                    0.38f to Color.Black.copy(alpha = 0.22f * power),
-                                    0.60f to Color.Black.copy(alpha = 0.09f * power),
-                                    0.82f to Color.Black.copy(alpha = 0.025f * power),
-                                    0.94f to Color.Black.copy(alpha = 0f),
-                                    1.00f to Color.Black.copy(alpha = 0f),
-                                    startX = edgeX,
-                                    endX = edgeX + glowWidth,
+                                    *ThemeDialMath.glowMaskStops(power)
+                                        .map { (stop, a) -> stop to Color.Black.copy(alpha = a) }
+                                        .toTypedArray(),
+                                    startX = glowLeft,
+                                    endX = glowLeft + glowWidth,
                                 ),
-                                topLeft = Offset(edgeX, 0f),
+                                topLeft = Offset(glowLeft, 0f),
                                 size = Size(glowWidth, size.height),
                                 blendMode = BlendMode.DstIn,
                             )
@@ -439,4 +440,10 @@ object DialTrackLayout {
     val TopSpacer = 8.dp
     val SelfTopPad = 4.dp
     val Height = 46.dp
+}
+
+/** ثوابت حزام البلور حول حدّ الانقسام — ثابت واحد تستخدمه طبقة المعاينة والرياضيات */
+object DialSplit {
+    /** نصف عرض حزام المزج حول حدّ الانقسام — البلور الذي يسيح الحدّ مع اللون */
+    val Feather = ThemeDialMath.GlowGeometry.FEATHER_DP.dp
 }

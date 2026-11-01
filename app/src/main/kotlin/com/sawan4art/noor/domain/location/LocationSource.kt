@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 
 /**
@@ -49,6 +50,20 @@ class LocationSource(private val context: Context) {
             best.latitude to best.longitude
         }
 
+    /**
+     * قراءة موقع حديث بعُقد مهلة — أول موقع يصل يفوز.
+     *
+     * **كراش المالك alpha19** («بعد تفعيل الموقع والإنترنت من الحوار والضغط
+     * على أيقونة التحديد التطبيق يخرج»): الجذر أن `LocationManager
+     * .getCurrentLocation` على API 30+ يستدعي الـconsumer بقيمة **null** حين
+     * يعجز المزوّد عن إنتاج موقع — وبالذات لحظة تفعيل خدمة الموقع للتوّ (GPS
+     * بارد بلا إصلاح بعد). القيمة null كانت تمرّ إلى `onLocationChanged`
+     * ذات الباراميتر الكوتلني غير القابل للـnull فتنفجر فحصاً جوهرياً
+     * (intrinsic null check) = NPE فوري وخروج. معه سباق ثانٍ: مؤقّت المهلة
+     * وأول موقع يصل قد يتنافسان على `cont.resume` مرتين = IllegalStateException.
+     * العلاج: حارس null صريح + إنهاء ذري واحد (AtomicBoolean) يضمّن أن المهلة
+     * والوصول لا يُنهيان العقد إلا مرة، وتحييد أي استثناء من استدعاءات النظام.
+     */
     @SuppressLint("MissingPermission")
     private suspend fun freshLocation(
         lm: LocationManager,
@@ -56,18 +71,23 @@ class LocationSource(private val context: Context) {
         timeoutMs: Long,
     ): Location? = suspendCancellableCoroutine { cont ->
         val mainExecutor = ContextCompat.getMainExecutor(context)
+        // الإنهاء مرة واحدة فقط — المهلة وأول موقع يتنافسان على نفس العقد
+        val finished = AtomicBoolean(false)
+        // تنظيف المستمع والمؤقّت — يُضبط بعد تعريفهما (كسر الدورانية المحلية)
+        var cleanup: (() -> Unit)? = null
 
         val listener = object : android.location.LocationListener {
-            private var done = false
-            private fun deliver(location: Location) {
-                if (!done) {
-                    done = true
-                    lm.removeUpdates(this)
-                    if (cont.isActive) cont.resume(location)
+            override fun onLocationChanged(location: Location) {
+                // **جذر كراش المالك**: getCurrentLocation يستدعي الـconsumer بقيمة
+                // null حين يعجز المزوّد عن إنتاج موقع (GPS بارد بعد تفعيل الخدمة
+                // للتوّ) — الباراميتر هنا غير قابل للـnull فالفحص الجوهري يفجّر
+                // NPE ويخرج التطبيق. القيمة الفارغة ليست نتيجة — تُتجاهل فحسب.
+                if (location == null) return
+                if (finished.compareAndSet(false, true)) {
+                    cleanup?.invoke()
+                    if (cont.isActive) runCatching { cont.resume(location) }
                 }
             }
-
-            override fun onLocationChanged(location: Location) = deliver(location)
 
             // استدعاءات إلزامية على أجهزة API < 30 — تجاهل آمن
             @Deprecated("Deprecated in Java")
@@ -76,11 +96,26 @@ class LocationSource(private val context: Context) {
             override fun onProviderDisabled(provider: String) = Unit
         }
 
+        val timer = object : CountDownTimer(timeoutMs, timeoutMs) {
+            override fun onTick(millisUntilFinished: Long) = Unit
+            override fun onFinish() {
+                if (finished.compareAndSet(false, true)) {
+                    cleanup?.invoke()
+                    if (cont.isActive) runCatching { cont.resume(null) }
+                }
+            }
+        }
+
+        cleanup = {
+            runCatching { lm.removeUpdates(listener) }
+            runCatching { timer.cancel() }
+        }
+
         try {
             providers.forEach { p ->
                 if (Build.VERSION.SDK_INT >= 30) {
                     lm.getCurrentLocation(p, null, mainExecutor) { location ->
-                        listener.onLocationChanged(location)
+                        listener.onLocationChanged(location ?: return@getCurrentLocation)
                     }
                 } else {
                     @Suppress("DEPRECATION")
@@ -91,17 +126,10 @@ class LocationSource(private val context: Context) {
             // مزوّد رفض فجأة — نعتمد ما يصل من البقية أو آخر موقع معروف
         }
 
-        val timer = object : CountDownTimer(timeoutMs, timeoutMs) {
-            override fun onTick(millisUntilFinished: Long) = Unit
-            override fun onFinish() {
-                lm.removeUpdates(listener)
-                if (cont.isActive) cont.resume(null)
-            }
-        }
         timer.start()
         cont.invokeOnCancellation {
-            lm.removeUpdates(listener)
-            timer.cancel()
+            finished.set(true)
+            cleanup?.invoke()
         }
     }
 

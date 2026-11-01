@@ -213,4 +213,106 @@ class ThemeDialMathTest {
         ThemeDialMath.sweepTargetX(false, -100f, 0f)
         ThemeDialMath.progress(50f, 100f, 100f) // مسار معدوم
     }
+
+    // ===== عقد alpha19: موت الخط الأحمر + بلور الحدّ الأزرق + انتشار أوسع =====
+
+    private val glowStops = ThemeDialMath.glowMaskStops(1f)
+
+    @Test
+    fun `هندسة التوهج - الانتشار أوسع من قبل والهامش الميت حقيقي`() {
+        val g = ThemeDialMath.GlowGeometry
+        // توجيه المالك: «كبّر عرض انتشار الضوء» — 44dp بدل 28dp
+        assertEquals(44f, g.SPREAD_DP, 1e-5f)
+        assertTrue("الانتشار يجب أن يتجاوز alpha18 (28dp)", g.SPREAD_DP > 28f)
+        // الريشة + الهامش الميت موجبة، والامتداد الكلي مجموع الأجزاء
+        assertTrue(g.FEATHER_DP > 0f)
+        assertTrue(g.DEAD_DP > 0f)
+        assertEquals(
+            g.FEATHER_DP + g.SPREAD_DP + g.DEAD_DP,
+            g.TOTAL_DP,
+            1e-4f,
+        )
+    }
+
+    @Test
+    fun `قناع التوهج يبدأ وينتهي صفرا حقيقيا - موت الخط على حرف الطبقة`() {
+        assertEquals("بداية الحقل صفر", 0f, glowStops.first().second, 1e-7f)
+        assertEquals("نهاية الحقل صفر", 0f, glowStops.last().second, 1e-7f)
+        // صفر حقيقي قبل الطرف ببعده محسوس: آخر وقفة غير صفرية قبل 0.955
+        val lastVisible = glowStops.last { it.second > 0f }
+        assertTrue(
+            "آخر أثر مرئي عند ${lastVisible.first} يجب أن يسبق 0.955 بفارق ملموس",
+            lastVisible.first <= 0.90f,
+        )
+        // الوقفات الصفرية الأخيرة تستمر حتى الطرف — لا قفزة عند 1.0
+        val zeroTail = glowStops.filter { it.first >= 0.955f }
+        assertTrue(zeroTail.size >= 2)
+        zeroTail.forEach { (t, a) -> assertEquals("صفر عند t=$t", 0f, a, 1e-7f) }
+    }
+
+    @Test
+    fun `قناع التوهج يصعد ناعما لا قفزة عند الحد`() {
+        // الحدّ عند t = الريشة/الكل ≈ 0.1714 — وقفة القناع عند 0.171 (تقريب
+        // ثلاث خانات) فالتسامح أوسع من فرق التقريب وأضيق من نصف الحزام
+        val edgeT = ThemeDialMath.GlowGeometry.FEATHER_DP / ThemeDialMath.GlowGeometry.TOTAL_DP
+        val atEdge = glowStops.first { it.first >= edgeT - 1e-3f }.second
+        val peak = glowStops.maxOf { it.second }
+        assertTrue("ذروة واضحة بعد الحدّ", peak >= 0.72f - 1e-6f)
+        assertTrue(
+            "عند الحدّ نفسه القيمة بين الصفر والذروة (صعود ناعم): $atEdge",
+            atEdge > 0f && atEdge < peak,
+        )
+        // قبل الحزام كله: شبه معدوم — النهار لا توهج عنه
+        val beforeBand = glowStops.takeWhile { it.first < edgeT * 0.5f }
+        beforeBand.forEach { (t, a) ->
+            assertTrue("بداية الحقل خافتة عند t=$t: $a", a < 0.2f)
+        }
+    }
+
+    @Test
+    fun `قناع التوهج ينحدر رتيبا بعد الذروة حتى الصفر`() {
+        val peakIdx = glowStops.indexOfFirst { it.second >= 0.72f }
+        var prev = glowStops[peakIdx].second
+        for (i in peakIdx + 1 until glowStops.size) {
+            val a = glowStops[i].second
+            assertTrue("انحدار رتيب عند t=${glowStops[i].first}", a <= prev + 1e-6f)
+            prev = a
+        }
+    }
+
+    @Test
+    fun `الطاقة تضرب القناع لا تكسره - القيم المحصورة`() {
+        // عند طاقة منخفضة تبقى النسب المتناسقة ولا قيم سالبة
+        ThemeDialMath.glowMaskStops(0.05f).forEach { (t, a) ->
+            assertTrue("شفافية سالبة عند t=$t", a >= 0f)
+            assertTrue("شفافية فوق الذروة عند t=$t", a <= 0.72f + 1e-6f)
+        }
+    }
+
+    @Test
+    fun `حزام البلور متماثل المنطق ومتقابل الاتجاهين`() {
+        val darkOverlay = ThemeDialMath.splitFeatherStops(false)
+        val lightOverlay = ThemeDialMath.splitFeatherStops(true)
+        // الاتجاهان مرآة: مجموع الشفافيتين عند كل وقفة متطابقة = 1
+        darkOverlay.zip(lightOverlay).forEach { (dark, light) ->
+            assertEquals("المجموع عند t=${dark.first}", 1f, dark.second + light.second, 1e-6f)
+        }
+        // المزج عند الحدّ نفسه (t=0.5) نصفاً تماماً = البلور المطلوب
+        assertEquals(0.5f, darkOverlay.first { it.first == 0.5f }.second, 1e-6f)
+        assertEquals(0.5f, lightOverlay.first { it.first == 0.5f }.second, 1e-6f)
+        // كامل عند جهة الطبقة الصلبة وصفر عند جهة الأساس
+        assertEquals(0f, darkOverlay.first().second, 1e-7f)
+        assertEquals(1f, darkOverlay.last().second, 1e-7f)
+        assertEquals(1f, lightOverlay.first().second, 1e-7f)
+        assertEquals(0f, lightOverlay.last().second, 1e-7f)
+    }
+
+    @Test
+    fun `مسح التثبيت يسوق الامتداد الكلي للتوهج لا انتشارا فقط`() {
+        // 70dp عند 3x = 210px — الحقل بكامل أجزائه يغادر الشاشة
+        val total = ThemeDialMath.GlowGeometry.TOTAL_DP * 3f
+        val w = 1080f
+        assertTrue(ThemeDialMath.sweepTargetX(true, w, total) - total >= w)
+        assertTrue(ThemeDialMath.sweepTargetX(false, w, total) + total <= 0f)
+    }
 }

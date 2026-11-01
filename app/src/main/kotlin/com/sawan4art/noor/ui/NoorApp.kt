@@ -11,11 +11,11 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -26,8 +26,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,10 +48,13 @@ import com.sawan4art.noor.ui.home.HomeScreen
 import com.sawan4art.noor.ui.home.HomeViewModel
 import com.sawan4art.noor.ui.nav.LiquidNavScaffold
 import com.sawan4art.noor.ui.nav.NoorTab
+import com.sawan4art.noor.ui.notice.NoorNoticeDialog
 import com.sawan4art.noor.ui.sections.ComingSoonScreen
 import com.sawan4art.noor.ui.settings.SettingsScreen
 import com.sawan4art.noor.ui.theme.AccentPalette
+import com.sawan4art.noor.ui.theme.DialSplit
 import com.sawan4art.noor.ui.theme.NoorTheme
+import com.sawan4art.noor.ui.theme.ThemeDialMath
 import com.sawan4art.noor.ui.theme.ThemeDialOverlay
 import com.sawan4art.noor.ui.theme.ThemeDialState
 import com.sawan4art.noor.ui.update.UpdateDialog
@@ -81,6 +93,8 @@ fun NoorApp(viewModel: HomeViewModel) {
     // بوابات الموقع — حوار الرسالة مع إجراء فتح الإعدادات المناسب (alpha18)
     val locationGate by viewModel.locationGate.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    // نصف حزام البلور حول حدّ الانقسام (alpha19) — بالبكسل
+    val splitFeatherPx = with(LocalDensity.current) { DialSplit.Feather.toPx() }
 
     CompositionLocalProvider(LocalLayoutDirection provides AppDirection) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -109,8 +123,16 @@ fun NoorApp(viewModel: HomeViewModel) {
             // يظهر على جهازه قط) — آلية القناع القديمة (Offscreen + DstIn بشرائح
             // ريشية) تفشل بصمت على بعض معالجات الرسوميات فتُخفي المعاينة كاملة.
             // clipRect عمل قصّ أساسي مستحيل الفشل: الفاتح يسار الحدّ والمظلم
-            // يمينه دائماً، وحدّ القص يعلوه خط الضوء الحي المرسوم في المزلاج
-            // (هالة ضيقة مركّزة على الحدّ حصرياً — توجيه المالك alpha15).
+            // يمينه دائماً، وحدّ القص يعلوه خط الضوء الحي المرسوم في المزلاج.
+            //
+            // **بلور الحدّ (alpha19 — بلاغ المالك بصورة العلامة الزرقاء:
+            // «الازرق عايزك تعمل عليه بلور علشان يسيح مع اللون»)**: القصّ الصلب
+            // يبقى هو الآلية لكنه الآن **متدرّج الحواف** — يمين الحزام كله قصّ
+            // صلب رخيص كما هو، وحول الحدّ نفسه حزام ريشة (Feather) بعرض
+            // DialSplit.Feather في طبقة معزولة يُضرب بقناع DstIn متدرّج من صفر
+            // إلى واحد — فتمتزج الثيمتان تدريجياً عبر الحزام ولا يبقى أي حدّ
+            // حاد يُقرأ خطاً (القصّ الصلب نفسه مستحيل الفشل — الحزام مجرد
+            // طبقة معزولة عليه قناع واحد فوقه).
             if (onHome && dial.splitActive) {
                 NoorTheme(
                     themeMode = if (dial.overlayIsLight) ThemeMode.LIGHT else ThemeMode.DARK,
@@ -121,13 +143,53 @@ fun NoorApp(viewModel: HomeViewModel) {
                             .fillMaxSize()
                             .drawWithContent {
                                 val edge = dial.maskX.value
-                                clipRect(
-                                    left = if (dial.overlayIsLight) 0f else edge,
-                                    top = 0f,
-                                    right = if (dial.overlayIsLight) edge else size.width,
-                                    bottom = size.height,
-                                ) {
-                                    this@drawWithContent.drawContent()
+                                val feather = splitFeatherPx
+                                val bandLeft = (edge - feather).coerceAtLeast(0f)
+                                val bandRight = (edge + feather).coerceAtMost(size.width)
+                                // اتجاه الطبقة ثابت فيزيائياً: الفاتح يسار الحدّ
+                                // والمظلم يمينه — والطبقة الهدف هي الفاتح أو المظلم
+                                val lightOverlay = dial.overlayIsLight
+                                // 1) كتلة الطبقة الصلبة خارج الحزام — قصّ أساسي كما هو
+                                if (lightOverlay) {
+                                    clipRect(0f, 0f, bandLeft, size.height) {
+                                        this@drawWithContent.drawContent()
+                                    }
+                                } else {
+                                    clipRect(bandRight, 0f, size.width, size.height) {
+                                        this@drawWithContent.drawContent()
+                                    }
+                                }
+                                // 2) حزام الريشة حول الحدّ — نفس المحتوى في طبقة
+                                //    معزولة يُخفّف بتدرّج أفقي من كامل إلى صفر
+                                //    (اتجاه المزج من جهة الطبقة نحو جهة الأساس)
+                                drawIntoCanvas { canvas ->
+                                    canvas.saveLayer(
+                                        Rect(bandLeft, 0f, bandRight, size.height),
+                                        Paint(),
+                                    )
+                                    clipRect(
+                                        left = bandLeft,
+                                        top = 0f,
+                                        right = bandRight,
+                                        bottom = size.height,
+                                    ) {
+                                        this@drawWithContent.drawContent()
+                                    }
+                                    // القناع: كامل عند جهة الطبقة الصلبة ← صفر عند
+                                    // جهة الأساس — مزج 50/50 عند الحدّ نفسه = البلور
+                                    drawRect(
+                                        brush = Brush.horizontalGradient(
+                                            *ThemeDialMath.splitFeatherStops(lightOverlay)
+                                                .map { (stop, a) -> stop to Color.Black.copy(alpha = a) }
+                                                .toTypedArray(),
+                                            startX = bandLeft,
+                                            endX = bandRight,
+                                        ),
+                                        topLeft = Offset(bandLeft, 0f),
+                                        size = Size(bandRight - bandLeft, size.height),
+                                        blendMode = BlendMode.DstIn,
+                                    )
+                                    canvas.restore()
                                 }
                             },
                     ) {
@@ -210,44 +272,45 @@ fun NoorApp(viewModel: HomeViewModel) {
 
     // حوار بوابات الموقع (توجيه المالك alpha18): «لا تظهر رسالة تفيد بتفعيل
     // الموقع والانترنت» — الرسالة الآن إلزامية على كل بوابة مقفولة، مع زر
-    // يفتح الإعدادات المناسبة مباشرة، وزر إغلاق دائم
+    // يفتح الإعدادات المناسبة مباشرة، وزر إغلاق دائم.
+    // alpha19: الحوار عبر **القالب الموحد** NoorNoticeDialog — نفس لون
+    // الثيم ونفس تصميم حوار التحديث (بلاغ المالك: الإشعارات ليست بنفس
+    // لون الثيم ولا بنفس التصميم).
     locationGate?.let { gate ->
-        AlertDialog(
-            onDismissRequest = viewModel::dismissLocationGate,
-            title = { Text("تحديد الموقع") },
-            text = { Text(gate.message.orEmpty()) },
-            confirmButton = {
-                if (gate.action != LocationGate.Action.NONE) {
-                    TextButton(
-                        onClick = {
-                            viewModel.dismissLocationGate()
-                            // فشل فتح الإعدادات على أجهزة غريبة لا يكسر التطبيق
-                            runCatching {
-                                val intent = when (gate.action) {
-                                    LocationGate.Action.OPEN_APP_SETTINGS ->
-                                        android.content.Intent(
-                                            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                            android.net.Uri.fromParts("package", context.packageName, null),
-                                        )
-                                    LocationGate.Action.OPEN_LOCATION_SETTINGS ->
-                                        android.content.Intent(
-                                            android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS,
-                                        )
-                                    LocationGate.Action.OPEN_INTERNET_SETTINGS ->
-                                        android.content.Intent(
-                                            android.provider.Settings.ACTION_WIRELESS_SETTINGS,
-                                        )
-                                    LocationGate.Action.NONE -> null
-                                }?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                intent?.let(context::startActivity)
-                            }
-                        },
-                    ) { Text(gate.actionLabel) }
+        NoorNoticeDialog(
+            title = "تحديد الموقع",
+            message = gate.message.orEmpty(),
+            icon = Icons.Filled.LocationOn,
+            iconDescription = "الموقع",
+            actionLabel = if (gate.action != LocationGate.Action.NONE) gate.actionLabel else null,
+            onAction = if (gate.action != LocationGate.Action.NONE) {
+                {
+                    viewModel.dismissLocationGate()
+                    // فشل فتح الإعدادات على أجهزة غريبة لا يكسر التطبيق
+                    runCatching {
+                        val intent = when (gate.action) {
+                            LocationGate.Action.OPEN_APP_SETTINGS ->
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    android.net.Uri.fromParts("package", context.packageName, null),
+                                )
+                            LocationGate.Action.OPEN_LOCATION_SETTINGS ->
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS,
+                                )
+                            LocationGate.Action.OPEN_INTERNET_SETTINGS ->
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_WIRELESS_SETTINGS,
+                                )
+                            LocationGate.Action.NONE -> null
+                        }?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        intent?.let(context::startActivity)
+                    }
                 }
+            } else {
+                null
             },
-            dismissButton = {
-                TextButton(onClick = viewModel::dismissLocationGate) { Text("حسناً") }
-            },
+            onDismiss = viewModel::dismissLocationGate,
         )
     }
 }

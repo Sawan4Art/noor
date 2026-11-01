@@ -101,11 +101,18 @@ object UpdateManager {
         }
     }
 
-    /** الإشعار مرة واحدة لكل نسخة — حتى لو فُحص مرات عديدة */
+    /** الإشعار مرة واحدة لكل نسخة — حتى لو فُحص مرات عديدة، بلون الثيم المختار */
     private suspend fun maybeNotify(info: UpdateInfo) {
         val notified = repository.updatePrefs.first().notifiedVersion
         if (!NoorVersion.isNewer(info.tag, notified)) return
-        UpdateNotifier.notifyNewVersion(appContext, info)
+        // لون الثيم المختار (alpha19) — فشل قراءته لا يمنع الإشعار
+        val accentArgb = runCatching {
+            UpdateNotifier.themedAccentArgb(
+                appContext,
+                repository.settings.first().accentId,
+            )
+        }.getOrNull()
+        UpdateNotifier.notifyNewVersion(appContext, info, accentArgb)
         repository.setNotifiedVersion(info.tag)
     }
 
