@@ -82,9 +82,9 @@ class AzkarMathTest {
         val group = AzkarContent.MORNING
         val done = setOf(
             "morning_kursi",
-            "morning_radiytu",
+            "morning_no_harm",
             "evening_subhan_100", // لمجموعة أخرى — لا يُحصى هنا
-            "sleep_bismika", // لمجموعة أخرى
+            "sleep_kursi", // لمجموعة أخرى
         )
         val p = AzkarMath.groupProgress(done, group)
         assertEquals(2, p.doneCount)

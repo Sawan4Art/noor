@@ -251,6 +251,204 @@ object NoorIcons {
         }
     }
 
+    // ===== أيقونات أقسام الأذكار (alpha29 — ٣٠ قسماً بأيقوناته) =====
+
+    /** النوم — سرير هندسي بمنظرة ووسادة */
+    val Bed: ImageVector by lazy {
+        noorIcon("Bed") {
+            filled {
+                // قاعدة السرير
+                moveTo(3.6f, 7.0f)
+                lineTo(5.4f, 7.0f)
+                lineTo(5.4f, 17.6f)
+                lineTo(3.6f, 17.6f)
+                close()
+                // المنظرة والمسند
+                moveTo(5.4f, 9.2f)
+                lineTo(20.4f, 9.2f)
+                lineTo(20.4f, 11.0f)
+                lineTo(5.4f, 11.0f)
+                close()
+                moveTo(6.4f, 12.2f)
+                lineTo(9.4f, 12.2f)
+                lineTo(9.4f, 14.2f)
+                lineTo(6.4f, 14.2f)
+                close()
+                // مرتبة السرير
+                moveTo(5.4f, 14.8f)
+                lineTo(20.4f, 14.8f)
+                lineTo(20.4f, 17.6f)
+                lineTo(5.4f, 17.6f)
+                close()
+                // قدم السرير
+                moveTo(18.6f, 17.6f)
+                lineTo(20.4f, 17.6f)
+                lineTo(20.4f, 19.6f)
+                lineTo(18.6f, 19.6f)
+                close()
+            }
+        }
+    }
+
+    /** المسجد — قبة وجدران ومئذنتان */
+    val Mosque: ImageVector by lazy {
+        noorIcon("Mosque") {
+            filled(PathFillType.EvenOdd) {
+                // القبة والجدران
+                moveTo(4.4f, 20.0f)
+                lineTo(4.4f, 13.6f)
+                curveTo(4.4f, 10.2f, 7.2f, 8.0f, 12.0f, 5.6f)
+                curveTo(16.8f, 8.0f, 19.6f, 10.2f, 19.6f, 13.6f)
+                lineTo(19.6f, 20.0f)
+                close()
+                // المئذنتان
+                moveTo(2.6f, 20.0f)
+                lineTo(2.6f, 11.4f)
+                lineTo(4.0f, 11.4f)
+                lineTo(4.0f, 20.0f)
+                close()
+                moveTo(20.0f, 20.0f)
+                lineTo(20.0f, 11.4f)
+                lineTo(21.4f, 11.4f)
+                lineTo(21.4f, 20.0f)
+                close()
+                // باب المسجد — فجوة EvenOdd
+                moveTo(10.4f, 20.0f)
+                lineTo(10.4f, 16.2f)
+                curveTo(10.4f, 15.2f, 11.1f, 14.6f, 12.0f, 14.0f)
+                curveTo(12.9f, 14.6f, 13.6f, 15.2f, 13.6f, 16.2f)
+                lineTo(13.6f, 20.0f)
+                close()
+            }
+        }
+    }
+
+    /** قطرة ماء — للوضوء والمطر والخلاء */
+    val Drop: ImageVector by lazy {
+        noorIcon("Drop") {
+            filled {
+                moveTo(12.0f, 3.0f)
+                curveTo(15.0f, 6.8f, 17.2f, 9.9f, 17.2f, 13.1f)
+                curveTo(17.2f, 16.4f, 14.9f, 19.0f, 12.0f, 19.0f)
+                curveTo(9.1f, 19.0f, 6.8f, 16.4f, 6.8f, 13.1f)
+                curveTo(6.8f, 9.9f, 9.0f, 6.8f, 12.0f, 3.0f)
+                close()
+            }
+        }
+    }
+
+    /** السفر — طائرة ورقية باتجاه اليمين */
+    val Travel: ImageVector by lazy {
+        noorIcon("Travel") {
+            filled(PathFillType.EvenOdd) {
+                moveTo(20.6f, 3.6f)
+                lineTo(3.6f, 10.4f)
+                curveTo(3.0f, 10.65f, 3.05f, 11.5f, 3.65f, 11.7f)
+                lineTo(8.6f, 13.25f)
+                lineTo(10.15f, 18.2f)
+                curveTo(10.35f, 18.8f, 11.2f, 18.85f, 11.45f, 18.25f)
+                lineTo(20.6f, 3.6f)
+                close()
+                // فجوة الظل الداخلية للجناح
+                moveTo(18.4f, 5.6f)
+                lineTo(8.9f, 13.1f)
+                lineTo(10.3f, 17.3f)
+                close()
+            }
+        }
+    }
+
+    /** الطعام — شوكة وسكين */
+    val Food: ImageVector by lazy {
+        noorIcon("Food") {
+            filled {
+                // أسنان الشوكة الثلاث
+                moveTo(6.8f, 3.4f)
+                lineTo(8.0f, 3.4f)
+                lineTo(8.0f, 8.0f)
+                lineTo(6.8f, 8.0f)
+                close()
+                moveTo(8.9f, 3.4f)
+                lineTo(10.1f, 3.4f)
+                lineTo(10.1f, 8.0f)
+                lineTo(8.9f, 8.0f)
+                close()
+                moveTo(11.0f, 3.4f)
+                lineTo(12.2f, 3.4f)
+                lineTo(12.2f, 8.0f)
+                lineTo(11.0f, 8.0f)
+                close()
+                // قاعدة الشوكة
+                moveTo(6.8f, 8.0f)
+                lineTo(12.2f, 8.0f)
+                lineTo(12.2f, 9.8f)
+                lineTo(6.8f, 9.8f)
+                close()
+                // يد الشوكة
+                moveTo(8.9f, 9.8f)
+                lineTo(10.1f, 9.8f)
+                lineTo(10.1f, 20.6f)
+                lineTo(8.9f, 20.6f)
+                close()
+                // السكين — نصلة ومقبض
+                moveTo(15.6f, 3.4f)
+                curveTo(18.0f, 5.0f, 19.0f, 8.2f, 18.1f, 10.9f)
+                curveTo(17.8f, 11.8f, 16.9f, 12.4f, 15.9f, 12.4f)
+                lineTo(15.6f, 12.4f)
+                close()
+                moveTo(14.3f, 3.4f)
+                lineTo(15.6f, 3.4f)
+                lineTo(15.6f, 20.6f)
+                lineTo(14.3f, 20.6f)
+                close()
+            }
+        }
+    }
+
+    /** الثياب — قميص بكمين وياقة */
+    val Shirt: ImageVector by lazy {
+        noorIcon("Shirt") {
+            filled {
+                moveTo(8.1f, 4.0f)
+                lineTo(3.8f, 6.4f)
+                lineTo(5.5f, 9.9f)
+                lineTo(7.3f, 9.1f)
+                lineTo(7.3f, 20.0f)
+                lineTo(16.7f, 20.0f)
+                lineTo(16.7f, 9.1f)
+                lineTo(18.5f, 9.9f)
+                lineTo(20.2f, 6.4f)
+                lineTo(15.9f, 4.0f)
+                curveTo(15.0f, 5.3f, 13.6f, 6.0f, 12.0f, 6.0f)
+                curveTo(10.4f, 6.0f, 9.0f, 5.3f, 8.1f, 4.0f)
+                close()
+            }
+        }
+    }
+
+    /** الرياح — ثلاث خطوط هواء متدرجة */
+    val Wind: ImageVector by lazy {
+        noorIcon("Wind") {
+            filled {
+                moveTo(3.8f, 7.1f)
+                lineTo(14.6f, 7.1f)
+                curveTo(15.9f, 7.1f, 15.9f, 8.9f, 14.6f, 8.9f)
+                lineTo(3.8f, 8.9f)
+                close()
+                moveTo(6.0f, 11.1f)
+                lineTo(17.4f, 11.1f)
+                curveTo(18.7f, 11.1f, 18.7f, 12.9f, 17.4f, 12.9f)
+                lineTo(6.0f, 12.9f)
+                close()
+                moveTo(3.8f, 15.1f)
+                lineTo(12.8f, 15.1f)
+                curveTo(14.1f, 15.1f, 14.1f, 16.9f, 12.8f, 16.9f)
+                lineTo(3.8f, 16.9f)
+                close()
+            }
+        }
+    }
+
     // ===== أدوات الرسم =====
 
     /** هندسة شمس مبدّل المظهر — قرص وأشعة (نفس أرقام المولّد) */

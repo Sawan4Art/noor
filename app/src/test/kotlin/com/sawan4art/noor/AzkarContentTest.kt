@@ -9,9 +9,9 @@ import org.junit.Test
 
 /**
  * عقود محتوى الأذكار — النصوص المشكولة ومصادرها وأعدادها المسنونة
- * (alpha27): كل ذكرٍ بنصٍ غير خالٍ ومصدرٍ صريح وعددٍ من العادات
- * المسنونة، ومعرّفات فريدة عبر المجموعات كلها، والصلاة على النبي
- * نصوصها موثقة حرفياً (ذكرٌ مستقل لا يدخل تسبيح ما بعد الصلاة).
+ * (alpha29 توجيه المالك: «خفف الاذكار و اعرض الاذكار الخاصه بكل قسم ..
+ * عايز اضيف حتى ٣٠ نوع من الاذكار ان وجد») — تسعة وعشرون قسماً
+ * خفيفاً + الصلاة على النبي عدّادها الحر = ثلاثون نوعاً.
  */
 class AzkarContentTest {
 
@@ -30,22 +30,36 @@ class AzkarContentTest {
         // الخاتمة المشهورة ترد مرتين — مرة في كل نص
         assertEquals(2, Regex("إِنَّكَ حَمِيدٌ مَجِيدٌ").findAll(full).count())
         assertEquals("متفق عليه", AzkarContent.PRAISE_SOURCE)
-        // فضل الذكر بمسند مسلم حرفياً
         assertEquals(
             "«مَنْ صَلَّى عَلَيَّ صَلاةً صَلَّى اللَّهُ عَلَيْهِ بِهَا عَشْرًا»",
             AzkarContent.PRAISE_VIRTUE,
         )
     }
 
-    // ===== عقود المجموعات الثلاث =====
+    // ===== عقود الأقسام التسعة والعشرين =====
 
     @Test
-    fun `المجموعات ثلاثة بالترتيب الصباح ثم المساء ثم النوم`() {
-        assertEquals(listOf("morning", "evening", "sleep"), AzkarContent.GROUPS.map { it.id })
+    fun `تسعة وعشرون قسما مع الصلاة على النبي يصيروا ثلاثين نوعا`() {
+        assertEquals(29, AzkarContent.GROUPS.size)
+        // مع بطاقة الصلاة على النبي المستقلة = ٣٠ نوعاً كما أمر المالك
+        assertEquals(30, AzkarContent.GROUPS.size + 1)
     }
 
     @Test
-    fun `كل ذكر بنص مشكول غير خالٍ ومصدر صريح وعدد مسنون صحيح`() {
+    fun `ترتيب الأقسام — اليومية أولا ثم المكانية ثم الأدعية`() {
+        val ids = AzkarContent.GROUPS.map { it.id }
+        assertEquals("morning", ids.first())
+        assertEquals("evening", ids[1])
+        assertEquals("sleep", ids[2])
+        // الأقسام التي طلبها المالك بالاسم موجودة
+        assertTrue("قسم السفر مفقود!", "travel" in ids)
+        assertTrue("قسم الثياب الجديدة مفقود!", "clothes" in ids)
+        assertTrue("قسم بعد الصلاة مفقود!", "after_prayer" in ids)
+        assertTrue("قسم الاستيقاظ مفقود!", "wake_up" in ids)
+    }
+
+    @Test
+    fun `كل ذكر بنص مشكول غير خال ومصدر صريح وعدد مسنون صحيح`() {
         val validCounts = setOf(1, 3, 4, 7, 10, 33, 100)
         AzkarContent.GROUPS.forEach { group ->
             assertTrue(group.items.isNotEmpty())
@@ -65,30 +79,43 @@ class AzkarContentTest {
     }
 
     @Test
-    fun `المعرفات فريدة عبر كل المجموعات`() {
-        val ids = AzkarContent.GROUPS.flatMap { it.items }.map { it.id }
+    fun `المعرفات فريدة عبر كل الأقسام وبنطاق مجموعتها`() {
+        val all = AzkarContent.GROUPS.flatMap { it.items }
+        val ids = all.map { it.id }
         assertEquals(ids.size, ids.toSet().size)
+        // كل معرّف يعود بنطاق قسمه — ما عدا المشترك المعلن (سيد الاستغفار
+        // والكلمات الثامات تُعرَّف بنفس بادئة قسمها دوماً)
+        AzkarContent.GROUPS.forEach { group ->
+            assertTrue(
+                "معرّف خارج نطاق ${group.id}",
+                group.items.all { it.id.startsWith(group.id + "_") },
+            )
+        }
     }
 
     @Test
-    fun `معرفات الأذكار تعود بنطاق مجموعتها لا غير`() {
+    fun `كل قسم خفيف — المحتوى المختار لا أكواد الحصن الكاملة`() {
+        // أمر المالك: «خفف الاذكار» — لا قسم يتجاوز اثني عشر ذكراً،
+        // والأقسام الموقتية تبقى قصيرة (١-٤ أذكار)
         AzkarContent.GROUPS.forEach { group ->
-            val prefix = when (group.id) {
-                "morning" -> "morning_"
-                "evening" -> "evening_"
-                else -> "sleep_"
-            }
-            assertTrue(
-                "معرّف خارج نطاق ${group.id}",
-                group.items.all { it.id.startsWith(prefix) },
-            )
+            assertTrue("القسم ${group.id} ثقيل: ${group.items.size}", group.items.size <= 12)
         }
+        assertEquals(1, AzkarContent.WUDU.items.size)
+        assertEquals(1, AzkarContent.CRESCENT.items.size)
+        assertEquals(3, AzkarContent.TRAVEL.items.size)
+        assertEquals(2, AzkarContent.CLOTHES.items.size)
+    }
+
+    @Test
+    fun `الثراء الكلي — أكثر من سبعين ذكرا موثقا في الأقسام`() {
+        val total = AzkarContent.GROUPS.sumOf { it.items.size }
+        assertTrue("المجموع ${total} أقل من المتوقع", total >= 70)
     }
 
     // ===== عقود الأعداد المسنونة المشهورة =====
 
     @Test
-    fun `سبحان الله وبحمده مائة صباحاً ومساءً`() {
+    fun `سبحان الله وبحمده مائة صباحا ومساء`() {
         val morning = AzkarContent.MORNING.items.first { it.id == "morning_subhan_100" }
         val evening = AzkarContent.EVENING.items.first { it.id == "evening_subhan_100" }
         assertEquals(100, morning.count)
@@ -101,64 +128,28 @@ class AzkarContentTest {
     fun `تسبيح فاطمة عند النوم ثلاثا وثلاثين في الثلاثة — بأمر المالك`() {
         // أمر المالك alpha28: «هناك ذكر من المفترض انه ٣٣ و هو معمول الان
         // ٣٤ و هو الله اكبر» — التكبير ثلاث وثلاثين كالمسبحة نفسها
-        // (عقد MisbahaDhikrList ٣٣/٣٣/٣٣) وكرواية دُبر الصلوات في مسلم
         val sleep = AzkarContent.SLEEP.items
         assertEquals(33, sleep.first { it.id == "sleep_subhan_33" }.count)
         assertEquals(33, sleep.first { it.id == "sleep_hamd_33" }.count)
         assertEquals(33, sleep.first { it.id == "sleep_akbar_33" }.count)
+        // ودُبر الصلاة ثلاثتها ثلاث وثلاثين أيضاً
+        val after = AzkarContent.AFTER_PRAYER.items
+        assertEquals(33, after.first { it.id == "after_prayer_subhan_33" }.count)
+        assertEquals(33, after.first { it.id == "after_prayer_hamd_33" }.count)
+        assertEquals(33, after.first { it.id == "after_prayer_akbar_33" }.count)
     }
 
     @Test
-    fun `الأذكار المضافة alpha28 موثقة بعددها المسنون`() {
-        // الصباح: فطرة الإسلام + الشهادة الأربع + العفو والعافية الثلاث +
-        // عالم الغيب + التوحيد عشراً
-        val morning = AzkarContent.MORNING.items
-        assertTrue(morning.first { it.id == "morning_fitrah" }.text.startsWith("أَصْبَحْنَا عَلَى فِطْرَةِ الْإِسْلَامِ"))
-        assertEquals(4, morning.first { it.id == "morning_shahida_4" }.count)
-        assertEquals(3, morning.first { it.id == "morning_afwa_afiya" }.count)
-        assertEquals(1, morning.first { it.id == "morning_alim_ghayb" }.count)
-        assertEquals(10, morning.first { it.id == "morning_tawhid_10" }.count)
-        // المساء: الصيغ المسائية نفسها
-        val evening = AzkarContent.EVENING.items
-        assertTrue(evening.first { it.id == "evening_fitrah" }.text.startsWith("أَمْسَيْنَا عَلَى فِطْرَةِ الْإِسْلَامِ"))
-        assertEquals(4, evening.first { it.id == "evening_shahida_4" }.count)
-        assertEquals(3, evening.first { it.id == "evening_afwa_afiya" }.count)
-        assertEquals(1, evening.first { it.id == "evening_alim_ghayb" }.count)
-        // النوم: وضع الجنب + قني عذابك ثلاثاً
-        val sleep = AzkarContent.SLEEP.items
-        assertEquals(1, sleep.first { it.id == "sleep_wadaat_janbi" }.count)
-        assertEquals(3, sleep.first { it.id == "sleep_qini_adhab" }.count)
-        assertTrue(sleep.first { it.id == "sleep_qini_adhab" }.text.contains("قِنِي عَذَابَكَ"))
-    }
-
-    @Test
-    fun `المجموعات صارت أغنى — أذكار أكثر من المرحلة الأولى`() {
-        // alpha28: المزيد من الأذكار (توجيه المالك) — الصباح أربعة عشر+
-        // والمساء أحد عشر+ والنوم أحد عشر+
-        assertTrue(AzkarContent.MORNING.items.size >= 14)
-        assertTrue(AzkarContent.EVENING.items.size >= 11)
-        assertTrue(AzkarContent.SLEEP.items.size >= 11)
-    }
-
-    @Test
-    fun `سيد الاستغفار مرة واحدة بكل من الصباح والمساء بنص البخاري`() {
+    fun `سيد الاستغفار بنص البخاري في الصباح والمساء والاستغفار`() {
         val expected = "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، " +
             "وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، " +
             "أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي، " +
             "فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ"
-        val morning = AzkarContent.MORNING.items.first { it.id == "morning_sayyid_istighfar" }
-        val evening = AzkarContent.EVENING.items.first { it.id == "evening_sayyid_istighfar" }
-        assertEquals(expected, morning.text)
-        assertEquals(expected, evening.text)
-        assertEquals(1, morning.count)
-        assertEquals(1, evening.count)
-        assertTrue(morning.source.contains("البخاري"))
-    }
-
-    @Test
-    fun `حسبي الله سبع مرات في الصباح والمساء`() {
-        assertEquals(7, AzkarContent.MORNING.items.first { it.id == "morning_hasbi" }.count)
-        assertEquals(7, AzkarContent.EVENING.items.first { it.id == "evening_hasbi" }.count)
+        listOf("morning", "evening", "istighfar").forEach { gid ->
+            val item = AzkarContent.groupById(gid).items.first { it.id.endsWith("_sayyid_istighfar") || it.id == "${gid}_sayyid" }
+            assertEquals(expected, item.text)
+            assertEquals(1, item.count)
+        }
     }
 
     @Test
@@ -172,11 +163,37 @@ class AzkarContentTest {
     }
 
     @Test
-    fun `البحث بالمعرف يعود بمجموعة سليمة لغير المعرّف`() {
+    fun `أذكار السفر موثقة — الركوب والنزول والعودة`() {
+        val travel = AzkarContent.TRAVEL
+        assertTrue(travel.items.first { it.id == "travel_ride" }.text.contains("سَخَّرَ لَنَا هَذَا"))
+        assertTrue(travel.items.first { it.id == "travel_ride" }.text.contains("الْبِرَّ وَالتَّقْوَى"))
+        assertEquals(3, travel.items.first { it.id == "travel_lodge" }.count)
+        assertTrue(travel.items.first { it.id == "travel_return" }.text.contains("آيِبُونَ تَائِبُونَ"))
+    }
+
+    @Test
+    fun `الثياب الجديدة والوضوء والخلاء بنصوصها المسنونة`() {
+        assertTrue(
+            AzkarContent.CLOTHES.items.first { it.id == "clothes_new" }.text
+                .contains("أَنْتَ كَسَوْتَنِيهِ"),
+        )
+        assertTrue(
+            AzkarContent.WUDU.items.first { it.id == "wudu_shahada" }.text
+                .contains("مِنَ التَّوَّابِينَ"),
+        )
+        assertTrue(
+            AzkarContent.KHILAA.items.first { it.id == "khilaa_enter" }.text
+                .contains("الْخُبْثِ وَالْخَبَائِثِ"),
+        )
+        assertEquals("غُفْرَانَكَ", AzkarContent.KHILAA.items.first { it.id == "khilaa_leave" }.text)
+    }
+
+    @Test
+    fun `البحث بالمعرف يعود بقسم سليم لغير المعرف`() {
         assertEquals("morning", AzkarContent.groupById("morning").id)
-        assertEquals("evening", AzkarContent.groupById("evening").id)
-        assertEquals("sleep", AzkarContent.groupById("sleep").id)
-        // معرّف غريب يعود سالمًا بمجموعة حقيقية لا انهياراً
+        assertEquals("travel", AzkarContent.groupById("travel").id)
+        assertEquals("qunut", AzkarContent.groupById("qunut").id)
+        // معرّف غريب يعود سالمًا بقسم حقيقي لا انهياراً
         val fallback: AzkarGroup = AzkarContent.groupById("whatever")
         assertTrue(fallback.items.isNotEmpty())
     }

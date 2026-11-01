@@ -48,6 +48,7 @@ import com.sawan4art.noor.ui.azkar.AzkarScreen
 import com.sawan4art.noor.ui.nav.LiquidNavScaffold
 import com.sawan4art.noor.ui.nav.NoorTab
 import com.sawan4art.noor.ui.notice.NoorNoticeDialog
+import com.sawan4art.noor.ui.qibla.QiblaScreen
 import com.sawan4art.noor.ui.sections.ComingSoonScreen
 import com.sawan4art.noor.ui.settings.SettingsScreen
 import com.sawan4art.noor.ui.tasbih.MisbahaScreen
@@ -376,6 +377,7 @@ private fun NoorBody(
                         onCheckUpdates = onCheckUpdates,
                         onInstallUpdate = onInstallUpdate,
                     )
+                    NoorTab.QIBLA -> QiblaScreen(settings = uiState.settings)
                     else -> ComingSoonScreen(target)
                 }
             }

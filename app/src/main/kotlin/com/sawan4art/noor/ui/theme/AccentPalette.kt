@@ -4,19 +4,25 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 
 /**
- * لوحة ألوان «نور» — عشرون لوناً لتطبيق كامل (توجيه المالك alpha18:
- * «نضيف قسم جديد في الاعدادات لتغيير ألوان التطبيق وعايز ١٠ ألوان»،
- * وتوجيهه alpha28: «عايز اضيف ١٠ الوان اضافين بس يكونوا الوان جريئه»):
- * العشرة الأصلية الهادئة ثم العشرة الجريئة عالي التشبّع.
+ * لوحة ألوان «نور» — اثنا عشر لوناً متمايزاً (توجيه المالك alpha29:
+ * «بالنسبه لل الالوان فيها متشابه كثير انا عايز الوان غير متشابه مثال
+ * فوشيا و وردي و زهري دول الوان متشابه تكاد ترى الفرق عايز الوان مختلف
+ * و ليس بدرجات متقاربه و كمان عايز لونين ابيض و اسود دول اضافيين»):
+ *
+ * - **عشرة ألوان عائلية متباعدة** — لون واحد لكل عائلة درجية: أخضر،
+ *   تركوازي، سماوي، نيلي، بنفسجي، واردي، عنابي، ناري، كهرماني، زيتوني.
+ *   أُزيلت الألوان المتشابهة التي كادت ترى الفرق بينها (كهربائي ≈ نيلي،
+ *   ملكي ≈ نيلي، قرمزي ≈ عنابي، نحاسي ≈ كهرماني، ليموني ≈ زيتوني،
+ *   فوشيا ≈ واردي، زهري ≈ واردي، أرجواني ≈ بنفسجي، أصفر ≈ كهرماني،
+ *   كحلي ≈ نيلي) — وفُرِّقت الأزواج الباقية قريبة الدرجات رقمياً
+ *   (تباعد صبغة ≥ ١٥° أو تباعد تشبّع/قيمة واضح).
+ * - **أبيض وأسود محايدان** — جذرمان بلا تشبّع يذكر لخلفية محايدة كاملة.
  *
  * كل لون يغذّي ما يُقرأ كهوية اللون: الأساسي والحاويات في الوضعين
  * النهاري والليلي + تدرّج بطاقة الهيرو. الحياد (الخلفيات والأسطح
  * والحدود) والذهبي الثانوي (حلقة العدّاد) ثوابت هوية لا تتغير —
- * فيبقى التطبيق «نور» بأي لون.
- *
- * القيم مشتقّة يدوياً بلغة Material: النهاري = أساس عميق وحاوية فاتحة
- * تُقرأ عليها نصوص داكنة؛ الليلي = أساس فاتح وحاوية غامقة تُقرأ عليها
- * نصوص فاتحة، مع تدرّج هيرو أعمق من الأساس.
+ * فيبقى التطبيق «نور» بأي لون. كل الأساسيّات تحمل نصوصها البيضاء
+ * بتباين ≥ ٤:١ في الوضعين (عقد مختبَر).
  */
 @Immutable
 data class AccentSet(
@@ -43,7 +49,7 @@ object AccentPalette {
 
     const val DEFAULT_ID = "emerald"
 
-    /** العشرة ألوان — الترتيب هو ترتيب العرض في الإعدادات */
+    /** الألوان الاثنا عشر — الترتيب هو ترتيب العرض في الإعدادات */
     val All: List<AccentColor> = listOf(
         AccentColor(
             id = "emerald",
@@ -62,19 +68,19 @@ object AccentPalette {
             ),
         ),
         AccentColor(
-            id = "indigo",
-            arabicName = "نيلي",
+            id = "turquoise",
+            arabicName = "تركوازي",
             day = AccentSet(
-                primary = Color(0xFF3A5A94), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFD0DEF5), onPrimaryContainer = Color(0xFF12264A),
-                heroTop = Color(0xFF3D5A85), heroBottom = Color(0xFF1F3352),
-                heroContent = Color(0xFFE9EEF8), heroMuted = Color(0xFFB4C4E0),
+                primary = Color(0xFF00897B), onPrimary = Color(0xFFFFFFFF),
+                primaryContainer = Color(0xFFA8E4DD), onPrimaryContainer = Color(0xFF00332D),
+                heroTop = Color(0xFF048C7D), heroBottom = Color(0xFF04514A),
+                heroContent = Color(0xFFE4F5F2), heroMuted = Color(0xFF8CC8C0),
             ),
             night = AccentSet(
-                primary = Color(0xFF9DB8E8), onPrimary = Color(0xFF0E1F3D),
-                primaryContainer = Color(0xFF2B3F63), onPrimaryContainer = Color(0xFFD0DEF5),
-                heroTop = Color(0xFF1E2F4E), heroBottom = Color(0xFF101A2E),
-                heroContent = Color(0xFFE5ECF8), heroMuted = Color(0xFF93A6C6),
+                primary = Color(0xFF3FD4C2), onPrimary = Color(0xFF00322C),
+                primaryContainer = Color(0xFF0E5A51), onPrimaryContainer = Color(0xFFA8E4DD),
+                heroTop = Color(0xFF0B3731), heroBottom = Color(0xFF051B18),
+                heroContent = Color(0xFFE1F4F0), heroMuted = Color(0xFF7FB1A9),
             ),
         ),
         AccentColor(
@@ -94,19 +100,19 @@ object AccentPalette {
             ),
         ),
         AccentColor(
-            id = "royal",
-            arabicName = "ملكي",
+            id = "indigo",
+            arabicName = "نيلي",
             day = AccentSet(
-                primary = Color(0xFF414892), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFD4D7F2), onPrimaryContainer = Color(0xFF181C4A),
-                heroTop = Color(0xFF454A8C), heroBottom = Color(0xFF252852),
-                heroContent = Color(0xFFECEDF9), heroMuted = Color(0xFFB9BCDD),
+                primary = Color(0xFF3A5A94), onPrimary = Color(0xFFFFFFFF),
+                primaryContainer = Color(0xFFD0DEF5), onPrimaryContainer = Color(0xFF12264A),
+                heroTop = Color(0xFF3D5A85), heroBottom = Color(0xFF1F3352),
+                heroContent = Color(0xFFE9EEF8), heroMuted = Color(0xFFB4C4E0),
             ),
             night = AccentSet(
-                primary = Color(0xFFA6AAE4), onPrimary = Color(0xFF14163B),
-                primaryContainer = Color(0xFF323667), onPrimaryContainer = Color(0xFFD4D7F2),
-                heroTop = Color(0xFF232552), heroBottom = Color(0xFF12132C),
-                heroContent = Color(0xFFE9EAF7), heroMuted = Color(0xFF99A0C4),
+                primary = Color(0xFF9DB8E8), onPrimary = Color(0xFF0E1F3D),
+                primaryContainer = Color(0xFF2B3F63), onPrimaryContainer = Color(0xFFD0DEF5),
+                heroTop = Color(0xFF1E2F4E), heroBottom = Color(0xFF101A2E),
+                heroContent = Color(0xFFE5ECF8), heroMuted = Color(0xFF93A6C6),
             ),
         ),
         AccentColor(
@@ -158,35 +164,35 @@ object AccentPalette {
             ),
         ),
         AccentColor(
-            id = "amber",
-            arabicName = "كهرماني",
+            id = "blaze",
+            arabicName = "ناري",
             day = AccentSet(
-                primary = Color(0xFF9A6A1E), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFF4E2BC), onPrimaryContainer = Color(0xFF3D2A08),
-                heroTop = Color(0xFF96681F), heroBottom = Color(0xFF563A0F),
-                heroContent = Color(0xFFF9F1DD), heroMuted = Color(0xFFDFC794),
+                primary = Color(0xFFC24C00), onPrimary = Color(0xFFFFFFFF),
+                primaryContainer = Color(0xFFFFD1B0), onPrimaryContainer = Color(0xFF471D02),
+                heroTop = Color(0xFFBD4A03), heroBottom = Color(0xFF6E2C03),
+                heroContent = Color(0xFFFFF0E2), heroMuted = Color(0xFFEDB88C),
             ),
             night = AccentSet(
-                primary = Color(0xFFE5BC6B), onPrimary = Color(0xFF342106),
-                primaryContainer = Color(0xFF66491A), onPrimaryContainer = Color(0xFFF4E2BC),
-                heroTop = Color(0xFF483113), heroBottom = Color(0xFF241808),
-                heroContent = Color(0xFFF7EFDC), heroMuted = Color(0xFFC2A26B),
+                primary = Color(0xFFFF9450), onPrimary = Color(0xFF43200A),
+                primaryContainer = Color(0xFF79401A), onPrimaryContainer = Color(0xFFFFD1B0),
+                heroTop = Color(0xFF43220C), heroBottom = Color(0xFF211006),
+                heroContent = Color(0xFFFAEBDC), heroMuted = Color(0xFFC9946C),
             ),
         ),
         AccentColor(
-            id = "copper",
-            arabicName = "نحاسي",
+            id = "amber",
+            arabicName = "كهرماني",
             day = AccentSet(
-                primary = Color(0xFF9C5424), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFF4D9C2), onPrimaryContainer = Color(0xFF3F1F09),
-                heroTop = Color(0xFF97562A), heroBottom = Color(0xFF583014),
-                heroContent = Color(0xFFF9EFE4), heroMuted = Color(0xFFDFC0A4),
+                primary = Color(0xFF967A0E), onPrimary = Color(0xFFFFFFFF),
+                primaryContainer = Color(0xFFF4E2BC), onPrimaryContainer = Color(0xFF3D2A08),
+                heroTop = Color(0xFF92740E), heroBottom = Color(0xFF54390D),
+                heroContent = Color(0xFFF9F1DD), heroMuted = Color(0xFFDFC794),
             ),
             night = AccentSet(
-                primary = Color(0xFFE6A972), onPrimary = Color(0xFF361B08),
-                primaryContainer = Color(0xFF674021), onPrimaryContainer = Color(0xFFF4D9C2),
-                heroTop = Color(0xFF492911), heroBottom = Color(0xFF251408),
-                heroContent = Color(0xFFF7EDE2), heroMuted = Color(0xFFC4A07E),
+                primary = Color(0xFFEFC457), onPrimary = Color(0xFF342106),
+                primaryContainer = Color(0xFF66491A), onPrimaryContainer = Color(0xFFF4E2BC),
+                heroTop = Color(0xFF483113), heroBottom = Color(0xFF241808),
+                heroContent = Color(0xFFF7EFDC), heroMuted = Color(0xFFC2A26B),
             ),
         ),
         AccentColor(
@@ -205,174 +211,44 @@ object AccentPalette {
                 heroContent = Color(0xFFF1F1E2), heroMuted = Color(0xFFA5A584),
             ),
         ),
-        // ===== الألوان الجريئة العشرة — alpha28 (توجيه المالك: «عايز اضيف ١٠
-        // الوان اضافين بس يكونوا الوان جريئه») — تشبّع عالٍ في الوضعين،
-        // والنهاري يظل أساساً عميقاً تحمل نصوصه البيضاء قراءةً مريحة.
+        // ===== المحايدان — أبيض وأسود (توجيه المالك alpha29) =====
         AccentColor(
-            id = "electric",
-            arabicName = "كهربائي",
+            id = "white",
+            arabicName = "أبيض",
             day = AccentSet(
-                primary = Color(0xFF0A57D0), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFBFD3FF), onPrimaryContainer = Color(0xFF0A1F4A),
-                heroTop = Color(0xFF0B55C8), heroBottom = Color(0xFF052F6E),
-                heroContent = Color(0xFFE7EFFD), heroMuted = Color(0xFFA9C2F0),
+                primary = Color(0xFF565656), onPrimary = Color(0xFFFFFFFF),
+                primaryContainer = Color(0xFFEDEDED), onPrimaryContainer = Color(0xFF262626),
+                heroTop = Color(0xFFFCFCFC), heroBottom = Color(0xFFE0E0E0),
+                heroContent = Color(0xFF2B2B2B), heroMuted = Color(0xFF7C7C7C),
             ),
             night = AccentSet(
-                primary = Color(0xFF7FA5FF), onPrimary = Color(0xFF061A3F),
-                primaryContainer = Color(0xFF1F3C74), onPrimaryContainer = Color(0xFFBFD3FF),
-                heroTop = Color(0xFF10254E), heroBottom = Color(0xFF091428),
-                heroContent = Color(0xFFE4EDFC), heroMuted = Color(0xFF8DA6D4),
+                primary = Color(0xFFE0E0E0), onPrimary = Color(0xFF1B1B1B),
+                primaryContainer = Color(0xFF363636), onPrimaryContainer = Color(0xFFDEDEDE),
+                heroTop = Color(0xFF232323), heroBottom = Color(0xFF111111),
+                heroContent = Color(0xFFE9E9E9), heroMuted = Color(0xFF8E8E8E),
             ),
         ),
         AccentColor(
-            id = "turquoise",
-            arabicName = "تركوازي",
+            id = "black",
+            arabicName = "أسود",
             day = AccentSet(
-                primary = Color(0xFF00897B), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFA8E4DD), onPrimaryContainer = Color(0xFF00332D),
-                heroTop = Color(0xFF048C7D), heroBottom = Color(0xFF04514A),
-                heroContent = Color(0xFFE4F5F2), heroMuted = Color(0xFF8CC8C0),
+                primary = Color(0xFF232323), onPrimary = Color(0xFFFFFFFF),
+                primaryContainer = Color(0xFFE5E5E5), onPrimaryContainer = Color(0xFF141414),
+                heroTop = Color(0xFF2E2E2E), heroBottom = Color(0xFF141414),
+                heroContent = Color(0xFFF2F2F2), heroMuted = Color(0xFF9C9C9C),
             ),
             night = AccentSet(
-                primary = Color(0xFF52D6C6), onPrimary = Color(0xFF00322C),
-                primaryContainer = Color(0xFF0E5A51), onPrimaryContainer = Color(0xFFA8E4DD),
-                heroTop = Color(0xFF0B3731), heroBottom = Color(0xFF051B18),
-                heroContent = Color(0xFFE1F4F0), heroMuted = Color(0xFF7FB1A9),
-            ),
-        ),
-        AccentColor(
-            id = "crimson",
-            arabicName = "قرمزي",
-            day = AccentSet(
-                primary = Color(0xFFC62F2F), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFFFCFCF), onPrimaryContainer = Color(0xFF4A0D0D),
-                heroTop = Color(0xFFC02E2E), heroBottom = Color(0xFF6E1414),
-                heroContent = Color(0xFFFCEAEA), heroMuted = Color(0xFFE7A8A8),
-            ),
-            night = AccentSet(
-                primary = Color(0xFFFF8585), onPrimary = Color(0xFF410D0D),
-                primaryContainer = Color(0xFF7A2B2B), onPrimaryContainer = Color(0xFFFFCFCF),
-                heroTop = Color(0xFF431515), heroBottom = Color(0xFF210909),
-                heroContent = Color(0xFFFBE9E9), heroMuted = Color(0xFFCA9090),
-            ),
-        ),
-        AccentColor(
-            id = "blaze",
-            arabicName = "ناري",
-            day = AccentSet(
-                primary = Color(0xFFE05F00), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFFFD1B0), onPrimaryContainer = Color(0xFF471D02),
-                heroTop = Color(0xFFDA5C04), heroBottom = Color(0xFF7C3003),
-                heroContent = Color(0xFFFFF0E2), heroMuted = Color(0xFFEDB88C),
-            ),
-            night = AccentSet(
-                primary = Color(0xFFFFAB5E), onPrimary = Color(0xFF43200A),
-                primaryContainer = Color(0xFF79401A), onPrimaryContainer = Color(0xFFFFD1B0),
-                heroTop = Color(0xFF43220C), heroBottom = Color(0xFF211006),
-                heroContent = Color(0xFFFAEBDC), heroMuted = Color(0xFFC9946C),
-            ),
-        ),
-        AccentColor(
-            id = "lime",
-            arabicName = "ليموني",
-            day = AccentSet(
-                primary = Color(0xFF5A8A06), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFD8F0A6), onPrimaryContainer = Color(0xFF1F3202),
-                heroTop = Color(0xFF56860A), heroBottom = Color(0xFF2B4404),
-                heroContent = Color(0xFFEFF8DF), heroMuted = Color(0xFFB7D483),
-            ),
-            night = AccentSet(
-                primary = Color(0xFFAEE45C), onPrimary = Color(0xFF1E3006),
-                primaryContainer = Color(0xFF3D5A12), onPrimaryContainer = Color(0xFFD8F0A6),
-                heroTop = Color(0xFF213407), heroBottom = Color(0xFF101A04),
-                heroContent = Color(0xFFECF5DB), heroMuted = Color(0xFF95B26A),
-            ),
-        ),
-        AccentColor(
-            id = "fuchsia",
-            arabicName = "فوشيا",
-            day = AccentSet(
-                primary = Color(0xFFB0096C), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFFFC4E1), onPrimaryContainer = Color(0xFF46032A),
-                heroTop = Color(0xFFAB0E6A), heroBottom = Color(0xFF61073C),
-                heroContent = Color(0xFFFDEBF4), heroMuted = Color(0xFFE5A7C8),
-            ),
-            night = AccentSet(
-                primary = Color(0xFFFF72B4), onPrimary = Color(0xFF42081F),
-                primaryContainer = Color(0xFF6D1B46), onPrimaryContainer = Color(0xFFFFC4E1),
-                heroTop = Color(0xFF42102A), heroBottom = Color(0xFF200815),
-                heroContent = Color(0xFFFAE7F1), heroMuted = Color(0xFFC98AA8),
-            ),
-        ),
-        AccentColor(
-            id = "hotpink",
-            arabicName = "زهري",
-            day = AccentSet(
-                primary = Color(0xFFD5185F), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFFFC2D6), onPrimaryContainer = Color(0xFF47041C),
-                heroTop = Color(0xFFCF1D5D), heroBottom = Color(0xFF750F33),
-                heroContent = Color(0xFFFDEAF0), heroMuted = Color(0xFFEFA3BB),
-            ),
-            night = AccentSet(
-                primary = Color(0xFFFF7CA5), onPrimary = Color(0xFF440819),
-                primaryContainer = Color(0xFF7D1F3E), onPrimaryContainer = Color(0xFFFFC2D6),
-                heroTop = Color(0xFF441224), heroBottom = Color(0xFF220912),
-                heroContent = Color(0xFFFAE8EE), heroMuted = Color(0xFFCB8AA0),
-            ),
-        ),
-        AccentColor(
-            id = "vividpurple",
-            arabicName = "أرجواني",
-            day = AccentSet(
-                primary = Color(0xFF8C24AA), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFE9C4F4), onPrimaryContainer = Color(0xFF360942),
-                heroTop = Color(0xFF8727A3), heroBottom = Color(0xFF4C135B),
-                heroContent = Color(0xFFF7EBFA), heroMuted = Color(0xFFD4A3E2),
-            ),
-            night = AccentSet(
-                primary = Color(0xFFDC98F2), onPrimary = Color(0xFF370945),
-                primaryContainer = Color(0xFF5C1A6F), onPrimaryContainer = Color(0xFFE9C4F4),
-                heroTop = Color(0xFF361042), heroBottom = Color(0xFF1B0820),
-                heroContent = Color(0xFFF5EBF8), heroMuted = Color(0xFFB384BF),
-            ),
-        ),
-        AccentColor(
-            id = "solar",
-            arabicName = "أصفر",
-            day = AccentSet(
-                primary = Color(0xFF9C7A00), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFFAE570), onPrimaryContainer = Color(0xFF332703),
-                heroTop = Color(0xFF98770B), heroBottom = Color(0xFF554104),
-                heroContent = Color(0xFFFAF3D8), heroMuted = Color(0xFFDCC46D),
-            ),
-            night = AccentSet(
-                primary = Color(0xFFFFD54F), onPrimary = Color(0xFF372C05),
-                primaryContainer = Color(0xFF6A5510), onPrimaryContainer = Color(0xFFFAE570),
-                heroTop = Color(0xFF392D08), heroBottom = Color(0xFF1C1604),
-                heroContent = Color(0xFFF9F2D9), heroMuted = Color(0xFFC3AC5E),
-            ),
-        ),
-        AccentColor(
-            id = "navy",
-            arabicName = "كحلي",
-            day = AccentSet(
-                primary = Color(0xFF1A237E), onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFC7CBF7), onPrimaryContainer = Color(0xFF0B0F3D),
-                heroTop = Color(0xFF1B2377), heroBottom = Color(0xFF0E1245),
-                heroContent = Color(0xFFE9EBF9), heroMuted = Color(0xFFA9AED6),
-            ),
-            night = AccentSet(
-                primary = Color(0xFF9BA7F5), onPrimary = Color(0xFF0D1240),
-                primaryContainer = Color(0xFF2A3470), onPrimaryContainer = Color(0xFFC7CBF7),
-                heroTop = Color(0xFF1B2150), heroBottom = Color(0xFF0D1028),
-                heroContent = Color(0xFFE8EAF8), heroMuted = Color(0xFF98A0C8),
+                primary = Color(0xFF9C9C9C), onPrimary = Color(0xFF141414),
+                primaryContainer = Color(0xFF2C2C2C), onPrimaryContainer = Color(0xFFD6D6D6),
+                heroTop = Color(0xFF101010), heroBottom = Color(0xFF060606),
+                heroContent = Color(0xFFEAEAEA), heroMuted = Color(0xFF838383),
             ),
         ),
     )
 
     val default: AccentColor get() = All.first()
 
-    /** الاسترجاع المتسامح: معرّف غريب أو مفقود يرجع للزمري الافتراضي */
+    /** الاسترجاع المتسامح: معرّف غريب أو مفقود (من ألفا سابقة) يرجع للزمري الافتراضي */
     fun byId(id: String?): AccentColor =
         All.firstOrNull { it.id == id } ?: default
 }

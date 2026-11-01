@@ -438,14 +438,14 @@ private fun AsrSection(
     }
 }
 
-/** قسم الألوان — شبكة الألوان العشرين: الهادئة ثم الجريئة */
+/** قسم الألوان — شبكة الألوان الاثني عشر المتمايزة مع الأبيض والأسود */
 @Composable
 private fun ColorsSection(
     settings: NoorSettingsState,
     onSetAccent: (String) -> Unit,
 ) {
     Text(
-        text = "عشرة ألوان هادئة وعشرة جريئة — والتطبيق كله يتبع اختيارك في الوضعين",
+        text = "اثنا عشر لوناً متمايزاً لا تتشابه درجاتها — مع الأبيض والأسود — والتطبيق كله يتبع اختيارك في الوضعين",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -541,15 +541,15 @@ private fun updateStatusText(state: UpdateUiState): String = when (state) {
 }
 
 /**
- * شبكة الألوان العشرين — صفوف بخمس دوائر في الصف، دائرة لكل لون
+ * شبكة الألوان الاثني عشر — صفوف بأربع دوائر في الصف، دائرة لكل لون
  * بلونه النهاري واسمه عربياً تحته، والمختار بإطار مميز (توجيه المالك
- * alpha18 للعشرة الأولى وalpha28 للعشرة الجريئة المضافة).
+ * alpha18 للعشرة الأولى وalpha29 للمتمايزة الاثني عشر مع الأبيض والأسود).
  */
 @Composable
 private fun AccentGrid(selectedId: String, onPick: (String) -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        AccentPalette.All.chunked(5).forEach { rowAccents ->
+        AccentPalette.All.chunked(4).forEach { rowAccents ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 rowAccents.forEach { accent ->
                     val selected = accent.id == selectedId
