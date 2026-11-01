@@ -210,6 +210,47 @@ object NoorIcons {
         }
     }
 
+    /** الإعدادات: ألوان التطبيق — عجلة ألوان بأربع نقاط (نفس حلقة القبلة بحبات لون) */
+    val Palette: ImageVector by lazy {
+        noorIcon("Palette") {
+            filled(PathFillType.EvenOdd) {
+                circle(12f, 12f, 9.4f)
+                circle(12f, 12f, 7.2f)
+            }
+            filled {
+                circle(15.6f, 9.0f, 1.8f)
+                circle(15.6f, 15.0f, 1.8f)
+                circle(9.4f, 15.0f, 1.8f)
+                circle(9.4f, 9.0f, 1.8f)
+            }
+        }
+    }
+
+    /** الإعدادات: مذهب العصر — مسنة عمودية وظلّها ممتد وخط الأرض (ظل مثله/مثلهين) */
+    val AsrShadow: ImageVector by lazy {
+        noorIcon("AsrShadow") {
+            filled {
+                // المِسنة العمودية
+                moveTo(11.2f, 5.0f)
+                lineTo(12.8f, 5.0f)
+                lineTo(12.8f, 17.0f)
+                lineTo(11.2f, 17.0f)
+                close()
+                // الظل — مثلث ممتد يساراً على الأرض
+                moveTo(11.2f, 17.0f)
+                lineTo(4.0f, 17.0f)
+                lineTo(11.2f, 13.6f)
+                close()
+                // خط الأرض
+                moveTo(3.6f, 18.4f)
+                lineTo(20.4f, 18.4f)
+                lineTo(20.4f, 19.6f)
+                lineTo(3.6f, 19.6f)
+                close()
+            }
+        }
+    }
+
     // ===== أدوات الرسم =====
 
     /** هندسة شمس مبدّل المظهر — قرص وأشعة (نفس أرقام المولّد) */

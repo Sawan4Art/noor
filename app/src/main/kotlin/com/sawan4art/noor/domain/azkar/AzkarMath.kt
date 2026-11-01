@@ -32,11 +32,31 @@ object AzkarMath {
         if (today == storedDay) storedDone else emptySet()
 
     /**
-     * تعليم/إلغاء تعليم ذكر — تبديل صريح: موجودٌ يُنزَل، وغائبٌ
-     * يُنزَل إليه. لا حالة وسيطة ولا تفريغ كامل.
+     * نتيجة نقرة عدّ على ذكرٍ بعدّه الجاري — العدّاد الرقمي للبطاقات
+     * (alpha28 توجيه المالك: «كروت الاذكار تكون فيها عداد رقمي و عند
+     * الانتهاء من العدد المطلوب يتغيير لون الكارت مثل الحالي»):
+     *
+     * - كل نقرة تُصاعد العدّ الجاري واحداً.
+     * - بلوغ العدد المسنون **تكتمل** البطاقة (تُعلَّم مُتمَّة فيتغير
+     *   لونها كما في التعليم القديم) ويبدأ العدّ الجاري من الصفر من
+     *   جديد — فالإتمام حالة العلامة لا قيمة العدّ.
+     * - نقرة البطاقة المكتملة تعيد دورةً جديدة (إلغاء التعليم والعدّ
+     *   من الصفر) — هي إلغاء التعليم القديم نفسه بلسان العدّاد.
+     *
+     * العدد السالب أو الصفر يُعامَل مرةً واحدة، والعدّ الجاري السالب
+     * يبدأ من الصفر — الدالة نقية بلا حالة.
      */
-    fun toggle(done: Set<String>, id: String): Set<String> =
-        if (id in done) done - id else done + id
+    data class RoundTap(val round: Int, val completed: Boolean)
+
+    fun tapRound(current: Int, target: Int): RoundTap {
+        val targetSafe = target.coerceAtLeast(1)
+        val base = current.coerceAtLeast(0)
+        return if (base + 1 >= targetSafe) {
+            RoundTap(round = 0, completed = true)
+        } else {
+            RoundTap(round = base + 1, completed = false)
+        }
+    }
 
     /** تقدّم مجموعةٍ في يومها — المعدود [doneCount] لا يتجاوز الإجمالي أبداً */
     data class GroupProgress(val doneCount: Int, val total: Int) {

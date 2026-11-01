@@ -11,6 +11,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sawan4art.noor.data.update.UpdateManager
 import com.sawan4art.noor.ui.NoorApp
@@ -88,11 +91,43 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        applyImmersiveNav()
         enqueueMissingPermissions()
         handleUpdateIntent(intent)
         setContent {
             val viewModel: HomeViewModel = viewModel()
             NoorApp(viewModel)
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // رجوع التركيز (من حوار أو من تطبيق آخر) يعيد الإخفاء — النظام
+        // قد يُظهر الأشرطة عند التنقل بين النوافذ
+        if (hasFocus) applyImmersiveNav()
+    }
+
+    /**
+     * الشريط النظامي للهاتف يختفي عند فتح التطبيق ويظهر بسحب
+     * المستخدم من الأسفل لأعلى (alpha28 توجيه المالك: «شريط التنقل
+     * الخاص بالهاتف يخطي على شريط التنقل الخاص بالتطبيق .. عايز
+     * شريط التنقل بتاع الهاتف يختفي عند فتح التطبيق و يظهر اذا سحب
+     * المستخدم من الاسفل الى فوق»):
+     *
+     * - إخفاء شريط التنقل فقط — شريط الحالة يبقى ظاهراً كي لا يفقد
+     *   المستخدم الوقت والبطارية.
+     * - السلوك BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE: السحب من
+     *   الأسفل يُظهره **عابراً فوق محتوى التطبيق** (overlay) ثم يختفي
+     *   وحده بعد لحظات — لا يدفع محتوى التطبيق ولا يبقى عالقاً فوق
+     *   شريط التطبيق الزجاجي، فانقلاب «الشريطين فوق بعض» انتهى.
+     * - توافق كامل مع الأجهزة القديمة (WindowInsetsControllerCompat
+     *   يعمل من API 24، وشريط الإيماءات وشريط الأزرار كلاهما مغطى).
+     */
+    private fun applyImmersiveNav() {
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.navigationBars())
         }
     }
 

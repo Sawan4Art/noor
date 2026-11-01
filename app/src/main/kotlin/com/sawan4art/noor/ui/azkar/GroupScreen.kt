@@ -43,9 +43,9 @@ import com.sawan4art.noor.domain.tasbih.MisbahaMath
 
 /**
  * شاشة مجموعة أذكار — القراءة بهوية التطبيق نفسها: كل ذكرٍ بطاقةٌ
- * بنصه المشكول ومصدره وعدده المسنون، والضغط عليها يعلّمها مُتمَّة
- * اليوم (ونقرةً ثانية تلغي) — والعلامات تتجدد كل يوم (AzkarMath)،
- * ومقدّر التقدّم أعلى القائمة يظهر موضعك في المجموعة.
+ * بعدّاد رقمي (alpha28) — نقرة تُصاعد العدّ وبلوغ العدد المسنون
+ * يُلون البطاقة مُتمّة كما كان التعليم، والعلامات والعدّادات تتجدد
+ * كل يوم (AzkarMath)، ومقدّر التقدّم أعلى القائمة يظهر موضعك في المجموعة.
  */
 @Composable
 fun GroupScreen(
@@ -112,7 +112,7 @@ fun GroupScreen(
         )
         Spacer(Modifier.height(12.dp))
 
-        // ===== بطاقات الأذكار =====
+        // ===== بطاقات الأذكار — عدّاد رقمي في كل بطاقة (alpha28) =====
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.weight(1f),
@@ -121,7 +121,8 @@ fun GroupScreen(
                 AzkarRow(
                     item = item,
                     done = item.id in state.doneToday,
-                    onToggle = { viewModel.toggleDone(item.id) },
+                    round = state.roundsToday[item.id] ?: 0,
+                    onTap = { viewModel.tapCount(item.id, item.count) },
                 )
             }
             item { Spacer(Modifier.height(100.dp)) } // مساحة شريط التنقل الزجاجي
@@ -129,14 +130,25 @@ fun GroupScreen(
     }
 }
 
-/** بطاقة ذكرٍ واحد — الضغط عليها يعلّمها (أو يلغي التعليم) */
+/**
+ * بطاقة ذكرٍ بعدّاد رقمي — توجيه المالك alpha28: «كروت الاذكار تكون
+ * فيها عداد رقمي و عند الانتهاء من العدد المطلوب يتغيير لون الكارت
+ * مثل الحالي». كل نقرة تُصاعد العدّ، وشريط رقيق يعرض موضعك من العدد،
+ * وبلوغ العدد المسنون يُلون البطاقة بالحالة المُتمّة نفسها (فوق)،
+ * ونقرة البطاقة المكتملة تفتح دورةً جديدة من الصفر.
+ */
 @Composable
 private fun AzkarRow(
     item: AzkarItem,
     done: Boolean,
-    onToggle: () -> Unit,
+    round: Int,
+    onTap: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    // المعروض في العدّاد: البطاقة المكتملة تظهر العدّ الكامل دائماً
+    val shown = if (done) item.count else round.coerceIn(0, item.count)
+    val fraction = if (item.count <= 0) 1f else shown.toFloat() / item.count
+
     Surface(
         shape = RoundedCornerShape(18.dp),
         color = if (done) scheme.primaryContainer.copy(alpha = 0.55f) else scheme.surface,
@@ -147,22 +159,35 @@ private fun AzkarRow(
         ),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onToggle),
+            .clickable(onClick = onTap),
     ) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // العدد المسنون — شارةٌ صغيرة
+                // ===== العدّاد الرقمي — القراءة الحالية على العدد المسنون =====
                 Surface(
-                    shape = RoundedCornerShape(50),
-                    color = scheme.secondaryContainer,
-                    contentColor = scheme.onSecondaryContainer,
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (done) scheme.primary else scheme.surfaceVariant,
+                    contentColor = if (done) scheme.onPrimary else scheme.onSurfaceVariant,
                 ) {
-                    Text(
-                        text = "× " + MisbahaMath.arabicNumber(item.count.toLong()),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    ) {
+                        if (done) {
+                            Icon(
+                                Icons.Filled.Check,
+                                contentDescription = "تمّ",
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        Text(
+                            text = MisbahaMath.arabicNumber(shown.toLong()) + "/" +
+                                MisbahaMath.arabicNumber(item.count.toLong()),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
                 Spacer(Modifier.width(10.dp))
                 Text(
@@ -172,15 +197,6 @@ private fun AzkarRow(
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.End,
                 )
-                if (done) {
-                    Spacer(Modifier.width(8.dp))
-                    Icon(
-                        Icons.Filled.Check,
-                        contentDescription = "تمّ",
-                        tint = scheme.primary,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
             }
             Spacer(Modifier.height(8.dp))
             Text(
@@ -188,6 +204,14 @@ private fun AzkarRow(
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (done) scheme.onPrimaryContainer.copy(alpha = 0.8f) else scheme.onSurface,
                 textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(10.dp))
+            // شريط العدّ الرقيق — موضعك من العدد المسنون بصرياً
+            LinearProgressIndicator(
+                progress = { fraction.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+                color = scheme.primary,
+                trackColor = scheme.surfaceVariant,
             )
         }
     }

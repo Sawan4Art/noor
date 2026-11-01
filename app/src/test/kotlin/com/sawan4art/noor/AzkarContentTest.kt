@@ -46,7 +46,7 @@ class AzkarContentTest {
 
     @Test
     fun `كل ذكر بنص مشكول غير خالٍ ومصدر صريح وعدد مسنون صحيح`() {
-        val validCounts = setOf(1, 3, 7, 33, 34, 100)
+        val validCounts = setOf(1, 3, 4, 7, 10, 33, 100)
         AzkarContent.GROUPS.forEach { group ->
             assertTrue(group.items.isNotEmpty())
             group.items.forEach { item ->
@@ -98,11 +98,46 @@ class AzkarContentTest {
     }
 
     @Test
-    fun `تسبيح فاطمة عند النوم ثلاث وثلاثون وثلاثا وثلاثينا وأربعا وثلاثين`() {
+    fun `تسبيح فاطمة عند النوم ثلاثا وثلاثين في الثلاثة — بأمر المالك`() {
+        // أمر المالك alpha28: «هناك ذكر من المفترض انه ٣٣ و هو معمول الان
+        // ٣٤ و هو الله اكبر» — التكبير ثلاث وثلاثين كالمسبحة نفسها
+        // (عقد MisbahaDhikrList ٣٣/٣٣/٣٣) وكرواية دُبر الصلوات في مسلم
         val sleep = AzkarContent.SLEEP.items
         assertEquals(33, sleep.first { it.id == "sleep_subhan_33" }.count)
         assertEquals(33, sleep.first { it.id == "sleep_hamd_33" }.count)
-        assertEquals(34, sleep.first { it.id == "sleep_akbar_34" }.count)
+        assertEquals(33, sleep.first { it.id == "sleep_akbar_33" }.count)
+    }
+
+    @Test
+    fun `الأذكار المضافة alpha28 موثقة بعددها المسنون`() {
+        // الصباح: فطرة الإسلام + الشهادة الأربع + العفو والعافية الثلاث +
+        // عالم الغيب + التوحيد عشراً
+        val morning = AzkarContent.MORNING.items
+        assertTrue(morning.first { it.id == "morning_fitrah" }.text.startsWith("أَصْبَحْنَا عَلَى فِطْرَةِ الْإِسْلَامِ"))
+        assertEquals(4, morning.first { it.id == "morning_shahida_4" }.count)
+        assertEquals(3, morning.first { it.id == "morning_afwa_afiya" }.count)
+        assertEquals(1, morning.first { it.id == "morning_alim_ghayb" }.count)
+        assertEquals(10, morning.first { it.id == "morning_tawhid_10" }.count)
+        // المساء: الصيغ المسائية نفسها
+        val evening = AzkarContent.EVENING.items
+        assertTrue(evening.first { it.id == "evening_fitrah" }.text.startsWith("أَمْسَيْنَا عَلَى فِطْرَةِ الْإِسْلَامِ"))
+        assertEquals(4, evening.first { it.id == "evening_shahida_4" }.count)
+        assertEquals(3, evening.first { it.id == "evening_afwa_afiya" }.count)
+        assertEquals(1, evening.first { it.id == "evening_alim_ghayb" }.count)
+        // النوم: وضع الجنب + قني عذابك ثلاثاً
+        val sleep = AzkarContent.SLEEP.items
+        assertEquals(1, sleep.first { it.id == "sleep_wadaat_janbi" }.count)
+        assertEquals(3, sleep.first { it.id == "sleep_qini_adhab" }.count)
+        assertTrue(sleep.first { it.id == "sleep_qini_adhab" }.text.contains("قِنِي عَذَابَكَ"))
+    }
+
+    @Test
+    fun `المجموعات صارت أغنى — أذكار أكثر من المرحلة الأولى`() {
+        // alpha28: المزيد من الأذكار (توجيه المالك) — الصباح أربعة عشر+
+        // والمساء أحد عشر+ والنوم أحد عشر+
+        assertTrue(AzkarContent.MORNING.items.size >= 14)
+        assertTrue(AzkarContent.EVENING.items.size >= 11)
+        assertTrue(AzkarContent.SLEEP.items.size >= 11)
     }
 
     @Test

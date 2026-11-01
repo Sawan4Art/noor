@@ -125,7 +125,15 @@ fun LiquidNavScaffold(
                 .align(Alignment.BottomCenter)
                 .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
                 .fillMaxWidth()
-                .height(76.dp),
+                // alpha28 (توجيه المالك: «شريط التنقل السفلي عريض شويه صغر حجم
+                // العرض بتاعه ليكون اكبر بمقدار ١ بكسل فوق و تحت السائل») —
+                // ٧٦ ← ٥٦dp: الزجاج يلاصق السائل بحاشية رقيقة فوق وتحت بدل
+                // الحاشية العريضة، والقطرة نفسها خُفّضت ٢٥ ← ٢٢dp وبقيت
+                // تملأ نحو ٨٠٪ من ارتفاع الشريط فتظهر أكبر داخل شريط أنحف
+                // (الحساب: أقصى امتداد = R×1.187×نبضة + انسياب R×0.064 —
+                // ٢٢×1.187×1.05+1.4 = 27.9dp ≤ نصف ارتفاع 28dp فلا يعدي
+                // السائل الزجاج أبداً حتى في قمة النبضة والرجفة).
+                .height(56.dp),
         )
     }
 }
@@ -163,7 +171,8 @@ private fun LiquidNavBar(
     val jiggle = remember { Animatable(0f) }
     val snapshot = rememberGraphicsLayer()
 
-    val blobRadius = with(density) { 25.dp.toPx() }
+    // alpha28: ٢٥ ← ٢٢dp — القطرة تملأ نسبة أكبر من الشريط الأنحف (انظر تعليق الارتفاع)
+    val blobRadius = with(density) { 22.dp.toPx() }
 
     // زمن حي لا يتوقف — السائل لا يسكن أبداً (تموج وانسياب في الثبات ذاته)
     var frameNanos by remember { mutableLongStateOf(0L) }
@@ -222,7 +231,9 @@ private fun LiquidNavBar(
         }
         launch {
             delay(HEAD_MS - 40L)
-            pulse.snapTo(1.16f)
+            // alpha28: النبضة 1.16 ← 1.05 — الزجاج صار يلاصق السائل فالنبضة
+            // الأكبر كانت ستجعله يعدي حافة الزجاج (انظر تعليق الارتفاع)
+            pulse.snapTo(1.05f)
             pulse.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 280f))
         }
     }
@@ -292,7 +303,9 @@ private fun LiquidNavBar(
                     if (!initialized || barWidth <= 0f) return@drawBehind
                     val timeSec = frameNanos / 1_000_000_000f
                     val y = barHeight / 2f
-                    val energy = jiggle.value
+                    // alpha28: طاقة الرجفة مُلطّفة ×0.6 — الزجاج يلاصق السائل
+                    // فالموجات الحية القوية كانت ستدفع القطرة خارج الحافة
+                    val energy = jiggle.value * 0.6f
                     val srcRadius = srcR.value
                     val headRadius = headR.value * pulse.value
 

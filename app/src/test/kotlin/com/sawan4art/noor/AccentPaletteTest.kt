@@ -10,14 +10,49 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * عقد لوحة الألوان العشرة (alpha18) — توجيه المالك:
- * «نضيف قسم جديد في الاعدادات لتغيير ألوان التطبيق وعايز ١٠ ألوان».
+ * عقد لوحة الألوان (alpha18 العشرة الهادئة + alpha28 العشرة الجريئة —
+ * توجيه المالك: «عايز اضيف ١٠ الوان اضافين بس يكونوا الوان جريئه»).
  */
 class AccentPaletteTest {
 
     @Test
-    fun `اللوحة عشرة ألوان بالضبط`() {
-        assertEquals(10, AccentPalette.All.size)
+    fun `اللوحة عشرون لونا بالضبط — العشرة الهادئة ثم العشرة الجريئة`() {
+        assertEquals(20, AccentPalette.All.size)
+    }
+
+    @Test
+    fun `الألوان الجريئة العشرة كاملة بأسمائها العربية`() {
+        val bold = AccentPalette.All.drop(10)
+        assertEquals(
+            listOf("electric", "turquoise", "crimson", "blaze", "lime", "fuchsia", "hotpink", "vividpurple", "solar", "navy"),
+            bold.map { it.id },
+        )
+        assertEquals(
+            listOf("كهربائي", "تركوازي", "قرمزي", "ناري", "ليموني", "فوشيا", "زهري", "أرجواني", "أصفر", "كحلي"),
+            bold.map { it.arabicName },
+        )
+    }
+
+    @Test
+    fun `الجريئة تشبع عال نهارا وحية لا باهتة ليلا`() {
+        // التشبّع الأقصى في HSV: الجريئة نهاراً أساس عميق عالي التشبّع (≥0.7 —
+        // الهادئة القديمة كلها تحت 0.68 ما عدا الكهرماني والنحاسي الترابيين)،
+        // وليلاً أساس فاتح حيّ اللون لا رمادي (≥0.3 — الباتيستة الخالصة أقل منه)
+        val saturation: (Color) -> Float = { c ->
+            val max = maxOf(c.red, c.green, c.blue)
+            val min = minOf(c.red, c.green, c.blue)
+            if (max == 0f) 0f else (max - min) / max
+        }
+        AccentPalette.All.drop(10).forEach { bold ->
+            assertTrue(
+                "النهاري للجريء ${bold.id} باهت: تشبعه ${saturation(bold.day.primary)}",
+                saturation(bold.day.primary) >= 0.7f,
+            )
+            assertTrue(
+                "الليلي للجريء ${bold.id} رمادي: تشبعه ${saturation(bold.night.primary)}",
+                saturation(bold.night.primary) >= 0.3f,
+            )
+        }
     }
 
     @Test

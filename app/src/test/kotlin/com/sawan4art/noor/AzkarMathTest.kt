@@ -68,13 +68,11 @@ class AzkarMathTest {
     }
 
     @Test
-    fun `تعليم ذكر غائب يضيفه وإلغاؤه ينزعه دون مساس بغيره`() {
-        val done = setOf("a", "b")
-        // البطاقة تُعلَّم بالضغط وتُلغى بضغطة ثانية — تبديلٌ لا خزن
-        assertEquals(setOf("a", "b", "c"), AzkarMath.toggle(done, "c"))
-        assertEquals(setOf("b"), AzkarMath.toggle(done, "a"))
-        // والدوال تامة: المدخل نفسه لا يتغير — العائد مجموعة جديدة
-        assertEquals(setOf("a", "b"), done)
+    fun `علامة اليوم الغريبة تزال بعمليات المجموعات النقية`() {
+        // عقد النقاء: إزالة علامة = مجموعة جديدة بلا العنصر، والمدخل لا يتغير
+        val done = setOf("a", "b", "c")
+        assertEquals(setOf("b", "c"), done - "a")
+        assertEquals(setOf("a", "b", "c"), done)
     }
 
     // ===== عقد تقدم المجموعات =====
@@ -110,6 +108,40 @@ class AzkarMathTest {
         val p = AzkarMath.groupProgress(setOf("evening_kursi"), group)
         assertTrue(p.fraction > 0f && p.fraction < 1f)
         assertEquals(0f, AzkarMath.groupProgress(emptySet(), group).fraction, 1e-6f)
+    }
+
+    // ===== عقد العدّاد الرقمي للبطاقات (alpha28) =====
+
+    @Test
+    fun `نقرة العداد تصاعد واحدا داخل الجولة دون بلوغ العدد`() {
+        val t = AzkarMath.tapRound(current = 0, target = 33)
+        assertEquals(1, t.round)
+        assertFalse(t.completed)
+        assertEquals(32, AzkarMath.tapRound(current = 31, target = 33).round)
+        assertFalse(AzkarMath.tapRound(current = 31, target = 33).completed)
+    }
+
+    @Test
+    fun `بلوغ العدد المسنون يكمل البطاقة ويرجع العد لجولة جديدة`() {
+        val t = AzkarMath.tapRound(current = 32, target = 33)
+        assertTrue(t.completed)
+        assertEquals(0, t.round) // العلامة تحمل الإتمام والعد يبدأ نظيفاً
+    }
+
+    @Test
+    fun `ذكر بعدد واحد يكتمل بأول نقرة`() {
+        val t = AzkarMath.tapRound(current = 0, target = 1)
+        assertTrue(t.completed)
+        assertEquals(0, t.round)
+    }
+
+    @Test
+    fun `قيم فاسدة تبدأ نظيفة لا مكسورة`() {
+        // عدّ قديم سالب يعدّ من الصفر
+        assertEquals(1, AzkarMath.tapRound(current = -5, target = 33).round)
+        // هدف صفر أو سالب يُعامل مرةً واحدة فتكتمل البطاقة فوراً
+        assertTrue(AzkarMath.tapRound(current = 0, target = 0).completed)
+        assertTrue(AzkarMath.tapRound(current = 0, target = -3).completed)
     }
 
     // ===== عقد العدّ الحر للصلاة على النبي =====

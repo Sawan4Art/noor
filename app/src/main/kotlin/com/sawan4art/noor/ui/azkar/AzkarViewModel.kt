@@ -42,11 +42,14 @@ sealed interface AzkarEvent {
  * - [praiseCount] عدّ الصلاة على النبي الحرّ.
  * - [today] مفتاح اليوم الحالي و[doneToday] علامات إتمام الأذكار
  *   الصالحة لهذا اليوم فقط (تتجدد كل يوم).
+ * - [roundsToday] العدّاد الرقمي الجاري لكل بطاقة (alpha28) —
+ *   يُصفَّر عند إتمام الذكر ويتجدد كل يوم مع العلامات.
  */
 data class AzkarState(
     val praiseCount: Int = 0,
     val today: Long = 0L,
     val doneToday: Set<String> = emptySet(),
+    val roundsToday: Map<String, Int> = emptyMap(),
 )
 
 /**
@@ -87,6 +90,7 @@ class AzkarViewModel(application: Application) : AndroidViewModel(application) {
                 praiseCount = snap.praiseCount,
                 today = today,
                 doneToday = AzkarMath.effectiveDone(today, snap.day, snap.done),
+                roundsToday = if (today == snap.day) snap.rounds else emptyMap(),
             )
             loaded = true
         }
@@ -138,16 +142,39 @@ class AzkarViewModel(application: Application) : AndroidViewModel(application) {
         persistNow()
     }
 
-    /** تعليم ذكرٍ مُتمًّا أو إلغاء تعليمه — يُحفظ فوراً (نقرات نادرة) */
-    fun toggleDone(itemId: String) {
+    /**
+     * نقرة عدّ على بطاقة ذكرٍ بعدده المسنون [target] — العدّاد الرقمي
+     * (alpha28): كل نقرة تُصاعد عدّ الجولة، وبلوغ العدد يعلّم البطاقة
+     * مُتمّة (فيتغير لونها كما في التعليم) ويرجع العدّ لجولةٍ جديدة،
+     * ونقرة البطاقة المكتملة تبدأ دورةً من الصفر. يُحفظ فوراً —
+     * نقرات عدّ البطاقات بطيئة بمقياس محرك المسبحة.
+     */
+    fun tapCount(itemId: String, target: Int) {
         if (!loaded) return
         _state.update { cur ->
             val today = AzkarMath.epochDayOf(System.currentTimeMillis(), ZoneId.systemDefault())
-            if (today != cur.today) {
-                // يوم جديد والتطبيق مفتوح — علامات أمس تُحصَّن ولا تُمَس
-                cur.copy(today = today, doneToday = AzkarMath.toggle(emptySet(), itemId))
+            val base = if (today != cur.today) {
+                // يوم جديد والتطبيق مفتوح — علامات وعدّادات أمس تُحصَّن ولا تُمَس
+                cur.copy(today = today, doneToday = emptySet(), roundsToday = emptyMap())
             } else {
-                cur.copy(doneToday = AzkarMath.toggle(cur.doneToday, itemId))
+                cur
+            }
+            if (itemId in base.doneToday) {
+                // البطاقة مكتملة — النقرة تفتح دورةً جديدة (إلغاء التعليم + عدّ من الصفر)
+                base.copy(
+                    doneToday = base.doneToday - itemId,
+                    roundsToday = base.roundsToday - itemId,
+                )
+            } else {
+                val tap = AzkarMath.tapRound(base.roundsToday[itemId] ?: 0, target)
+                if (tap.completed) {
+                    base.copy(
+                        doneToday = base.doneToday + itemId,
+                        roundsToday = base.roundsToday - itemId,
+                    )
+                } else {
+                    base.copy(roundsToday = base.roundsToday + (itemId to tap.round))
+                }
             }
         }
         persistNow()
@@ -162,7 +189,7 @@ class AzkarViewModel(application: Application) : AndroidViewModel(application) {
         val today = AzkarMath.epochDayOf(System.currentTimeMillis(), ZoneId.systemDefault())
         _state.update { cur ->
             if (today == cur.today) cur
-            else cur.copy(today = today, doneToday = emptySet())
+            else cur.copy(today = today, doneToday = emptySet(), roundsToday = emptyMap())
         }
     }
 
@@ -188,6 +215,7 @@ class AzkarViewModel(application: Application) : AndroidViewModel(application) {
                     praiseCount = s.praiseCount,
                     day = s.today,
                     done = s.doneToday,
+                    rounds = s.roundsToday,
                 ),
             )
         }
