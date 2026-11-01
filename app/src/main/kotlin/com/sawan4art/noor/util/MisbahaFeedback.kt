@@ -7,10 +7,11 @@ import android.os.Vibrator
 import android.os.VibratorManager
 
 /**
- * اهتزاز المسبحة — تسبيحةٌ نخلة خفيفة، وإتمامُ دورةٍ نبضةٌ مزدوجة أوضح.
- * كل شيء محفوف بـ runCatching: جهاز بلا اهتزاز أو خدمة غائبة لا يكسر
- * العدّ أبداً (العدّ أبداً لا يعتمد على الاهتزاز).
- * إذن VIBRATE معرّف في المانيفست ولا حوار نظام له.
+ * اهتزاز المسبحة — تسبيحةٌ نخلة خفيفة، واكتمالُ قسمٍ (توجيه المالك:
+ * «واهتزاز عند الاكتمال») نبضةٌ مزدوجة أوضح، واكتمالُ المائة كلها
+ * موجةٌ أطول ثلاث نخلات متدرجة. كل شيء محفوف بـ runCatching: جهاز بلا
+ * اهتزاز أو خدمة غائبة لا يكسر العدّ أبداً (العدّ أبداً لا يعتمد على
+ * الاهتزاز). إذن VIBRATE معرّف في المانيفست ولا حوار نظام له.
  */
 class MisbahaFeedback(context: Context) {
 
@@ -31,10 +32,19 @@ class MisbahaFeedback(context: Context) {
         }
     }
 
-    /** إتمام دورة — نبضة مزدوجة مميزة: اهتزازتان بينهما فاصل */
-    fun roundCompleted() {
+    /** اكتمال قسم — نبضة مزدوجة مميزة: اهتزازتان بينهما فاصل ثم انتقال تلقائي */
+    fun dhikrCompleted() {
         runCatching {
             vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0L, 45L, 80L, 65L), -1))
+        }
+    }
+
+    /** اكتمال المائة كلها — موجة أطول: ثلاث نخلات متدرجة تصاعدية */
+    fun sequenceCompleted() {
+        runCatching {
+            vibrator?.vibrate(
+                VibrationEffect.createWaveform(longArrayOf(0L, 45L, 70L, 55L, 70L, 90L), -1),
+            )
         }
     }
 

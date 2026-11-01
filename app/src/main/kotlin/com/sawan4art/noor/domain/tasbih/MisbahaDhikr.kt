@@ -1,34 +1,59 @@
 package com.sawan4art.noor.domain.tasbih
 
 /**
- * أذكار المسبحة — مجموعة السنن الثابتة بعد الصلاة والمستحبات اليومية.
- * الهدف الافتراضي لكل ذكر هو عدده المسنون، والمستخدم يبدّله من الشاشة.
+ * أقسام تسبيح ما بعد الصلاة — الترتيب الثابت الذي علّمه النبي ﷺ لعائشة
+ * (توجيه المالك alpha26) — المسبحة لا تحوي سواه:
+ *
+ * ١. «سُبْحَانَ اللَّهِ» ٣٣ — بعدّاد تنازلي واهتزاز عند الاكتمال
+ * ٢. «الْحَمْدُ لِلَّهِ» ٣٣ — بعدّاد تنازلي
+ * ٣. «اللَّهُ أَكْبَرُ» ٣٣ — بعدّاد تنازلي
+ * ٤. تكميلة المائة مرةً واحدة:
+ *    «لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ
+ *    وَلَهُ الْحَمْدُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ»
+ *
+ * **لا خلط بين الأقسام ولا اختيار حرّ** (توجيه المالك: «مش عايز بقا لخبطه
+ * بين كل قسم .. في المسبحه هنحط المهم فقط اما في قسم الاذكار مستقبلا
+ * هنحط اذكار كتير») — إتمام قسمٍ ينتقل تلقائياً للذي يليه بالترتيب،
+ * والصلاة على النبي ذكرٌ منفرد لا يدخل هذا الترتيب أصلاً.
  */
 data class MisbahaDhikr(
     val id: String,
+    /** النص المشكول كما ورد — يُعرض داخل النقطة السائلة */
     val text: String,
-    val defaultTarget: Int,
-    val targetLabel: String,
+    /** العدد المسنون للقسم — سقف العدّاد التنازلي */
+    val target: Int,
+    /** اسم مختصر لمؤشر الأقسام أسفل النقطة */
+    val shortLabel: String,
 )
 
 object MisbahaDhikrList {
 
-    val ALL: List<MisbahaDhikr> = listOf(
-        MisbahaDhikr("subhanallah", "سبحان الله", 33, "الوردة المسنونة بعد الصلاة"),
-        MisbahaDhikr("alhamdulillah", "الحمد لله", 33, "الوردة المسنونة بعد الصلاة"),
-        MisbahaDhikr("allahuakbar", "الله أكبر", 34, "تكملة الوردة المسنونة"),
-        MisbahaDhikr("lailahaillallah", "لا إله إلا الله", 100, "أفضل الذكر يوم القيامة"),
-        MisbahaDhikr("astaghfirullah", "أستغفر الله", 100, "سبّب الرزق وتفريج الهموم"),
-        MisbahaDhikr("subhanallah_wabihamdih", "سبحان الله وبحمده", 100, "حُطّت به الخطايا"),
-        MisbahaDhikr("salah_on_prophet", "اللهم صلّ على محمد", 100, "صلاةٌ عليك منها عشر"),
-        MisbahaDhikr("hawla_wala_quwwata", "لا حول ولا قوة إلا بالله", 100, "كنز من كنوز الجنة"),
-        MisbahaDhikr("subhanallah_azeem", "سبحان الله العظيم", 100, "غُرست له نخلة في الجنة"),
+    /** أقسام التسبيح بترتيبها الثابت — ٩٩ وتكميلة المائة */
+    val SEQUENCE: List<MisbahaDhikr> = listOf(
+        MisbahaDhikr(
+            id = "subhanallah",
+            text = "سُبْحَانَ اللَّهِ",
+            target = 33,
+            shortLabel = "سبحان الله",
+        ),
+        MisbahaDhikr(
+            id = "alhamdulillah",
+            text = "الْحَمْدُ لِلَّهِ",
+            target = 33,
+            shortLabel = "الحمد لله",
+        ),
+        MisbahaDhikr(
+            id = "allahuakbar",
+            text = "اللَّهُ أَكْبَرُ",
+            target = 33,
+            shortLabel = "الله أكبر",
+        ),
+        MisbahaDhikr(
+            id = "tamilat_almia",
+            text = "لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، " +
+                "لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ",
+            target = 1,
+            shortLabel = "المائة",
+        ),
     )
-
-    private val byId = ALL.associateBy { it.id }
-
-    fun byId(id: String): MisbahaDhikr = byId[id] ?: ALL.first()
-
-    /** الأهداف المعروضة في الشاشة — الثلاثة السننية + المائة + بلا حدّ */
-    val TARGET_OPTIONS = listOf(33, 99, 100, MisbahaMath.TARGET_UNLIMITED)
 }

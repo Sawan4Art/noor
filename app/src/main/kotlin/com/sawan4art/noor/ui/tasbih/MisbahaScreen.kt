@@ -9,10 +9,10 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,9 +26,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
@@ -74,25 +74,28 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * المسبحة الإلكترونية — **نقطة سائل حيّ** بدل حلقة الخرز
- * (توجيه المالك alpha25: «بدل الدوائر التي يتغير لونها مع كل عد اعمل
- * عد رقمي عادي و اسم التسبيح تحته و كل هذا داخل نقطه سائل حي بنفس
- * التنسيق لاكن طبعا بحجم اكبر بنفس حجم الدائره الموجوده حاليا»).
+ * المسبحة — **تسبيح ما بعد الصلاة بالترتيب الثابت** (توجيه المالك alpha26):
+ * سبحان الله ٣٣ ثم الحمد لله ٣٣ ثم الله أكبر ٣٣ ثم تكميلة المائة مرةً
+ * واحدة — إتمامُ قسمٍ يهتز وينتقل **تلقائياً** للقسم الذي يليه بترتيبه،
+ * وآخرُ الأقسام تُكمل المائة كلها وتعود لأول الترتيب. لا خلط ولا اختيار
+ * حرّ («مش عايز بقا لخبطه بين كل قسم .. في المسبحه هنحط المهم فقط اما
+ * في قسم الاذكار مستقبلا هنحط اذكار كتير») — وشريحة الإجمالي التراكمي
+ * أُزيلت من الأعلى كلياً («تشيل عداد الاجمالي اللي فوق خالص»).
  *
- * **السائل نفسه بلغة هوية التطبيق حرفياً** (GooeyMath/addLiquidBlob —
- * لغة سائل مزلاج المظهر وقطرة التذكير): سطح متموج دائماً بثلاث موجات
- * ثبات، وتنفّس، وانسياب رأسي — **والعدّ الرقمي واسم التسبيح يعومان
- * داخل السائل باتباع الانسياب نفسه** كما يعوم الهلال في قطرة التذكير.
+ * **العرض**: نقطة سائل حيّ (لغة alpha25 كما هي — GooeyMath/addLiquidBlob)
+ * تحمل **العدّاد التنازلي** («مع عداد تنازلي»): يبدأ من العدد المسنون
+ * للقسم ويهبط حتى الصفر، وتحته نص القسم المشكول، ثم مؤشر الأقسام
+ * الأربعة أسفل النقطة يُظهر الموضع في الترتيب بعلامة ✓ لما سبق.
  *
- * **سائل تفاعلي مع سرعة النقر**: كل ضغطة تضخّ موجة نشاط [energy] في
- * السطح فيزدوج تموّجه، وتتناثر قطرات عشوائية صغيرة ومتوسطة الأحجام
- * من سطح النقطة — وكلما زادت سرعة النقر زادت كمية القطرات
- * (MisbahaSplashMath: دالة رتيبة بسقفٍ محدود). وإتمام دورةٍ رشّة أقصى،
- * والتسرع يرجّح السائل بقوة.
+ * **سائل تفاعلي مع سرعة النقر**: كل ضغطة تضخّ موجة نشاط وتُرشّ قطرات
+ * عشوائية (MisbahaSplashMath) وكلما زادت السرعة زاد التناثر — واكتمال
+ * قسمٍ رشّة أقصى ونبضة واهتزاز («واهتزاز عند الاكتمال»)، واكتمال المائة
+ * احتفال أكبر.
  *
  * **حارس التسرع**: النقر أسرع من نطق الجمل يُنبه «لا تسرع في التسبيح»
- * ويوقف العدّ ثلاث ثوانٍ — ضغطات الإيقاف مُهمَلة بلا عدّ ولا تناثر
- * (MisbahaRushGuard النقيّ المُختبَر).
+ * ويوقف العدّ ثلاث ثوانٍ — وعتبته أشدّ صرامةً عن alpha26 («بتظهر بسرعه
+ * خليها تظهر لو المستخدم تسرع اكثر من كده») فلا تُلمَس فتيرةُ العجلة
+ * المعتادة (MisbahaRushGuard النقيّ المُختبَر).
  */
 @Composable
 fun MisbahaScreen(viewModel: MisbahaViewModel = viewModel()) {
@@ -102,12 +105,13 @@ fun MisbahaScreen(viewModel: MisbahaViewModel = viewModel()) {
     val context = LocalContext.current
     val feedback = remember { MisbahaFeedback(context) }
 
-    // الاهتزاز — نخلة مع كل تسبيحة، ونبضة إتمام، وثلاث نخلات على التسرع
+    // الاهتزاز — نخلة مع كل تسبيحة، ونبضة اكتمال قسم، وموجة اكتمال المائة
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
                 is MisbahaEvent.Counted -> feedback.tap()
-                MisbahaEvent.RoundCompleted -> feedback.roundCompleted()
+                MisbahaEvent.DhikrCompleted -> feedback.dhikrCompleted()
+                MisbahaEvent.SequenceCompleted -> feedback.sequenceCompleted()
                 MisbahaEvent.RushWarned -> feedback.rush()
             }
         }
@@ -135,29 +139,21 @@ fun MisbahaScreen(viewModel: MisbahaViewModel = viewModel()) {
             .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(8.dp))
-        // هيدر الشاشة — العنوان وإجمالي التسبيح التراكمي (لا يُمسح بإعادة التعيين)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "المسبحة",
-                style = MaterialTheme.typography.headlineSmall,
-                color = scheme.onBackground,
-            )
-            Spacer(Modifier.weight(1f))
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = scheme.secondaryContainer,
-                contentColor = scheme.onSecondaryContainer,
-            ) {
-                Text(
-                    text = "الإجمالي ${MisbahaMath.arabicNumber(state.lifetimeTotal)}",
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-                )
-            }
-        }
+        // هيدر الشاشة — العنوان فقط؛ الإجمالي التراكمي أُزيل بطلب المالك
+        Text(
+            text = "المسبحة",
+            style = MaterialTheme.typography.headlineSmall,
+            color = scheme.onBackground,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = "تسبيح ما بعد الصلاة — ٩٩ وتكميلة المائة",
+            style = MaterialTheme.typography.labelMedium,
+            color = scheme.onSurfaceVariant,
+        )
         Spacer(Modifier.height(8.dp))
 
-        // ===== النقطة السائلة الحية — الضغط عليها تسبيحة =====
+        // ===== النقطة السائلة الحية — الضغط عليها تسبيحة، والعدّ تنازلي =====
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
@@ -168,17 +164,10 @@ fun MisbahaScreen(viewModel: MisbahaViewModel = viewModel()) {
             val side = minOf(maxHeight, maxWidth)
             val blobR = with(LocalDensity.current) { (side * 0.38f).toPx() }
             LiquidCounter(
-                count = state.count,
-                dhikrText = state.dhikr.text,
-                subtitle = run {
-                    val remaining = MisbahaMath.remaining(state.count, state.target)
-                    val rounds = "الدورات ${MisbahaMath.arabicNumber(state.roundsNow.toLong())}"
-                    if (remaining == null) {
-                        rounds + " · بلا حدّ"
-                    } else {
-                        "المتبقي ${MisbahaMath.arabicNumber(remaining.toLong())} · " + rounds
-                    }
-                },
+                remaining = state.remaining,
+                dhikrText = state.step.text,
+                subtitle = "المائات المكتملة " +
+                    MisbahaMath.arabicNumber(state.completedSequences.toLong()),
                 events = viewModel.events,
                 blobR = blobR,
                 modifier = Modifier.matchParentSize(),
@@ -224,49 +213,21 @@ fun MisbahaScreen(viewModel: MisbahaViewModel = viewModel()) {
         }
         if (!paused) Spacer(Modifier.height(10.dp))
 
-        // ===== صف الهدف =====
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (option in MisbahaDhikrList.TARGET_OPTIONS) {
-                val label = if (option == MisbahaMath.TARGET_UNLIMITED) {
-                    "بلا حدّ"
-                } else {
-                    MisbahaMath.arabicNumber(option.toLong())
-                }
-                TargetChip(
-                    label = label,
-                    selected = state.target == option,
-                    onClick = { viewModel.setTarget(option) },
+        // ===== مؤشر الأقسام — الترتيب الثابت، والمكتمل قبل الحالي بعلامة ✓ =====
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            MisbahaDhikrList.SEQUENCE.forEachIndexed { index, dhikr ->
+                SequenceStepChip(
+                    label = dhikr.shortLabel,
+                    done = index < state.stepIndex,
+                    current = index == state.stepIndex,
                     modifier = Modifier.weight(1f),
                 )
             }
         }
         Spacer(Modifier.height(10.dp))
-
-        // ===== صف الأذكار — عدّاد كل ذكر محفوظ له =====
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-        ) {
-            for (dhikr in MisbahaDhikrList.ALL) {
-                DhikrChip(
-                    text = dhikr.text,
-                    count = state.counts[dhikr.id] ?: 0,
-                    selected = state.selectedId == dhikr.id,
-                    onClick = { viewModel.selectDhikr(dhikr.id) },
-                )
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        // سطر فضيلة الذكر الحالي — يقول للمستخدم لماذا هذا الذكر
-        Text(
-            text = state.dhikr.targetLabel,
-            style = MaterialTheme.typography.labelSmall,
-            color = scheme.onSurfaceVariant,
-            maxLines = 1,
-        )
-        Spacer(Modifier.height(8.dp))
 
         // ===== صف الإعادة =====
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -293,7 +254,7 @@ fun MisbahaScreen(viewModel: MisbahaViewModel = viewModel()) {
             onDismissRequest = { showResetAll = false },
             title = { Text("إعادة تعيين الكل؟") },
             text = {
-                Text("تصفير كل عدادات الأذكار وذُهابها مع الاحتفاظ بالإجمالي التراكمي.")
+                Text("العودة لأول الترتيب (سبحان الله) وتصفير المائات المكتملة.")
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -309,14 +270,14 @@ fun MisbahaScreen(viewModel: MisbahaViewModel = viewModel()) {
 }
 
 /**
- * النقطة السائلة الحية — العدّ الرقمي واسم التسبيح داخلها.
+ * النقطة السائلة الحية — **العدّاد التنازلي** ونص القسم داخلها.
  * تعيش في حلقة إطاراتها الخاصة كي لا توقظ بقية الشاشة كل فريم:
  * السطح متموج دائماً ويتنفّس وينساب، وكمية نشاطه [energy] تُضخّ مع كل
  * ضغطة وتذبل زمنياً، وقطرات التناثر تعيش وتسقط بالجاذبية وتتلاشى.
  */
 @Composable
 private fun LiquidCounter(
-    count: Int,
+    remaining: Int,
     dhikrText: String,
     subtitle: String,
     events: SharedFlow<MisbahaEvent>,
@@ -341,7 +302,7 @@ private fun LiquidCounter(
     // قطرات التناثر — مواضعها نسبية لمركز النقطة
     val particles = remember { mutableStateListOf<MisbahaSplashMath.Particle>() }
 
-    // نبضة إتمام الدورة — السائل كله يتوسع ويعود
+    // نبضة الاكتمال — السائل كله يتوسع ويعود
     val pulseScale = remember { Animatable(1f) }
 
     // التناثر والنبض من أحداث العدّ — مُصغيّ ثانٍ للتيار نفسه
@@ -354,7 +315,8 @@ private fun LiquidCounter(
                         MisbahaSplashMath.spawn(event.particles, 0f, 0f, blobR),
                     )
                 }
-                MisbahaEvent.RoundCompleted -> {
+                MisbahaEvent.DhikrCompleted, MisbahaEvent.SequenceCompleted -> {
+                    // اكتمال قسمٍ أو مائة — رشّة أقصى ونبضة توسع
                     energy = 1f
                     particles.addAll(
                         MisbahaSplashMath.spawn(
@@ -433,7 +395,7 @@ private fun LiquidCounter(
             }
         }
 
-        // العدّ الرقمي واسم التسبيح — يعومان داخل السائل باتباع الانسياب نفسه
+        // العدّاد التنازلي ونص القسم — يعومان داخل السائل باتباع الانسياب نفسه
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -443,7 +405,7 @@ private fun LiquidCounter(
                 .padding(horizontal = 44.dp),
         ) {
             Text(
-                text = MisbahaMath.arabicNumber(count.toLong()),
+                text = MisbahaMath.arabicNumber(remaining.toLong()),
                 style = MaterialTheme.typography.displayLarge,
                 color = scheme.onPrimaryContainer,
                 textAlign = TextAlign.Center,
@@ -451,9 +413,14 @@ private fun LiquidCounter(
             Spacer(Modifier.height(2.dp))
             Text(
                 text = dhikrText,
-                style = MaterialTheme.typography.titleLarge,
+                style = if (dhikrText.length > 30) {
+                    MaterialTheme.typography.bodyLarge
+                } else {
+                    MaterialTheme.typography.titleLarge
+                },
                 color = scheme.primary,
                 textAlign = TextAlign.Center,
+                maxLines = 4,
             )
             Spacer(Modifier.height(6.dp))
             Text(
@@ -466,74 +433,55 @@ private fun LiquidCounter(
     }
 }
 
-/** خرزة هدف — ٣٣ / ٩٩ / ١٠٠ / بلا حدّ */
+/**
+ * خرزة مؤشر الأقسام — ترتيب تسبيح ما بعد الصلاة الثابت: الحالي بلون
+ * الحاوية الأساسي، وما سبقه من هذا الطور بعلامة ✓، وما بعده صامت.
+ */
 @Composable
-private fun TargetChip(
+private fun SequenceStepChip(
     label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
+    done: Boolean,
+    current: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
     Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(18.dp),
-        color = if (selected) scheme.primaryContainer else scheme.surface,
-        contentColor = if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
-        border = androidx.compose.foundation.BorderStroke(
-            width = if (selected) 1.5.dp else 1.dp,
-            color = if (selected) scheme.primary else scheme.outline.copy(alpha = 0.35f),
+        shape = RoundedCornerShape(14.dp),
+        color = when {
+            current -> scheme.primaryContainer
+            done -> scheme.secondaryContainer.copy(alpha = 0.55f)
+            else -> scheme.surface
+        },
+        contentColor = when {
+            current -> scheme.onPrimaryContainer
+            done -> scheme.onSecondaryContainer
+            else -> scheme.onSurfaceVariant
+        },
+        border = BorderStroke(
+            width = if (current) 1.5.dp else 1.dp,
+            color = if (current) scheme.primary else scheme.outline.copy(alpha = 0.35f),
         ),
         modifier = modifier,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(vertical = 10.dp),
-        )
-    }
-}
-
-/** خرزة ذكر — الاسم وعدّه الحالي، والمختار بلون الحاوية الأساسي */
-@Composable
-private fun DhikrChip(
-    text: String,
-    count: Int,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(50),
-        color = if (selected) scheme.secondaryContainer else scheme.surface,
-        contentColor = if (selected) scheme.onSecondaryContainer else scheme.onSurfaceVariant,
-        border = androidx.compose.foundation.BorderStroke(
-            width = if (selected) 1.5.dp else 1.dp,
-            color = if (selected) scheme.secondary else scheme.outline.copy(alpha = 0.35f),
-        ),
-    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 14.dp, end = 10.dp, top = 9.dp, bottom = 9.dp),
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 3.dp, vertical = 9.dp),
         ) {
-            Text(text = text, style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.size(6.dp))
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = if (selected) {
-                    scheme.secondary.copy(alpha = 0.22f)
-                } else {
-                    scheme.outline.copy(alpha = 0.14f)
-                },
-            ) {
-                Text(
-                    text = MisbahaMath.arabicNumber(count.toLong()),
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+            if (done) {
+                Icon(
+                    Icons.Filled.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(13.dp),
                 )
+                Spacer(Modifier.size(3.dp))
             }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }

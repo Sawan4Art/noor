@@ -29,39 +29,47 @@ sealed interface MisbahaEvent {
     /** تسبيحة معدودة — [particles] قطرات التناثر المقترحة (دالة سرعة النقر) */
     data class Counted(val particles: Int) : MisbahaEvent
 
-    /** إتمام دورة — تناثر أقصى + نبضة الحلقة */
-    data object RoundCompleted : MisbahaEvent
+    /** اكتمال قسم (٣٣/٣٣/٣٣) — اهتزاز وانتقال تلقائي للقسم الذي يليه بالترتيب */
+    data object DhikrCompleted : MisbahaEvent
+
+    /** اكتمال المائة كلها (٩٩ وتكميلتها) — احتفال أكبر وعودة لأول الترتيب */
+    data object SequenceCompleted : MisbahaEvent
 
     /** انكشاف التسرع — تنبيه وبدء إيقاف العدّ */
     data object RushWarned : MisbahaEvent
 }
 
 /**
- * حالة المسبحة — كل ذكر يحفظ عدّه وذُهابه وهدفه الخاص، والإجمالي
- * التراكمي للأعمار محفوظ ومحميّ من مسح إعادة التعيين.
+ * حالة المسبحة — التسلسل الثابت لتسبيح ما بعد الصلاة (alpha26):
+ * القسم الحالي في الترتيب وعدّه الداخلي وعدد المائات المكتملة.
  */
 data class MisbahaState(
-    val selectedId: String = MisbahaDhikrList.ALL.first().id,
-    val counts: Map<String, Int> = emptyMap(),
-    val rounds: Map<String, Int> = emptyMap(),
-    val targets: Map<String, Int> = emptyMap(),
-    val lifetimeTotal: Long = 0L,
+    /** موضع القسم الحالي في التسلسل ٠..٣ */
+    val stepIndex: Int = 0,
+    /** عدّ القسم الحالي داخل دوره */
+    val count: Int = 0,
+    /** عدد المائات المكتملة كاملة (٩٩ وتكميلتها) */
+    val completedSequences: Int = 0,
 ) {
-    val dhikr: MisbahaDhikr
-        get() = MisbahaDhikrList.byId(selectedId)
-    val count: Int get() = counts[selectedId] ?: 0
-    val roundsNow: Int get() = rounds[selectedId] ?: 0
-    val target: Int get() = targets[selectedId] ?: dhikr.defaultTarget
+    val step: MisbahaDhikr
+        get() = MisbahaDhikrList.SEQUENCE[stepIndex.coerceIn(0, MisbahaDhikrList.SEQUENCE.lastIndex)]
+
+    /** العدّاد التنازلي — يبدأ من العدد المسنون ويهبط حتى الصفر */
+    val remaining: Int get() = MisbahaMath.remaining(count, step.target)
 }
 
 /**
  * مسؤول المسبحة — العدّ يعيش في الذاكرة سرعةً لتتابع النقر السريع،
  * والحفظ إلى DataStore **مؤجَّل** (٧٠٠ مللي سكّة هدوء) فلا قرصٌ صلب
- * مع كل تسبيحة، وإتمامُ دورةٍ يحفظ فوراً كي لا يضيع حصاد الدورة.
+ * مع كل تسبيحة، واكتمالُ قسمٍ أو مائةٍ يحفظ فوراً كي لا يضيع الحصاد.
  *
- * **حارس التسرع (alpha25 — توجيه المالك)**: النقر بسرعة تفوق نطق الجمل
- * يُنبه ويوقف العدّ ٣ ثوانٍ — الضغطات أثناء الإيقاف مُهمَلة بلا عدّ ولا
- * تناثر، ويُعرض وقت الاستئناف للشاشة عبر pausedUntil.
+ * **الانتقال التلقائي بالترتيب (alpha26 — توجيه المالك)**: «بعد اتمام
+ * تسبيح معين اوتماتك ينتقل للي بعده بس بترتيب» — إتمام القسم يهتز
+ * وينتقل وحده، ولا خلط بين الأقسام: المسبحة تسبيح ما بعد الصلاة فقط.
+ *
+ * **حارس التسرع (alpha25/26)**: النقر بآلة أسرع من النطق يُنبه ويوقف
+ * العدّ ٣ ثوانٍ — الضغطات أثناء الإيقاف مُهمَلة بلا عدّ ولا تناثر،
+ * ويُعرض وقت الاستئناف للشاشة عبر pausedUntil.
  */
 class MisbahaViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -90,12 +98,14 @@ class MisbahaViewModel(application: Application) : AndroidViewModel(application)
     init {
         viewModelScope.launch {
             val snap = repository.snapshot.first()
+            val target = MisbahaDhikrList.SEQUENCE[
+                snap.stepIndex.coerceIn(0, MisbahaDhikrList.SEQUENCE.lastIndex),
+            ].target
             _state.value = MisbahaState(
-                selectedId = snap.selectedId,
-                counts = snap.counts,
-                rounds = snap.rounds,
-                targets = snap.targets,
-                lifetimeTotal = snap.lifetimeTotal,
+                stepIndex = snap.stepIndex,
+                // عدّ قديم خارج حدود الهدف يبدأ نظيفاً لا مكسوراً
+                count = snap.count.coerceIn(0, target - 1),
+                completedSequences = snap.completedSequences,
             )
             loaded = true
         }
@@ -103,7 +113,9 @@ class MisbahaViewModel(application: Application) : AndroidViewModel(application)
 
     /**
      * تسبيحة واحدة — حارس التسرع أولاً: مُهمَلة أثناء الإيقاف، وانكشاف
-     * التسرع ينبّه ويوقف، والمعدودة تُبثّ بكمية تناثرٍ من سرعة النقر.
+     * التسرع ينبّه ويوقف. المعدودة تتقدم بالتسلسل الثابت: عدّ القسم
+     * يكبر حتى يكتمل فينتقل تلقائياً للقسم التالي، وآخر الأقسام تُكمل
+     * المائة وترجع لأول الترتيب.
      */
     fun tap() {
         if (!loaded) return
@@ -125,56 +137,45 @@ class MisbahaViewModel(application: Application) : AndroidViewModel(application)
         val rate = MisbahaSplashMath.tapsPerSecond(tapTimes, now)
 
         val s = _state.value
-        val step = MisbahaMath.step(s.count, s.target)
+        val adv = MisbahaMath.advanceSequence(s.stepIndex, s.count, s.completedSequences)
         _state.update { cur ->
             cur.copy(
-                counts = cur.counts + (cur.selectedId to step.count),
-                rounds = if (step.roundCompleted) {
-                    cur.rounds + (cur.selectedId to (cur.rounds[cur.selectedId] ?: 0) + 1)
-                } else {
-                    cur.rounds
-                },
-                lifetimeTotal = cur.lifetimeTotal + 1,
+                stepIndex = adv.stepIndex,
+                count = adv.count,
+                completedSequences = adv.completedSequences,
             )
         }
-        if (step.roundCompleted) {
-            _events.tryEmit(MisbahaEvent.RoundCompleted)
-            persistNow()
-        } else {
-            _events.tryEmit(
-                MisbahaEvent.Counted(
-                    particles = MisbahaSplashMath.tapParticles(rate),
-                ),
-            )
-            scheduleSave()
+        when {
+            adv.sequenceCompleted -> {
+                _events.tryEmit(MisbahaEvent.SequenceCompleted)
+                persistNow()
+            }
+            adv.dhikrCompleted -> {
+                _events.tryEmit(MisbahaEvent.DhikrCompleted)
+                persistNow()
+            }
+            else -> {
+                _events.tryEmit(
+                    MisbahaEvent.Counted(
+                        particles = MisbahaSplashMath.tapParticles(rate),
+                    ),
+                )
+                scheduleSave()
+            }
         }
     }
 
-    /** اختيار ذكر — يُحمّل عدّه وذهابه وهدفه المحفوظين */
-    fun selectDhikr(id: String) {
-        if (!loaded || id == _state.value.selectedId) return
-        _state.update { it.copy(selectedId = id) }
-        scheduleSave()
-    }
-
-    /** هدف جديد للذكر الحالي — ٠ = بلا حدّ */
-    fun setTarget(target: Int) {
-        if (!loaded) return
-        _state.update { it.copy(targets = it.targets + (it.selectedId to target)) }
-        scheduleSave()
-    }
-
-    /** إعادة العدّ الحالي فقط — بلا ذُهاب وبلا إجمالي */
+    /** إعادة عدّ القسم الحالي فقط — يعيد العدّاد التنازلي لعدّه المسنون */
     fun resetCurrent() {
         if (!loaded) return
-        _state.update { it.copy(counts = it.counts + (it.selectedId to 0)) }
+        _state.update { it.copy(count = 0) }
         persistNow()
     }
 
-    /** إعادة الكل — العدادات والذُهاب تصفر والإجمالي التراكمي يبقى محفوظاً */
+    /** إعادة الكل — العودة لأول الترتيب وتصفير المائات المكتملة */
     fun resetAll() {
         if (!loaded) return
-        _state.update { it.copy(counts = emptyMap(), rounds = emptyMap()) }
+        _state.update { MisbahaState() }
         persistNow()
     }
 
@@ -198,16 +199,16 @@ class MisbahaViewModel(application: Application) : AndroidViewModel(application)
         saveJob = viewModelScope.launch { persist() }
     }
 
-    private suspend fun persist() {
+    private fun persist() {
         val s = _state.value
-        repository.save(
-            MisbahaSnapshot(
-                selectedId = s.selectedId,
-                counts = s.counts,
-                rounds = s.rounds,
-                targets = s.targets,
-                lifetimeTotal = s.lifetimeTotal,
-            ),
-        )
+        viewModelScope.launch {
+            repository.save(
+                MisbahaSnapshot(
+                    stepIndex = s.stepIndex,
+                    count = s.count,
+                    completedSequences = s.completedSequences,
+                ),
+            )
+        }
     }
 }

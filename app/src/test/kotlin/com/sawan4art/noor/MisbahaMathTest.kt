@@ -3,37 +3,37 @@ package com.sawan4art.noor
 import com.sawan4art.noor.domain.tasbih.MisbahaMath
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
  * عقود المسبحة — العدّ الصافي بلا مجال:
- * بلوغ الهدف يُكمل دورة ويعيد العدّ للصفر في الخطوة نفسها،
- * وبلا حدّ لا إعادة ولا متبقٍّ، والأرقام هندية موحّدة بلغة التطبيق.
+ * بلوغ عدّاد القسم هدفه يُكمله ويعيد الصفر في الخطوة نفسها،
+ * والأرقام هندية موحّدة بلغة التطبيق.
  * (alpha25: عقود الخرزات ماتت مع ميزتها — الدوائر أُزيلت بطلب المالك)
+ * (alpha26: «بلا حدّ» ماتت مع الأهداف المتغيرة — التسلسل الثابت أعداده سنّه)
  */
 class MisbahaMathTest {
 
     // ===== عقد التسبيحة الواحدة =====
 
     @Test
-    fun `تسبيحة أولى تبدأ من الصفر إلى واحد بلا دورة`() {
+    fun `تسبيحة أولى تبدأ من الصفر إلى واحد بلا اكتمال`() {
         val step = MisbahaMath.step(0, 33)
         assertEquals(1, step.count)
         assertFalse(step.roundCompleted)
     }
 
     @Test
-    fun `بلوغ الهدف يكمل الدورة ويعيد الصفر في الخطوة نفسها`() {
+    fun `بلوغ الهدف يكمل القسم ويعيد الصفر في الخطوة نفسها`() {
         val step = MisbahaMath.step(32, 33)
         assertEquals(0, step.count)
         assertTrue(step.roundCompleted)
     }
 
     @Test
-    fun `الخطوة التالية لإتمام الدورة تبدأ وردة جديدة من واحد`() {
-        // بعد إتمام وردة ٣٣ يعود العدّ صفراً؛ التسبيحة الأولى في الوردة الجديدة
+    fun `الخطوة التالية للاكتمال تبدأ عدّاً جديداً من واحد`() {
+        // بعد إكتمال القسم ٣٣ يعود العدّ صفراً؛ التسبيحة الأولى في العدّ الجديد
         // من الصفر → واحد (والبقعة الثانية → اثنان كما في السبحة الحقيقية)
         val after = MisbahaMath.step(32, 33)
         assertEquals(0, after.count)
@@ -42,16 +42,6 @@ class MisbahaMathTest {
         assertFalse(first.roundCompleted)
         val second = MisbahaMath.step(first.count, 33)
         assertEquals(2, second.count)
-    }
-
-    @Test
-    fun `الهدف ٩٩ لا يكمل دورة عند ٣٣ ولا عند ٦٦`() {
-        assertFalse(MisbahaMath.step(32, 99).roundCompleted) // → 33
-        assertEquals(33, MisbahaMath.step(32, 99).count)
-        assertFalse(MisbahaMath.step(65, 99).roundCompleted) // → 66
-        val complete = MisbahaMath.step(98, 99)
-        assertTrue(complete.roundCompleted)
-        assertEquals(0, complete.count)
     }
 
     @Test
@@ -65,14 +55,7 @@ class MisbahaMathTest {
     }
 
     @Test
-    fun `بلا حدّ لا يكمل دورة أبداً ويكبر العدّ`() {
-        val step = MisbahaMath.step(1000, MisbahaMath.TARGET_UNLIMITED)
-        assertEquals(1001, step.count)
-        assertFalse(step.roundCompleted)
-    }
-
-    @Test
-    fun `هدف واحد يعيد الصفر مع كل تسبيحة`() {
+    fun `هدف واحد — تكميلة المائة — يكتمل مع كل تسبيحة`() {
         val step = MisbahaMath.step(0, 1)
         assertEquals(0, step.count)
         assertTrue(step.roundCompleted)
@@ -85,17 +68,25 @@ class MisbahaMathTest {
         assertFalse(step.roundCompleted)
     }
 
-    // ===== عقد المتبقي =====
+    // ===== عقد العدّاد التنازلي =====
 
     @Test
-    fun `المتبقي يهبط حتى الصفر عند الهدف`() {
+    fun `العداد التنازلي يبدأ من العدد المسنون يهبط حتى الصفر`() {
+        assertEquals(33, MisbahaMath.remaining(0, 33))
         assertEquals(32, MisbahaMath.remaining(1, 33))
+        assertEquals(1, MisbahaMath.remaining(32, 33))
         assertEquals(0, MisbahaMath.remaining(33, 33))
     }
 
     @Test
-    fun `بلا حدّ لا متبقي له`() {
-        assertNull(MisbahaMath.remaining(10, 0))
+    fun `التنازلي لا يهبط تحت الصفر مهما زاد المدخل`() {
+        assertEquals(0, MisbahaMath.remaining(50, 33))
+    }
+
+    @Test
+    fun `تكميلة المائة عدّادها التنازلي واحد ثم صفر`() {
+        assertEquals(1, MisbahaMath.remaining(0, 1))
+        assertEquals(0, MisbahaMath.remaining(1, 1))
     }
 
     // ===== عقد الأرقام الهندية =====

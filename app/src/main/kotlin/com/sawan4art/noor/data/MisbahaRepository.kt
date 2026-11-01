@@ -5,11 +5,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sawan4art.noor.domain.tasbih.MisbahaDhikrList
-import com.sawan4art.noor.domain.tasbih.MisbahaMath
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -19,66 +16,58 @@ private val Context.misbahaDataStore: DataStore<Preferences> by preferencesDataS
 )
 
 /**
- * لقطة المسبحة المحفوظة — عدّادٌ وذهابٌ لكل ذكر، وهدفٌ اختياري مُعاد
- * تعريفه، وإجمالي تسبيح العمر لا يُمسح بإعادة التعيين.
+ * لقطة المسبحة المحفوظة — التسلسل الثابت لتسبيح ما بعد الصلاة (alpha26):
+ * موضع القسم الحالي وعدّه وعدد المائات المكتملة. لا أذكار متعددة ولا
+ * أهداف متغيرة ولا إجمالي تراكمي (توجيه المالك: «تشيل عداد الاجمالي
+ * اللي فوق خالص» و«في المسبحه هنحط المهم فقط»).
  */
 data class MisbahaSnapshot(
-    val selectedId: String = MisbahaDhikrList.ALL.first().id,
-    val counts: Map<String, Int> = emptyMap(),
-    val rounds: Map<String, Int> = emptyMap(),
-    /** تجاوز الهدف الافتراضي — الغائب يعود لافتراضي الذكر */
-    val targets: Map<String, Int> = emptyMap(),
-    val lifetimeTotal: Long = 0L,
+    /** موضع القسم الحالي في التسلسل ٠..٣ */
+    val stepIndex: Int = 0,
+    /** عدّ القسم الحالي داخل دوره */
+    val count: Int = 0,
+    /** عدد المائات المكتملة كاملة */
+    val completedSequences: Int = 0,
 )
 
 class MisbahaRepository(private val context: Context) {
 
     private object Keys {
-        const val SELECTED = "selected_dhikr"
-        const val LIFETIME = "lifetime_total"
-        const val P_COUNT = "count_"
-        const val P_ROUNDS = "rounds_"
-        const val P_TARGET = "target_"
+        const val LEGACY_SELECTED = "selected_dhikr"
+        const val LEGACY_LIFETIME = "lifetime_total"
+        val STEP = intPreferencesKey("sequence_step")
+        val COUNT = intPreferencesKey("current_count")
+        val SEQUENCES = intPreferencesKey("completed_sequences")
 
-        fun count(id: String) = intPreferencesKey(P_COUNT + id)
-        fun rounds(id: String) = intPreferencesKey(P_ROUNDS + id)
-        fun target(id: String) = intPreferencesKey(P_TARGET + id)
+        const val LEGACY_COUNT_PREFIX = "count_"
+        const val LEGACY_ROUNDS_PREFIX = "rounds_"
+        const val LEGACY_TARGET_PREFIX = "target_"
     }
 
-    private val selectedKey = stringPreferencesKey(Keys.SELECTED)
-    private val lifetimeKey = longPreferencesKey(Keys.LIFETIME)
-
     val snapshot: Flow<MisbahaSnapshot> = context.misbahaDataStore.data.map { p ->
-        val ids = MisbahaDhikrList.ALL.map { it.id }
         MisbahaSnapshot(
-            selectedId = p[selectedKey]?.takeIf { ids.contains(it) }
-                ?: MisbahaDhikrList.ALL.first().id,
-            counts = ids.associateWith { p[Keys.count(it)] ?: 0 }.filterValues { it != 0 },
-            rounds = ids.associateWith { p[Keys.rounds(it)] ?: 0 }.filterValues { it != 0 },
-            targets = ids.mapNotNull { id ->
-                p[Keys.target(id)]?.takeIf { it != MisbahaDhikrList.byId(id).defaultTarget }
-                    ?.let { id to it }
-            }.toMap(),
-            lifetimeTotal = p[lifetimeKey] ?: 0L,
+            stepIndex = (p[Keys.STEP] ?: 0).coerceIn(0, MisbahaDhikrList.SEQUENCE.lastIndex),
+            count = p[Keys.COUNT] ?: 0,
+            completedSequences = p[Keys.SEQUENCES] ?: 0,
         )
     }
 
     /** كتابة اللقطة كاملة — يُستدعى مؤجَّلاً من المسؤول لا مع كل تسبيحة */
     suspend fun save(s: MisbahaSnapshot) {
         context.misbahaDataStore.edit { p ->
-            p[selectedKey] = s.selectedId
-            p[lifetimeKey] = s.lifetimeTotal
-            for (dhikr in MisbahaDhikrList.ALL) {
-                val id = dhikr.id
-                val count = s.counts[id] ?: 0
-                val rounds = s.rounds[id] ?: 0
-                val target = s.targets[id]
-                if (count != 0) p[Keys.count(id)] = count else p.remove(Keys.count(id))
-                if (rounds != 0) p[Keys.rounds(id)] = rounds else p.remove(Keys.rounds(id))
-                if (target != null && target != dhikr.defaultTarget) {
-                    p[Keys.target(id)] = target
-                } else {
-                    p.remove(Keys.target(id))
+            p[Keys.STEP] = s.stepIndex
+            p[Keys.COUNT] = s.count
+            p[Keys.SEQUENCES] = s.completedSequences
+            // محو مفاتيح التصميم القديم (أذكار متعددة وأهداف وإجمالي) —
+            // ماتت مع ميزتها في alpha26 ولا تعود
+            for (key in p.asMap().keys.toList()) {
+                if (key.name == Keys.LEGACY_SELECTED ||
+                    key.name == Keys.LEGACY_LIFETIME ||
+                    key.name.startsWith(Keys.LEGACY_COUNT_PREFIX) ||
+                    key.name.startsWith(Keys.LEGACY_ROUNDS_PREFIX) ||
+                    key.name.startsWith(Keys.LEGACY_TARGET_PREFIX)
+                ) {
+                    p.remove(key)
                 }
             }
         }
