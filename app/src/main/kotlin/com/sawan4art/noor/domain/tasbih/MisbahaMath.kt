@@ -3,17 +3,15 @@ package com.sawan4art.noor.domain.tasbih
 /**
  * منطق المسبحة الإلكترونية — نقيّ بلا أندرويد كي يُختبر آلياً بعقود صارمة.
  *
- * الدلالات المعتمدة (سنة المسبحة الحقيقية):
- * - الحلقة **٣٣ خرزة** مهما كان الهدف — تُضاء خرزة بكل تسبيحة وتلتفّ
- *   من جديد (count % 33) كي يشبه العدّ السبحةً في اليد.
+ * الدلالات المعتمدة:
  * - **الهدف** عتبة دورة كاملة: بلوغه يُكمل دورة (rounds+1) ويعيد العدّ
  *   للصفر تلقائياً مع نبضة إتمام. الهدف صفر = «بلا حدّ»: العدّ يكبر
- *   بلا إعادة والحلقة تلتفّ كل ٣٣.
+ *   بلا إعادة.
+ * - alpha25: خرزات الحلقة أُزيلت بطلب المالك («بدل الدوائر التي يتغير
+ *   لونها مع كل عد اعمل عد رقمي عادي») فماتت عقود الخرز مع ميزتها،
+ *   وبقيت عقود العدّ الصافية.
  */
 object MisbahaMath {
-
-    /** عدد خرزات الحلقة — سنة السبحة الشائعة */
-    const val BEADS = 33
 
     /** الهدف الصفري = بلا حدّ */
     const val TARGET_UNLIMITED = 0
@@ -35,22 +33,6 @@ object MisbahaMath {
         } else {
             Step(count = next, roundCompleted = false)
         }
-    }
-
-    /** خرزات مضاءة على الحلقة — تلتفّ كل ٣٣ دائماً */
-    fun beadsLit(count: Int): Int {
-        val c = count.coerceAtLeast(0)
-        return c % BEADS
-    }
-
-    /** نسبة تقدم الدورة الحالية 0..1 (بلا حدّ → التقدم حول الحلقة فقط) */
-    fun progressFraction(count: Int, target: Int): Float {
-        if (target <= 0) {
-            if (count <= 0) return 0f
-            val within = count % BEADS
-            return if (within == 0) 1f else within.toFloat() / BEADS
-        }
-        return count.coerceIn(0, target).toFloat() / target
     }
 
     /** المتبقي لإتمام الدورة — بلا حدّ يبقى بلا متبقٍّ (null) */

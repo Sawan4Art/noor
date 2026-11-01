@@ -8,9 +8,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * عقود المسبحة — دلالات السبحة الحقيقية بلا مجال:
- * ٣٣ خرزة تلتفّ، وبلوغ الهدف يُكمل دورة ويعيد العدّ للصفر في الخطوة نفسها،
+ * عقود المسبحة — العدّ الصافي بلا مجال:
+ * بلوغ الهدف يُكمل دورة ويعيد العدّ للصفر في الخطوة نفسها،
  * وبلا حدّ لا إعادة ولا متبقٍّ، والأرقام هندية موحّدة بلغة التطبيق.
+ * (alpha25: عقود الخرزات ماتت مع ميزتها — الدوائر أُزيلت بطلب المالك)
  */
 class MisbahaMathTest {
 
@@ -84,42 +85,7 @@ class MisbahaMathTest {
         assertFalse(step.roundCompleted)
     }
 
-    // ===== عقد الحلقة (٣٣ خرزة) =====
-
-    @Test
-    fun `الخرزات المضاءة تلتف كل ثلاثة وثلاثين`() {
-        assertEquals(0, MisbahaMath.beadsLit(0))
-        assertEquals(1, MisbahaMath.beadsLit(1))
-        assertEquals(33 % MisbahaMath.BEADS, MisbahaMath.beadsLit(33))
-        assertEquals(1, MisbahaMath.beadsLit(67))
-    }
-
-    @Test
-    fun `الخرزات سالبة تساوي صفراً`() {
-        assertEquals(0, MisbahaMath.beadsLit(-3))
-    }
-
-    // ===== عقد التقدم والمتبقي =====
-
-    @Test
-    fun `نسبة التقدم صفر في البداية وواحد عند بلوغ الهدف`() {
-        assertEquals(0f, MisbahaMath.progressFraction(0, 33), 1e-6f)
-        assertEquals(1f, MisbahaMath.progressFraction(33, 33), 1e-6f)
-    }
-
-    @Test
-    fun `نسبة التقدم بين الحدود دائماً`() {
-        val f = MisbahaMath.progressFraction(10, 100)
-        assertTrue(f in 0.0999f..0.1001f)
-    }
-
-    @Test
-    fun `بلا حدّ يتقدم التقدم حول الحلقة فقط ولا يتجاوز واحداً`() {
-        val f = MisbahaMath.progressFraction(40, 0)
-        assertTrue(f in 0f..1f)
-        val f0 = MisbahaMath.progressFraction(0, 0)
-        assertEquals(0f, f0, 1e-6f)
-    }
+    // ===== عقد المتبقي =====
 
     @Test
     fun `المتبقي يهبط حتى الصفر عند الهدف`() {

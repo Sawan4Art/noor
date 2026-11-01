@@ -37,4 +37,11 @@ class MisbahaFeedback(context: Context) {
             vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0L, 45L, 80L, 65L), -1))
         }
     }
+
+    /** تنبيه التسرع — ثلاث نخلات متتالية أوضح: قف ما زلتَ بسرعة */
+    fun rush() {
+        runCatching {
+            vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0L, 70L, 90L, 70L, 90L, 70L), -1))
+        }
+    }
 }
