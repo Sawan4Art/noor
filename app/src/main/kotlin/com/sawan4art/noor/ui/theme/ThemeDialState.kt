@@ -27,10 +27,10 @@ import kotlin.math.abs
  *   (clipRect بلا أي DstIn/Offscreen — آلية القناع القديمة كانت تفشل بصمت
  *   على جهاز المالك فلم يرَ الانقسام قط).
  * - الرفع يحسم بالضفة التي عبرت المنتصف، والنقرة تبدّل فوراً برحلة كاملة.
- * - الفصل **حاد وصريح** وعلى حدّ الانقسام **خط ضوء رفيع ساطع** بهالة ضيقة
- *   مركّزة عليه حصرياً (توجيه المالك alpha15: «خط فاصل رفيع ومشرق... المنطقة
- *   الانتقالية لا تتعدى بضع بكسلات... النصف الأيمن داكن بالكامل والأيسر فاتح
- *   بالكامل») — لا حزام عريض ولا بؤرة.
+ * - الفصل **حاد وصريح** — وبعد سبع محاولات توهج رفضها المالك واحداً تلو
+ *   الآخر، **الفاصل الضوئي أُزيل خالصاً** (الكلمة الأخيرة alpha22: «شيل
+ *   الفاصل الضوئى خالص»): لا شعاع ولا هالة ولا بلور ولا أي عنصر ضوئي
+ *   على حدّ الانقسام — انقسام حاد نظيف كما في الأول.
  * - الإيماءة من الأيقونة وحدها (صندوق لمس يركب الأيقونة) — الفراغ والمسار
  *   يمرّان للطبقات تحتيهما فلا لاج ولا ابتلاع لمسات (درس alpha7).
  * - المزلاج كلّه في الرئيسية فقط — مغادرتها **تُطبّع الحالة بلا شرط**
@@ -58,8 +58,6 @@ class ThemeDialState {
     // مقاييس مرسلة من الواجهة بالبكسل
     var blobRadiusPx by mutableFloatStateOf(0f); private set
     var anchorPadPx by mutableFloatStateOf(0f); private set
-    /** نصف أوسع امتداد لرسم خط الضوء (الهالة الخارجية) بالبكسل — سُمت المسح */
-    var edgeGlowPx by mutableFloatStateOf(0f); private set
 
     // ===== السائل الحي — نفس نمط الشريط السفلي =====
     val headX = Animatable(0f)
@@ -69,13 +67,6 @@ class ThemeDialState {
     val pulse = Animatable(1f)
     val jiggle = Animatable(0f)
     val maskX = Animatable(0f)
-    /**
-     * مرئية خط الضوء 0..1 — مضاعِف الظهور فقط. **شدة** الخط نفسها ديناميكية
-     * = نسبة النهار على الشاشة (ThemeDialMath.beamIntensity — توجيه المالك
-     * alpha16: تبدأ ضعيفة وتزداد مع السحب نحو الفاتح، والعكس نحو المظلم)،
-     * وهذه القيمة تبقي الانطفاء ناعماً عند رجوع السحب المرفوض كي لا يُقطع فجأة.
-     */
-    val beam = Animatable(0f)
 
     // ===== أطوار المزلاج =====
     var dragging by mutableStateOf(false); private set
@@ -115,13 +106,11 @@ class ThemeDialState {
         screenH: Float,
         blobRadius: Float,
         anchorPad: Float,
-        glowExtent: Float,
     ) {
         screenWidth = screenW
         screenHeight = screenH
         blobRadiusPx = blobRadius
         anchorPadPx = anchorPad
-        edgeGlowPx = glowExtent
     }
 
     fun progressOfHead(): Float = ThemeDialMath.progress(headX.value, anchorLeft, anchorRight)
@@ -160,7 +149,6 @@ class ThemeDialState {
         headR.snapTo(blobRadiusPx)
         tailR.snapTo(0f)
         maskX.snapTo(headX.value)
-        beam.snapTo(0f)
         jiggle.snapTo(0f)
         pulse.snapTo(1f)
     }
@@ -193,7 +181,6 @@ class ThemeDialState {
         tailR.snapTo(blobRadiusPx)
         headR.snapTo(blobRadiusPx)
         maskX.snapTo(headX.value)
-        beam.snapTo(1f)
     }
 
     /** الأيقونة مع اليد حرفياً — إزاحة عن نقطة القبض محصورة بين المرسى */
@@ -227,7 +214,6 @@ class ThemeDialState {
         tailR.snapTo(blobRadiusPx)
         headR.snapTo(blobRadiusPx)
         maskX.snapTo(headX.value)
-        beam.snapTo(1f)
         sweepToTarget(committedDark, onCommitLight, scope)
     }
 
@@ -271,11 +257,11 @@ class ThemeDialState {
         }
     }
 
-    /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والحدّ وخط ضوئه يُساقان خارج الشاشة */
+    /** الرحلة النهائية: المصدر يُنقص، الرأس يهبط بارتداد، والحدّ يُساق خارج الشاشة */
     private fun sweepToTarget(commitLight: Boolean, onCommitLight: (Boolean) -> Unit, scope: CoroutineScope) {
         val gen = ++sweepGeneration
         busy = true
-        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth, edgeGlowPx)
+        val endB = ThemeDialMath.sweepTargetX(commitLight, screenWidth)
         val anchor = if (commitLight) anchorRight else anchorLeft
         scope.launch { tailR.animateTo(0f, tween(DRAIN_MS, easing = FastOutSlowInEasing)) }
         scope.launch { headX.animateTo(anchor, tween(HEAD_MS, easing = EaseOutBack)) }
@@ -306,14 +292,13 @@ class ThemeDialState {
         }
     }
 
-    /** الرجوع: الرأس يعود لمرساه والمصدر يُسحب إليه حتى آخر قطرة، والتوهج يخفت معه */
+    /** الرجوع: الرأس يعود لمرساه والمصدر يُسحب إليه حتى آخر قطرة */
     private fun revertTo(startAnchor: Float, scope: CoroutineScope) {
         sweepGeneration++ // يُبطل أي مهلة أمان معلّقة كي لا تُسقط هذا الرجوع
         busy = true
         scope.launch { headX.animateTo(startAnchor, tween(HEAD_MS, easing = EaseOutBack)) }
         scope.launch { maskX.animateTo(startAnchor, tween(HEAD_MS, easing = FastOutSlowInEasing)) }
         scope.launch { tailR.animateTo(0f, tween(HEAD_MS, easing = FastOutSlowInEasing)) }
-        scope.launch { beam.animateTo(0f, tween(HEAD_MS, easing = FastOutSlowInEasing)) }
         scope.launch {
             delay(HEAD_MS - 40L)
             jiggle.snapTo(1f)

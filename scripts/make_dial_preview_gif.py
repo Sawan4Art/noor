@@ -4,28 +4,19 @@
 المنهج: كل صيغة تُنقل حرفياً من ThemeDialMath/GooeyMath/ThemeDialState
 - surfaceWave / centerDrift / bridgeSway / waistFor / bridge (الجسر بلا فصل)
 - addLiquidBlob (كاتمول-روم مغلق) + مسار الجسر بقبتيه
-- حدّ انقسام رأسي بآلية القصّ الصلب (قرار alpha11) **بلور الحواف** (alpha19)
-  + **شعاع أحادي الجهة** (alpha20 — توجيه المالك: «في خطين يمين وشمال رفيعين
-  جدا شكلهم وحش... عايز الشعاع يبقى من جهه واحدة فقط هي جهة الثيم النهاري
-  يعني اللون النهاري ينبعث في طرفه شعاع ضوئي»):
-  1) حزام مزج (ريشة 12dp) حول الحدّ في طبقة معزولة بقناع DstIn متدرّج — مزج
-     50/50 عند الحدّ نفسه فلا حدّ حاد يُقرأ خطاً،
-  2) **الشعاع كلّه يسار الحدّ (جهة النهاري — الفاتح يسار الحدّ دائماً)**:
-     ذروته عند الحدّ نفسه (طرف النهار المنبعث منه الضوء) وانحداره غاوسي ناعم
-     (سيجما 0.32 من الحقل، امتداد 44dp) حتى صفر حقيقي في هامش ميت (12dp)
-     قبل طرف الطبقة، **والجهة المظلمة يمين الحدّ نظيفة تماماً**،
-  3) **ديثر مرتب 4×4 على قناع الشعاع** كما يفعل isDither=true على الجهاز —
-     تشخيص alpha20 أثبت أن الخطّين كانا تكميم 8-بت (قفزات +5 وحدات/بكسل)
-     في قطعات alpha19 الخطية الحادة؛ الغاوسي بلا قطعات حادة والديثر يحوّل
-     ما تبقى إلى ضجيج خفي.
-  والطيف الرأسي متعدد الألوان والشدة الديناميكية كما هما
+- حدّ انقسام رأسي بآلية القصّ الصلب (قرار alpha11) — **وبلا أي فاصل ضوئي**
+  (الكلمة الأخيرة alpha22 — توجيه المالك: «لا ده كده بقا اوحش بكتير من
+  الاول بقولك شيل الفاصل الضوئى خالص»): سبع محاولات توهج (alpha15→21)
+  رفضها المالك واحداً تلو الآخر حتى آخرها «أوحش بكتير من الأول» —
+  فالشعاع الغاوسي والقناع المخبوز وحزام البلور أُزيلوا من المرآة
+  كما أُزيلوا من كوتلن: انقسام حادّ صريح نظيف كما في الأول.
 - الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه (درس alpha7)
 - المدد: DRAIN=1040 HEAD=800 JIGGLE=1250 SWEEP=960 و EaseOutBack(0.34,1.56,0.64,1)
 
 السيناريو (بطلب المالك): مظلم → سحب لليمين (الأيقونة مع اليد، الفاتح خلفها
-وتوهج الضوء الحي عند الحدّ) → إمساك في المنتصف (نصف فاتح ونصف مظلم يفصل
-بينهما التوهج الناعم بلا خط) → رفع عند 70% (تثبيت فاتح: المسح والمرسى يمين
-برجفة) → نقرة (عودة للظلام برحلة القمر).
+انقساماً حاداً نظيفاً) → إمساك في المنتصف (نصف فاتح ونصف مظلم بحدّ حاد) →
+رفع عند 70% (تثبيت فاتح: المسح والمرسى يمين برجفة) → نقرة (عودة للظلام
+برحلة القمر).
 
 تخطيط alpha12 (بطلب المالك): المسار وحده أعلى الشاشة، المدينة ودبوسها وزر
 التحديد داخل بطاقة الهيرو تحت التواريخ، وهيدر التذكيرات مكان «مواقيت اليوم».
@@ -185,77 +176,9 @@ def bridge_polygon(b, time):
     return pts
 
 
-# ===== نقل طبقات كوتلن حرفياً (alpha21: قناع مخبوز مستمر بلا ومضات) =====
-# ThemeDialMath.GlowGeometry حرفياً: حزام بلور الحدّ (ليس جزءاً من حقل الشعاع)
-# + امتداد الانحدار الغاوسي يسار الحدّ (جهة النهاري) + هامش ميت قبل طرف الطبقة
-GLOW_FEATHER = 12 * DENS     # نصف حزام بلور الحدّ (DialSplit.Feather)
-GLOW_SPREAD = 44 * DENS      # امتداد الانحدار الغاوسي يسار الحدّ (الجهة النهارية)
-GLOW_DEAD = 12 * DENS        # هامش ميت قبل طرف الطبقة (DEAD_DP)
-GLOW_PEAK = 0.80             # ذروة الشعاع عند الحدّ نفسه (PEAK)
-GLOW_SIGMA = 0.32            # سيجما الغاوسي كنسبة من امتداد الحقل (glowProfile)
-GLOW_TOTAL = GLOW_SPREAD + GLOW_DEAD
-# درس alpha21 (بلاغ المالك: «خطين على اليسار بيظهروا ومضات مع الحركة»):
-# وقفات الخط المستقيم كانت تقريباً قطعياً للغاوسي، والقناع المتدرّج يُعاد
-# تقييمه كل فريم مع حركة الحدّ فتتنمّط أعمدة التكميم وتتحرك = ومضات. كوتلن
-# الآن يخبز البروفيل الغاوسي المستمر (glowProfile) في بتماب 512×2 يُرسم
-# ببيليني — والمرآة هنا تُقيّم الدالة المستمرة نفسها لكل بكسل (هي بذلك
-# مثالية البيليني) — ولا ديثر: نمطه الثابت كان يتفاعل مع الحركة كل فريم.
-def glow_profile(t):
-    """ThemeDialMath.glowProfile حرفياً: غاوسي مستمر — صفر حقيقي في الهامش
-    الميت (t ≤ 12/56) ثم صعود أُسّي (سيجما 0.32) حتى الذروة PEAK عند t=1
-    (حدّ الانقسام = طرف النهار المنبعث منه الضوء)."""
-    t = min(max(t, 0.0), 1.0)
-    dead = GLOW_DEAD / GLOW_TOTAL
-    if t <= dead:
-        return 0.0
-    d = (1.0 - t) / GLOW_SIGMA
-    return GLOW_PEAK * math.exp(-d * d)
-
-GLOW_COLUMNS = 512           # GLOW_PROFILE_COLUMNS — دقة البتماب المخبوز
-# توسعة طبقة حزام البلور داخل المنطقة الصلبة (alpha21): CLAMP يثبّت قيمتي
-# الطرفين داخل التوسعة فتصير حافتا الطبقة فوق محتوى مطابق — لا ومضات
-FEATHER_OVERLAP = 6 * DENS   # splitOverlapPx في NoorApp
-# وقفات قناع حزام البلور (splitFeatherStops حرفياً): كامل عند جهة الطبقة
-# الصلبة ← صفر عند جهة الأساس — مزج 50/50 عند الحدّ نفسه = البلور
-FEATHER_RAMP_DARK = ((0.00, 0.0), (0.28, 0.22), (0.50, 0.5), (0.72, 0.78), (1.00, 1.0))
-FEATHER_RAMP_LIGHT = ((0.00, 1.0), (0.28, 0.78), (0.50, 0.5), (0.72, 0.22), (1.00, 0.0))
-# طيف التوهج النهاري — سبع وقفات بطول الشاشة (ThemeDialOverlay.beamSpectrum):
-# «متدرج بالوان كثيرة... كأن الوضع النهاري يضيء الليلي بسلاسة وشفافية»
-BEAM_SPECTRUM = [
-    (0.00, (255, 223, 160)),  # ذهب الصباح
-    (0.16, (255, 241, 200)),  # كريمي دافئ
-    (0.34, (255, 255, 255)),  # القلب الساطع
-    (0.52, (255, 243, 206)),  # كريمي
-    (0.70, (255, 220, 150)),  # ذهبي
-    (0.86, (255, 192, 132)),  # كهرماني
-    (1.00, (255, 169, 124)),  # وردة الغروب
-]
-
-
-def beam_intensity(mask_x, screen_w):
-    """شدة الضوء المنبعث من النهار = نسبة النهار على الشاشة (توجيه alpha16).
-    نفس ThemeDialMath.beamIntensity حرفياً: جذر النسبة — يبدأ ضعيفاً مرئياً
-    من أول سحبة، 0 عند مظلم كامل و1 عند فاتح كامل، ينمو رتيباً مع السحب
-    نحو الفاتح وينحدر رتيباً حتى الانطفاء نحو المظلم («والعكس صحيح» بلا تفرّع)."""
-    if screen_w <= 0:
-        return 0.0
-    return math.sqrt(min(max(mask_x / screen_w, 0.0), 1.0))
-
-
-def edge_x(boundary):
-    """حدّ الانقسام — مستقيم رأسي عند موضع الأيقونة، والقصّ الصلب نفسه
-    **بلور الحواف** (alpha19): حزام مزج حول الحدّ يخلط الثيمتين تدريجياً."""
-    return boundary
-
-
-def ramp_at(ramp, t):
-    """قيمة وقفة عند t على منحنى وقفات — نفس استيفاء Brush.horizontalGradient."""
-    for (t0, a0), (t1, a1) in zip(ramp, ramp[1:]):
-        if t <= t1:
-            f = 0.0 if t1 == t0 else (t - t0) / (t1 - t0)
-            return a0 + (a1 - a0) * f
-    return ramp[-1][1]
-
+# ===== (alpha22) لا طبقات ضوئية — الانقسام قصّ صلب ثنائي كما في كوتلن =====
+# الشعاع الغاوسي والقناع المخبوز وحزام البلور أُزيلوا خالصين بطلب المالك
+# («شيل الفاصل الضوئى خالص») — قصّ ثنائي عند الحدّ لا أكثر ولا أقل.
 
 def sun_alpha(p):
     return max(0.0, min(1.0, (p - 0.35) / 0.3))
@@ -437,79 +360,27 @@ def render_frame(state, t_sec):
     # الطبقة الأساسية بثيمها
     draw_app(d, 'dark' if base_dark else 'light', t=t_sec, img=img)
 
-    # طبقة الهدف — القصّ الصلب **بلور الحواف** (alpha19): كتلة صلبة خارج حزام
-    # الريشة + حزام مزج متدرّج حول الحدّ (مزج 50/50 عند الحدّ نفسه)
+    # طبقة الهدف — قصّ صلب ثنائي (alpha22): الفاتح يسار الحدّ والمظلم يمينه
+    # بلا أي حزام مزج ولا شعاع — انقسام حادّ صريح نظيف كما في الأول
     if split:
         ov = Image.new('RGB', (W, H), 0)
         draw_app(ImageDraw.Draw(ov), 'light' if overlay_light else 'dark', t=t_sec, img=ov)
         mask = Image.new('L', (W, H), 0)
         buf = bytearray(W * H)
-        bl = boundary - GLOW_FEATHER
-        br = boundary + GLOW_FEATHER
-        # توسعة الطبقة (alpha21): القناع يُثبّت CLAMP داخل التوسعة — نفس
-        # القيم الطرفية فوق محتوى مطابق فلا تتغير الصورة إطلاقاً (هذا هو
-        # الهدف: حواف متحركة فوق تطابق = لا حرف ولا ومضة)
-        lov = boundary - GLOW_FEATHER - FEATHER_OVERLAP
-        riv = boundary + GLOW_FEATHER + FEATHER_OVERLAP
-        ramp = FEATHER_RAMP_LIGHT if overlay_light else FEATHER_RAMP_DARK
+        cut = max(0, min(W, int(round(boundary))))
         for y in range(H):
             base = y * W
-            for x in range(W):
-                if bl <= x <= br:
-                    t = (x - bl) / max(1e-4, br - bl)
-                    buf[base + x] = int(255 * ramp_at(ramp, t))
-                elif lov <= x < bl:
-                    buf[base + x] = int(255 * ramp[0][1])   # CLAMP يسار
-                elif br < x <= riv:
-                    buf[base + x] = int(255 * ramp[-1][1])  # CLAMP يمين
-                elif overlay_light:
-                    # الفاتح (الهدف) كامل يسار الحزام
-                    buf[base + x] = 255 if x < bl else 0
-                else:
-                    # المظلم (الهدف) كامل يمين الحزام
-                    buf[base + x] = 255 if x > br else 0
+            if overlay_light:
+                for x in range(W):
+                    buf[base + x] = 255 if x < cut else 0
+            else:
+                for x in range(W):
+                    buf[base + x] = 255 if x > cut else 0
         mask.putdata(bytes(buf))
         img.paste(ov, (0, 0), mask)
 
-    # ===== شعاع الضوء الحي — جهة واحدة: جهة الثيم النهاري (alpha21) =====
-    # الحقل كلّه يسار الحدّ: ذروته عند الحدّ (طرف النهار) وانحدار غاوسي مستمر
-    # حتى صفر حقيقي في الهامش الميت قبل طرف الطبقة، والجهة المظلمة يمين الحدّ
-    # نظيفة تماماً. القناع على الجهاز بتماب مخبوز 512 عموداً ببيليني — والمرآة
-    # تُقيّم الدالة المستمرة نفسها (مثالية البيليني): عينة ثابتة النمط مهما
-    # تحرك الحدّ — لا تكميم متحرك ولا ومضات ولا ديثر.
-    if split:
-        power = state['beam'] * beam_intensity(boundary, W)
-        if power > 0.004:
-            def spectrum_at(y):
-                tt = y / max(1, H - 1)
-                for (s0, c0), (s1, c1) in zip(BEAM_SPECTRUM, BEAM_SPECTRUM[1:]):
-                    if tt <= s1:
-                        f = 0.0 if s1 == s0 else (tt - s0) / (s1 - s0)
-                        return lerp_c(c0, c1, f)
-                return BEAM_SPECTRUM[-1][1]
-
-            gbuf = bytearray(W * H)
-            gcol = bytearray(W * H * 3)
-            glow_left = boundary - GLOW_TOTAL
-            x0 = max(0, int(glow_left))
-            x1 = min(W, int(boundary) + 1)
-            for y in range(H):
-                base = y * W
-                col = spectrum_at(y)
-                for x in range(x0, x1):
-                    t = (x + 0.5 - glow_left) / GLOW_TOTAL
-                    if 0.0 <= t <= 1.0:
-                        aa = power * glow_profile(t)
-                        if aa > 0:
-                            q = int(255 * aa + 0.5)  # تكميم 8-بت لقيمة مستقرة
-                            if q > 0:
-                                gbuf[base + x] = min(255, q)
-                                i3 = base * 3 + x * 3
-                                gcol[i3:i3 + 3] = bytes(col)
-            glow_mask = Image.new('L', (W, H), 0)
-            glow_mask.putdata(bytes(gbuf))
-            glow_img = Image.frombytes('RGB', (W, H), bytes(gcol))
-            img.paste(glow_img, (0, 0), glow_mask)
+    # (alpha22) لا شعاع ضوئي — الفاصل الضوئي ميت خالصاً بطلب المالك:
+    # «شيل الفاصل الضوئى خالص» — لا حقل ولا قناع ولا طيف.
 
     # كبسولة المسار
     d.rounded_rectangle([TRACK_X, TRACK_TOP, TRACK_X + TRACK_W, TRACK_TOP + TRACK_H],
@@ -553,7 +424,7 @@ frame = None
 
 def empty_state():
     return dict(base_dark=True, split_active=False, overlay_is_light=False,
-                mask_x=0.0, beam=0.0, head_x=A_L, head_r=BLOB_R,
+                mask_x=0.0, head_x=A_L, head_r=BLOB_R,
                 tail_x=A_L, tail_r=0.0, p=0.0, dragging=False, energy=0.0, label='')
 
 
@@ -577,20 +448,20 @@ def build_timeline():
         t = i / (drag_frames - 1)
         finger = lerp(A_L, (A_L + A_R) / 2, t)
         st = empty_state()
-        st.update(split_active=True, overlay_is_light=True, mask_x=finger, beam=1.0,
+        st.update(split_active=True, overlay_is_light=True, mask_x=finger,
                   head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=max(0.0, (finger - A_L) / (A_R - A_L)), dragging=True, energy=1.0)
-        st['label'] = 'سحب يمين = فاتح — التوهج المنبعث من النهار يزداد شدة مع السحب'
+        st['label'] = 'سحب يمين = فاتح — انقسام حادّ صريح يركب الأيقونة بلا أي ضوء'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 3) إمساك في المنتصف 1.0s — نصف فاتح ونصف مظلم
     for i in range(int(1.0 * FPS)):
         st = empty_state()
         mid = (A_L + A_R) / 2
-        st.update(split_active=True, overlay_is_light=True, mask_x=mid, beam=1.0,
+        st.update(split_active=True, overlay_is_light=True, mask_x=mid,
                   head_x=mid, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=0.5, dragging=True, energy=1.0)
-        st['label'] = 'ممسوك في المنتصف: نص فاتح ونص مظلم يفصل بينهما بلور ناعم وشعاع ينبعث من طرف النهار جهة واحدة بلا أي خط (شدته = نسبة النهار على الشاشة)'
+        st['label'] = 'ممسوك في المنتصف: نص فاتح ونص مظلم بحدّ حادّ نظيف بلا أي عنصر ضوئي (الفاصل الضوئي أُزيل خالصاً)'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 4) سحب لليمين حتى 70% خلال 0.6s
@@ -599,7 +470,7 @@ def build_timeline():
         t = i / (drag_frames - 1)
         finger = lerp((A_L + A_R) / 2, lerp(A_L, A_R, 0.7), t)
         st = empty_state()
-        st.update(split_active=True, overlay_is_light=True, mask_x=finger, beam=1.0,
+        st.update(split_active=True, overlay_is_light=True, mask_x=finger,
                   head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=(finger - A_L) / (A_R - A_L), dragging=True, energy=1.0)
         st['label'] = 'الرفع بعد المنتصف يثبت الفاتح'
@@ -614,10 +485,10 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         frac = fast_out_slow_in(sweep_t)
-        end_b = W + GLOW_TOTAL  # sweepTargetX(true): الحقل بكامل امتداده خارجاً الشاشة
+        end_b = W + 1  # sweepTargetX(true): الحدّ خارج الشاشة ببكسل أمان — لا امتداد ضوئي
         start_b = lerp(A_L, A_R, 0.7)
         st.update(split_active=True, overlay_is_light=True,
-                  mask_x=lerp(start_b, end_b, frac), beam=1.0,
+                  mask_x=lerp(start_b, end_b, frac),
                   head_x=lerp(lerp(A_L, A_R, 0.7), A_R, ease_out_back(head_t)),
                   head_r=BLOB_R * (1 + 0.16 * max(0.0, 1 - abs(ft - HEAD_MS / 1000) / 0.35)),
                   tail_x=A_L, tail_r=BLOB_R * (1 - drain_t),
@@ -641,7 +512,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         st.update(base_dark=False, split_active=True, overlay_is_light=False,
-                  mask_x=lerp(A_R, -GLOW_TOTAL, fast_out_slow_in(sweep_t)), beam=1.0,
+                  mask_x=lerp(A_R, -1.0, fast_out_slow_in(sweep_t)),
                   head_x=lerp(A_R, A_L, ease_out_back(head_t)),
                   head_r=BLOB_R * (1 + 0.16 * max(0.0, 1 - abs(ft - HEAD_MS / 1000) / 0.35)),
                   tail_x=A_R, tail_r=BLOB_R * (1 - drain_t),

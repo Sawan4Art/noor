@@ -26,16 +26,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sawan4art.noor.data.ThemeMode
 import com.sawan4art.noor.data.update.UpdateManager
@@ -49,9 +43,7 @@ import com.sawan4art.noor.ui.notice.NoorNoticeDialog
 import com.sawan4art.noor.ui.sections.ComingSoonScreen
 import com.sawan4art.noor.ui.settings.SettingsScreen
 import com.sawan4art.noor.ui.theme.AccentPalette
-import com.sawan4art.noor.ui.theme.DialSplit
 import com.sawan4art.noor.ui.theme.NoorTheme
-import com.sawan4art.noor.ui.theme.ThemeDialMath
 import com.sawan4art.noor.ui.theme.ThemeDialOverlay
 import com.sawan4art.noor.ui.theme.ThemeDialState
 import com.sawan4art.noor.ui.update.UpdateDialog
@@ -90,11 +82,6 @@ fun NoorApp(viewModel: HomeViewModel) {
     // بوابات الموقع — حوار الرسالة مع إجراء فتح الإعدادات المناسب (alpha18)
     val locationGate by viewModel.locationGate.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    // نصف حزام البلور حول حدّ الانقسام (alpha19) — بالبكسل
-    val splitFeatherPx = with(LocalDensity.current) { DialSplit.Feather.toPx() }
-    // توسعة طبقة الحزام داخل المنطقة الصلبة (alpha21) — بالبكسل: حواف الطبقة
-    // المتحركة تجلس فوق محتوى مطابق تماماً فلا حرف مهما كان موضع البكسل الكسري
-    val splitOverlapPx = with(LocalDensity.current) { 6.dp.toPx() }
 
     CompositionLocalProvider(LocalLayoutDirection provides AppDirection) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -123,27 +110,15 @@ fun NoorApp(viewModel: HomeViewModel) {
             // يظهر على جهازه قط) — آلية القناع القديمة (Offscreen + DstIn بشرائح
             // ريشية) تفشل بصمت على بعض معالجات الرسوميات فتُخفي المعاينة كاملة.
             // clipRect عمل قصّ أساسي مستحيل الفشل: الفاتح يسار الحدّ والمظلم
-            // يمينه دائماً، وحدّ القص يعلوه خط الضوء الحي المرسوم في المزلاج.
+            // يمينه دائماً.
             //
-            // **بلور الحدّ (alpha19 — بلاغ المالك بصورة العلامة الزرقاء:
-            // «الازرق عايزك تعمل عليه بلور علشان يسيح مع اللون»)**: القصّ الصلب
-            // يبقى هو الآلية لكنه الآن **متدرّج الحواف** — يمين الحزام كله قصّ
-            // صلب رخيص كما هو، وحول الحدّ نفسه حزام ريشة (Feather) بعرض
-            // DialSplit.Feather في طبقة معزولة يُضرب بقناع DstIn متدرّج من صفر
-            // إلى واحد — فتمتزج الثيمتان تدريجياً عبر الحزام ولا يبقى أي حدّ
-            // حاد يُقرأ خطاً (القصّ الصلب نفسه مستحيل الفشل — الحزام مجرد
-            // طبقة معزولة عليه قناع واحد فوقه).
-            //
-            // **موت الومضات (alpha21 — بلاغ المالك: خطان رفيعان يساراً يظهران
-            // ومضات مع الحركة)**: حافتا طبقة الحزام كانتا تجلسان بالضبط عند
-            // bandLeft/bandRight على بكسل كسري يتحرك كل فريم — حافة قناعها
-            // كامل (1.0) تُمزج مع حافة القصّ الصلبة المجاورة فيبقى شقّ 1px
-            // يومض مع كل إزاحة. العلاج: الطبقة تُوسّع **داخل المنطقة الصلبة**
-            // بمقدار overlap (6dp كل جهة) والقناع يبقى على إحداثيات الحزام
-            // نفسها (CLAMP يثبّت الكامل/الصفر في التوسعة) — فالحافتان
-            // المتحركتان تجلسان فوق محتوى مطابق تماماً (نفس drawContent)
-            // ومزج المتطابق = تطابق بغضّ النظر عن موضع البكسل، والشقّ تحت
-            // الحافة نفسها يُغطى بمحتوى كامل الشفافية مطابق له.
+            // **موت الفاصل الضوئي خالصاً (الكلمة الأخيرة alpha22 — توجيه المالك:
+            // «لا ده كده بقا اوحش بكتير من الاول بقولك شيل الفاصل الضوئى خالص»)**:
+            // سبع محاولات توهج (alpha15→21) رفضها المالك واحداً تلو الآخر حتى
+            // آخرها «أوحش بكتير من الأول» — حزام البلور الذي أُضيف alpha19
+            // كان جزءاً من نفس الحكاية وأُزيل معها. الحدّ حادّ صريح نظيف
+            // **بلا أي عنصر ضوئي ولا مزج** — كما كان في الأول قبل حكاية
+            // الشعاع كلها، وبنفس القصّ الصلب المستحيل الفشل.
             if (onHome && dial.splitActive) {
                 NoorTheme(
                     themeMode = if (dial.overlayIsLight) ThemeMode.LIGHT else ThemeMode.DARK,
@@ -154,67 +129,16 @@ fun NoorApp(viewModel: HomeViewModel) {
                             .fillMaxSize()
                             .drawWithContent {
                                 val edge = dial.maskX.value
-                                val feather = splitFeatherPx
-                                val bandLeft = (edge - feather).coerceAtLeast(0f)
-                                val bandRight = (edge + feather).coerceAtMost(size.width)
-                                // اتجاه الطبقة ثابت فيزيائياً: الفاتح يسار الحدّ
-                                // والمظلم يمينه — والطبقة الهدف هي الفاتح أو المظلم
-                                val lightOverlay = dial.overlayIsLight
-                                // 1) كتلة الطبقة الصلبة خارج الحزام — قصّ أساسي كما هو
-                                if (lightOverlay) {
-                                    clipRect(0f, 0f, bandLeft, size.height) {
+                                // اتجاه القصّ ثابت فيزيائياً: الفاتح يسار الحدّ
+                                // والمظلم يمينه — بلا أي عنصر ضوئي ولا مزج (alpha22)
+                                if (dial.overlayIsLight) {
+                                    clipRect(0f, 0f, edge, size.height) {
                                         this@drawWithContent.drawContent()
                                     }
                                 } else {
-                                    clipRect(bandRight, 0f, size.width, size.height) {
+                                    clipRect(edge, 0f, size.width, size.height) {
                                         this@drawWithContent.drawContent()
                                     }
-                                }
-                                // 2) حزام الريشة حول الحدّ — نفس المحتوى في طبقة
-                                //    معزولة يُخفّف بتدرّج أفقي من كامل إلى صفر
-                                //    (اتجاه المزج من جهة الطبقة نحو جهة الأساس)
-                                drawIntoCanvas { canvas ->
-                                    val overlap = splitOverlapPx
-                                    val layerLeft = (bandLeft - overlap).coerceAtLeast(0f)
-                                    val layerRight = (bandRight + overlap).coerceAtMost(size.width)
-                                    canvas.saveLayer(
-                                        Rect(layerLeft, 0f, layerRight, size.height),
-                                        Paint(),
-                                    )
-                                    clipRect(
-                                        left = layerLeft,
-                                        top = 0f,
-                                        right = layerRight,
-                                        bottom = size.height,
-                                    ) {
-                                        this@drawWithContent.drawContent()
-                                    }
-                                    // القناع: كامل عند جهة الطبقة الصلبة ← صفر عند
-                                    // جهة الأساس — مزج 50/50 عند الحدّ نفسه = البلور.
-                                    // إحداثيات التدرّج تبقى على الحزام المرئي نفسها:
-                                    // CLAMP يثبّت القيمتين الطرفيتين داخل التوسعة فتصير
-                                    // حافتا الطبقة فوق محتوى مطابق (موت الومضات).
-                                    // بلا ديثر (alpha21): نمط الديثر الثابت كان يتفاعل
-                                    // مع الحزام المتحرك كل فريم — منحدر الحزام حاد
-                                    // بما يكفي فالتكميم وحده غير مرئي.
-                                    val stops = ThemeDialMath.splitFeatherStops(lightOverlay)
-                                    val maskPaint = android.graphics.Paint().apply {
-                                        xfermode = android.graphics.PorterDuffXfermode(
-                                            android.graphics.PorterDuff.Mode.DST_IN,
-                                        )
-                                        shader = android.graphics.LinearGradient(
-                                            bandLeft, 0f, bandRight, 0f,
-                                            stops.map { (_, a) ->
-                                                ((a.coerceIn(0f, 1f) * 255f).toInt() shl 24)
-                                            }.toIntArray(),
-                                            stops.map { (t, _) -> t }.toFloatArray(),
-                                            android.graphics.Shader.TileMode.CLAMP,
-                                        )
-                                    }
-                                    canvas.nativeCanvas.drawRect(
-                                        bandLeft, 0f, bandRight, size.height, maskPaint,
-                                    )
-                                    canvas.restore()
                                 }
                             },
                     ) {
