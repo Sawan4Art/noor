@@ -1,5 +1,6 @@
 package com.sawan4art.noor.ui.home
 
+import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -26,16 +27,26 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,8 +56,12 @@ import com.sawan4art.noor.domain.prayer.PrayerTimes
 import com.sawan4art.noor.ui.theme.DialTrackLayout
 import com.sawan4art.noor.ui.theme.LocalNoorColors
 import com.sawan4art.noor.ui.icons.NoorIcons
+import com.sawan4art.noor.ui.nav.GooeyMath
+import com.sawan4art.noor.ui.nav.addLiquidBlob
 import com.sawan4art.noor.util.Hijri
 import com.sawan4art.noor.util.TimeFormat
+import kotlin.math.cos
+import kotlin.math.sin
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -157,33 +172,80 @@ private val HomeReminders = listOf(
  * شريط التذكير المتغير — أيقونة التطبيق (الهلال الهندسي بلغة الهوية)
  * وبجانبه تذكير يتبدل مع كل فتح للتطبيق بدل اسم التطبيق (بطلب المالك alpha11)،
  * وأصبح من alpha12 **هيدر التذكيرات** فوق شبكة المواقيت مكان «مواقيت اليوم».
+ *
+ * **السائل الحي (alpha21 — طلب المالك: «عايز ايقونة الهلال بتاعت التذكيرات
+ * تكون داخل سائل متحرك»)**: الصندوق المربع الساكن أُزيل، والهلال الآن يعوم
+ * داخل قطرة سائلة حية بلغة مزلاج المظهر نفسها (GooeyMath.addLiquidBlob):
+ * سطحها متموج دائماً (موجات الثبات الثلاث)، وتتنفس ببطء، ومركزها ينسيب
+ * رأسياً — **والهلال يتبع الانسياب نفسه فيعوم داخل السائل لا فوقه**،
+ * وقطرة صغيرة تدور ببطء حوله فتغمر في السطح وتبرز منه كماء حي.
  */
 @Composable
 private fun ReminderBadge(modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val reminder = remember { HomeReminders.random() }
+    val density = LocalDensity.current
+    val blobR = with(density) { 19.dp.toPx() }
+    val iconPx = with(density) { 20.dp.toPx() }
+    val moonPainter = rememberVectorPainter(NoorIcons.Moon)
+
+    // زمن حي لا يتوقف — السائل لا يسكن (نفس لغة مزلاج المظهر)
+    var frameNanos by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            withInfiniteAnimationFrameNanos { frameNanos = it }
+        }
+    }
+
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(scheme.primaryContainer, scheme.secondaryContainer),
-                    ),
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                NoorIcons.Moon,
-                contentDescription = null,
-                tint = scheme.primary,
-                modifier = Modifier.size(20.dp),
-            )
-        }
+                .size(with(density) { (blobR * 2.4f).toDp() })
+                .drawBehind {
+                    val t = frameNanos / 1_000_000_000f
+                    val cx = size.width / 2f
+                    // الانسياب الرأسي نفسه الذي يعوم به سائل المزلاج —
+                    // الهلال يتبعه فلا يثبت فوق السائل بل يعوم داخله
+                    val cy = size.height / 2f + blobR * GooeyMath.centerDrift(t, 0.7f)
+                    // تنفس بطيء للقطرة كاملة
+                    val breathe = 1f + 0.045f * sin(t * 0.9f)
+                    val liquid = Path()
+                    addLiquidBlob(
+                        liquid, cx, cy,
+                        blobR * breathe, t, energy = 0f, phase = 0.7f,
+                    )
+                    // قطرة صغيرة تدور ببطء حول السائل — تغمر في السطح
+                    // وتبرز منه (المسار المفلطح يُغرقها أعلى وأسفل)
+                    val orbAngle = t * 0.55f
+                    val orbDist = blobR * (1.18f + 0.06f * sin(t * 0.8f + 1.1f))
+                    val orbX = cx + orbDist * cos(orbAngle)
+                    val orbY = cy + orbDist * sin(orbAngle) * 0.72f
+                    addLiquidBlob(
+                        liquid, orbX, orbY,
+                        blobR * 0.16f, t, energy = 0f, phase = 2.1f,
+                    )
+                    drawPath(
+                        liquid,
+                        Brush.verticalGradient(
+                            listOf(scheme.primaryContainer, scheme.secondaryContainer),
+                            startY = cy - blobR * 1.35f,
+                            endY = cy + blobR * 1.35f,
+                        ),
+                    )
+                    // الهلال يعوم داخل السائل — بمركز منساب مطابق للقطرة
+                    translate(cx - iconPx / 2f, cy - iconPx / 2f) {
+                        with(moonPainter) {
+                            draw(
+                                Size(iconPx, iconPx),
+                                colorFilter = ColorFilter.tint(scheme.primary),
+                            )
+                        }
+                    }
+                },
+        )
         Spacer(Modifier.size(10.dp))
         Text(
             text = reminder,

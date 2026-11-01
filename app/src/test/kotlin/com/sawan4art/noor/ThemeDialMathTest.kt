@@ -214,13 +214,12 @@ class ThemeDialMathTest {
         ThemeDialMath.progress(50f, 100f, 100f) // مسار معدوم
     }
 
-    // ===== عقد alpha20: شعاع أحادي الجهة (النهاري) + موت الخطّين بالغاوسي والديثر =====
-
-    private val glowStops = ThemeDialMath.glowMaskStops(1f)
+    // ===== عقد alpha21: شعاع أحادي الجهة + قناع مخبوز مستمر بلا ومضات =====
 
     @Test
-    fun `هندسة الشعاع - جهة واحدة غاوسية والهامش الميت حقيقي`() {
+    fun `بروفيل الشعاع أحادي الجهة - صفر في الهامش الميت وذروة عند الحد`() {
         val g = ThemeDialMath.GlowGeometry
+        val dead = g.DEAD_DP / g.TOTAL_DP
         // توجيه المالك alpha20: الشعاع من جهة النهاري وحدها بذروة عند الحدّ
         assertEquals(44f, g.SPREAD_DP, 1e-5f)
         assertTrue("الانتشار يتجاوز ذخيرة alpha18 (28dp)", g.SPREAD_DP > 28f)
@@ -229,52 +228,54 @@ class ThemeDialMathTest {
         assertTrue(g.DEAD_DP > 0f)
         // حقل الشعاع = الانحدار + الهامش الميت (الريشة ليست جزءاً من الحقل)
         assertEquals(g.SPREAD_DP + g.DEAD_DP, g.TOTAL_DP, 1e-4f)
-    }
-
-    @Test
-    fun `قناع الشعاع أحادي الجهة - صفر في الهامش الميت وذروة عند الحد`() {
         // الطرف البعيد (u=0) ميت تماماً — لا حرف على حرف الطبقة
-        val deadBoundary = ThemeDialMath.GlowGeometry.DEAD_DP / ThemeDialMath.GlowGeometry.TOTAL_DP
-        glowStops.takeWhile { it.first <= deadBoundary + 1e-6f }.forEach { (t, a) ->
-            assertEquals("صفر حقيقي في الهامش الميت عند t=$t", 0f, a, 1e-7f)
-        }
+        assertEquals("صفر حقيقي في الهامش الميت", 0f, ThemeDialMath.glowProfile(0f), 1e-7f)
+        assertEquals("صفر عند حدّ الهامش الميت", 0f, ThemeDialMath.glowProfile(dead), 1e-7f)
         // الذروة عند الحدّ نفسه (u=1) — طرف النهار ينبعث منه الضوء
-        assertEquals(1f, glowStops.last().first, 1e-6f)
-        assertEquals(
-            "الذروة = PEAK عند الحدّ",
-            ThemeDialMath.GlowGeometry.PEAK, glowStops.last().second, 1e-6f,
-        )
+        assertEquals("الذروة = PEAK عند الحدّ", g.PEAK, ThemeDialMath.glowProfile(1f), 1e-5f)
     }
 
     @Test
-    fun `قناع الشعاع صاعد رتيبا بلا قطعات حادة - موت تكميم الخطّين`() {
-        // صعود رتيب وحيد (جهة واحدة — لا ذروة داخلية ولا انحدار بعدها)
+    fun `بروفيل الشعاع صاعد رتيبا ناعما عبر أعمدة البتماب - موت الومضات`() {
+        val cols = ThemeDialMath.GLOW_PROFILE_COLUMNS
+        val dead = ThemeDialMath.GlowGeometry.DEAD_DP / ThemeDialMath.GlowGeometry.TOTAL_DP
+        // صعود رتيب وحيد عبر كل أعمدة البتماب المخبوز (جهة واحدة)
         var prev = 0f
-        glowStops.forEach { (t, a) ->
-            assertTrue("صعود رتيب عند t=$t", a >= prev - 1e-6f)
+        for (i in 0 until cols) {
+            val a = ThemeDialMath.glowProfile(i / (cols - 1f))
+            assertTrue("صعود رتيب عند العمود $i", a >= prev - 1e-7f)
             prev = a
         }
-        // لا قطعة حادة: أكبر قفزة بين وقفتين أضيق من نصف قفزة alpha19 (0.26)
-        // التي أنتجت قفزات تكميم +5 وحدات/بكسل (الخطّان الرفيعان)
-        val maxJump = glowStops.zipWithNext { (_, a), (_, b) -> b - a }.max()
-        assertTrue("أكبر قفزة $maxJump يجب أن تكون ناعمة", maxJump < 0.13f)
-        // مغادرة الصفر تحت عتبة تكميم 8-بت: القيمة الأولى بعد الهامش الميت
-        // تقرب صفراً فلا شريط باهت عند طرف الطبقة مهما كانت دقة الرسم
-        val deadBoundary = ThemeDialMath.GlowGeometry.DEAD_DP / ThemeDialMath.GlowGeometry.TOTAL_DP
-        val leaving = glowStops.first { it.first > deadBoundary }.second
+        // نعومة: أكبر قفزة بين عمودين متجاورين — تُرسم ببيليني فلا خط مرئي،
+        // وأضيق بكثير من قفزات alpha19 (+5 وحدات/بكسل)
+        var maxJump = 0f
+        var prevA = 0f
+        for (i in 0 until cols) {
+            val a = ThemeDialMath.glowProfile(i / (cols - 1f))
+            if (i > 0) maxJump = maxOf(maxJump, a - prevA)
+            prevA = a
+        }
+        assertTrue("أكبر قفزة عمودية $maxJump يجب أن تكون ناعمة", maxJump * 255f < 1.2f)
+        // أول عمود بعد الهامش الميت يقرب صفراً (تحت عتبة 0.5/255) —
+        // فظهور الشعاع من العدم بلا شريط باهت يومض عند حركة الحدّ
+        val firstVisible = (0 until cols).map { it / (cols - 1f) }.first { it > dead }
+        val leaving = ThemeDialMath.glowProfile(firstVisible)
         assertTrue("مغادرة الصفر تحت العتبة: $leaving", leaving * 255f < 0.5f)
+        assertEquals("أول عمود مرئي يُخبز صفراً", 0, (leaving * 255f + 0.5f).toInt())
     }
 
     @Test
-    fun `الطاقة تضرب القناع لا تكسره - القيم المحصورة`() {
-        // عند طاقة منخفضة تبقى النسب المتناسقة ولا قيم سالبة
-        ThemeDialMath.glowMaskStops(0.05f).forEach { (t, a) ->
-            assertTrue("شفافية سالبة عند t=$t", a >= 0f)
-            assertTrue(
-                "شفافية فوق الذروة عند t=$t",
-                a <= ThemeDialMath.GlowGeometry.PEAK * 0.05f + 1e-6f,
-            )
-        }
+    fun `البروفيل محصور ويمتد خارج النطاق بأمان - الطاقة عامل فرشاة خارج الدالة`() {
+        // خارج النطاق يحصر ولا ينفجر: تحت الصفر ميت، وفوق الواحد ذروة الحدّ
+        assertEquals(0f, ThemeDialMath.glowProfile(-0.5f), 1e-7f)
+        assertEquals(
+            ThemeDialMath.glowProfile(1f),
+            ThemeDialMath.glowProfile(1.5f),
+            1e-7f,
+        )
+        // البروفيل مستقل عن الطاقة الديناميكية — الشدة تُضرب في شفافية
+        // الفرشاة خارج الدالة فالبتماب المخبوز ثابت لا يتغير مع السحب
+        assertTrue(ThemeDialMath.glowProfile(0.7f) in 0f..ThemeDialMath.GlowGeometry.PEAK)
     }
 
     @Test

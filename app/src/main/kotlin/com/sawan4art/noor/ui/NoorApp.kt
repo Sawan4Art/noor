@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sawan4art.noor.data.ThemeMode
 import com.sawan4art.noor.data.update.UpdateManager
@@ -91,6 +92,9 @@ fun NoorApp(viewModel: HomeViewModel) {
     val context = LocalContext.current
     // نصف حزام البلور حول حدّ الانقسام (alpha19) — بالبكسل
     val splitFeatherPx = with(LocalDensity.current) { DialSplit.Feather.toPx() }
+    // توسعة طبقة الحزام داخل المنطقة الصلبة (alpha21) — بالبكسل: حواف الطبقة
+    // المتحركة تجلس فوق محتوى مطابق تماماً فلا حرف مهما كان موضع البكسل الكسري
+    val splitOverlapPx = with(LocalDensity.current) { 6.dp.toPx() }
 
     CompositionLocalProvider(LocalLayoutDirection provides AppDirection) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -129,6 +133,17 @@ fun NoorApp(viewModel: HomeViewModel) {
             // إلى واحد — فتمتزج الثيمتان تدريجياً عبر الحزام ولا يبقى أي حدّ
             // حاد يُقرأ خطاً (القصّ الصلب نفسه مستحيل الفشل — الحزام مجرد
             // طبقة معزولة عليه قناع واحد فوقه).
+            //
+            // **موت الومضات (alpha21 — بلاغ المالك: خطان رفيعان يساراً يظهران
+            // ومضات مع الحركة)**: حافتا طبقة الحزام كانتا تجلسان بالضبط عند
+            // bandLeft/bandRight على بكسل كسري يتحرك كل فريم — حافة قناعها
+            // كامل (1.0) تُمزج مع حافة القصّ الصلبة المجاورة فيبقى شقّ 1px
+            // يومض مع كل إزاحة. العلاج: الطبقة تُوسّع **داخل المنطقة الصلبة**
+            // بمقدار overlap (6dp كل جهة) والقناع يبقى على إحداثيات الحزام
+            // نفسها (CLAMP يثبّت الكامل/الصفر في التوسعة) — فالحافتان
+            // المتحركتان تجلسان فوق محتوى مطابق تماماً (نفس drawContent)
+            // ومزج المتطابق = تطابق بغضّ النظر عن موضع البكسل، والشقّ تحت
+            // الحافة نفسها يُغطى بمحتوى كامل الشفافية مطابق له.
             if (onHome && dial.splitActive) {
                 NoorTheme(
                     themeMode = if (dial.overlayIsLight) ThemeMode.LIGHT else ThemeMode.DARK,
@@ -159,25 +174,31 @@ fun NoorApp(viewModel: HomeViewModel) {
                                 //    معزولة يُخفّف بتدرّج أفقي من كامل إلى صفر
                                 //    (اتجاه المزج من جهة الطبقة نحو جهة الأساس)
                                 drawIntoCanvas { canvas ->
+                                    val overlap = splitOverlapPx
+                                    val layerLeft = (bandLeft - overlap).coerceAtLeast(0f)
+                                    val layerRight = (bandRight + overlap).coerceAtMost(size.width)
                                     canvas.saveLayer(
-                                        Rect(bandLeft, 0f, bandRight, size.height),
+                                        Rect(layerLeft, 0f, layerRight, size.height),
                                         Paint(),
                                     )
                                     clipRect(
-                                        left = bandLeft,
+                                        left = layerLeft,
                                         top = 0f,
-                                        right = bandRight,
+                                        right = layerRight,
                                         bottom = size.height,
                                     ) {
                                         this@drawWithContent.drawContent()
                                     }
                                     // القناع: كامل عند جهة الطبقة الصلبة ← صفر عند
                                     // جهة الأساس — مزج 50/50 عند الحدّ نفسه = البلور.
-                                    // الرسم بـ Paint أصلي dithered (alpha20): تكميم
-                                    // الشفافية عبر الحزام يصير ضجيجاً خفياً لا خطاً
+                                    // إحداثيات التدرّج تبقى على الحزام المرئي نفسها:
+                                    // CLAMP يثبّت القيمتين الطرفيتين داخل التوسعة فتصير
+                                    // حافتا الطبقة فوق محتوى مطابق (موت الومضات).
+                                    // بلا ديثر (alpha21): نمط الديثر الثابت كان يتفاعل
+                                    // مع الحزام المتحرك كل فريم — منحدر الحزام حاد
+                                    // بما يكفي فالتكميم وحده غير مرئي.
                                     val stops = ThemeDialMath.splitFeatherStops(lightOverlay)
                                     val maskPaint = android.graphics.Paint().apply {
-                                        isDither = true
                                         xfermode = android.graphics.PorterDuffXfermode(
                                             android.graphics.PorterDuff.Mode.DST_IN,
                                         )

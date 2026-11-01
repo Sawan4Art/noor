@@ -185,28 +185,36 @@ def bridge_polygon(b, time):
     return pts
 
 
-# ===== نقل طبقات كوتلن حرفياً (alpha20: شعاع أحادي الجهة + ديثر) =====
+# ===== نقل طبقات كوتلن حرفياً (alpha21: قناع مخبوز مستمر بلا ومضات) =====
 # ThemeDialMath.GlowGeometry حرفياً: حزام بلور الحدّ (ليس جزءاً من حقل الشعاع)
 # + امتداد الانحدار الغاوسي يسار الحدّ (جهة النهاري) + هامش ميت قبل طرف الطبقة
 GLOW_FEATHER = 12 * DENS     # نصف حزام بلور الحدّ (DialSplit.Feather)
 GLOW_SPREAD = 44 * DENS      # امتداد الانحدار الغاوسي يسار الحدّ (الجهة النهارية)
 GLOW_DEAD = 12 * DENS        # هامش ميت قبل طرف الطبقة (DEAD_DP)
 GLOW_PEAK = 0.80             # ذروة الشعاع عند الحدّ نفسه (PEAK)
+GLOW_SIGMA = 0.32            # سيجما الغاوسي كنسبة من امتداد الحقل (glowProfile)
 GLOW_TOTAL = GLOW_SPREAD + GLOW_DEAD
-# وقفات قناع الشعاع الغاوسي (glowMaskStops(1f) حرفياً — الشفافية محسوبة
-# بضرب PEAK مسبقاً): صفر حقيقي في الهامش الميت (u ≤ 0.214) ثم صعود أُسّي
-# ناعم بلا قطعات حادة حتى الذروة عند u=1 (حدّ الانقسام = طرف النهار)
-GLOW_RISE = ((0.000, 0.0), (0.120, 0.0), (0.240, 0.00176), (0.320, 0.008744),
-             (0.400, 0.023784), (0.480, 0.057072), (0.560, 0.120832),
-             (0.640, 0.225648), (0.680, 0.294304), (0.720, 0.372032),
-             (0.760, 0.455824), (0.800, 0.54136), (0.840, 0.62304),
-             (0.880, 0.695056), (0.920, 0.751528), (1.000, 0.8))
-# دثر مرتب 4×4 (Bayer) — يحاكي isDither=true على الجهاز: تكميم الشفافية
-# يصير ضجيجاً خفياً بدل خطوط متجهة (موت الخطّين)
-BAYER4 = (0, 8, 2, 10,
-          12, 4, 14, 6,
-          3, 11, 1, 9,
-          15, 7, 13, 5)
+# درس alpha21 (بلاغ المالك: «خطين على اليسار بيظهروا ومضات مع الحركة»):
+# وقفات الخط المستقيم كانت تقريباً قطعياً للغاوسي، والقناع المتدرّج يُعاد
+# تقييمه كل فريم مع حركة الحدّ فتتنمّط أعمدة التكميم وتتحرك = ومضات. كوتلن
+# الآن يخبز البروفيل الغاوسي المستمر (glowProfile) في بتماب 512×2 يُرسم
+# ببيليني — والمرآة هنا تُقيّم الدالة المستمرة نفسها لكل بكسل (هي بذلك
+# مثالية البيليني) — ولا ديثر: نمطه الثابت كان يتفاعل مع الحركة كل فريم.
+def glow_profile(t):
+    """ThemeDialMath.glowProfile حرفياً: غاوسي مستمر — صفر حقيقي في الهامش
+    الميت (t ≤ 12/56) ثم صعود أُسّي (سيجما 0.32) حتى الذروة PEAK عند t=1
+    (حدّ الانقسام = طرف النهار المنبعث منه الضوء)."""
+    t = min(max(t, 0.0), 1.0)
+    dead = GLOW_DEAD / GLOW_TOTAL
+    if t <= dead:
+        return 0.0
+    d = (1.0 - t) / GLOW_SIGMA
+    return GLOW_PEAK * math.exp(-d * d)
+
+GLOW_COLUMNS = 512           # GLOW_PROFILE_COLUMNS — دقة البتماب المخبوز
+# توسعة طبقة حزام البلور داخل المنطقة الصلبة (alpha21): CLAMP يثبّت قيمتي
+# الطرفين داخل التوسعة فتصير حافتا الطبقة فوق محتوى مطابق — لا ومضات
+FEATHER_OVERLAP = 6 * DENS   # splitOverlapPx في NoorApp
 # وقفات قناع حزام البلور (splitFeatherStops حرفياً): كامل عند جهة الطبقة
 # الصلبة ← صفر عند جهة الأساس — مزج 50/50 عند الحدّ نفسه = البلور
 FEATHER_RAMP_DARK = ((0.00, 0.0), (0.28, 0.22), (0.50, 0.5), (0.72, 0.78), (1.00, 1.0))
@@ -292,7 +300,8 @@ def lerp_c(c1, c2, t):
 
 
 # ===== واجهة مُبسطة بثيم معين — تخطيط alpha12 =====
-def draw_app(draw, theme):
+def draw_app(draw, theme, t=0.0, img=None):
+    """مِك الشاشة — t زمن حي للسائل (alpha21) وimg هدف أي لصق بالقناع."""
     if theme == 'dark':
         bg, surf, card, txt, mut, hero_t, hero_b, prim = \
             DARK_BG, DARK_SURF, DARK_CARD, DARK_TXT, DARK_MUT, DARK_HERO_TOP, DARK_HERO_BOT, DARK_PRIMARY
@@ -329,10 +338,43 @@ def draw_app(draw, theme):
     draw.ellipse([pill_x1 - pill_w - 10 * DENS - btn_r, cy_loc - btn_r,
                   pill_x1 - pill_w - 10 * DENS + btn_r, cy_loc + btn_r],
                  fill=(255, 255, 255, 26), outline=prim, width=2)
-    # هيدر التذكيرات — مكان «مواقيت اليوم» (alpha12): صندوق الأيقونة يميناً RTL وسطرا تذكير
+    # هيدر التذكيرات — مكان «مواقيت اليوم» (alpha12) — **السائل الحي (alpha21
+    # بطلب المالك: «عايز ايقونة الهلال بتاعت التذكيرات تكون داخل سائل متحرك»)**:
+    # قطرة تتنفس وسطحها متموج بـ liquid_polygon (لغة GooeyMath نفسها) والهلال
+    # يعوم داخلها بنفس انسياب المركز، وقطرة صغيرة تدور حوله فتغمر في السطح
+    # وتبرز منه كماء حي — الصندوق المربع الساكن أُزيل كما في كوتلن.
     ry = 456 * DENS
-    draw.rounded_rectangle([W - TRACK_X - 36 * DENS, ry, W - TRACK_X, ry + 36 * DENS],
-                           radius=12 * DENS, fill=prim)
+    bcx, bcy = W - TRACK_X - 18 * DENS, ry + 18 * DENS
+    br_ = 17 * DENS
+    cyw = bcy + br_ * center_drift(t, 0.7)
+    breathe = 1.0 + 0.045 * math.sin(t * 0.9)
+    liquid_pts = liquid_polygon(bcx, cyw, br_ * breathe, t, 0.0, 0.7)
+    orb_a = t * 0.55
+    orb_d = br_ * (1.18 + 0.06 * math.sin(t * 0.8 + 1.1))
+    orb_x = bcx + orb_d * math.cos(orb_a)
+    orb_y = cyw + orb_d * math.sin(orb_a) * 0.72
+    liquid_pts += liquid_polygon(orb_x, orb_y, br_ * 0.16, t, 0.0, 2.1)
+    lmask = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(lmask).polygon(liquid_pts, fill=255)
+    lgrad = Image.new('RGB', (W, H), 0)
+    dlg = ImageDraw.Draw(lgrad)
+    top_c, bot_c = prim, lerp_c(prim, bg, 0.38)
+    gy0, gy1 = cyw - br_ * 1.35, cyw + br_ * 1.35
+    for yy in range(max(0, int(gy0)), min(H, int(gy1))):
+        tt_ = min(max((yy - gy0) / max(1e-4, gy1 - gy0), 0.0), 1.0)
+        dlg.line([(0, yy), (W, yy)], fill=lerp_c(top_c, bot_c, tt_))
+    if img is not None:
+        img.paste(lgrad, (0, 0), lmask)
+        # الهلال يعوم داخل السائل — بمركز منساب مطابق للقطرة
+        mr = br_ * 0.5
+        mmask = Image.new('L', (int(mr * 4), int(mr * 4)), 0)
+        dmm = ImageDraw.Draw(mmask)
+        c = mr * 2
+        dmm.ellipse([c - mr, c - mr, c + mr, c + mr], fill=255)
+        off, r2 = mr * 0.62, mr * 1.18
+        dmm.ellipse([c + off - r2, c - off - r2, c + off + r2, c - off + r2], fill=0)
+        glyph = Image.new('RGB', mmask.size, prim)
+        img.paste(glyph, (int(bcx - c), int(cyw - c)), mmask)
     for k, lw in enumerate((0.62, 0.38)):
         draw.rounded_rectangle([TRACK_X, ry + 6 * DENS + k * 14 * DENS,
                                 TRACK_X + (W - 2 * TRACK_X - 44 * DENS) * lw,
@@ -393,17 +435,22 @@ def render_frame(state, t_sec):
     boundary = state['mask_x']
 
     # الطبقة الأساسية بثيمها
-    draw_app(d, 'dark' if base_dark else 'light')
+    draw_app(d, 'dark' if base_dark else 'light', t=t_sec, img=img)
 
     # طبقة الهدف — القصّ الصلب **بلور الحواف** (alpha19): كتلة صلبة خارج حزام
     # الريشة + حزام مزج متدرّج حول الحدّ (مزج 50/50 عند الحدّ نفسه)
     if split:
         ov = Image.new('RGB', (W, H), 0)
-        draw_app(ImageDraw.Draw(ov), 'light' if overlay_light else 'dark')
+        draw_app(ImageDraw.Draw(ov), 'light' if overlay_light else 'dark', t=t_sec, img=ov)
         mask = Image.new('L', (W, H), 0)
         buf = bytearray(W * H)
         bl = boundary - GLOW_FEATHER
         br = boundary + GLOW_FEATHER
+        # توسعة الطبقة (alpha21): القناع يُثبّت CLAMP داخل التوسعة — نفس
+        # القيم الطرفية فوق محتوى مطابق فلا تتغير الصورة إطلاقاً (هذا هو
+        # الهدف: حواف متحركة فوق تطابق = لا حرف ولا ومضة)
+        lov = boundary - GLOW_FEATHER - FEATHER_OVERLAP
+        riv = boundary + GLOW_FEATHER + FEATHER_OVERLAP
         ramp = FEATHER_RAMP_LIGHT if overlay_light else FEATHER_RAMP_DARK
         for y in range(H):
             base = y * W
@@ -411,6 +458,10 @@ def render_frame(state, t_sec):
                 if bl <= x <= br:
                     t = (x - bl) / max(1e-4, br - bl)
                     buf[base + x] = int(255 * ramp_at(ramp, t))
+                elif lov <= x < bl:
+                    buf[base + x] = int(255 * ramp[0][1])   # CLAMP يسار
+                elif br < x <= riv:
+                    buf[base + x] = int(255 * ramp[-1][1])  # CLAMP يمين
                 elif overlay_light:
                     # الفاتح (الهدف) كامل يسار الحزام
                     buf[base + x] = 255 if x < bl else 0
@@ -420,22 +471,15 @@ def render_frame(state, t_sec):
         mask.putdata(bytes(buf))
         img.paste(ov, (0, 0), mask)
 
-    # ===== شعاع الضوء الحي — جهة واحدة: جهة الثيم النهاري (alpha20) =====
-    # الحقل كلّه يسار الحدّ: ذروته عند الحدّ (طرف النهار) وانحدار غاوسي ناعم
+    # ===== شعاع الضوء الحي — جهة واحدة: جهة الثيم النهاري (alpha21) =====
+    # الحقل كلّه يسار الحدّ: ذروته عند الحدّ (طرف النهار) وانحدار غاوسي مستمر
     # حتى صفر حقيقي في الهامش الميت قبل طرف الطبقة، والجهة المظلمة يمين الحدّ
-    # نظيفة تماماً. القناع يُكمّم مع دثر مرتب 4×4 كما يفعل isDither=true
-    # على الجهاز — لا خطوط تكميم (موت الخطّين الرفيعين)
+    # نظيفة تماماً. القناع على الجهاز بتماب مخبوز 512 عموداً ببيليني — والمرآة
+    # تُقيّم الدالة المستمرة نفسها (مثالية البيليني): عينة ثابتة النمط مهما
+    # تحرك الحدّ — لا تكميم متحرك ولا ومضات ولا ديثر.
     if split:
         power = state['beam'] * beam_intensity(boundary, W)
         if power > 0.004:
-            def rise(t):
-                """منحنى قناع الشعاع الغاوسي — وقفات glowMaskStops في كوتلن حرفياً."""
-                for (t0, a0), (t1, a1) in zip(GLOW_RISE, GLOW_RISE[1:]):
-                    if t <= t1:
-                        f = 0.0 if t1 == t0 else (t - t0) / (t1 - t0)
-                        return a0 + (a1 - a0) * f
-                return GLOW_RISE[-1][1]
-
             def spectrum_at(y):
                 tt = y / max(1, H - 1)
                 for (s0, c0), (s1, c1) in zip(BEAM_SPECTRUM, BEAM_SPECTRUM[1:]):
@@ -455,11 +499,9 @@ def render_frame(state, t_sec):
                 for x in range(x0, x1):
                     t = (x + 0.5 - glow_left) / GLOW_TOTAL
                     if 0.0 <= t <= 1.0:
-                        aa = power * rise(t)
+                        aa = power * glow_profile(t)
                         if aa > 0:
-                            # تكميم بديثر مرتب 4×4 — الضجيج يكسر تماسك الخطوط
-                            thr = BAYER4[(y % 4) * 4 + (x % 4)] / 16.0 - 0.5
-                            q = int(255 * aa + thr)
+                            q = int(255 * aa + 0.5)  # تكميم 8-بت لقيمة مستقرة
                             if q > 0:
                                 gbuf[base + x] = min(255, q)
                                 i3 = base * 3 + x * 3

@@ -80,10 +80,15 @@ import kotlin.math.roundToInt
  * يسار الحدّ، ذروته عند حدّ الانقسام نفسه (طرف النهار المنبعث منه الضوء)
  * وانحداره غاوسي ناعم داخل النهاري حتى صفر حقيقي في هامش ميت (12dp) قبل
  * طرف الطبقة، **والجهة المظلمة يمين الحدّ نظيفة تماماً**.
- * **موت الخطّين**: التشخيص الرقمي أثبت أنهما قفزات تكميم 8-بت (+5 وحدات/
- * بكسل) في القطعات الخطية الحادة لقناع alpha19 — العلاج: منحنى غاوسي بلا
- * قطعات حادة + هامش ميت + **Dithering** (Paint أصلي isDither=true على
- * قناع الشعاع وحزام بلور الحدّ في NoorApp) يحوّل التكميم إلى ضجيج خفي.
+ * **موت الخطّين وموت الومضات (alpha21)**: الخطّان كانا قفزات تكميم 8-بت،
+ * وعلاج alpha20 (ديثر + هامش ميت) قتل الخطّ الساكن لكن بلاغ المالك الأخير:
+ * «مع الحركة في خطين رفيعين على اليسار لسه بيظهرو.. بحصلهم ومضات» —
+ * القناع المتدرّج يُقيَّم من جديد كل فريم مع حركة الحدّ فتتنمّط أعمدة
+ * التكميم وتتحرك مع الإصبع = ومضات زمنية لا تُرى في السكون. **العلاج
+ * الجذري**: البروفيل الغاوسي المستمر (ThemeDialMath.glowProfile) يُخبز
+ * مرة واحدة في بتماب 512×2 ويُرسم بفلترة بيليني — عينة متصلة لا تُعاد
+ * تكميمها مع الحركة، أطرافها صفر حقيقي، وشفافية الفرشاة تحمل الطاقة —
+ * فلا نمط يتنمّط ولا ومضة، ولا ديثر يحتاج نمطه الثابت أن يتحرك.
  * حدّ الانقسام نفسه يبقى مزجّاً بحزام الريشة (12dp كل جهة) كما في alpha19.
  *
  * الاتجاه داخلياً LTR دائماً — الرسم كله بإحداثيات فيزيائية مطلقة محصّنة من RTL.
@@ -107,10 +112,34 @@ fun ThemeDialOverlay(
     val strokePx = with(density) { 1.dp.toPx() }
     val anchorPad = blobR * 1.6f
     val touchHalf = with(density) { 32.dp.toPx() } // هدف لمس 64dp يركب الأيقونة
-    // شعاع الضوء الحي (alpha20): حقل غاوسي أحادي الجهة (جهة النهاري) بذروة
-    // عند الحدّ وهامش ميت، وقناع dithered يقتل تكميم الخطّين — الثوابت من
-    // ThemeDialMath.GlowGeometry مصدر واحد للرسم والمرآة والاختبارات
+    // شعاع الضوء الحي (alpha21): حقل غاوسي أحادي الجهة (جهة النهاري) بذروة
+    // عند الحدّ وهامش ميت، وقناع مخبوز ببتماب بيليني يقتل الومضات الزمنية —
+    // الثوابت من ThemeDialMath.GlowGeometry/glowProfile مصدر واحد للرسم والمرآة والاختبارات
     val glowTotal = with(density) { ThemeDialMath.GlowGeometry.TOTAL_DP.dp.toPx() }
+
+    // ===== قناع الشعاع المخبوز (alpha21) — موت الومضات الزمنية =====
+    // بلاغ المالك: «خطين رفيعين على اليسار بيظهروا ومضات مع الحركة» — القناع
+    // المتدرّج يُعاد تقييمه كل فريم مع تحرّك الحدّ فتتنمّط أعمدة التكميم وتتحرك
+    // = ومضات. البروفيل يُخبز مرة واحدة في بتماب (عمودان متطابقان كي لا يتذبذب
+    // الفلتر رأسياً) ويُرسم ببيليني: عينة متصلة ثابتة النمط مهما تحرك الحدّ.
+    val glowMask = remember {
+        val cols = ThemeDialMath.GLOW_PROFILE_COLUMNS
+        val pixels = IntArray(cols * 2) { i ->
+            val u = (i % cols) / (cols - 1f)
+            val a = (ThemeDialMath.glowProfile(u) * 255f + 0.5f).toInt().coerceIn(0, 255)
+            a shl 24 // أسود خالص — الشفافية هي البروفيل الغاوسي
+        }
+        val bmp = android.graphics.Bitmap.createBitmap(
+            cols, 2, android.graphics.Bitmap.Config.ARGB_8888,
+        )
+        bmp.setPixels(pixels, 0, cols, 0, 0, cols, 2)
+        val shader = android.graphics.BitmapShader(
+            bmp,
+            android.graphics.Shader.TileMode.CLAMP,
+            android.graphics.Shader.TileMode.CLAMP,
+        )
+        GlowMaskBrush(shader)
+    }
 
     SideEffect {
         dial.configure(
@@ -189,17 +218,12 @@ fun ThemeDialOverlay(
                 val p = ThemeDialMath.progress(headXv, dial.anchorLeft, dial.anchorRight)
 
                 // ===== 1) شعاع الضوء الحي — جهة واحدة: جهة الثيم النهاري =====
-                // توجيه المالك alpha20: «في خطين يمين وشمال رفيعين جدا شكلهم
-                // وحش في شعاع الضوء وانا عايز الشعاع ده يبقى من جهه واحدة فقط
-                // هي جهة الثيم النهاري يعني اللون النهاري ينبعث في طرفه شعاع
-                // ضوئي» — الفاتح يسار الحدّ دائماً فالشعاع كله يسار الحدّ:
-                // ذروته عند حدّ الانقسام (طرف النهار) وانحدار غاوسي ناعم داخل
-                // النهاري حتى صفر حقيقي في هامش ميت قبل طرف الطبقة، والجهة
-                // المظلمة يمين الحدّ نظيفة تماماً. الخطّان كانا تكميم 8-بت في
-                // القطعات الحادة (تشخيص noor_glow_diagnose.py: +5 وحدات/بكسل)
-                // — المنحنى الغاوسي بلا قطعات حادة والقناع يُرسم بـ Paint
-                // أصلي isDither=true يحوّل أي تكميم متبقٍّ إلى ضجيج غير مرئي.
-                // الشدة ديناميكية = نسبة النهار على الشاشة بلا تفرّع.
+                // الشعاع من جهة النهاري وحدها — ذروته عند حدّ الانقسام (طرف
+                // النهار) وانحدار غاوسي ناعم داخل النهاري حتى صفر حقيقي في
+                // هامش ميت قبل طرف الطبقة، والجهة المظلمة يمين الحدّ نظيفة
+                // تماماً. **وموت الومضات (alpha21)**: القناع بتماب مخبوز
+                // يُرسم ببيليني — لا تدرّج يُعاد تقييمه كل فريم فلا تكميم
+                // يتنمّط مع الحركة.
                 if (dial.splitActive) {
                     val visibility = dial.beam.value
                     val dayLight = ThemeDialMath.beamIntensity(dial.maskX.value, dial.screenWidth)
@@ -215,7 +239,7 @@ fun ThemeDialOverlay(
                                 Paint(),
                             )
                             // الطيف الرأسي بألوان كثيرة بطول الشاشة — يُرسم
-                            // معتماً ثم يُخفّف بالقناع الأفقي في الخطوة التالية
+                            // معتماً ثم يُخفّف بالقناع المخبوز في الخطوة التالية
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     *beamSpectrum.map { (stop, c) -> stop to c }.toTypedArray(),
@@ -225,27 +249,24 @@ fun ThemeDialOverlay(
                                 topLeft = Offset(glowLeft, 0f),
                                 size = Size(glowWidth, size.height),
                             )
-                            // قناع غاوسي أحادي الجهة — صفر حقيقي في الهامش
-                            // الميت ثم صعود أُسّي ناعم حتى الذروة عند الحدّ
-                            // (طرف النهار). الرسم بـ Paint أصلي dithered:
-                            // تكميم الشفافية يصير ضجيجاً خفياً لا خطوطاً
-                            val stops = ThemeDialMath.glowMaskStops(power)
-                            val maskPaint = android.graphics.Paint().apply {
-                                isDither = true
-                                xfermode = android.graphics.PorterDuffXfermode(
-                                    android.graphics.PorterDuff.Mode.DST_IN,
-                                )
-                                shader = android.graphics.LinearGradient(
-                                    glowLeft, 0f, edgeX, 0f,
-                                    stops.map { (_, a) ->
-                                        ((a.coerceIn(0f, 1f) * 255f).toInt() shl 24)
-                                    }.toIntArray(),
-                                    stops.map { (t, _) -> t }.toFloatArray(),
-                                    android.graphics.Shader.TileMode.CLAMP,
-                                )
-                            }
+                            // القناع الغاوسي المخبوز: بتماب ثابت يُمدّ بمصفوفة
+                            // على الحقل المتحرك ويُرسم ببيليني — الشفافية
+                            // الغاوسية عينة متصلة لا تُعاد تكميمها مع الحركة
+                            // (موت الومضات)، وشفافية الفرشاة تحمل الطاقة
+                            // الديناميكية فالبتماب لا يتغير أبداً. أطراف
+                            // البروفيل صفر حقيقي فلا حرف على حافتي الطبقة
+                            // مهما كان موضع البكسل الكسري.
+                            glowMask.paint.alpha =
+                                (power.coerceIn(0f, 1f) * 255f).roundToInt().coerceIn(0, 255)
+                            glowMask.matrix.reset()
+                            glowMask.matrix.setScale(
+                                glowWidth / ThemeDialMath.GLOW_PROFILE_COLUMNS,
+                                size.height / 2f,
+                            )
+                            glowMask.matrix.postTranslate(glowLeft, 0f)
+                            glowMask.shader.setLocalMatrix(glowMask.matrix)
                             canvas.nativeCanvas.drawRect(
-                                glowLeft, 0f, edgeX, size.height, maskPaint,
+                                glowLeft, 0f, edgeX, size.height, glowMask.paint,
                             )
                             canvas.restore()
                         }
@@ -454,4 +475,20 @@ object DialTrackLayout {
 object DialSplit {
     /** نصف عرض حزام المزج حول حدّ الانقسام — البلور الذي يسيح الحدّ مع اللون */
     val Feather = ThemeDialMath.GlowGeometry.FEATHER_DP.dp
+}
+
+/**
+ * حاملة قناع الشعاع المخبوز (alpha21) — تُنشأ مرة واحدة في remember:
+ * شيدر البتماب الغاوسي + فرشاة DstIn مفلترة ببيليني + مصفوفة تُعاد ضبطها
+ * كل فريم بالإزاحة الأفقية فقط (التمدد ثابت). صفر تخصيصات داخل الإطار.
+ */
+private class GlowMaskBrush(val shader: android.graphics.Shader) {
+    val matrix = android.graphics.Matrix()
+    val paint = android.graphics.Paint().apply {
+        isFilterBitmap = true
+        xfermode = android.graphics.PorterDuffXfermode(
+            android.graphics.PorterDuff.Mode.DST_IN,
+        )
+        this.shader = shader
+    }
 }
