@@ -1,0 +1,194 @@
+package com.sawan4art.noor.ui.azkar
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sawan4art.noor.domain.azkar.AzkarGroup
+import com.sawan4art.noor.domain.azkar.AzkarItem
+import com.sawan4art.noor.domain.azkar.AzkarMath
+import com.sawan4art.noor.domain.tasbih.MisbahaMath
+
+/**
+ * شاشة مجموعة أذكار — القراءة بهوية التطبيق نفسها: كل ذكرٍ بطاقةٌ
+ * بنصه المشكول ومصدره وعدده المسنون، والضغط عليها يعلّمها مُتمَّة
+ * اليوم (ونقرةً ثانية تلغي) — والعلامات تتجدد كل يوم (AzkarMath)،
+ * ومقدّر التقدّم أعلى القائمة يظهر موضعك في المجموعة.
+ */
+@Composable
+fun GroupScreen(
+    viewModel: AzkarViewModel,
+    group: AzkarGroup,
+    onBack: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // فتح الشاشة يحدّث مفتاح اليوم — ليلةٌ مرّت والتطبيق مفتوح تعود العلامات صفراً
+    LaunchedEffect(group.id) { viewModel.refreshDay() }
+
+    val progress = AzkarMath.groupProgress(state.doneToday, group)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(scheme.background)
+            .statusBarsPadding()
+            .padding(horizontal = 20.dp),
+    ) {
+        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "رجوع",
+                    tint = scheme.primary,
+                )
+            }
+            Column {
+                Text(
+                    text = group.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = scheme.onBackground,
+                )
+                Text(
+                    text = group.subtitle,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = scheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+
+        // ===== مقدّر اليوم =====
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "اليوم: " + MisbahaMath.arabicNumber(progress.doneCount.toLong()) +
+                    " من " + MisbahaMath.arabicNumber(progress.total.toLong()) +
+                    if (progress.allDone) " — اكتملت الحمد لله" else "",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (progress.allDone) scheme.primary else scheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        LinearProgressIndicator(
+            progress = { progress.fraction.coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth(),
+            color = scheme.primary,
+            trackColor = scheme.surfaceVariant,
+        )
+        Spacer(Modifier.height(12.dp))
+
+        // ===== بطاقات الأذكار =====
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.weight(1f),
+        ) {
+            itemsIndexed(group.items, key = { _, item -> item.id }) { _, item ->
+                AzkarRow(
+                    item = item,
+                    done = item.id in state.doneToday,
+                    onToggle = { viewModel.toggleDone(item.id) },
+                )
+            }
+            item { Spacer(Modifier.height(100.dp)) } // مساحة شريط التنقل الزجاجي
+        }
+    }
+}
+
+/** بطاقة ذكرٍ واحد — الضغط عليها يعلّمها (أو يلغي التعليم) */
+@Composable
+private fun AzkarRow(
+    item: AzkarItem,
+    done: Boolean,
+    onToggle: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = if (done) scheme.primaryContainer.copy(alpha = 0.55f) else scheme.surface,
+        contentColor = if (done) scheme.onPrimaryContainer else scheme.onSurface,
+        border = BorderStroke(
+            width = if (done) 1.5.dp else 1.dp,
+            color = if (done) scheme.primary else scheme.outline.copy(alpha = 0.3f),
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // العدد المسنون — شارةٌ صغيرة
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = scheme.secondaryContainer,
+                    contentColor = scheme.onSecondaryContainer,
+                ) {
+                    Text(
+                        text = "× " + MisbahaMath.arabicNumber(item.count.toLong()),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = item.source,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.End,
+                )
+                if (done) {
+                    Spacer(Modifier.width(8.dp))
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = "تمّ",
+                        tint = scheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = item.text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (done) scheme.onPrimaryContainer.copy(alpha = 0.8f) else scheme.onSurface,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}

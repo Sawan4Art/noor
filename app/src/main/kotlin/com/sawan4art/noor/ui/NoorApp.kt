@@ -44,6 +44,7 @@ import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.domain.location.LocationGate
 import com.sawan4art.noor.ui.home.HomeScreen
 import com.sawan4art.noor.ui.home.HomeViewModel
+import com.sawan4art.noor.ui.azkar.AzkarScreen
 import com.sawan4art.noor.ui.nav.LiquidNavScaffold
 import com.sawan4art.noor.ui.nav.NoorTab
 import com.sawan4art.noor.ui.notice.NoorNoticeDialog
@@ -219,7 +220,11 @@ fun NoorApp(viewModel: HomeViewModel) {
         }
     }
 
-    BackHandler(enabled = tab != NoorTab.PRAYER) {
+    // زر الرجوع العام — شاشات القسم الواحد فقط. تبويب الأذكار يدير رجوعه
+    // داخلياً (مجموعة/عدّاد ← قائمة التبويب ← المواقيت) فلا يقفز فوقه معالجٌ
+    // آخر (آخر معالج مُركَّب هو الأسبق — ولو بقي هذا مفعّلاً لأكل ضغطات
+    // التنقل الداخلي وقفز للرئيسية مباشرة)
+    BackHandler(enabled = tab != NoorTab.PRAYER && tab != NoorTab.ADHKAR) {
         tab = NoorTab.PRAYER
     }
 
@@ -359,6 +364,7 @@ private fun NoorBody(
                         isDark = isDark,
                     )
                     NoorTab.TASBIH -> MisbahaScreen()
+                    NoorTab.ADHKAR -> AzkarScreen(onExitTab = { onTab(NoorTab.PRAYER) })
                     NoorTab.SETTINGS -> SettingsScreen(
                         settings = uiState.settings,
                         locating = locating,

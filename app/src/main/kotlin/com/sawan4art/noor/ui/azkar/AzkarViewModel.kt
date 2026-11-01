@@ -1,0 +1,195 @@
+package com.sawan4art.noor.ui.azkar
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.sawan4art.noor.data.AzkarRepository
+import com.sawan4art.noor.data.AzkarSnapshot
+import com.sawan4art.noor.domain.azkar.AzkarMath
+import com.sawan4art.noor.domain.tasbih.MisbahaRushGuard
+import com.sawan4art.noor.domain.tasbih.MisbahaSplashMath
+import java.time.ZoneId
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/**
+ * أحداث الأذكار — الشاشة (النقطة السائلة لعدّاد الصلاة على النبي)
+ * تنصت لها للتناثر والاهتزاز.
+ */
+sealed interface AzkarEvent {
+
+    /** صلاة معدودة — [particles] قطرات التناثر المقترحة (دالة سرعة النقر) */
+    data class PraiseCounted(val particles: Int) : AzkarEvent
+
+    /** بلوغ مائةٍ كاملة (وكل مائة بعدها) — رشّة أقصى ونبضة واهتزاز أوضح */
+    data object PraiseHundredth : AzkarEvent
+
+    /** انكشاف التسرع — تنبيه وإيقاف العدّ */
+    data object RushWarned : AzkarEvent
+}
+
+/**
+ * حالة الأذكار:
+ * - [praiseCount] عدّ الصلاة على النبي الحرّ.
+ * - [today] مفتاح اليوم الحالي و[doneToday] علامات إتمام الأذكار
+ *   الصالحة لهذا اليوم فقط (تتجدد كل يوم).
+ */
+data class AzkarState(
+    val praiseCount: Int = 0,
+    val today: Long = 0L,
+    val doneToday: Set<String> = emptySet(),
+)
+
+/**
+ * مسؤول الأذكار — على نمط MisbahaViewModel نفسه: العدّ يعيش في
+ * الذاكرة سرعةً لتتابع النقر، والحفظ مؤجَّل (٧٠٠ مللي سكّة هدوء)
+ * لا مع كل ضغطة، وحارس التسرع هو MisbahaRushGuard نفسه المُختبَر
+ * (الصلاة الإبراهيمية أطول نطقاً من التسبيحة فيلمس الحارس فتيرة
+ * العجلة فقط لا القراءة العادية).
+ */
+class AzkarViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val repository = AzkarRepository(application)
+
+    private val _state = MutableStateFlow(AzkarState())
+    val state: StateFlow<AzkarState> = _state.asStateFlow()
+
+    private val _events = MutableSharedFlow<AzkarEvent>(extraBufferCapacity = 32)
+    val events: SharedFlow<AzkarEvent> = _events.asSharedFlow()
+
+    /** حارس التسرع — إيقاف العدّ عند النقر بآلة أسرع من النطق */
+    private val rushGuard = MisbahaRushGuard()
+
+    /** نهاية فترة الإيقاف الحالية (0 = لا إيقاف) — للتنبيه والعدّ التنازلي */
+    private val _pausedUntil = MutableStateFlow(0L)
+    val pausedUntil: StateFlow<Long> = _pausedUntil.asStateFlow()
+
+    /** أوقات النقر الأخيرة لقياس سرعة النقر → كثافة التناثر */
+    private val tapTimes = ArrayDeque<Long>()
+
+    private var loaded = false
+    private var saveJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            val snap = repository.snapshot.first()
+            val today = AzkarMath.epochDayOf(System.currentTimeMillis(), ZoneId.systemDefault())
+            _state.value = AzkarState(
+                praiseCount = snap.praiseCount,
+                today = today,
+                doneToday = AzkarMath.effectiveDone(today, snap.day, snap.done),
+            )
+            loaded = true
+        }
+    }
+
+    /**
+     * صلاةٌ واحدة على النبي ﷺ — حارس التسرع أولاً كالمسبحة: مُهمَلة
+     * أثناء الإيقاف، وانكشاف التسرع ينبّه ويوقف. العدّ حرّ يتصاعد،
+     * وكل مائةٍ احتفالٌ وحفظٌ فوري كي لا يضيع الحصاد.
+     */
+    fun tapPraise() {
+        if (!loaded) return
+        val now = System.currentTimeMillis()
+        when (rushGuard.onTap(now)) {
+            MisbahaRushGuard.Verdict.IGNORED_PAUSED -> return
+            MisbahaRushGuard.Verdict.RUSH_DETECTED -> {
+                _pausedUntil.value = rushGuard.pausedUntil
+                _events.tryEmit(AzkarEvent.RushWarned)
+                return
+            }
+            MisbahaRushGuard.Verdict.COUNTED -> Unit
+        }
+        // قياس سرعة النقر — بعد تسجيل الضغطة الحالية
+        tapTimes.addLast(now)
+        while (tapTimes.isNotEmpty() && now - tapTimes.first() > MisbahaSplashMath.RATE_WINDOW_MS) {
+            tapTimes.removeFirst()
+        }
+        val rate = MisbahaSplashMath.tapsPerSecond(tapTimes, now)
+
+        val next = AzkarMath.nextPraiseCount(_state.value.praiseCount)
+        _state.update { it.copy(praiseCount = next) }
+        if (AzkarMath.isHundredth(next)) {
+            _events.tryEmit(AzkarEvent.PraiseHundredth)
+            persistNow()
+        } else {
+            _events.tryEmit(
+                AzkarEvent.PraiseCounted(
+                    particles = MisbahaSplashMath.tapParticles(rate),
+                ),
+            )
+            scheduleSave()
+        }
+    }
+
+    /** تصفير عدّ الصلاة على النبي — من الصفر من جديد */
+    fun resetPraise() {
+        if (!loaded) return
+        _state.update { it.copy(praiseCount = 0) }
+        persistNow()
+    }
+
+    /** تعليم ذكرٍ مُتمًّا أو إلغاء تعليمه — يُحفظ فوراً (نقرات نادرة) */
+    fun toggleDone(itemId: String) {
+        if (!loaded) return
+        _state.update { cur ->
+            val today = AzkarMath.epochDayOf(System.currentTimeMillis(), ZoneId.systemDefault())
+            if (today != cur.today) {
+                // يوم جديد والتطبيق مفتوح — علامات أمس تُحصَّن ولا تُمَس
+                cur.copy(today = today, doneToday = AzkarMath.toggle(emptySet(), itemId))
+            } else {
+                cur.copy(doneToday = AzkarMath.toggle(cur.doneToday, itemId))
+            }
+        }
+        persistNow()
+    }
+
+    /**
+     * تحديث مفتاح اليوم عند فتح الشاشات — لو مرّت ليلةٌ والتطبيق مفتوح
+     * تعود العلامات صفراً للجميع (وملخصات التبويب تتبعها).
+     */
+    fun refreshDay() {
+        if (!loaded) return
+        val today = AzkarMath.epochDayOf(System.currentTimeMillis(), ZoneId.systemDefault())
+        _state.update { cur ->
+            if (today == cur.today) cur
+            else cur.copy(today = today, doneToday = emptySet())
+        }
+    }
+
+    /** حفظ مؤجَّل — ٧٠٠ مللي سكّة هدوء تتجمع نقرات السرعة في قرصٍ واحد */
+    private fun scheduleSave() {
+        saveJob?.cancel()
+        saveJob = viewModelScope.launch {
+            delay(700)
+            persist()
+        }
+    }
+
+    private fun persistNow() {
+        saveJob?.cancel()
+        saveJob = viewModelScope.launch { persist() }
+    }
+
+    private fun persist() {
+        val s = _state.value
+        viewModelScope.launch {
+            repository.save(
+                AzkarSnapshot(
+                    praiseCount = s.praiseCount,
+                    day = s.today,
+                    done = s.doneToday,
+                ),
+            )
+        }
+    }
+}
