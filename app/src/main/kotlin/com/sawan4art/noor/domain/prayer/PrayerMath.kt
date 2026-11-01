@@ -1,5 +1,6 @@
 package com.sawan4art.noor.domain.prayer
 
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalTime
@@ -175,6 +176,18 @@ object PrayerMath {
         PrayerTimeKey.ISHA to "العشاء",
     )
 
+    /**
+     * اسم الصلاة المعروض ليومٍ محدد — **يوم الجمعة تُسمّى صلاة الظهر
+     * «الجمعة»** (توجيه المالك alpha30: «يوم الجمعه يتغيير اسم صلاه
+     * الظهر الى الجمعة») وغير ذلك يعود الاسم الأصلي كما هو.
+     */
+    fun displayName(key: PrayerTimeKey, date: LocalDate): String =
+        if (key == PrayerTimeKey.DHUHR && date.dayOfWeek == DayOfWeek.FRIDAY) {
+            "الجمعة"
+        } else {
+            PRAYER_NAMES_AR.getValue(key)
+        }
+
     /** الصلاة القادمة من الآن — بنفس منطق getNextPrayer في المرجع */
     fun nextPrayer(times: PrayerTimes, now: ZonedDateTime): NextPrayer {
         val order = PrayerTimeKey.entries
@@ -208,7 +221,7 @@ object PrayerMath {
 
         return NextPrayer(
             key = nextKey,
-            arabicName = PRAYER_NAMES_AR.getValue(nextKey),
+            arabicName = displayName(nextKey, target.toLocalDate()),
             target = target,
             previous = previous,
             remainingSeconds = remainingSeconds,

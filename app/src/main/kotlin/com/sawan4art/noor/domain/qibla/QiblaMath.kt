@@ -80,6 +80,18 @@ object QiblaMath {
         return normalise(prev + diff * f)
     }
 
+    /**
+     * **تصحيح الانحراف المغناطيسي** — مفتاح دقة القبلة (توجيه المالك
+     * alpha30: «تحقق من دقه اتجاه القبله»):
+     * حسّاس الهاتف يشير إلى **الشمال المغناطيسي**، بينما اتجاه القبلة
+     * يُحسب من **الشمال الحقيقي** (الجغرافي). الفرق بينهما — الانحراف
+     * المغناطيسي — يبلغ نحو ٤-٥ درجات شرقاً في مصر مثلاً، وهذا وحده
+     * يُخرج المستخدم عن مواجهة القبلة كاملة. الاتجاه المغناطيسي
+     * يُضاف إليه الانحراف (بالدرجات، شرقاً موجب) ليعود اتجاهاً حقيقياً.
+     */
+    fun trueHeading(magneticHeadingDeg: Float, declinationDeg: Float): Float =
+        normalise(magneticHeadingDeg + declinationDeg)
+
     /** إحداثيات السهم على قرص — زاوية بالدرجات من الأعلى باتجاه عقارب الساعة */
     fun arrowTip(angleDeg: Float, radius: Float): Pair<Float, Float> {
         val a = Math.toRadians(angleDeg.toDouble())

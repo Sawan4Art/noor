@@ -104,4 +104,35 @@ class PrayerMathGoldenTest {
         assertEquals(true, next.progressPercent in 0..100)
         assertEquals(true, next.remainingSeconds > 0)
     }
+
+    @Test
+    fun `يوم الجمعة اسم الظهر يصير الجمعة وغيره يبقى كما هو`() {
+        // توجيه المالك alpha30: «يوم الجمعه يتغيير اسم صلاه الظهر الى الجمعة»
+        val friday = LocalDate.of(2026, 11, 6) // جمعة حقيقية
+        assertEquals(java.time.DayOfWeek.FRIDAY, friday.dayOfWeek)
+        assertEquals("الجمعة", PrayerMath.displayName(PrayerTimeKey.DHUHR, friday))
+        // بقية الصلوات باسمها كما هي حتى يوم الجمعة
+        assertEquals("الفجر", PrayerMath.displayName(PrayerTimeKey.FAJR, friday))
+        assertEquals("الشروق", PrayerMath.displayName(PrayerTimeKey.SUNRISE, friday))
+        assertEquals("العصر", PrayerMath.displayName(PrayerTimeKey.ASR, friday))
+        assertEquals("المغرب", PrayerMath.displayName(PrayerTimeKey.MAGHRIB, friday))
+        assertEquals("العشاء", PrayerMath.displayName(PrayerTimeKey.ISHA, friday))
+        // وخارج الجمعة الظهر يبقى الظهر
+        val thursday = LocalDate.of(2026, 11, 5)
+        assertEquals("الظهر", PrayerMath.displayName(PrayerTimeKey.DHUHR, thursday))
+    }
+
+    @Test
+    fun `الصلاة القادمة يوم الجمعة تسمي الظهر الجمعة`() {
+        val zone = ZoneId.of("Africa/Cairo")
+        val friday = LocalDate.of(2026, 11, 6)
+        val times = PrayerMath.compute(
+            friday, 30.0444, 31.2357, zone,
+            CalculationMethod.EGYPT, isHanafi = false,
+        )
+        val between = times[PrayerTimeKey.SUNRISE].plusMinutes(30)
+        val next = PrayerMath.nextPrayer(times, between)
+        assertEquals(PrayerTimeKey.DHUHR, next.key)
+        assertEquals("الجمعة", next.arabicName)
+    }
 }

@@ -9,7 +9,7 @@ package com.sawan4art.noor.domain.azkar
  *
  * ١. **الصلاة على النبي ﷺ** ذكرٌ مستقل بعدّاد حرّ — لا تدخل تسبيح
  *    ما بعد الصلاة إطلاقاً (عقد MisbahaDhikrList قائم).
- * ٢. **تسعة وعشرون قسماً** — كل قسم صفحة مستقلة بأذكاره فقط، وكل
+ * ٢. **ثلاثون قسماً** — كل قسم صفحة مستقلة بأذكاره فقط، وكل
  *    قسم **خفيف**: مختاراته الجوامع الموثقة لا أكواد الحصن الكاملة،
  *    فالقراءة بسلاسة لا ثِقَل.
  *
@@ -84,7 +84,7 @@ object AzkarContent {
     private const val SUBHANALLAH_WABIHAMDIH: String = "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ"
 
     // ============================================================
-    // الأقسام التسعة والعشرون — كل قسم صفحته وأذكاره الخاصة فقط
+    // الأقسام الثلاثون — كل قسم صفحته وأذكاره الخاصة فقط
     // (خفّفنا المحتوى بأمر المالك: مختارات موثقة لا أكواد كاملة)
     // ============================================================
 
@@ -487,7 +487,44 @@ object AzkarContent {
         ),
     )
 
-    // ١٥ — رؤية الهلال
+    // ١٥ — أذكار الزلازل (توجيه المالك alpha30: «اضف اذكار الزلال»)
+
+    val ZALZAL: AzkarGroup = AzkarGroup(
+        id = "zalzala",
+        title = "أذكار الزلازل",
+        subtitle = "عند الزلازل والأهزال وكوارث الأرض — الدعاء والتضرع والاستغفار",
+        items = listOf(
+            AzkarItem(
+                "zalzala_la_taqtulna",
+                "اللَّهُمَّ لَا تَقْتُلْنَا بِغَضَبِكَ، وَلَا تُهْلِكْنَا بِعَذَابِكَ، وَعَافِنَا قَبْلَ ذَلِكَ",
+                1,
+                "الترمذي وأحمد — صحيح: كان ﷺ يقولها عند الرعد وثِقل السحاب، ويُسنّها عند الزلازل",
+            ),
+            AzkarItem(
+                "zalzala_istirja",
+                "إِنَّا لِلَّهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ، اللَّهُمَّ أْجُرْنِي فِي مُصِيبَتِي، " +
+                    "وَأَخْلِفْ لِي خَيْرًا مِنْهَا",
+                1,
+                "مسلم — دعاء المصاب عند البلاء والكوارث",
+            ),
+            AzkarItem(
+                "zalzala_hasbuna",
+                "حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ",
+                1,
+                "البخاري — قول محمد ﷺ وإبراهيم عليه السلام عند الشدائد",
+            ),
+            AzkarItem("zalzala_kalimat", KALIMAT_TAMMAT, 3, "مسلم — التحصّن بالكلمات الثامات"),
+            AzkarItem(
+                "zalzala_afiya",
+                "اللَّهُمَّ عَافِنِي فِي بَدَنِي، اللَّهُمَّ عَافِنِي فِي سَمْعِي، " +
+                    "اللَّهُمَّ عَافِنِي فِي بَصَرِي، لَا إِلَهَ إِلَّا أَنْتَ",
+                3,
+                "أبو داود — صححه الألباني",
+            ),
+        ),
+    )
+
+    // ١٦ — رؤية الهلال
 
     val CRESCENT: AzkarGroup = AzkarGroup(
         id = "crescent",
@@ -504,7 +541,7 @@ object AzkarContent {
         ),
     )
 
-    // ١٦ — أذكار الهم والحزن
+    // ١٧ — أذكار الهم والحزن
 
     val DISTRESS: AzkarGroup = AzkarGroup(
         id = "distress",
@@ -530,7 +567,7 @@ object AzkarContent {
         ),
     )
 
-    // ١٧ — دعاء الكرب
+    // ١٨ — دعاء الكرب
 
     val KARB: AzkarGroup = AzkarGroup(
         id = "karb",
@@ -553,7 +590,7 @@ object AzkarContent {
         ),
     )
 
-    // ١٨ — عيادة المريض
+    // ١٩ — عيادة المريض
 
     val SICK: AzkarGroup = AzkarGroup(
         id = "sick",
@@ -581,7 +618,7 @@ object AzkarContent {
         ),
     )
 
-    // ١٩ — التعزية عند الموت
+    // ٢٠ — التعزية عند الموت
 
     val DECEASED: AzkarGroup = AzkarGroup(
         id = "deceased",
@@ -605,7 +642,7 @@ object AzkarContent {
         ),
     )
 
-    // ٢٠ — أذكار العين والحسد
+    // ٢١ — أذكار العين والحسد
 
     val RUQYA: AzkarGroup = AzkarGroup(
         id = "ruqya",
@@ -623,7 +660,7 @@ object AzkarContent {
         ),
     )
 
-    // ٢١ — الاستغفار والتوبة
+    // ٢٢ — الاستغفار والتوبة
 
     val ISTIGHFAR: AzkarGroup = AzkarGroup(
         id = "istighfar",
@@ -640,7 +677,7 @@ object AzkarContent {
         ),
     )
 
-    // ٢٢ — أذكار العطاس
+    // ٢٣ — أذكار العطاس
 
     val SNEEZE: AzkarGroup = AzkarGroup(
         id = "sneeze",
@@ -662,7 +699,7 @@ object AzkarContent {
         ),
     )
 
-    // ٢٣ — دعاء الغضب
+    // ٢٤ — دعاء الغضب
 
     val ANGER: AzkarGroup = AzkarGroup(
         id = "anger",
@@ -678,7 +715,7 @@ object AzkarContent {
         ),
     )
 
-    // ٢٤ — أذكار السوق
+    // ٢٥ — أذكار السوق
 
     val MARKET: AzkarGroup = AzkarGroup(
         id = "market",
@@ -696,7 +733,7 @@ object AzkarContent {
         ),
     )
 
-    // ٢٥ — أذكار الزواج
+    // ٢٦ — أذكار الزواج
 
     val MARRIAGE: AzkarGroup = AzkarGroup(
         id = "marriage",
@@ -712,7 +749,7 @@ object AzkarContent {
         ),
     )
 
-    // ٢٦ — أذكار المولود
+    // ٢٧ — أذكار المولود
 
     val NEWBORN: AzkarGroup = AzkarGroup(
         id = "newborn",
@@ -735,7 +772,7 @@ object AzkarContent {
         ),
     )
 
-    // ٢٧ — دعاء الاستخارة
+    // ٢٨ — دعاء الاستخارة
 
     val ISTIKHARA: AzkarGroup = AzkarGroup(
         id = "istikhara",
@@ -756,7 +793,7 @@ object AzkarContent {
         ),
     )
 
-    // ٢٨ — دعاء حسن الدنيا والآخرة
+    // ٢٩ — دعاء حسن الدنيا والآخرة
 
     val HASANAH: AzkarGroup = AzkarGroup(
         id = "hasanah",
@@ -772,7 +809,7 @@ object AzkarContent {
         ),
     )
 
-    // ٢٩ — دعاء القنوت
+    // ٣٠ — دعاء القنوت
 
     val QUNUT: AzkarGroup = AzkarGroup(
         id = "qunut",
@@ -783,7 +820,7 @@ object AzkarContent {
                 "qunut_dua",
                 "اللَّهُمَّ اهْدِنِي فِيمَنْ هَدَيْتَ، وَعَافِنِي فِيمَنْ عَافَيْتَ، وَتَوَلَّنِي فِيمَنْ " +
                     "تَوَلَّيْتَ، وَبَارِكْ لِي فِيمَا أَعْطَيْتَ، وَقِنِي شَرَّ مَا قَضَيْتَ، إِنَّكَ تَقْضِي " +
-                    "وَلَا يُقْضَى عَلَيْكَ، إِنَّهُ لَا يَذِلُّ مَنْ وَالَيْتَ",
+                    "وَلَا يُقْضَى عَلَيْكَ، إِنَّهُ لَا يَذِلُّ مَنْ وَالَيْتَ، تَبَارَكْتَ رَبَّنَا وَتَعَالَيْتَ",
                 1,
                 "الترمذي — صححه الألباني",
             ),
@@ -791,16 +828,16 @@ object AzkarContent {
     )
 
     /**
-     * الأقسام التسعة والعشرون بترتيبها — اليومية أولاً (الصباح والمساء
+     * الأقسام الثلاثون بترتيبها — اليومية أولاً (الصباح والمساء
      * والنوم والاستيقاظ ودُبر الصلاة) ثم الأقسام الموقتية والمكانية،
      * والأدعية الجامعة في آخر القائمة. مع الصلاة على النبي (بطاقة كبرى
-     * مستقلة) يصبح المجموع ثلاثين نوعاً كما طلب المالك.
+     * مستقلة) يصبح المجموع أحد وثلاثين نوعاً بوسع المالك الزيادة.
      */
     val GROUPS: List<AzkarGroup> = listOf(
         MORNING, EVENING, SLEEP, WAKE_UP, AFTER_PRAYER,
         MOSQUE, WUDU, KHILAA, HOME,
         TRAVEL, FOOD, CLOTHES,
-        WIND, RAIN, CRESCENT,
+        WIND, RAIN, ZALZAL, CRESCENT,
         DISTRESS, KARB, SICK, DECEASED, RUQYA,
         ISTIGHFAR, SNEEZE, ANGER, MARKET, MARRIAGE, NEWBORN,
         ISTIKHARA, HASANAH, QUNUT,

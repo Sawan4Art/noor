@@ -1,6 +1,7 @@
 package com.sawan4art.noor.ui.qibla
 
 import android.app.Application
+import android.hardware.GeomagneticField
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -49,6 +50,14 @@ class QiblaViewModel(application: Application) : AndroidViewModel(application) {
     private val rotationMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
 
+    /**
+     * الانحراف المغناطيسي للموقع (بالدرجات، شرقاً موجب) — يُحسب من
+     * نموذج العالم الجيومغناطيسي عند بدء الشاشة بالإحداثيين الممرّرين
+     * من QiblaScreen، ويُصحّح به كل قراءة بوصلة إلى اتجاه حقيقي
+     * (توجيه المالك alpha30: «تحقق من دقه اتجاه القبله»).
+     */
+    private var declinationDeg = 0f
+
     private val listener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
             when (event.sensor.type) {
@@ -70,8 +79,21 @@ class QiblaViewModel(application: Application) : AndroidViewModel(application) {
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
     }
 
-    /** بدء الاستماع — من ظهور شاشة القبلة */
-    fun start() {
+    /**
+     * بدء الاستماع — من ظهور شاشة القبلة. الإحداثيان يمرران (إن وُجدا)
+     * لحساب الانحراف المغناطيسي وتصحيح الاتجاه إلى الشمال الحقيقي،
+     * وغيابهما يعني اتجاهاً مغناطيسياً كما كان.
+     */
+    fun start(latitude: Double = Double.NaN, longitude: Double = Double.NaN) {
+        declinationDeg = if (latitude.isFinite() && longitude.isFinite()) {
+            GeomagneticField(
+                latitude.toFloat(), longitude.toFloat(), 0f,
+                System.currentTimeMillis(),
+            ).declination
+        } else {
+            0f
+        }
+
         val manager = sensorManager ?: run { markUnavailable(); return }
         val rotationVector = manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         val accelerometer = manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
@@ -134,8 +156,11 @@ class QiblaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun pushHeading(azimuthDeg: Float) {
+        // المستشعر يعطي اتجاهاً مغناطيسياً — يُصحّح إلى حقيقي بالانحراف
+        // قبل التنعيم (alpha30: دقة اتجاه القبلة)
+        val trueAzimuth = QiblaMath.trueHeading(azimuthDeg, declinationDeg)
         _state.update { cur ->
-            cur.copy(heading = QiblaMath.smoothHeading(cur.heading, azimuthDeg))
+            cur.copy(heading = QiblaMath.smoothHeading(cur.heading, trueAzimuth))
         }
     }
 }

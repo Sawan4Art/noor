@@ -72,7 +72,11 @@ import kotlin.math.sin
  *
  * - **القرص حلقة اتجاهات** تدور مع الجهاز: علامات كل ١٥° وكلمات
  *   الشمال والشرق والجنوب والغرب، وعلامة الكعبة السوداء تجلس على
- *   الحلقة عند زاوية القبلة الحقيقية.
+ *   الحلقة عند زاوية القبلة الحقيقية — والحلقة تلاصق النقطة السائلة
+ *   (أكبر منها بمقدار ضئيل — توجيه المالك alpha30).
+ * - **دقة الاتجاه**: الاتجاه المغناطيسي يُصحّح إلى حقيقي بانحراف
+ *   الموقع المغناطيسي (GeomagneticField — alpha30)، والقبلة تُحسب
+ *   بالمثلثة الكروية من إحداثيات المستخدم.
  * - **النقطة السائلة الحية** (لغة المسبحة حرفياً — addLiquidBlob) في
  *   المركز، بداخلها **سهم القبلة** المستقيم للأعلى عند المواجهة
  *   و**رقم درجة الاتجاه** من الشمال.
@@ -91,9 +95,10 @@ fun QiblaScreen(
     val context = LocalContext.current
     val feedback = remember { MisbahaFeedback(context) }
 
-    // المستشعر حياة الشاشة — ظهور تسجّل واختفاء يُلغى (ترشيد بطارية)
-    DisposableEffect(Unit) {
-        viewModel.start()
+    // المستشعر حياة الشاشة — ظهور تسجّل واختفاء يُلغى (ترشيد بطارية)،
+    // والإحداثيان يمرران لحساب الانحراف المغناطيسي وتصحيح الاتجاه (alpha30)
+    DisposableEffect(settings.latitude, settings.longitude) {
+        viewModel.start(settings.latitude, settings.longitude)
         onDispose { viewModel.stop() }
     }
 
@@ -198,7 +203,15 @@ fun QiblaScreen(
             contentAlignment = Alignment.Center,
         ) {
             val side = minOf(maxHeight, maxWidth)
-            val blobR = with(LocalDensity.current) { (side * 0.33f).toPx() }
+            val blobR = with(LocalDensity.current) {
+                // أمر المالك alpha30: «كبره النقطه السائل بتاعت البوصله و
+                // صغر حجم دائر الاتجاه التي تحيط بالنقطه السائل لتناسب
+                // حجمها و تكون اكبر منها بمقدار ضئيل» — النقطة تكبر وكل
+                // الحلقة والعلامات والكلمات تُحتسب داخل نصف الصندوق
+                val sidePx = side.toPx()
+                ((sidePx / 2f - 31.dp.toPx()) / 1.20f)
+                    .coerceIn(sidePx * 0.25f, sidePx * 0.42f)
+            }
             LiquidCompass(
                 qiblaBearing = qiblaBearing,
                 heading = heading,
@@ -282,34 +295,38 @@ private fun LiquidCompass(
                 particles.removeAt(0)
             }
 
-            // ===== حلقة الاتجاهات — تدور مع الجهاز =====
-            val ringR = blobR * 1.42f
+            // ===== حلقة الاتجاهات — تدور مع الجهاز، تلاصق النقطة السائلة =====
+            // alpha30: من ١٫٤٢ إلى ١٫٢٠ — الحلقة أكبر من النقطة بمقدار ضئيل،
+            // والعلامات قُلبت خارج الحلقة كي لا تُصطدم بسطحها المتموج
+            val ringR = blobR * 1.20f
             drawCircle(
                 color = scheme.outline.copy(alpha = 0.35f),
                 radius = ringR,
                 center = Offset(cx, cy),
                 style = Stroke(width = 1.5.dp.toPx()),
             )
-            // علامات كل ١٥ درجة — الكبرى عند الاتجاهات الأصلية
+            // علامات كل ١٥ درجة منبثقة خارج الحلقة — ومواضع الاتجاهات الأصلية
+            // بلا علامة (كلمة شمال/شرق/جنوب/غرب هي علامتها الكبرى — لا تصادم)
             var deg = 0
             while (deg < 360) {
-                val screenDeg = deg - heading
-                val rad = Math.toRadians((screenDeg - 90.0))
-                val isMajor = deg % 90 == 0
-                val inner = ringR - if (isMajor) 10.dp.toPx() else 5.dp.toPx()
-                val outer = ringR
-                drawLine(
-                    color = scheme.outline.copy(alpha = if (isMajor) 0.7f else 0.35f),
-                    start = Offset(
-                        cx + inner * cos(rad).toFloat(),
-                        cy + inner * sin(rad).toFloat(),
-                    ),
-                    end = Offset(
-                        cx + outer * cos(rad).toFloat(),
-                        cy + outer * sin(rad).toFloat(),
-                    ),
-                    strokeWidth = if (isMajor) 2.dp.toPx() else 1.dp.toPx(),
-                )
+                if (deg % 90 != 0) {
+                    val screenDeg = deg - heading
+                    val rad = Math.toRadians((screenDeg - 90.0))
+                    val inner = ringR
+                    val outer = ringR + 5.dp.toPx()
+                    drawLine(
+                        color = scheme.outline.copy(alpha = 0.35f),
+                        start = Offset(
+                            cx + inner * cos(rad).toFloat(),
+                            cy + inner * sin(rad).toFloat(),
+                        ),
+                        end = Offset(
+                            cx + outer * cos(rad).toFloat(),
+                            cy + outer * sin(rad).toFloat(),
+                        ),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                }
                 deg += 15
             }
             // كلمات الاتجاهات الأربعة — الشمال دائماً أعلى القرص الحقيقي
@@ -319,7 +336,7 @@ private fun LiquidCompass(
             cardinals.forEach { (label, bearing) ->
                 val screenDeg = bearing - heading
                 val rad = Math.toRadians((screenDeg - 90.0))
-                val labelR = ringR + 14.dp.toPx()
+                val labelR = ringR + 16.dp.toPx()
                 val lx = cx + labelR * cos(rad).toFloat()
                 val ly = cy + labelR * sin(rad).toFloat()
                 val isNorth = bearing == 0f

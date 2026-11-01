@@ -95,6 +95,20 @@ class QiblaMathTest {
         assertEquals(90f, QiblaMath.smoothHeading(90f, 137f, 0f), 1e-4f)
     }
 
+    // ===== تصحيح الانحراف المغناطيسي (alpha30 دقة القبلة) =====
+
+    @Test
+    fun `الانحراف المغناطيسي يضاف للاتجاه المغناطيسي ليعود حقيقيا`() {
+        // القاهرة: انحراف نحو ٤٫٥ شرقاً — اتجاه مغناطيسي ١٣١٫٥ يصير حقيقياً ١٣٦
+        assertEquals(136f, QiblaMath.trueHeading(131.5f, 4.5f), 1e-4f)
+        // انحراف سالب (غرباً) ينقص
+        assertEquals(95f, QiblaMath.trueHeading(100f, -5f), 1e-4f)
+        // بلا انحراف يعود كما هو منعَّماً
+        assertEquals(359.5f, QiblaMath.trueHeading(-0.5f, 0f), 1e-4f)
+        // والجمع يمر بخط الشمال بسلاسة لا قفزة
+        assertEquals(0.5f, QiblaMath.trueHeading(356f, 4.5f), 1e-4f)
+    }
+
     // ===== التناثر عند الاستقامة =====
 
     @Test

@@ -65,6 +65,7 @@ import com.sawan4art.noor.util.TimeFormat
 import kotlin.math.cos
 import kotlin.math.sin
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -136,26 +137,15 @@ fun HomeScreen(
         // alpha24: يتبدل مع كل قلبٍ للثيم كذلك
         ReminderBadge(isDark = isDark)
         Spacer(Modifier.height(10.dp))
-        PrayerTimesGrid(times = times, activeKey = next.key)
+        PrayerTimesGrid(times = times, activeKey = next.key, today = today)
         Spacer(Modifier.height(10.dp))
-        // سطر الصدقة الجارية — الصياغة الجديدة للمالك (alpha24) أول القائمة،
-        // **وبتتبّدل مع كل قلبٍ للثيم نهاري/ليلي** من تجمعٍ مُكبَّر العدد
-        // (توجيه المالك: «عايز مع كل تغيير لمظهر الوضع الليلي او النهاري
-        // تتغير جمله التذكير و زود عددهم اكثر»)
-        val sadaqahIndex = remember { mutableIntStateOf(0) }
-        var sadaqahSeenDark by remember { mutableStateOf<Boolean?>(null) }
-        LaunchedEffect(isDark) {
-            val seen = sadaqahSeenDark
-            if (seen == null) {
-                sadaqahSeenDark = isDark
-            } else if (seen != isDark) {
-                sadaqahSeenDark = isDark
-                sadaqahIndex.intValue =
-                    ReminderRotation.nextIndex(sadaqahIndex.intValue, SadaqahReminders.size)
-            }
-        }
+        // سطر الصدقة الجارية — **جملة ثابتة غير متغيرة** بأمر المالك
+        // alpha30: «التذكيرات التي في الاسفل نستبدلها بجمله ثابته غير
+        // متغيره الجمله التاليه هي هذا العمل صدقة جارية لي و لأبي و أمي
+        // نسألكم صالح الدعاء» — بلا دوران ولا تبديل مع قلب الثيم،
+        // تظهر هذه الجملة وحدها دائماً
         Text(
-            text = SadaqahReminders[sadaqahIndex.intValue],
+            text = SADAQAH_LINE,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -475,13 +465,14 @@ private fun ProgressRing(
 }
 
 @Composable
-private fun PrayerTimesGrid(times: PrayerTimes, activeKey: PrayerTimeKey) {
+private fun PrayerTimesGrid(times: PrayerTimes, activeKey: PrayerTimeKey, today: LocalDate) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         PrayerTimeKey.entries.toList().chunked(3).forEach { rowKeys ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 rowKeys.forEach { key ->
                     PrayerCard(
-                        name = PrayerMath.PRAYER_NAMES_AR.getValue(key),
+                        // يوم الجمعة: صلاة الظهر تُسمّى الجمعة (توجيه المالك alpha30)
+                        name = PrayerMath.displayName(key, today),
                         time = TimeFormat.prayerTime(times[key]),
                         active = key == activeKey,
                         modifier = Modifier.weight(1f),

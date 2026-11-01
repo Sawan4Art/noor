@@ -10,8 +10,8 @@ import org.junit.Test
 /**
  * عقود محتوى الأذكار — النصوص المشكولة ومصادرها وأعدادها المسنونة
  * (alpha29 توجيه المالك: «خفف الاذكار و اعرض الاذكار الخاصه بكل قسم ..
- * عايز اضيف حتى ٣٠ نوع من الاذكار ان وجد») — تسعة وعشرون قسماً
- * خفيفاً + الصلاة على النبي عدّادها الحر = ثلاثون نوعاً.
+ * عايز اضيف حتى ٣٠ نوع من الاذكار ان وجد») — ثلاثون قسماً
+ * خفيفاً + الصلاة على النبي عدّادها الحر = واحد وثلاثون نوعاً.
  */
 class AzkarContentTest {
 
@@ -36,13 +36,13 @@ class AzkarContentTest {
         )
     }
 
-    // ===== عقود الأقسام التسعة والعشرين =====
+    // ===== عقود الأقسام الثلاثين =====
 
     @Test
-    fun `تسعة وعشرون قسما مع الصلاة على النبي يصيروا ثلاثين نوعا`() {
-        assertEquals(29, AzkarContent.GROUPS.size)
-        // مع بطاقة الصلاة على النبي المستقلة = ٣٠ نوعاً كما أمر المالك
-        assertEquals(30, AzkarContent.GROUPS.size + 1)
+    fun `ثلاثون قسما مع الصلاة على النبي تصير واحد وثلاثين نوعا`() {
+        assertEquals(30, AzkarContent.GROUPS.size)
+        // مع بطاقة الصلاة على النبي المستقلة = ٣١ نوعاً — المالك وسّع بالطلب
+        assertEquals(31, AzkarContent.GROUPS.size + 1)
     }
 
     @Test
@@ -109,7 +109,7 @@ class AzkarContentTest {
     @Test
     fun `الثراء الكلي — أكثر من سبعين ذكرا موثقا في الأقسام`() {
         val total = AzkarContent.GROUPS.sumOf { it.items.size }
-        assertTrue("المجموع ${total} أقل من المتوقع", total >= 70)
+        assertTrue("المجموع ${total} أقل من المتوقع", total >= 80)
     }
 
     // ===== عقود الأعداد المسنونة المشهورة =====
@@ -186,6 +186,38 @@ class AzkarContentTest {
                 .contains("الْخُبْثِ وَالْخَبَائِثِ"),
         )
         assertEquals("غُفْرَانَكَ", AzkarContent.KHILAA.items.first { it.id == "khilaa_leave" }.text)
+    }
+
+    @Test
+    fun `أذكار الزلازل قسم خفيف موثق بأمر المالك`() {
+        // توجيه المالك alpha30: «اضف اذكار الزلال» — أي الزلازل
+        val zalzala = AzkarContent.ZALZAL
+        assertEquals("zalzala", zalzala.id)
+        assertEquals("أذكار الزلازل", zalzala.title)
+        assertTrue("قسم الزلازل خفيف (خفف الاذكار)", zalzala.items.size <= 6)
+        assertTrue("zalzala" in AzkarContent.GROUPS.map { it.id })
+        // دعاء الرعد الصحيح الذي يُسن عند الزلازل
+        val thunder = zalzala.items.first { it.id == "zalzala_la_taqtulna" }
+        assertTrue(thunder.text.contains("لَا تَقْتُلْنَا بِغَضَبِكَ"))
+        assertTrue(thunder.text.contains("وَعَافِنَا قَبْلَ ذَلِكَ"))
+        // ودعاء المصاب من مسلم و«حسبي الله» من البخاري
+        assertTrue(
+            zalzala.items.first { it.id == "zalzala_istirja" }.text
+                .contains("إِنَّا لِلَّهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ"),
+        )
+        assertTrue(
+            zalzala.items.first { it.id == "zalzala_hasbuna" }.text
+                .contains("حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ"),
+        )
+    }
+
+    @Test
+    fun `خاتمة القنوت التامة من الترمذي موجودة`() {
+        // مراجعة النص واللغة (alpha30): «تباركت ربنا وتعاليت» خاتمة الحديث
+        assertTrue(
+            AzkarContent.QUNUT.items.first { it.id == "qunut_dua" }.text
+                .contains("تَبَارَكْتَ رَبَّنَا وَتَعَالَيْتَ"),
+        )
     }
 
     @Test
