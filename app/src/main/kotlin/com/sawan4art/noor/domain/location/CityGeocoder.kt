@@ -1,48 +1,104 @@
 package com.sawan4art.noor.domain.location
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * عكس الإحداثيات إلى اسم مكان عربي — توجيه المالك alpha19:
- * «الموقع بيجيب اسم المدينة بس انا عايزه يجيب اسم القرية إن توفر واسم المحافظة».
+ * عكس الإحداثيات إلى اسم مكان عربي — توجيه المالك alpha20:
+ * «انا عايز اسم مكانى الفعلى يتكتب مش اسم المدينة، مثال انا في أبو زعبل —
+ * أبو زعبل دي تابعة لمدينة أي الخانكة — اسم القرية أو العزبة أو الكفر أولاً
+ * ثم اسم المدينة التابعة لها».
  *
- * الناتج = [primary] (القرية أولاً ثم المدينة) + [region] (المحافظة).
- *  1) Nominatim (OpenStreetMap) — غني بعناوين القرى العربية:
- *     village/town → القرية، state → المحافظة، county → المركز احتياطاً.
- *  2) BigDataCloud — مجاني بلا مفتاح: city/locality → الاسم،
- *     principalSubdivision → المحافظة.
- *  3) مدن عربية مدمجة بالتقريب الجغرافي — احتياط أوفلاين أخير.
- * أي فشل يرجع «موقعي الحالي» — لا يكسر تحديد الموقع أبداً.
+ * **دمج متسابق من ثلاثة مصادر بلا مفاتيح** — الثلاثة تُسأل معاً وكل مصدر
+ * يغذّي خانته الأدق، والسطر يُبنى فور اكتمال القرية والمدينة والمحافظة:
+ *  1) Nominatim (OpenStreetMap) بـ zoom=14 — أدق مصدر للقرية/العزبة/الكفر
+ *     (village/hamlet/isolated_dwelling/suburb...) + المحافظة (state)،
+ *  2) Photon (Komoot/OSM) — أسماء الأحياء والبلدات بلا حدود استخدام صارمة،
+ *  3) BigDataCloud — المدينة الأم (city) والمحافظة (principalSubdivision).
+ *
+ * الدمج بترتيب مصدر واحد (Nominatim ← Photon ← BigDataCloud) مع إزالة
+ * التكرار المُطبَّع (أبو زعبل = ابو زعبل، مدينة بلبيس = بلبيس) — فمثلاً
+ * حين يضع Photon القرية نفسها في خانة city تُسقط لصالح القرية وتمتلئ
+ * الخانة من BigDataCloud بالمدينة الأم: «ابو زعبل البلد، الخانكة، القليوبية».
+ *
+ * أي فشل كلي يرجع أقرب مدينة معروفة ثم «موقعي الحالي» — لا يكسر التحديد
+ * أبداً، والعودة المبكرة لا تنتظر مصدراً معلقاً (مهليات المقابس تحدهم).
  */
 class CityGeocoder {
 
-    data class CityResult(val primary: String, val region: String?, val country: String?)
+    data class CityResult(
+        val village: String? = null,
+        val city: String? = null,
+        val region: String? = null,
+        val country: String? = null,
+    ) {
+        /** اكتمل الثالوث المطلوب (قرية + مدينة + محافظة)؟ — يسمح بالعودة المبكرة */
+        val isComplete: Boolean
+            get() = village != null && city != null && region != null
 
-    suspend fun reverseGeocode(lat: Double, lng: Double): CityResult = withContext(Dispatchers.IO) {
-        viaNominatim(lat, lng)
-            ?: viaBigDataCloud(lat, lng)
-            ?: nearestKnownCity(lat, lng)
+        /** فيه أي اسم يُعرض؟ */
+        val hasAny: Boolean
+            get() = village != null || city != null || region != null || country != null
     }
 
+    suspend fun reverseGeocode(lat: Double, lng: Double): CityResult {
+        // نطاق منفصل بلا أب كي لا تُنتظر العودة المبكرة مصدراً معلقاً —
+        // عند المهلة تُلغى المعلّقون ومكالماتهم محدودة بمهليات المقابس
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val merged = try {
+            withTimeoutOrNull(MERGE_TIMEOUT_MS) {
+                val ranked = listOf(
+                    0 to scope.async { viaNominatim(lat, lng) },
+                    1 to scope.async { viaPhoton(lat, lng) },
+                    2 to scope.async { viaBigDataCloud(lat, lng) },
+                )
+                var best: CityResult? = null
+                val received = HashMap<Int, CityResult?>()
+                while (received.size < ranked.size) {
+                    val (rank, result) = select {
+                        for ((r, d) in ranked) {
+                            if (r !in received) d.onAwait { r to it }
+                        }
+                    }
+                    received[rank] = result
+                    val m = mergeResults(received.map { it.key to it.value })
+                    if (m?.isComplete == true) return@withTimeoutOrNull m
+                    best = m
+                }
+                best
+            }
+        } finally {
+            scope.cancel()
+        }
+        return merged?.takeIf { it.hasAny } ?: nearestKnownCity(lat, lng)
+    }
+
+    // ===== المصادر الثلاثة =====
+
+    /** Nominatim بـ zoom=14 — القرية/العزبة/الكفر أولاً + المحافظة */
     private fun viaNominatim(lat: Double, lng: Double): CityResult? = try {
         val url = "https://nominatim.openstreetmap.org/reverse" +
-            "?lat=$lat&lon=$lng&format=jsonv2&accept-language=ar&zoom=10"
+            "?lat=$lat&lon=$lng&format=jsonv2&accept-language=ar&zoom=14"
         val data = fetchJson(url) ?: return null
         val address = data.optJSONObject("address") ?: return null
-        // القرية أولاً (توجيه المالك) — ثم البلدة ثم المدينة ثم المركز
-        val primary = address.optString("village")
-            .ifEmpty { address.optString("town") }
-            .ifEmpty { address.optString("city") }
-            .ifEmpty { address.optString("municipality") }
-            .ifEmpty { address.optString("county") }
-            .trim()
-        if (primary.isNotBlank()) {
+        val village = firstPresent(
+            address, "village", "hamlet", "isolated_dwelling",
+            "suburb", "neighbourhood", "quarter", "borough",
+        )
+        val city = firstPresent(address, "city", "town", "municipality")
+        if (village != null || city != null) {
             CityResult(
-                primary = primary,
+                village = village,
+                city = city,
                 region = cleanGovernorate(address.optString("state").trim()),
                 country = address.optString("country").trim().ifEmpty { null },
             )
@@ -53,33 +109,95 @@ class CityGeocoder {
         null
     }
 
-    private fun viaBigDataCloud(lat: Double, lng: Double): CityResult? = try {
-        val url = "https://api.bigdatacloud.net/data/reverse-geocode-client" +
-            "?latitude=$lat&longitude=$lng&localityLanguage=ar"
+    /** Photon (Komoot/OSM) — أسماء الأحياء والقرى بلا حدود استخدام صارمة */
+    private fun viaPhoton(lat: Double, lng: Double): CityResult? = try {
+        val url = "https://photon.komoot.io/reverse?lat=$lat&lon=$lng&lang=default"
         val data = fetchJson(url) ?: return null
-        val primary = data.optString("locality")
-            .ifEmpty { data.optString("city") }
-            .trim()
-        if (primary.isNotBlank()) {
-            CityResult(
-                primary = primary,
-                region = cleanGovernorate(
-                    data.optString("principalSubdivision").trim(),
-                ),
-                country = data.optString("countryName").trim().ifEmpty { null },
-            )
-        } else {
-            null
-        }
+        val features = data.optJSONArray("features") ?: return null
+        val props = features.optJSONObject(0)?.optJSONObject("properties") ?: return null
+        val villageTypes = setOf(
+            "village", "hamlet", "isolated_dwelling", "locality",
+            "neighbourhood", "suburb", "quarter", "borough", "farm",
+        )
+        val featureType = props.optString("osm_value")
+        val village = props.optString("name").trim()
+            .takeIf { it.isNotEmpty() && featureType in villageTypes }
+            ?: props.optString("district").trim().takeIf { it.isNotEmpty() }
+        val city = props.optString("city").trim()
+            .ifEmpty { props.optString("county").trim() }
+            .ifEmpty { null }
+        CityResult(
+            village = village,
+            city = city,
+            region = cleanGovernorate(props.optString("state").trim()),
+            country = props.optString("country").trim().ifEmpty { null },
+        )
     } catch (_: Exception) {
         null
     }
 
+    /** BigDataCloud بلا مفتاح — المدينة الأم والمحافظة */
+    private fun viaBigDataCloud(lat: Double, lng: Double): CityResult? = try {
+        val url = "https://api.bigdatacloud.net/data/reverse-geocode-client" +
+            "?latitude=$lat&longitude=$lng&localityLanguage=ar"
+        val data = fetchJson(url) ?: return null
+        val locality = data.optString("locality").trim()
+        val city = data.optString("city").trim()
+        // الـ locality عند BigDataCloud أدق من المدينة غالباً — قرية إن لم يكررها
+        val village = locality.takeIf {
+            it.isNotEmpty() && normalizeForCompare(it) != normalizeForCompare(city)
+        }
+        CityResult(
+            village = village,
+            city = city.ifEmpty { null },
+            region = cleanGovernorate(data.optString("principalSubdivision").trim()),
+            country = data.optString("countryName").trim().ifEmpty { null },
+        )
+    } catch (_: Exception) {
+        null
+    }
+
+    // ===== الدمج المُرجَّح =====
+
+    /**
+     * دمج نتائج المصادر بترتيبها (rank 0 = Nominatim، 1 = Photon، 2 = BigDataCloud):
+     * كل خانة تأخذ أول قيمة غير فارغة وغير مكررة مُطبَّعاً لمصدر أعلى ترجيحاً،
+     * والمدينة لا تُقبل إن كانت هي القرية نفسها (فيلتر «ابو زعبل البلد»).
+     */
+    internal fun mergeResults(ranked: List<Pair<Int, CityResult?>>): CityResult? {
+        val sources = ranked
+            .filter { it.second != null }
+            .sortedBy { it.first }
+            .map { it.second!! }
+        if (sources.isEmpty()) return null
+
+        fun pick(slot: (CityResult) -> String?, avoid: Set<String>): String? =
+            sources.firstNotNullOfOrNull { r ->
+                slot(r)?.trim()?.takeIf { it.isNotEmpty() && normalizeForCompare(it) !in avoid }
+            }
+
+        val village = pick({ it.village }, emptySet())
+        val villageAvoid = village?.let { setOf(normalizeForCompare(it)) } ?: emptySet()
+        val city = pick({ it.city }, villageAvoid)
+        val cityAvoid = villageAvoid + (city?.let { setOf(normalizeForCompare(it)) } ?: emptySet())
+        val region = pick({ it.region }, cityAvoid)
+        val regionAvoid = cityAvoid + (region?.let { setOf(normalizeForCompare(it)) } ?: emptySet())
+        val country = pick({ it.country }, regionAvoid)
+        return CityResult(village, city, region, country)
+    }
+
+    private fun firstPresent(address: JSONObject, vararg keys: String): String? =
+        keys.firstNotNullOfOrNull { key ->
+            address.optString(key).trim().takeIf { it.isNotEmpty() }
+        }
+
     private fun fetchJson(url: String): JSONObject? = try {
         val connection = URL(url).openConnection() as HttpURLConnection
-        connection.connectTimeout = 9_000
-        connection.readTimeout = 9_000
+        connection.connectTimeout = CONNECT_TIMEOUT_MS
+        connection.readTimeout = READ_TIMEOUT_MS
         connection.setRequestProperty("Accept", "application/json")
+        // سياسة Nominatim تشترط User-Agent معرّفاً — بدونه قد يُرفض الطلب
+        connection.setRequestProperty("User-Agent", USER_AGENT)
         try {
             if (connection.responseCode !in 200..299) null
             else connection.inputStream.bufferedReader().use { JSONObject(it.readText()) }
@@ -104,16 +222,22 @@ class CityGeocoder {
         }
         // أبعد من ~2 درجة (≈220 كم) عن أقرب مدينة معروفة — اسم عام
         return if (bestDist > 4.0) {
-            CityResult("موقعي الحالي", null, null)
+            CityResult(city = "موقعي الحالي")
         } else {
-            CityResult(best.name, best.region, null)
+            CityResult(city = best.name, region = best.region)
         }
     }
 
     companion object {
+        /** سقف انتظار المصادر المتسابقة قبل الرجوع لما توفر — يقتل أي لاج */
+        private const val MERGE_TIMEOUT_MS = 4_000L
+        private const val CONNECT_TIMEOUT_MS = 3_000
+        private const val READ_TIMEOUT_MS = 3_000
+        private const val USER_AGENT = "noor-app/0.5 (Android; https://github.com/Sawan4Art/noor)"
+
         /**
          * تنظيف اسم المحافظة للعرض — «محافظة القليوبية» تعرض «القليوبية»
-         * كي يصير السطر «الخانكة، القليوبية» لا «الخانكة، محافظة القليوبية».
+         * كي يصير السطر «أبو زعبل، الخانكة، القليوبية» بلا بادئات إدارية.
          */
         fun cleanGovernorate(raw: String): String? = raw
             .removePrefix("محافظة ")
@@ -124,19 +248,49 @@ class CityGeocoder {
             .ifEmpty { null }
 
         /**
-         * سطر الموقع الجاهز للعرض — المحافظة أولاً وإلا الدولة،
-         * والاسم الأعلى (قرية/مدينة) لا يُكرر إن طابقه.
+         * تطبيع المقارنة بين أسماء الأماكن — توحيد الألفات وإسقاط بادئة
+         * «مدينة» كي تتساوى «مدينة بلبيس» و«بلبيس» و«أبو زعبل» و«ابو زعبل».
          */
-        fun buildLocationLabel(primary: String, region: String?, country: String?): String {
-            val r = region?.trim()?.takeIf { it.isNotEmpty() }
-            val c = country?.trim()?.takeIf { it.isNotEmpty() }
-            val tail = when {
-                r != null && r != primary -> r
-                r == null && c != null && c != primary -> c
-                else -> null
+        internal fun normalizeForCompare(raw: String): String = raw.trim()
+            .replace('أ', 'ا')
+            .replace('إ', 'ا')
+            .replace('آ', 'ا')
+            .removePrefix("مدينة ")
+            .removePrefix("مدينة")
+            .lowercase()
+
+        /**
+         * سطر الموقع الجاهز للعرض — **القرية أولاً ثم المدينة ثم المحافظة**
+         * (توجيه المالك alpha20)، وبلا تكرار مُطبَّع. المحافظة الغائبة تلعب
+         * الدولة دورها (العقد القديم)، أما المتكررة فتُسقط ولا تعوَّض.
+         */
+        fun buildLocationLabel(
+            village: String?,
+            city: String?,
+            region: String?,
+            country: String?,
+        ): String {
+            val parts = ArrayList<String>(3)
+            val seen = HashSet<String>()
+            fun add(raw: String?): Boolean {
+                val v = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return false
+                val n = normalizeForCompare(v)
+                if (n in seen) return false
+                seen += n
+                parts += v
+                return true
             }
-            return if (tail != null) "$primary، $tail" else primary
+            add(village)
+            add(city)
+            val regionPresent = !region.isNullOrBlank()
+            if (!add(region) && !regionPresent) add(country)
+            if (parts.isEmpty()) add(country)
+            return if (parts.isEmpty()) "موقعي الحالي" else parts.joinToString("، ")
         }
+
+        /** التوافق مع الاستدعاء القديم (اسم رئيسي بلا قرية منفصلة) */
+        fun buildLocationLabel(primary: String, region: String?, country: String?): String =
+            buildLocationLabel(village = null, city = primary, region = region, country = country)
 
         /** مدن عربية وعالمية مدمجة للتقريب الأوفلاين — من geo.ts مع محافظات مصر */
         data class KnownCity(val name: String, val lat: Double, val lng: Double, val region: String?)
@@ -169,8 +323,8 @@ class CityGeocoder {
             KnownCity("الدار البيضاء", 33.5731, -7.5898, "الدار البيضاء"),
             KnownCity("الرباط", 34.0209, -6.8416, "الرباط"),
             KnownCity("نواكشوط", 18.0735, -15.9582, "نواكشوط"),
-            KnownCity("إسطنبول", 41.0082, 28.9784, "إسطنبول"),
-            KnownCity("أنقرة", 39.9334, 32.8597, "أنقرة"),
+            KnownCity("إسطنبول", 41.0082, 28.9784, null),
+            KnownCity("أنقرة", 39.9334, 32.8597, null),
             KnownCity("لندن", 51.5074, -0.1278, null),
             KnownCity("باريس", 48.8566, 2.3522, null),
             KnownCity("برلين", 52.52, 13.405, null),

@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 import com.sawan4art.noor.domain.prayer.PrayerMath
@@ -297,12 +298,16 @@ private fun HeroLocationRow(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth(),
     ) {
+        // السطر الطويل (قرية، مدينة، محافظة) يُقتطع بأمان ولا يزاح زر التحديد
         Text(
             text = city,
             style = MaterialTheme.typography.labelLarge,
             color = noorColors.heroContent,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
         if (locating) {
             CircularProgressIndicator(

@@ -26,15 +26,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -176,18 +172,26 @@ fun NoorApp(viewModel: HomeViewModel) {
                                         this@drawWithContent.drawContent()
                                     }
                                     // القناع: كامل عند جهة الطبقة الصلبة ← صفر عند
-                                    // جهة الأساس — مزج 50/50 عند الحدّ نفسه = البلور
-                                    drawRect(
-                                        brush = Brush.horizontalGradient(
-                                            *ThemeDialMath.splitFeatherStops(lightOverlay)
-                                                .map { (stop, a) -> stop to Color.Black.copy(alpha = a) }
-                                                .toTypedArray(),
-                                            startX = bandLeft,
-                                            endX = bandRight,
-                                        ),
-                                        topLeft = Offset(bandLeft, 0f),
-                                        size = Size(bandRight - bandLeft, size.height),
-                                        blendMode = BlendMode.DstIn,
+                                    // جهة الأساس — مزج 50/50 عند الحدّ نفسه = البلور.
+                                    // الرسم بـ Paint أصلي dithered (alpha20): تكميم
+                                    // الشفافية عبر الحزام يصير ضجيجاً خفياً لا خطاً
+                                    val stops = ThemeDialMath.splitFeatherStops(lightOverlay)
+                                    val maskPaint = android.graphics.Paint().apply {
+                                        isDither = true
+                                        xfermode = android.graphics.PorterDuffXfermode(
+                                            android.graphics.PorterDuff.Mode.DST_IN,
+                                        )
+                                        shader = android.graphics.LinearGradient(
+                                            bandLeft, 0f, bandRight, 0f,
+                                            stops.map { (_, a) ->
+                                                ((a.coerceIn(0f, 1f) * 255f).toInt() shl 24)
+                                            }.toIntArray(),
+                                            stops.map { (t, _) -> t }.toFloatArray(),
+                                            android.graphics.Shader.TileMode.CLAMP,
+                                        )
+                                    }
+                                    canvas.nativeCanvas.drawRect(
+                                        bandLeft, 0f, bandRight, size.height, maskPaint,
                                     )
                                     canvas.restore()
                                 }

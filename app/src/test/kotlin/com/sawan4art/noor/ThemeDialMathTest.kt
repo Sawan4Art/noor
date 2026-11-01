@@ -214,70 +214,55 @@ class ThemeDialMathTest {
         ThemeDialMath.progress(50f, 100f, 100f) // مسار معدوم
     }
 
-    // ===== عقد alpha19: موت الخط الأحمر + بلور الحدّ الأزرق + انتشار أوسع =====
+    // ===== عقد alpha20: شعاع أحادي الجهة (النهاري) + موت الخطّين بالغاوسي والديثر =====
 
     private val glowStops = ThemeDialMath.glowMaskStops(1f)
 
     @Test
-    fun `هندسة التوهج - الانتشار أوسع من قبل والهامش الميت حقيقي`() {
+    fun `هندسة الشعاع - جهة واحدة غاوسية والهامش الميت حقيقي`() {
         val g = ThemeDialMath.GlowGeometry
-        // توجيه المالك: «كبّر عرض انتشار الضوء» — 44dp بدل 28dp
+        // توجيه المالك alpha20: الشعاع من جهة النهاري وحدها بذروة عند الحدّ
         assertEquals(44f, g.SPREAD_DP, 1e-5f)
-        assertTrue("الانتشار يجب أن يتجاوز alpha18 (28dp)", g.SPREAD_DP > 28f)
-        // الريشة + الهامش الميت موجبة، والامتداد الكلي مجموع الأجزاء
-        assertTrue(g.FEATHER_DP > 0f)
+        assertTrue("الانتشار يتجاوز ذخيرة alpha18 (28dp)", g.SPREAD_DP > 28f)
+        assertEquals("الذروة عند حدّ الانقسام نفسه", 0.80f, g.PEAK, 1e-6f)
+        assertTrue("حزام مزج الحدّ باقٍ", g.FEATHER_DP > 0f)
         assertTrue(g.DEAD_DP > 0f)
-        assertEquals(
-            g.FEATHER_DP + g.SPREAD_DP + g.DEAD_DP,
-            g.TOTAL_DP,
-            1e-4f,
-        )
+        // حقل الشعاع = الانحدار + الهامش الميت (الريشة ليست جزءاً من الحقل)
+        assertEquals(g.SPREAD_DP + g.DEAD_DP, g.TOTAL_DP, 1e-4f)
     }
 
     @Test
-    fun `قناع التوهج يبدأ وينتهي صفرا حقيقيا - موت الخط على حرف الطبقة`() {
-        assertEquals("بداية الحقل صفر", 0f, glowStops.first().second, 1e-7f)
-        assertEquals("نهاية الحقل صفر", 0f, glowStops.last().second, 1e-7f)
-        // صفر حقيقي قبل الطرف ببعده محسوس: آخر وقفة غير صفرية قبل 0.955
-        val lastVisible = glowStops.last { it.second > 0f }
-        assertTrue(
-            "آخر أثر مرئي عند ${lastVisible.first} يجب أن يسبق 0.955 بفارق ملموس",
-            lastVisible.first <= 0.90f,
-        )
-        // الوقفات الصفرية الأخيرة تستمر حتى الطرف — لا قفزة عند 1.0
-        val zeroTail = glowStops.filter { it.first >= 0.955f }
-        assertTrue(zeroTail.size >= 2)
-        zeroTail.forEach { (t, a) -> assertEquals("صفر عند t=$t", 0f, a, 1e-7f) }
-    }
-
-    @Test
-    fun `قناع التوهج يصعد ناعما لا قفزة عند الحد`() {
-        // الحدّ عند t = الريشة/الكل ≈ 0.1714 — وقفة القناع عند 0.171 (تقريب
-        // ثلاث خانات) فالتسامح أوسع من فرق التقريب وأضيق من نصف الحزام
-        val edgeT = ThemeDialMath.GlowGeometry.FEATHER_DP / ThemeDialMath.GlowGeometry.TOTAL_DP
-        val atEdge = glowStops.first { it.first >= edgeT - 1e-3f }.second
-        val peak = glowStops.maxOf { it.second }
-        assertTrue("ذروة واضحة بعد الحدّ", peak >= 0.72f - 1e-6f)
-        assertTrue(
-            "عند الحدّ نفسه القيمة بين الصفر والذروة (صعود ناعم): $atEdge",
-            atEdge > 0f && atEdge < peak,
-        )
-        // قبل الحزام كله: شبه معدوم — النهار لا توهج عنه
-        val beforeBand = glowStops.takeWhile { it.first < edgeT * 0.5f }
-        beforeBand.forEach { (t, a) ->
-            assertTrue("بداية الحقل خافتة عند t=$t: $a", a < 0.2f)
+    fun `قناع الشعاع أحادي الجهة - صفر في الهامش الميت وذروة عند الحد`() {
+        // الطرف البعيد (u=0) ميت تماماً — لا حرف على حرف الطبقة
+        val deadBoundary = ThemeDialMath.GlowGeometry.DEAD_DP / ThemeDialMath.GlowGeometry.TOTAL_DP
+        glowStops.takeWhile { it.first <= deadBoundary + 1e-6f }.forEach { (t, a) ->
+            assertEquals("صفر حقيقي في الهامش الميت عند t=$t", 0f, a, 1e-7f)
         }
+        // الذروة عند الحدّ نفسه (u=1) — طرف النهار ينبعث منه الضوء
+        assertEquals(1f, glowStops.last().first, 1e-6f)
+        assertEquals(
+            "الذروة = PEAK عند الحدّ",
+            ThemeDialMath.GlowGeometry.PEAK, glowStops.last().second, 1e-6f,
+        )
     }
 
     @Test
-    fun `قناع التوهج ينحدر رتيبا بعد الذروة حتى الصفر`() {
-        val peakIdx = glowStops.indexOfFirst { it.second >= 0.72f }
-        var prev = glowStops[peakIdx].second
-        for (i in peakIdx + 1 until glowStops.size) {
-            val a = glowStops[i].second
-            assertTrue("انحدار رتيب عند t=${glowStops[i].first}", a <= prev + 1e-6f)
+    fun `قناع الشعاع صاعد رتيبا بلا قطعات حادة - موت تكميم الخطّين`() {
+        // صعود رتيب وحيد (جهة واحدة — لا ذروة داخلية ولا انحدار بعدها)
+        var prev = 0f
+        glowStops.forEach { (t, a) ->
+            assertTrue("صعود رتيب عند t=$t", a >= prev - 1e-6f)
             prev = a
         }
+        // لا قطعة حادة: أكبر قفزة بين وقفتين أضيق من نصف قفزة alpha19 (0.26)
+        // التي أنتجت قفزات تكميم +5 وحدات/بكسل (الخطّان الرفيعان)
+        val maxJump = glowStops.zipWithNext { (_, a), (_, b) -> b - a }.max()
+        assertTrue("أكبر قفزة $maxJump يجب أن تكون ناعمة", maxJump < 0.13f)
+        // مغادرة الصفر تحت عتبة تكميم 8-بت: القيمة الأولى بعد الهامش الميت
+        // تقرب صفراً فلا شريط باهت عند طرف الطبقة مهما كانت دقة الرسم
+        val deadBoundary = ThemeDialMath.GlowGeometry.DEAD_DP / ThemeDialMath.GlowGeometry.TOTAL_DP
+        val leaving = glowStops.first { it.first > deadBoundary }.second
+        assertTrue("مغادرة الصفر تحت العتبة: $leaving", leaving * 255f < 0.5f)
     }
 
     @Test
@@ -285,7 +270,10 @@ class ThemeDialMathTest {
         // عند طاقة منخفضة تبقى النسب المتناسقة ولا قيم سالبة
         ThemeDialMath.glowMaskStops(0.05f).forEach { (t, a) ->
             assertTrue("شفافية سالبة عند t=$t", a >= 0f)
-            assertTrue("شفافية فوق الذروة عند t=$t", a <= 0.72f + 1e-6f)
+            assertTrue(
+                "شفافية فوق الذروة عند t=$t",
+                a <= ThemeDialMath.GlowGeometry.PEAK * 0.05f + 1e-6f,
+            )
         }
     }
 
@@ -308,8 +296,8 @@ class ThemeDialMathTest {
     }
 
     @Test
-    fun `مسح التثبيت يسوق الامتداد الكلي للتوهج لا انتشارا فقط`() {
-        // 70dp عند 3x = 210px — الحقل بكامل أجزائه يغادر الشاشة
+    fun `مسح التثبيت يسوق الامتداد الكلي للشعاع لا انتشارا فقط`() {
+        // 50dp عند 3x = 150px — الحقل بكامل أجزائه يغادر الشاشة
         val total = ThemeDialMath.GlowGeometry.TOTAL_DP * 3f
         val w = 1080f
         assertTrue(ThemeDialMath.sweepTargetX(true, w, total) - total >= w)

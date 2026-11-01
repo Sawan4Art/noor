@@ -30,7 +30,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -40,6 +39,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -73,18 +73,18 @@ import kotlin.math.roundToInt
  * الإصلاح: الطبقة ترسم فقط بلا أي قبضة لمس، والإيماءة على **صندوق يركب الأيقونة
  * وحدها** — الفراغ يمر للطبقات تحتيه طبيعياً، والانقسام لا يشتغل إلا بسحب فعلي.
  *
- * شكل الفاصل — توجيه المالك alpha19 (2026-11-01، بصورة معلّمين أحمر وأزرق):
- * «العلام الاحمر ده خط رفيع جدا عايزك تشيله والازرق عايزك تعمل عليه بلور
- * علشان يسيح مع اللون وكبّر عرض انتشار الضوء» —
- * **الخط الأحمر** كان حرف طبقة التوهج نفسه: الحقل ينتهي عند طرف الـsaveLayer
- * فتُرى حلّة قفزة ولو صغيرة — العلاج: الطبقة أوسع من المنظور بحزام ميت
- * (14dp) يبلغ فيه القناع صفراً حقيقياً قبل الطرف ببعده محسوس (0.90→0.955
- * صفر) فلا يبقى أي حرف مرئي مهما كانت دقة الرسم،
- * **الحدّ الأزرق** هو حدّ الانقسام الصلب نفسه — بُلور بحزام مزج (ريشة 12dp
- * في NoorApp: طبقة معزولة بقناع DstIn متدرّج) فتمتزج الثيمتان تدريجياً
- * «تسيح مع اللون»، ومعه صعود التوهج نفسه صار ناعماً عبر الحزام (يرتفع من
- * صفر عند بداية الحزام إلى ذروته بعد الحدّ) بدل قفزة 0.72 عند الحدّ،
- * **والانتشار أوسع**: 44dp بدل 28dp.
+ * شكل الفاصل — توجيه المالك alpha20 (2026-11-01): «في خطين يمين وشمال
+ * رفيعين جدا شكلهم وحش في شعاع الضوء وانا عايز الشعاع ده يبقى من جهه واحدة
+ * فقط هي جهة الثيم النهاري يعني اللون النهاري ينبعث في طرفه شعاع ضوئي» —
+ * **الشعاع جهة واحدة = جهة النهاري**: الفاتح يسار الحدّ دائماً فالحقل كله
+ * يسار الحدّ، ذروته عند حدّ الانقسام نفسه (طرف النهار المنبعث منه الضوء)
+ * وانحداره غاوسي ناعم داخل النهاري حتى صفر حقيقي في هامش ميت (12dp) قبل
+ * طرف الطبقة، **والجهة المظلمة يمين الحدّ نظيفة تماماً**.
+ * **موت الخطّين**: التشخيص الرقمي أثبت أنهما قفزات تكميم 8-بت (+5 وحدات/
+ * بكسل) في القطعات الخطية الحادة لقناع alpha19 — العلاج: منحنى غاوسي بلا
+ * قطعات حادة + هامش ميت + **Dithering** (Paint أصلي isDither=true على
+ * قناع الشعاع وحزام بلور الحدّ في NoorApp) يحوّل التكميم إلى ضجيج خفي.
+ * حدّ الانقسام نفسه يبقى مزجّاً بحزام الريشة (12dp كل جهة) كما في alpha19.
  *
  * الاتجاه داخلياً LTR دائماً — الرسم كله بإحداثيات فيزيائية مطلقة محصّنة من RTL.
  */
@@ -107,12 +107,9 @@ fun ThemeDialOverlay(
     val strokePx = with(density) { 1.dp.toPx() }
     val anchorPad = blobR * 1.6f
     val touchHalf = with(density) { 32.dp.toPx() } // هدف لمس 64dp يركب الأيقونة
-    // توهج الضوء الحي (alpha19): انتشار أوسع، صعود ناعم عبر حزام البلور،
-    // وهامش ميت يقتل أي حرف مرئي لطبقة التوهج (الخط الأحمر) — الثوابت من
+    // شعاع الضوء الحي (alpha20): حقل غاوسي أحادي الجهة (جهة النهاري) بذروة
+    // عند الحدّ وهامش ميت، وقناع dithered يقتل تكميم الخطّين — الثوابت من
     // ThemeDialMath.GlowGeometry مصدر واحد للرسم والمرآة والاختبارات
-    val glowSpread = with(density) { ThemeDialMath.GlowGeometry.SPREAD_DP.dp.toPx() }
-    val glowFeather = with(density) { ThemeDialMath.GlowGeometry.FEATHER_DP.dp.toPx() }
-    // الامتداد الكلي الذي يُساق به الحدّ خارج الشاشة عند التثبيت
     val glowTotal = with(density) { ThemeDialMath.GlowGeometry.TOTAL_DP.dp.toPx() }
 
     SideEffect {
@@ -191,12 +188,17 @@ fun ThemeDialOverlay(
                 val energy = dial.energy()
                 val p = ThemeDialMath.progress(headXv, dial.anchorLeft, dial.anchorRight)
 
-                // ===== 1) توهج الضوء الحي على حدّ الانقسام (تحت الكبسولة والسائل) =====
-                // توجيه المالك alpha19 (صورة العلامتين): «شيل الخط الرفيع (الأحمر)
-                // واعمل بلور على الحدّ (الأزرق) وكبّر انتشار الضوء» — الطبقة
-                // أوسع من المرئي بحزام ميت يبلغ القناع فيه صفراً حقيقياً قبل
-                // طرفها ببعده محسوس كيموت الخط الأحمر على حرف الطبقة، والصعود
-                // عبر حزام البلور ناعم (لا قفزة عند الحدّ) والانتشار 44dp.
+                // ===== 1) شعاع الضوء الحي — جهة واحدة: جهة الثيم النهاري =====
+                // توجيه المالك alpha20: «في خطين يمين وشمال رفيعين جدا شكلهم
+                // وحش في شعاع الضوء وانا عايز الشعاع ده يبقى من جهه واحدة فقط
+                // هي جهة الثيم النهاري يعني اللون النهاري ينبعث في طرفه شعاع
+                // ضوئي» — الفاتح يسار الحدّ دائماً فالشعاع كله يسار الحدّ:
+                // ذروته عند حدّ الانقسام (طرف النهار) وانحدار غاوسي ناعم داخل
+                // النهاري حتى صفر حقيقي في هامش ميت قبل طرف الطبقة، والجهة
+                // المظلمة يمين الحدّ نظيفة تماماً. الخطّان كانا تكميم 8-بت في
+                // القطعات الحادة (تشخيص noor_glow_diagnose.py: +5 وحدات/بكسل)
+                // — المنحنى الغاوسي بلا قطعات حادة والقناع يُرسم بـ Paint
+                // أصلي isDither=true يحوّل أي تكميم متبقٍّ إلى ضجيج غير مرئي.
                 // الشدة ديناميكية = نسبة النهار على الشاشة بلا تفرّع.
                 if (dial.splitActive) {
                     val visibility = dial.beam.value
@@ -205,11 +207,11 @@ fun ThemeDialOverlay(
                     if (power > 0.004f) {
                         val edgeX = dial.maskX.value
                         val glowWidth = glowTotal
-                        val glowLeft = edgeX - glowFeather
+                        val glowLeft = edgeX - glowWidth
                         val gradH = if (size.height > 1f) size.height else 1f
                         drawIntoCanvas { canvas ->
                             canvas.saveLayer(
-                                Rect(glowLeft, 0f, glowLeft + glowWidth, size.height),
+                                Rect(glowLeft, 0f, edgeX, size.height),
                                 Paint(),
                             )
                             // الطيف الرأسي بألوان كثيرة بطول الشاشة — يُرسم
@@ -223,21 +225,27 @@ fun ThemeDialOverlay(
                                 topLeft = Offset(glowLeft, 0f),
                                 size = Size(glowWidth, size.height),
                             )
-                            // قناع الانسكاق الأفقي — يصعد ناعماً عبر حزام البلور
-                            // (صفر ← ذروة بعد الحدّ) ثم ينحدر حتى صفر حقيقي عند
-                            // 0.955 ويستمر صفراً حتى الطرف (هامش ميت كيموت أي
-                            // حرف مرئي للطبقة = موت الخط الأحمر نهائياً)
-                            drawRect(
-                                brush = Brush.horizontalGradient(
-                                    *ThemeDialMath.glowMaskStops(power)
-                                        .map { (stop, a) -> stop to Color.Black.copy(alpha = a) }
-                                        .toTypedArray(),
-                                    startX = glowLeft,
-                                    endX = glowLeft + glowWidth,
-                                ),
-                                topLeft = Offset(glowLeft, 0f),
-                                size = Size(glowWidth, size.height),
-                                blendMode = BlendMode.DstIn,
+                            // قناع غاوسي أحادي الجهة — صفر حقيقي في الهامش
+                            // الميت ثم صعود أُسّي ناعم حتى الذروة عند الحدّ
+                            // (طرف النهار). الرسم بـ Paint أصلي dithered:
+                            // تكميم الشفافية يصير ضجيجاً خفياً لا خطوطاً
+                            val stops = ThemeDialMath.glowMaskStops(power)
+                            val maskPaint = android.graphics.Paint().apply {
+                                isDither = true
+                                xfermode = android.graphics.PorterDuffXfermode(
+                                    android.graphics.PorterDuff.Mode.DST_IN,
+                                )
+                                shader = android.graphics.LinearGradient(
+                                    glowLeft, 0f, edgeX, 0f,
+                                    stops.map { (_, a) ->
+                                        ((a.coerceIn(0f, 1f) * 255f).toInt() shl 24)
+                                    }.toIntArray(),
+                                    stops.map { (t, _) -> t }.toFloatArray(),
+                                    android.graphics.Shader.TileMode.CLAMP,
+                                )
+                            }
+                            canvas.nativeCanvas.drawRect(
+                                glowLeft, 0f, edgeX, size.height, maskPaint,
                             )
                             canvas.restore()
                         }
