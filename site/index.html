@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نور المسلم — مؤذن ومسبحة وأذكار بالكوتلن الأصيل</title>
+<meta name="description" content="نور المسلم: مواقيت دقيقة، مسبحة بتسبيح ما بعد الصلاة بالترتيب السني، ومزلاج نهار وليل سائل — تطبيق كوتلن أصيل بلا إعلانات وبلا تتبّع. حمّل أحدث إصدار APK.">
+<meta property="og:title" content="نور المسلم — مؤذن ومسبحة وأذكار بالكوتلن الأصيل">
+<meta property="og:description" content="مواقيت دقيقة، مسبحة بالترتيب السني، وواجهة سائل حي — بلا إعلانات وبلا تتبّع.">
+<meta property="og:image" content="screens/home-day.png">
+<link rel="icon" type="image/png" href="icon.png">
+<style>
+/* ===== الخطوط ===== */
+@font-face { font-family:'Cairo'; src:url('fonts/Cairo.woff2') format('woff2'); font-weight:200 1000; font-display:swap; }
+@font-face { font-family:'Noto Naskh Arabic'; src:url('fonts/NotoNaskhArabic.woff2') format('woff2'); font-weight:400 700; font-display:swap; }
+
+/* ===== الأساس ===== */
+:root {
+  --night:#0C1512; --night2:#121E1A; --night3:#1C2C27; --night-line:#24332C;
+  --cream:#F6F2E9; --cream2:#FDFBF5; --cream3:#ECE6D6;
+  --emerald:#2E6B5E; --emerald-l:#82C9B0; --emerald-c:#BFE5D8;
+  --gold:#B8943F; --gold-l:#E2C67F; --gold-deep:#8F6E28;
+  --ink:#17251F; --ink2:#4A564F; --mist:#B9CEC4; --mist2:#A7B5AD;
+  --hero-top:#17332C; --hero-bot:#0B1A16;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { background:var(--night); color:#E4EAE5; font-family:'Cairo','Noto Naskh Arabic',sans-serif;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+.naskh { font-family:'Noto Naskh Arabic',serif; }
+a { color:inherit; text-decoration:none; }
+img { max-width:100%; height:auto; }
+.container { width:min(1120px, 92%); margin-inline:auto; }
+
+/* ===== الزخارف السائلة ===== */
+.blob { position:absolute; border-radius:50%; filter:blur(60px); pointer-events:none; }
+.noor-star-bg { position:absolute; inset:0; opacity:.05; pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cpath d='M70 40 C74 56 84 66 100 70 C84 74 74 84 70 100 C66 84 56 74 40 70 C56 66 66 56 70 40 Z' fill='%23E2C67F'/%3E%3C/svg%3E"); }
+
+/* ===== الهيدر ===== */
+header { position:sticky; top:0; z-index:100; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+  background:rgba(12,21,18,.78); border-bottom:1px solid rgba(226,198,127,.14); }
+.nav { display:flex; align-items:center; gap:14px; height:64px; }
+.brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:19px; }
+.brand img { width:38px; height:38px; border-radius:11px; box-shadow:0 4px 14px rgba(0,0,0,.4); }
+.brand b { color:var(--gold-l); }
+.nav-links { display:flex; gap:22px; margin-inline-start:auto; font-size:14.5px; font-weight:600; color:var(--mist); }
+.nav-links a:hover { color:var(--gold-l); }
+.nav-cta { display:flex; align-items:center; gap:10px; margin-inline-start:8px; }
+.ver-chip { font-size:12.5px; font-weight:700; color:var(--emerald-l); background:rgba(130,201,176,.1);
+  border:1px solid rgba(130,201,176,.25); padding:4px 11px; border-radius:50px; white-space:nowrap; }
+.btn-dl-sm { display:inline-flex; align-items:center; gap:7px; background:linear-gradient(180deg,#D9B665,#B8943F);
+  color:#221904; font-weight:800; font-size:14px; padding:8px 16px; border-radius:50px;
+  box-shadow:0 4px 16px rgba(184,148,63,.35); transition:.2s; }
+.btn-dl-sm:hover { transform:translateY(-1px); box-shadow:0 7px 22px rgba(184,148,63,.45); }
+@media (max-width:860px) { .nav-links { display:none; } }
+
+/* ===== الهيرو ===== */
+.hero { position:relative; padding:72px 0 60px; background:
+  radial-gradient(900px 480px at 85% -10%, rgba(46,107,94,.5), transparent 60%),
+  radial-gradient(700px 420px at 8% 110%, rgba(184,148,63,.16), transparent 60%),
+  linear-gradient(180deg, #0C1512 0%, #0B1A16 100%); overflow:hidden; }
+.hero .blob.b1 { width:340px; height:340px; background:rgba(130,201,176,.13); top:-80px; left:-60px; }
+.hero .blob.b2 { width:280px; height:280px; background:rgba(226,198,127,.09); bottom:-60px; right:30%; }
+.hero-grid { position:relative; display:grid; grid-template-columns:1.1fr .9fr; gap:40px; align-items:center; }
+.badge { display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--gold-l);
+  border:1px solid rgba(226,198,127,.35); background:rgba(226,198,127,.07); padding:6px 14px; border-radius:50px; }
+.badge .dot { width:7px; height:7px; border-radius:50%; background:var(--emerald-l); box-shadow:0 0 10px var(--emerald-l); }
+.hero h1 { font-size:clamp(42px, 6.4vw, 72px); font-weight:900; line-height:1.15; margin:18px 0 6px; color:#F2EDE0; }
+.hero h1 .light { background:linear-gradient(120deg, var(--gold-l), #F6E7BE 45%, var(--emerald-l));
+  -webkit-background-clip:text; background-clip:text; color:transparent; }
+.hero .dhikr-line { font-size:clamp(17px,2.2vw,21px); color:var(--emerald-l); font-weight:600; margin-bottom:14px; }
+.hero p.lead { font-size:16.5px; line-height:2; color:var(--mist); max-width:52ch; }
+.cta-row { display:flex; flex-wrap:wrap; gap:14px; margin-top:26px; align-items:center; }
+.btn-dl { display:inline-flex; align-items:center; gap:11px; background:linear-gradient(180deg,#E3C176,#B8943F);
+  color:#221904; font-weight:900; font-size:17px; padding:15px 30px; border-radius:60px;
+  box-shadow:0 10px 34px rgba(184,148,63,.4), inset 0 1px 0 rgba(255,255,255,.5); transition:.2s; }
+.btn-dl:hover { transform:translateY(-2px); box-shadow:0 14px 44px rgba(184,148,63,.55), inset 0 1px 0 rgba(255,255,255,.5); }
+.btn-dl svg { width:21px; height:21px; }
+.btn-ghost { display:inline-flex; align-items:center; gap:9px; border:1.5px solid rgba(185,206,196,.35);
+  color:var(--mist); font-weight:700; font-size:15px; padding:13px 24px; border-radius:60px; transition:.2s; }
+.btn-ghost:hover { border-color:var(--emerald-l); color:var(--emerald-l); background:rgba(130,201,176,.06); }
+.meta-line { display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:18px; font-size:13.5px; color:var(--mist2); font-weight:600; }
+.meta-line span { display:inline-flex; align-items:center; gap:6px; }
+.meta-line svg { width:15px; height:15px; color:var(--emerald-l); }
+.sadaqah-hero { margin-top:26px; font-size:14px; color:rgba(185,206,196,.65); }
+.sadaqah-hero b { color:var(--gold-l); font-weight:600; }
+.stats { display:flex; flex-wrap:wrap; gap:10px; margin-top:26px; }
+.stat { background:rgba(18,30,26,.7); border:1px solid rgba(130,201,176,.16); border-radius:16px;
+  padding:10px 18px; text-align:center; min-width:112px; }
+.stat b { display:block; font-size:21px; font-weight:900; color:var(--gold-l); }
+.stat span { font-size:12px; color:var(--mist2); font-weight:600; }
+
+/* ===== إطار الهاتف ===== */
+.phone-zone { position:relative; display:flex; justify-content:center; }
+.phone-zone .blob.pb { width:300px; height:300px; background:rgba(130,201,176,.22); top:12%; left:8%; filter:blur(70px); }
+.phone { position:relative; width:min(292px, 78vw); border-radius:44px; border:9px solid #1B241F;
+  background:#0A0F0C; box-shadow:0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(226,198,127,.18),
+  0 0 90px rgba(130,201,176,.14); overflow:hidden; transform:rotate(-2.2deg); }
+.phone img { display:block; width:100%; }
+.phone .cam { position:absolute; top:12px; left:50%; transform:translateX(-50%); width:12px; height:12px;
+  border-radius:50%; background:#05080a; box-shadow:0 0 0 2px #16211c, inset 0 0 3px #2c3f37; }
+.float-chip { position:absolute; background:rgba(18,30,26,.92); border:1px solid rgba(130,201,176,.3);
+  backdrop-filter:blur(8px); border-radius:14px; padding:9px 14px; font-size:12.5px; font-weight:700;
+  color:var(--emerald-l); box-shadow:0 12px 30px rgba(0,0,0,.45); animation:floaty 5s ease-in-out infinite; }
+.float-chip.gold { color:var(--gold-l); border-color:rgba(226,198,127,.3); animation-delay:-2.5s; }
+@keyframes floaty { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-11px); } }
+.fc1 { top:16%; left:-6%; }
+.fc2 { bottom:14%; right:-7%; }
+@media (max-width:860px) { .hero-grid { grid-template-columns:1fr; }
+  .phone-zone { margin-top:26px; } .fc1 { left:2%; } .fc2 { right:2%; } }
+
+/* ===== شريط الأذكار المتحرك ===== */
+.marquee { background:linear-gradient(180deg,#B8943F,#A17E32); color:#221904; overflow:hidden;
+  padding:13px 0; border-block:1px solid rgba(0,0,0,.15); }
+.marquee-track { display:flex; gap:0; width:max-content; animation:slide 30s linear infinite; }
+.marquee-track span { font-family:'Noto Naskh Arabic',serif; font-weight:700; font-size:17px; white-space:nowrap; padding:0 26px; }
+.marquee-track span i { font-style:normal; opacity:.45; padding-inline-start:52px; }
+@keyframes slide { from { transform:translateX(0); } to { transform:translateX(50%); } }
+
+/* ===== الأقسام ===== */
+section { position:relative; }
+.sec-pad { padding:84px 0; }
+.sec-head { text-align:center; max-width:640px; margin:0 auto 46px; }
+.kicker { display:inline-block; font-size:13px; font-weight:800; letter-spacing:.5px; color:var(--emerald);
+  background:rgba(46,107,94,.1); padding:5px 14px; border-radius:50px; margin-bottom:14px; }
+.dark .kicker { color:var(--emerald-l); background:rgba(130,201,176,.09); }
+.sec-head h2 { font-size:clamp(28px,4vw,40px); font-weight:900; line-height:1.3; }
+.sec-head p { margin-top:10px; font-size:15.5px; line-height:1.9; color:var(--ink2); }
+.dark .sec-head p { color:var(--mist2); }
+
+/* ===== اللقطات ===== */
+#shots { background:var(--cream); color:var(--ink); }
+.shots-strip { display:flex; gap:26px; overflow-x:auto; padding:10px 6% 26px; scroll-snap-type:x mandatory;
+  scrollbar-width:thin; scrollbar-color:var(--gold) transparent; }
+.shot { scroll-snap-align:center; flex:0 0 auto; text-align:center; }
+.shot .phone { transform:none; width:min(252px, 72vw); border-width:8px; border-radius:40px; margin:0 auto; }
+.shot .phone .cam { width:10px; height:10px; top:10px; }
+.shot figcaption { margin-top:16px; font-weight:800; font-size:15px; }
+.shot .cap-sub { font-size:12.5px; color:var(--ink2); font-weight:600; margin-top:2px; }
+.shots-nav { display:flex; justify-content:center; gap:12px; margin-top:4px; }
+.shots-nav button { width:46px; height:46px; border-radius:50%; border:1.5px solid rgba(46,107,94,.35);
+  background:var(--cream2); color:var(--emerald); font-size:20px; cursor:pointer; transition:.2s; }
+.shots-nav button:hover { background:var(--emerald); color:#fff; }
+
+/* ===== المميزات ===== */
+#features { background:linear-gradient(180deg,#0B1A16,#0C1512 40%); }
+.feat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+.feat { position:relative; background:rgba(18,30,26,.75); border:1px solid rgba(130,201,176,.13);
+  border-radius:22px; padding:26px 22px; transition:.25s; overflow:hidden; }
+.feat:hover { transform:translateY(-4px); border-color:rgba(226,198,127,.4); background:rgba(23,38,32,.9); }
+.feat .f-ico { width:52px; height:52px; border-radius:15px; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(160deg, rgba(130,201,176,.16), rgba(184,148,63,.12));
+  border:1px solid rgba(130,201,176,.22); margin-bottom:16px; }
+.feat .f-ico svg { width:27px; height:27px; color:var(--gold-l); }
+.feat h3 { font-size:17.5px; font-weight:800; color:#F2EDE0; margin-bottom:8px; }
+.feat p { font-size:14px; line-height:1.95; color:var(--mist2); }
+@media (max-width:960px) { .feat-grid { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:600px) { .feat-grid { grid-template-columns:1fr; } }
+.feat:last-child { grid-column:1 / -1; max-width:520px; justify-self:center; }
+
+/* ===== أبرز قسم: المسبحة ===== */
+#misbaha { background:var(--cream); color:var(--ink); overflow:hidden; }
+#misbaha .blob.mb1 { width:420px; height:420px; background:rgba(46,107,94,.1); top:-120px; left:-140px; filter:blur(80px); }
+.mis-grid { position:relative; display:grid; grid-template-columns:.92fr 1.08fr; gap:44px; align-items:center; }
+.mis-phones { display:flex; gap:18px; justify-content:center; }
+.mis-phones .phone { width:min(236px, 44vw); border-width:7px; border-radius:36px; }
+.mis-phones .phone:first-child { transform:rotate(2.4deg) translateY(10px); }
+.mis-phones .phone:last-child { transform:rotate(-2.4deg); }
+.seq { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:22px 0 26px; }
+.seq .step { background:var(--cream2); border:1.5px solid var(--emerald-c); border-radius:14px; padding:10px 14px; text-align:center; }
+.seq .step.active { background:var(--emerald-c); border-color:var(--emerald); }
+.seq .step b { display:block; font-family:'Noto Naskh Arabic',serif; font-size:15.5px; font-weight:700; color:var(--ink); }
+.seq .step span { font-size:11.5px; font-weight:700; color:var(--emerald); }
+.seq .arrow { color:var(--gold); font-size:18px; font-weight:900; }
+.mis-list { list-style:none; display:grid; gap:13px; }
+.mis-list li { display:flex; gap:12px; font-size:14.5px; line-height:1.85; color:var(--ink2); }
+.mis-list li b { color:var(--ink); }
+.mis-list .tick { flex:0 0 auto; width:24px; height:24px; border-radius:50%; background:var(--emerald-c);
+  color:var(--emerald); display:flex; align-items:center; justify-content:center; margin-top:3px; }
+.mis-list .tick svg { width:13px; height:13px; }
+@media (max-width:960px) { .mis-grid { grid-template-columns:1fr; } }
+
+/* ===== التحميل ===== */
+#download { background:radial-gradient(800px 400px at 50% 0%, rgba(46,107,94,.4), transparent 65%), var(--night); }
+.dl-card { position:relative; background:linear-gradient(180deg, rgba(23,38,32,.9), rgba(12,21,18,.9));
+  border:1px solid rgba(226,198,127,.25); border-radius:32px; padding:52px 40px; text-align:center; overflow:hidden; }
+.dl-card .blob.db1 { width:380px; height:380px; background:rgba(226,198,127,.1); top:-140px; right:-90px; }
+.dl-card .blob.db2 { width:320px; height:320px; background:rgba(130,201,176,.12); bottom:-120px; left:-70px; }
+.dl-card h2 { font-size:clamp(26px,3.6vw,36px); font-weight:900; color:#F2EDE0; position:relative; }
+.dl-card .sub { color:var(--mist2); margin-top:10px; font-size:15px; position:relative; }
+.dl-big { position:relative; display:inline-flex; align-items:center; gap:12px; margin-top:28px;
+  background:linear-gradient(180deg,#E3C176,#B8943F); color:#221904; font-weight:900; font-size:19px;
+  padding:18px 44px; border-radius:70px; box-shadow:0 14px 44px rgba(184,148,63,.45), inset 0 1px 0 rgba(255,255,255,.5); transition:.2s; }
+.dl-big:hover { transform:translateY(-2px); box-shadow:0 18px 56px rgba(184,148,63,.6), inset 0 1px 0 rgba(255,255,255,.5); }
+.dl-big svg { width:23px; height:23px; }
+.dl-meta { position:relative; display:flex; flex-wrap:wrap; justify-content:center; gap:8px 20px; margin-top:18px;
+  font-size:13.5px; font-weight:700; color:var(--mist2); }
+.dl-meta b { color:var(--gold-l); }
+.steps { position:relative; display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:40px; text-align:start; }
+.step-card { background:rgba(12,21,18,.6); border:1px solid rgba(130,201,176,.14); border-radius:18px; padding:20px; }
+.step-card .num { width:34px; height:34px; border-radius:50%; background:var(--emerald-c); color:#0E2F27;
+  font-weight:900; display:flex; align-items:center; justify-content:center; font-size:16px; margin-bottom:12px; }
+.step-card h4 { font-size:15.5px; font-weight:800; color:#F2EDE0; margin-bottom:6px; }
+.step-card p { font-size:13px; line-height:1.9; color:var(--mist2); }
+.alpha-note { position:relative; margin-top:26px; font-size:13px; color:var(--mist2); background:rgba(184,148,63,.08);
+  border:1px dashed rgba(226,198,127,.35); border-radius:14px; padding:13px 18px; line-height:1.9; }
+.alpha-note b { color:var(--gold-l); }
+.dl-links { position:relative; margin-top:22px; display:flex; justify-content:center; gap:22px; font-size:13.5px; font-weight:700; }
+.dl-links a { color:var(--emerald-l); border-bottom:1px dashed rgba(130,201,176,.4); padding-bottom:2px; }
+.dl-links a:hover { color:var(--gold-l); }
+@media (max-width:760px) { .steps { grid-template-columns:1fr; } .dl-card { padding:40px 22px; } }
+
+/* ===== الفوتر ===== */
+footer { background:#080F0C; border-top:1px solid rgba(226,198,127,.12); padding:44px 0 34px; }
+.foot { display:flex; flex-wrap:wrap; gap:24px; align-items:center; justify-content:space-between; }
+.foot-brand { display:flex; align-items:center; gap:12px; }
+.foot-brand img { width:44px; height:44px; border-radius:12px; }
+.foot-brand b { font-size:17px; color:#F2EDE0; display:block; }
+.foot-brand span { font-size:12.5px; color:var(--mist2); }
+.foot-links { display:flex; flex-wrap:wrap; gap:18px; font-size:13.5px; font-weight:700; color:var(--mist2); }
+.foot-links a:hover { color:var(--gold-l); }
+.sadaqah-foot { margin-top:26px; padding-top:22px; border-top:1px solid rgba(130,201,176,.1);
+  text-align:center; font-family:'Noto Naskh Arabic',serif; font-size:15px; color:rgba(185,206,196,.75); }
+.sadaqah-foot b { color:var(--gold-l); font-weight:700; }
+.made-with { text-align:center; margin-top:10px; font-size:12px; color:rgba(167,181,173,.55); font-weight:600; }
+
+</style>
+</head>
+<body>
+
+<!-- ================= الهيدر ================= -->
+<header>
+  <div class="container nav">
+    <a class="brand" href="#"><img src="icon.png" alt="أيقونة نور المسلم"><span>نور <b>المسلم</b></span></a>
+    <nav class="nav-links" aria-label="روابط الصفحة">
+      <a href="#shots">لقطات الشاشة</a>
+      <a href="#features">المميزات</a>
+      <a href="#misbaha">المسبحة</a>
+      <a href="#download">التحميل</a>
+      <a href="https://github.com/Sawan4Art/noor" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-cta">
+      <span class="ver-chip js-ver">v0.5.0-alpha26</span>
+      <a class="btn-dl-sm js-dl" href="https://github.com/Sawan4Art/noor/releases/download/v0.5.0-alpha26/noor-almuslim-v0.5.0-alpha26.apk">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M11.1,3.6 L12.9,3.6 L12.9,12 L11.1,12 Z M6.9,11.2 L17.1,11.2 L12,16.9 Z M4.2,15.4 L5.9,15.4 L5.9,18.3 L18.1,18.3 L18.1,15.4 L19.8,15.4 L19.8,20 L4.2,20 Z"/></svg>
+        تحميل APK
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- ================= الهيرو ================= -->
+<section class="hero">
+  <div class="blob b1"></div><div class="blob b2"></div>
+  <div class="noor-star-bg"></div>
+  <div class="container hero-grid">
+    <div>
+      <span class="badge"><span class="dot"></span> نسخة ألفا تجريبية — إعادة البناء الكوتلنية</span>
+      <h1>نور <span class="light">المسلم</span></h1>
+      <div class="dhikr-line naskh">﴿فَاذْكُرُونِي أَذْكُرْكُمْ﴾ — البقرة ١٥٢</div>
+      <p class="lead">مؤذن بالمواقيت الدقيقة، ومسبحة بتسبيح ما بعد الصلاة بالترتيب السني، وتذكير يتجدّد مع كل قلبٍ للثيم —
+      كل ذلك بواجهة سائلٍ حيّ مبنيّة <b style="color:var(--emerald-l)">Kotlin وJetpack Compose</b> من الصفر، بلا إعلانات وبلا تتبّع.</p>
+      <div class="cta-row">
+        <a class="btn-dl js-dl" href="https://github.com/Sawan4Art/noor/releases/download/v0.5.0-alpha26/noor-almuslim-v0.5.0-alpha26.apk">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1,3.6 L12.9,3.6 L12.9,12 L11.1,12 Z M6.9,11.2 L17.1,11.2 L12,16.9 Z M4.2,15.4 L5.9,15.4 L5.9,18.3 L18.1,18.3 L18.1,15.4 L19.8,15.4 L19.8,20 L4.2,20 Z"/></svg>
+          حمّل أحدث إصدار — APK
+        </a>
+        <a class="btn-ghost" href="https://github.com/Sawan4Art/noor" target="_blank" rel="noopener">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.15c-3.2.69-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.75 2.69 1.25 3.34.95.1-.74.4-1.25.72-1.53-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .3.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+          المصدر على GitHub
+        </a>
+      </div>
+      <div class="meta-line">
+        <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg> أندرويد 7.0 فأحدث</span>
+        <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg> <span class="js-size">7.9 ميجابايت</span> فقط</span>
+        <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg> مجاني بلا إعلانات</span>
+        <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg> تحديث من داخل التطبيق</span>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>١٥٣</b><span>اختبار وحدة آلي</span></div>
+        <div class="stat"><b>١٠٠٪</b><span>Kotlin بلا ويب</span></div>
+        <div class="stat"><b>صفر</b><span>إعلانات وتتبّع</span></div>
+        <div class="stat"><b>١٠</b><span>ألوان للهوية</span></div>
+      </div>
+      <p class="sadaqah-hero">هذا التطبيق <b>صدقة جارية</b> على روح المرحوم بأذن الله — والد المالك، لا تنسوه من صالح الدعاء</p>
+    </div>
+    <div class="phone-zone">
+      <div class="blob pb"></div>
+      <div class="phone">
+        <img src="screens/home-day.png" alt="الشاشة الرئيسية لتطبيق نور المسلم — مواقيت الصلاة في الوضع النهاري" width="1080" height="2400">
+        <span class="cam"></span>
+      </div>
+      <div class="float-chip fc1">✦ مزلاج نهار/ليل سائل</div>
+      <div class="float-chip gold fc2">✦ مسبحة بالترتيب السني</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= شريط الأذكار ================= -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span>سُبْحَانَ اللَّهِ<i>✦</i></span><span>الْحَمْدُ لِلَّهِ<i>✦</i></span><span>اللَّهُ أَكْبَرُ<i>✦</i></span><span>لَا إِلَهَ إِلَّا اللَّهُ<i>✦</i></span><span>أَسْتَغْفِرُ اللَّهَ<i>✦</i></span><span>لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ<i>✦</i></span>
+    <span>سُبْحَانَ اللَّهِ<i>✦</i></span><span>الْحَمْدُ لِلَّهِ<i>✦</i></span><span>اللَّهُ أَكْبَرُ<i>✦</i></span><span>لَا إِلَهَ إِلَّا اللَّهُ<i>✦</i></span><span>أَسْتَغْفِرُ اللَّهَ<i>✦</i></span><span>لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ<i>✦</i></span>
+  </div>
+</div>
+
+<!-- ================= لقطات الشاشة ================= -->
+<section id="shots" class="sec-pad">
+  <div class="sec-head">
+    <span class="kicker">من التطبيق الحقيقي</span>
+    <h2>لقطات شاشة من نسخة v0.5.0-alpha26</h2>
+    <p>واجهة سائلة حيّة بلغتين لونيتين — اسحب شريط اللقطات لاستكشاف الشاشات.</p>
+  </div>
+  <div class="shots-strip" id="shotsStrip">
+    <figure class="shot">
+      <div class="phone"><img loading="lazy" src="screens/home-day.png" alt="الرئيسية بالوضع النهاري" width="1080" height="2400"><span class="cam"></span></div>
+      <figcaption>الرئيسية — نهاريًا</figcaption>
+      <div class="cap-sub">الصلاة القادمة والعدّاد والحلقة الذهبية</div>
+    </figure>
+    <figure class="shot">
+      <div class="phone"><img loading="lazy" src="screens/home-night.png" alt="الرئيسية بالوضع الليلي" width="1080" height="2400"><span class="cam"></span></div>
+      <figcaption>الرئيسية — ليليًا</figcaption>
+      <div class="cap-sub">أخضر ليلي عميق وذهبي دافئ</div>
+    </figure>
+    <figure class="shot">
+      <div class="phone"><img loading="lazy" src="screens/misbaha-day.png" alt="المسبحة بالوضع النهاري" width="1080" height="2400"><span class="cam"></span></div>
+      <figcaption>المسبحة — عدّ تنازلي</figcaption>
+      <div class="cap-sub">تسبيح ما بعد الصلاة بالترتيب</div>
+    </figure>
+    <figure class="shot">
+      <div class="phone"><img loading="lazy" src="screens/misbaha-night.png" alt="المسبحة أثناء التناثر بالوضع الليلي" width="1080" height="2400"><span class="cam"></span></div>
+      <figcaption>المسبحة — تناثر حي</figcaption>
+      <div class="cap-sub">كل ضغطة ترشّ قطرات بسرعتك</div>
+    </figure>
+    <figure class="shot">
+      <div class="phone"><img loading="lazy" src="screens/settings-day.png" alt="شاشة الإعدادات" width="1080" height="2400"><span class="cam"></span></div>
+      <figcaption>الإعدادات</figcaption>
+      <div class="cap-sub">الموقع وطريقة الحساب وعشرة ألوان</div>
+    </figure>
+  </div>
+  <div class="shots-nav">
+    <button id="shotsPrev" aria-label="السابق">‹</button>
+    <button id="shotsNext" aria-label="التالي">›</button>
+  </div>
+</section>
+
+<!-- ================= المميزات ================= -->
+<section id="features" class="sec-pad dark">
+  <div class="container">
+    <div class="sec-head">
+      <span class="kicker">لماذا نور المسلم؟</span>
+      <h2>مميزات بُنيت على أصلٍ صلب</h2>
+      <p>كل ميزة محسوبة ومختبَرة آلياً — لا زخرفة بلا وظيفة، ولا وظيفة بلا اختبار.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat">
+        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12,2.6 a9.4,9.4 0 1,0 0,18.8 a9.4,9.4 0 1,0 0,-18.8 M12,4.6 a7.4,7.4 0 1,1 0,14.8 a7.4,7.4 0 1,1 0,-14.8"/><path d="M11.1,6.9 L12.9,6.9 L12.9,12.9 L11.1,12.9 Z M11.1,11.1 L16.4,11.1 L16.4,12.9 L11.1,12.9 Z"/></svg></div>
+        <h3>مواقيت دقيقة «ذهبية الاختبار»</h3>
+        <p>محرك فلكي مطابق للمرجع باختبار ذهبي، بأربع طرق حساب (الهيئة المصرية، أم القرى، رابطة العالم الإسلامي، ISNA) مع خيار المذهب الحنفي للعصر.</p>
+      </div>
+      <div class="feat">
+        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.7,14.18 C18.6,17.77 15.11,20.09 11.36,19.71 C7.62,19.33 4.66,16.37 4.29,12.63 C3.92,8.89 6.24,5.4 9.84,4.3 C8.16,6.07 7.53,8.6 8.18,10.96 C8.83,13.32 10.68,15.16 13.04,15.82 C15.4,16.48 17.93,15.85 19.71,14.17 Z"/></svg></div>
+        <h3>مزلاج النهار والليل السائل</h3>
+        <p>اسحب الأيقونة فيمُزج الوضعان بسلاسة بمنحنى مزج ناعم — والجمل التذكيرية فوق الشبكة وأسفلها تتبدّل مع كل قلبٍ للثيم.</p>
+      </div>
+      <div class="feat">
+        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,2.55 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M16.31,4.34 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M18.1,8.65 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M16.31,12.96 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M7.69,12.96 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M5.9,8.65 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M7.69,4.34 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M10.65,18.4 C10.65,16.7 11.2,15.7 12,15.2 C12.8,15.7 13.35,16.7 13.35,18.4 C13.35,20.1 12.8,21.2 12,21.7 C11.2,21.2 10.65,20.1 10.65,18.4 Z"/></svg></div>
+        <h3>مسبحة بالترتيب السني</h3>
+        <p>تسبيح ما بعد الصلاة كما عُلّم: سبحان الله ٣٣، الحمد لله ٣٣، الله أكبر ٣٣، ثم تكميلة المائة — بعدّاد تنازلي وانتقال تلقائي واهتزاز عند الاكتمال.</p>
+      </div>
+      <div class="feat">
+        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,2.8 C13.2,6.4 15.2,8.4 18.8,9.6 C15.2,10.8 13.2,12.8 12,16.4 C10.8,12.8 8.8,10.8 5.2,9.6 C8.8,8.4 10.8,6.4 12,2.8 Z M18.6,15.4 C19.2,17.2 20.2,18.2 22,18.8 C20.2,19.4 19.2,20.4 18.6,22.2 C18,20.4 17,19.4 15.2,18.8 C17,18.2 18,17.2 18.6,15.4 Z"/></svg></div>
+        <h3>سائل يحيي عدّك</h3>
+        <p>كل ضغطة تضخّ موجة وترشّ قطرات عشوائية من النقطة السائلة — وكلما زادت سرعتك زاد التناثر، واكتمال القسم رشّة احتفال ونبضة.</p>
+      </div>
+      <div class="feat">
+        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,2 L20,5 V11 C20,16.5 16.7,20.6 12,22 C7.3,20.6 4,16.5 4,11 V5 Z M10.6,15.2 L16.6,9.2 L15.2,7.8 L10.6,12.4 L8.8,10.6 L7.4,12 Z"/></svg></div>
+        <h3>حارس التسرّع</h3>
+        <p>أسرعتُ من نطق الذكر؟ ينبّهك بلطف «لا تسرع في التسبيح» ويوقف العدّ ثلاث ثوانٍ — وعتبته مدروسة كي لا تُزعج فتيرة العجلة المعتادة.</p>
+      </div>
+      <div class="feat">
+        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,2 C8.13,2 5,5.13 5,9 C5,14.25 12,22 12,22 S19,14.25 19,9 C19,5.13 15.87,2 12,2 Z M12,11.5 C10.34,11.5 9,10.16 9,8.5 S10.34,5.5 12,5.5 S15,6.84 15,8.5 S13.66,11.5 12,11.5 Z"/></svg></div>
+        <h3>موقعك باسم قريتك</h3>
+        <p>جيوكودينج عكسي مدمج من ثلاثة مصادر يعرض القرية والمركز والمحافظة — «ابو زعبل البلد، الخانكة، القليوبية» لا «مصر» فقط.</p>
+      </div>
+      <div class="feat">
+        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7,3 H17 V21 L12,17.5 L7,21 Z M9,5 V17.2 L12,15.1 L15,17.2 V5 Z"/></svg></div>
+        <h3>تاريخان في بطاقة واحدة</h3>
+        <p>الهجري بتقويم أم القرى والميلادي بالعربية جنبًا إلى جنب تحت العدّاد — وأول رمضان لا يفوتك.</p>
+      </div>
+      <div class="feat">
+        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1,3.6 L12.9,3.6 L12.9,12 L11.1,12 Z M6.9,11.2 L17.1,11.2 L12,16.9 Z M4.2,15.4 L5.9,15.4 L5.9,18.3 L18.1,18.3 L18.1,15.4 L19.8,15.4 L19.8,20 L4.2,20 Z"/></svg></div>
+        <h3>تحديث من داخل التطبيق</h3>
+        <p>فحص تلقائي عند الفتح، وإشعار بنسخة جديدة، وتنزيل ثم تثبيت من داخل التطبيق بلا متجر ولا متصفح — ورابط مباشر دائماً هنا.</p>
+      </div>
+      <div class="feat">
+        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,3 C13.4,5.7 15.3,7.6 18,9 C15.3,10.4 13.4,12.3 12,15 C10.6,12.3 8.7,10.4 6,9 C8.7,7.6 10.6,5.7 12,3 Z M5.5,14 C6.3,15.5 7.4,16.6 9,17.4 C7.4,18.2 6.3,19.3 5.5,20.8 C4.7,19.3 3.6,18.2 2,17.4 C3.6,16.6 4.7,15.5 5.5,14 Z M18.5,14 C19.3,15.5 20.4,16.6 22,17.4 C20.4,18.2 19.3,19.3 18.5,20.8 C17.7,19.3 16.6,18.2 15,17.4 C16.6,16.6 17.7,15.5 18.5,14 Z"/></svg></div>
+        <h3>عشرة ألوان للهوية</h3>
+        <p>زمردي، نيلي، سماوي، ملكي، بنفسجي، واردي، عنابي، كهرماني، نحاسي، زيتوني — اختر لونك فيُغذّي الوضعين كلّهما.</p>
+      </div>
+      <div class="feat">
+        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,2 C13.1,2 14,2.9 14,4 V10 C14,11.1 13.1,12 12,12 C10.9,12 10,11.1 10,10 V4 C10,2.9 10.9,2 12,2 Z M18,10 C18,13.3 15.3,16 12,16 C8.7,16 6,13.3 6,10 H8 C8,12.2 9.8,14 12,14 C14.2,14 16,12.2 16,10 Z M11,17.5 H13 V21 H11 Z"/></svg></div>
+        <h3>خصوصية مطلقة</h3>
+        <p>بلا حسابات ولا تتبّع ولا إعلانات نهائياً، والمحرك الفلكي يعمل كاملاً بلا إنترنت — بياناتك لا تغادر جهازك.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= المسبحة — التركيز ================= -->
+<section id="misbaha" class="sec-pad">
+  <div class="blob mb1"></div>
+  <div class="container mis-grid">
+    <div class="mis-phones">
+      <div class="phone"><img loading="lazy" src="screens/misbaha-day.png" alt="المسبحة بالوضع النهاري" width="1080" height="2400"><span class="cam"></span></div>
+      <div class="phone"><img loading="lazy" src="screens/misbaha-night.png" alt="المسبحة بالوضع الليلي مع التناثر" width="1080" height="2400"><span class="cam"></span></div>
+    </div>
+    <div>
+      <span class="kicker">جديدة في هذه النسخة</span>
+      <h2 style="font-size:clamp(26px,3.4vw,36px); font-weight:900;">المسبحة: تسبيح ما بعد الصلاة<br>بالترتيب الذي علّمه النبي ﷺ</h2>
+      <div class="seq">
+        <div class="step active"><b>سُبْحَانَ اللَّهِ</b><span>٣٣</span></div>
+        <span class="arrow">←</span>
+        <div class="step"><b>الْحَمْدُ لِلَّهِ</b><span>٣٣</span></div>
+        <span class="arrow">←</span>
+        <div class="step"><b>اللَّهُ أَكْبَرُ</b><span>٣٣</span></div>
+        <span class="arrow">←</span>
+        <div class="step"><b>تكميلة المائة</b><span>× ١</span></div>
+      </div>
+      <ul class="mis-list">
+        <li><span class="tick"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg></span><span><b>عدّاد تنازلي</b> داخل نقطة سائلة حيّة: يبدأ من العدد المسنون وينحسر تسبيحةً تسبيحة حتى الصفر.</span></li>
+        <li><span class="tick"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg></span><span><b>انتقال تلقائي بالترتيب:</b> إتمام القسم اهتزازٌ وانتقال لما بعده، وآخر الأقسام يُكمل المائة ويرجع لأول الترتيب.</span></li>
+        <li><span class="tick"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg></span><span><b>مؤشر الأقسام الأربعة</b> أسفل النقطة يُظهر موضعك دائماً — والمكتمل بعلامة ✓.</span></li>
+        <li><span class="tick"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg></span><span><b>سائل يتفاعل مع إصبعك:</b> كل ضغطة تناثر، والسرعة زادٌ في التناثر — والعجلة الزائدة تُلطف بلطف.</span></li>
+        <li><span class="tick"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg></span><span><b>عدّك محفوظ تلقائياً</b> — أغلق التطبيق في أي لحظة وارجع إلى حيث توقفت.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= التحميل ================= -->
+<section id="download" class="sec-pad dark">
+  <div class="container">
+    <div class="dl-card">
+      <div class="blob db1"></div><div class="blob db2"></div>
+      <h2>حمّل نور المسلم الآن</h2>
+      <p class="sub">أحدث إصدار مباشرةً من المستودع — بلا متاجر ولا وسيط.</p>
+      <a class="dl-big js-dl" href="https://github.com/Sawan4Art/noor/releases/download/v0.5.0-alpha26/noor-almuslim-v0.5.0-alpha26.apk">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1,3.6 L12.9,3.6 L12.9,12 L11.1,12 Z M6.9,11.2 L17.1,11.2 L12,16.9 Z M4.2,15.4 L5.9,15.4 L5.9,18.3 L18.1,18.3 L18.1,15.4 L19.8,15.4 L19.8,20 L4.2,20 Z"/></svg>
+        تحميل APK — <span class="js-ver">v0.5.0-alpha26</span>
+      </a>
+      <div class="dl-meta">
+        <span>الإصدار: <b class="js-ver">v0.5.0-alpha26</b></span>
+        <span>الحجم: <b class="js-size">7.9 ميجابايت</b></span>
+        <span>يتطلب: <b>أندرويد 7.0 فأحدث</b></span>
+        <span>المعرّف: <b>com.sawan4art.noor.alpha</b></span>
+      </div>
+      <div class="steps">
+        <div class="step-card">
+          <div class="num">١</div>
+          <h4>حمّل ملف الـ APK</h4>
+          <p>اضغط زر التحميل أعلاه — ستجد الملف في مجلد «التنزيلات».</p>
+        </div>
+        <div class="step-card">
+          <div class="num">٢</div>
+          <h4>اسمح بالتثبيت</h4>
+          <p>عند أول تثبيت سيطلب النظام إذن «التثبيت من مصادر غير معروفة» — إذن خاص بهذا التطبيق وحده تمنحه مرة واحدة.</p>
+        </div>
+        <div class="step-card">
+          <div class="num">٣</div>
+          <h4>ثبّت وافتح</h4>
+          <p>ثبّت التطبيق وافتحه — وتابع التحديثات الجديدة من داخله مباشرةً بلا متجر.</p>
+        </div>
+      </div>
+      <p class="alpha-note">ملاحظة: هذه <b>نسخة ألفا تجريبية</b> بمعرّف مستقل (<b>.alpha</b>) — تُثبَّت جنب أي نسخة مستقرة لديك دون استبدالها، وستصلك التحديثات من داخلها.</p>
+      <div class="dl-links">
+        <a href="https://github.com/Sawan4Art/noor/releases" target="_blank" rel="noopener">كل الإصدارات السابقة</a>
+        <a href="https://github.com/Sawan4Art/noor/issues" target="_blank" rel="noopener">الإبلاغ عن مشكلة</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= الفوتر ================= -->
+<footer>
+  <div class="container">
+    <div class="foot">
+      <div class="foot-brand">
+        <img src="icon.png" alt="أيقونة نور المسلم">
+        <div><b>نور المسلم</b><span>مؤذن، مسبحة، أذكار — Kotlin أصيل</span></div>
+      </div>
+      <nav class="foot-links" aria-label="روابط الفوتر">
+        <a href="https://github.com/Sawan4Art/noor" target="_blank" rel="noopener">المستودع</a>
+        <a href="https://github.com/Sawan4Art/noor/releases" target="_blank" rel="noopener">الإصدارات</a>
+        <a href="https://github.com/Sawan4Art/noor/issues" target="_blank" rel="noopener">المشكلات</a>
+        <a href="#download">التحميل</a>
+      </nav>
+    </div>
+    <p class="sadaqah-foot">صدقة جارية لي ولأبي وأمي.. <b>نسألكم صالح الدعاء</b></p>
+    <p class="made-with">صُنع بـ Kotlin وJetpack Compose — بلا WebView، بلا إعلانات، بلا تتبّع</p>
+  </div>
+</footer>
+
+<script>
+// أحدث إصدار من GitHub API — يحدّث الأزرار والشارات تلقائياً مع كل إصدار جديد
+(async function () {
+  try {
+    var res = await fetch('https://api.github.com/repos/Sawan4Art/noor/releases/latest');
+    if (!res.ok) return;
+    var rel = await res.json();
+    var asset = (rel.assets || []).find(function (a) { return a.name.endsWith('.apk'); });
+    if (rel.tag_name) {
+      document.querySelectorAll('.js-ver').forEach(function (e) { e.textContent = rel.tag_name; });
+    }
+    if (asset) {
+      document.querySelectorAll('.js-dl').forEach(function (a) { a.href = asset.browser_download_url; });
+      var mb = (asset.size / 1e6).toFixed(1);
+      document.querySelectorAll('.js-size').forEach(function (e) { e.textContent = mb + ' ميجابايت'; });
+    }
+  } catch (e) { /* الشبكة مقطوعة — تُستخدم القيم الافتراضية */ }
+})();
+
+// شريط اللقطات
+(function () {
+  var strip = document.getElementById('shotsStrip');
+  if (!strip) return;
+  var step = function () { return Math.min(560, strip.clientWidth * 0.8); };
+  document.getElementById('shotsNext').addEventListener('click', function () {
+    strip.scrollBy({ left: -step(), behavior: 'smooth' });
+  });
+  document.getElementById('shotsPrev').addEventListener('click', function () {
+    strip.scrollBy({ left: step(), behavior: 'smooth' });
+  });
+})();
+
+</script>
+</body>
+</html>
