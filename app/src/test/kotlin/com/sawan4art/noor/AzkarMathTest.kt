@@ -70,10 +70,11 @@ class AzkarMathTest {
     @Test
     fun `تعليم ذكر غائب يضيفه وإلغاؤه ينزعه دون مساس بغيره`() {
         val done = setOf("a", "b")
+        // البطاقة تُعلَّم بالضغط وتُلغى بضغطة ثانية — تبديلٌ لا خزن
         assertEquals(setOf("a", "b", "c"), AzkarMath.toggle(done, "c"))
         assertEquals(setOf("b"), AzkarMath.toggle(done, "a"))
-        // الإلغاء لغير الموجود لا يضيف ولا يكسر
-        assertEquals(setOf("a", "b"), AzkarMath.toggle(done, "x"))
+        // والدوال تامة: المدخل نفسه لا يتغير — العائد مجموعة جديدة
+        assertEquals(setOf("a", "b"), done)
     }
 
     // ===== عقد تقدم المجموعات =====
