@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>نور المسلم — مؤذن ومسبحة وأذكار</title>
-<meta name="description" content="نور المسلم: مواقيت صلاة دقيقة، مسبحة بتسبيح ما بعد الصلاة بالترتيب السني، نهار وليل بلمسة واحدة — مجاني بلا إعلانات وبلا تتبّع. حمّل أحدث إصدار APK.">
+<meta name="description" content="نور المسلم: مواقيت صلاة دقيقة، مسبحة بتسبيح ما بعد الصلاة بالترتيب السني، نهار وليل بلمسة واحدة. حمّل أحدث إصدار APK.">
 <meta property="og:title" content="نور المسلم — مؤذن ومسبحة وأذكار">
-<meta property="og:description" content="مواقيت دقيقة، مسبحة بالترتيب السني، نهار وليل بلمسة واحدة — بلا إعلانات وبلا تتبّع.">
+<meta property="og:description" content="مواقيت دقيقة، مسبحة بالترتيب السني، نهار وليل بلمسة واحدة.">
 <meta property="og:image" content="screens/home-day.png">
 <link rel="icon" type="image/png" href="icon.png">
 <style>
@@ -46,7 +46,7 @@ header { position:sticky; top:0; z-index:100; backdrop-filter:blur(16px); -webki
 .brand b { color:var(--gold-l); }
 .nav-links { display:flex; gap:22px; margin-inline-start:auto; font-size:14.5px; font-weight:600; color:var(--mist); }
 .nav-links a:hover { color:var(--gold-l); }
-.nav-cta { display:flex; align-items:center; gap:10px; margin-inline-start:8px; }
+.nav-cta { display:flex; align-items:center; gap:10px; margin-inline-start:auto; }
 .ver-chip { font-size:12.5px; font-weight:700; color:var(--emerald-l); background:rgba(130,201,176,.1);
   border:1px solid rgba(130,201,176,.25); padding:4px 11px; border-radius:50px; white-space:nowrap; }
 .btn-dl-sm { display:inline-flex; align-items:center; gap:7px; background:linear-gradient(180deg,#D9B665,#B8943F);
@@ -234,19 +234,10 @@ section { position:relative; }
 .contact-mail:hover { color:var(--emerald-l); }
 @media (max-width:760px) { .contact-card { padding:44px 22px 38px; } }
 
-/* ===== الفوتر ===== */
-footer { background:#080F0C; border-top:1px solid rgba(226,198,127,.12); padding:44px 0 34px; }
-.foot { display:flex; flex-wrap:wrap; gap:24px; align-items:center; justify-content:space-between; }
-.foot-brand { display:flex; align-items:center; gap:12px; }
-.foot-brand img { width:44px; height:44px; border-radius:12px; }
-.foot-brand b { font-size:17px; color:#F2EDE0; display:block; }
-.foot-brand span { font-size:12.5px; color:var(--mist2); }
-.foot-links { display:flex; flex-wrap:wrap; gap:18px; font-size:13.5px; font-weight:700; color:var(--mist2); }
-.foot-links a:hover { color:var(--gold-l); }
-.sadaqah-foot { margin-top:26px; padding-top:22px; border-top:1px solid rgba(130,201,176,.1);
-  text-align:center; font-family:'Noto Naskh Arabic',serif; font-size:15px; color:rgba(185,206,196,.75); }
-.sadaqah-foot b { color:var(--gold-l); font-weight:700; }
-.made-with { text-align:center; margin-top:10px; font-size:12px; color:rgba(167,181,173,.55); font-weight:600; }
+/* ===== سطر الصدقة الختامي ===== */
+.end-bar { background:#080F0C; border-top:1px solid rgba(226,198,127,.12); padding:26px 16px 30px;
+  text-align:center; font-family:'Noto Naskh Arabic',serif; font-size:15.5px; color:rgba(185,206,196,.8); }
+.end-bar b { color:var(--gold-l); font-weight:700; }
 
 </style>
 </head>
@@ -256,13 +247,6 @@ footer { background:#080F0C; border-top:1px solid rgba(226,198,127,.12); padding
 <header>
   <div class="container nav">
     <a class="brand" href="#"><img src="icon.png" alt="أيقونة نور المسلم"><span>نور <b>المسلم</b></span></a>
-    <nav class="nav-links" aria-label="روابط الصفحة">
-      <a href="#shots">لقطات الشاشة</a>
-      <a href="#features">المميزات</a>
-      <a href="#misbaha">المسبحة</a>
-      <a href="#download">التحميل</a>
-      <a href="#feedback">شكاوى ومقترحات</a>
-    </nav>
     <div class="nav-cta">
       <span class="ver-chip js-ver">v0.5.0-alpha26</span>
       <a class="btn-dl-sm js-dl" href="https://github.com/Sawan4Art/noor/releases/download/v0.5.0-alpha26/noor-almuslim-v0.5.0-alpha26.apk">
@@ -279,11 +263,9 @@ footer { background:#080F0C; border-top:1px solid rgba(226,198,127,.12); padding
   <div class="noor-star-bg"></div>
   <div class="container hero-grid">
     <div>
-      <span class="badge"><span class="dot"></span> نسخة ألفا تجريبية — قيد التطوير المستمر</span>
-      <h1>نور <span class="light">المسلم</span></h1>
+    <h1>نور <span class="light">المسلم</span></h1>
       <div class="dhikr-line naskh">﴿فَاذْكُرُونِي أَذْكُرْكُمْ﴾ — البقرة ١٥٢</div>
-      <p class="lead">مؤذن بالمواقيت الدقيقة، ومسبحة بتسبيح ما بعد الصلاة بالترتيب السني، ونهار وليل بلمسة واحدة —
-      <b style="color:var(--emerald-l)">مجاني بلا إعلانات وبلا تتبّع</b>.</p>
+      <p class="lead">مؤذن بالمواقيت الدقيقة، ومسبحة بتسبيح ما بعد الصلاة بالترتيب السني، ونهار وليل بلمسة واحدة.</p>
       <div class="cta-row">
         <a class="btn-dl js-dl" href="https://github.com/Sawan4Art/noor/releases/download/v0.5.0-alpha26/noor-almuslim-v0.5.0-alpha26.apk">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1,3.6 L12.9,3.6 L12.9,12 L11.1,12 Z M6.9,11.2 L17.1,11.2 L12,16.9 Z M4.2,15.4 L5.9,15.4 L5.9,18.3 L18.1,18.3 L18.1,15.4 L19.8,15.4 L19.8,20 L4.2,20 Z"/></svg>
@@ -294,19 +276,6 @@ footer { background:#080F0C; border-top:1px solid rgba(226,198,127,.12); padding
           شكاوى ومقترحات
         </a>
       </div>
-      <div class="meta-line">
-        <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg> أندرويد 7.0 فأحدث</span>
-        <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg> <span class="js-size">7.9 ميجابايت</span> فقط</span>
-        <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg> مجاني بلا إعلانات</span>
-        <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg> مواقيت تعمل بلا إنترنت</span>
-      </div>
-      <div class="stats">
-        <div class="stat"><b>٤</b><span>طرق لمواقيت الصلاة</span></div>
-        <div class="stat"><b>صفر</b><span>إعلانات</span></div>
-        <div class="stat"><b>صفر</b><span>تتبّع وبيانات</span></div>
-        <div class="stat"><b>١٠</b><span>ألوان للهوية</span></div>
-      </div>
-      <p class="sadaqah-hero">هذا التطبيق <b>صدقة جارية</b> على روح المرحوم بأذن الله — والد المالك، لا تنسوه من صالح الدعاء</p>
     </div>
     <div class="phone-zone">
       <div class="blob pb"></div>
@@ -314,19 +283,9 @@ footer { background:#080F0C; border-top:1px solid rgba(226,198,127,.12); padding
         <img src="screens/home-day.png" alt="الشاشة الرئيسية لتطبيق نور المسلم — مواقيت الصلاة في الوضع النهاري" width="1080" height="2400">
         <span class="cam"></span>
       </div>
-      <div class="float-chip fc1">✦ نهار وليل بلمسة واحدة</div>
-      <div class="float-chip gold fc2">✦ مسبحة بالترتيب السني</div>
     </div>
   </div>
 </section>
-
-<!-- ================= شريط الأذكار ================= -->
-<div class="marquee" aria-hidden="true">
-  <div class="marquee-track">
-    <span>سُبْحَانَ اللَّهِ<i>✦</i></span><span>الْحَمْدُ لِلَّهِ<i>✦</i></span><span>اللَّهُ أَكْبَرُ<i>✦</i></span><span>لَا إِلَهَ إِلَّا اللَّهُ<i>✦</i></span><span>أَسْتَغْفِرُ اللَّهَ<i>✦</i></span><span>لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ<i>✦</i></span>
-    <span>سُبْحَانَ اللَّهِ<i>✦</i></span><span>الْحَمْدُ لِلَّهِ<i>✦</i></span><span>اللَّهُ أَكْبَرُ<i>✦</i></span><span>لَا إِلَهَ إِلَّا اللَّهُ<i>✦</i></span><span>أَسْتَغْفِرُ اللَّهَ<i>✦</i></span><span>لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ<i>✦</i></span>
-  </div>
-</div>
 
 <!-- ================= لقطات الشاشة ================= -->
 <section id="shots" class="sec-pad">
@@ -368,168 +327,8 @@ footer { background:#080F0C; border-top:1px solid rgba(226,198,127,.12); padding
   </div>
 </section>
 
-<!-- ================= المميزات ================= -->
-<section id="features" class="sec-pad dark">
-  <div class="container">
-    <div class="sec-head">
-      <span class="kicker">لماذا نور المسلم؟</span>
-      <h2>المميزات الأساسية</h2>
-      <p>كل ما تحتاجه في تطبيق واحد — بسيط وواضح وسريع.</p>
-    </div>
-    <div class="feat-grid">
-      <div class="feat">
-        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12,2.6 a9.4,9.4 0 1,0 0,18.8 a9.4,9.4 0 1,0 0,-18.8 M12,4.6 a7.4,7.4 0 1,1 0,14.8 a7.4,7.4 0 1,1 0,-14.8"/><path d="M11.1,6.9 L12.9,6.9 L12.9,12.9 L11.1,12.9 Z M11.1,11.1 L16.4,11.1 L16.4,12.9 L11.1,12.9 Z"/></svg></div>
-        <h3>مواقيت الصلاة الدقيقة</h3>
-        <p>أربع طرق حساب (الهيئة المصرية، أم القرى، رابطة العالم الإسلامي، أمريكا الشمالية) مع خيار المذهب الحنفي للعصر، وعدّاد دائم للصلاة القادمة.</p>
-      </div>
-      <div class="feat">
-        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.7,14.18 C18.6,17.77 15.11,20.09 11.36,19.71 C7.62,19.33 4.66,16.37 4.29,12.63 C3.92,8.89 6.24,5.4 9.84,4.3 C8.16,6.07 7.53,8.6 8.18,10.96 C8.83,13.32 10.68,15.16 13.04,15.82 C15.4,16.48 17.93,15.85 19.71,14.17 Z"/></svg></div>
-        <h3>نهار وليل بلمسة واحدة</h3>
-        <p>اسحب المزلاج فينقل التطبيق بين الوضعين بسلاسة — وجمل تذكير تتبدّل مع كل قلبٍ للثيم.</p>
-      </div>
-      <div class="feat">
-        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,2.55 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M16.31,4.34 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M18.1,8.65 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M16.31,12.96 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M7.69,12.96 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M5.9,8.65 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M7.69,4.34 a1.45,1.45 0 1,0 0,2.9 a1.45,1.45 0 1,0 0,-2.9 M10.65,18.4 C10.65,16.7 11.2,15.7 12,15.2 C12.8,15.7 13.35,16.7 13.35,18.4 C13.35,20.1 12.8,21.2 12,21.7 C11.2,21.2 10.65,20.1 10.65,18.4 Z"/></svg></div>
-        <h3>مسبحة بالترتيب السني</h3>
-        <p>تسبيح ما بعد الصلاة كما عُلّم: سبحان الله ٣٣، الحمد لله ٣٣، الله أكبر ٣٣، ثم تكميلة المائة — بعدّاد تنازلي وانتقال تلقائي واهتزاز عند الاكتمال.</p>
-      </div>
-      <div class="feat">
-        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,2 C8.13,2 5,5.13 5,9 C5,14.25 12,22 12,22 S19,14.25 19,9 C19,5.13 15.87,2 12,2 Z M12,11.5 C10.34,11.5 9,10.16 9,8.5 S10.34,5.5 12,5.5 S15,6.84 15,8.5 S13.66,11.5 12,11.5 Z"/></svg></div>
-        <h3>موقعك باسم قريتك</h3>
-        <p>يعرض موضعك باسم القرية والمركز والمحافظة — «ابو زعبل البلد، الخانكة، القليوبية» لا «مصر» فقط.</p>
-      </div>
-      <div class="feat">
-        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7,3 H17 V21 L12,17.5 L7,21 Z M9,5 V17.2 L12,15.1 L15,17.2 V5 Z"/></svg></div>
-        <h3>تاريخان في بطاقة واحدة</h3>
-        <p>الهجري بتقويم أم القرى والميلادي بالعربية جنبًا إلى جنب تحت العدّاد — وأول رمضان لا يفوتك.</p>
-      </div>
-      <div class="feat">
-        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1,3.6 L12.9,3.6 L12.9,12 L11.1,12 Z M6.9,11.2 L17.1,11.2 L12,16.9 Z M4.2,15.4 L5.9,15.4 L5.9,18.3 L18.1,18.3 L18.1,15.4 L19.8,15.4 L19.8,20 L4.2,20 Z"/></svg></div>
-        <h3>تحديث من داخل التطبيق</h3>
-        <p>ينبّهك عند صدور نسخة جديدة وينزّلها ويثبّتها من داخل التطبيق — بلا متجر ولا متصفح.</p>
-      </div>
-      <div class="feat">
-        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,3 C13.4,5.7 15.3,7.6 18,9 C15.3,10.4 13.4,12.3 12,15 C10.6,12.3 8.7,10.4 6,9 C8.7,7.6 10.6,5.7 12,3 Z M5.5,14 C6.3,15.5 7.4,16.6 9,17.4 C7.4,18.2 6.3,19.3 5.5,20.8 C4.7,19.3 3.6,18.2 2,17.4 C3.6,16.6 4.7,15.5 5.5,14 Z M18.5,14 C19.3,15.5 20.4,16.6 22,17.4 C20.4,18.2 19.3,19.3 18.5,20.8 C17.7,19.3 16.6,18.2 15,17.4 C16.6,16.6 17.7,15.5 18.5,14 Z"/></svg></div>
-        <h3>عشرة ألوان للهوية</h3>
-        <p>زمردي، نيلي، سماوي، ملكي، بنفسجي، واردي، عنابي، كهرماني، نحاسي، زيتوني — اختر لونك فيُغذّي الوضعين كلّهما.</p>
-      </div>
-      <div class="feat">
-        <div class="f-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,2 C13.1,2 14,2.9 14,4 V10 C14,11.1 13.1,12 12,12 C10.9,12 10,11.1 10,10 V4 C10,2.9 10.9,2 12,2 Z M18,10 C18,13.3 15.3,16 12,16 C8.7,16 6,13.3 6,10 H8 C8,12.2 9.8,14 12,14 C14.2,14 16,12.2 16,10 Z M11,17.5 H13 V21 H11 Z"/></svg></div>
-        <h3>خصوصية مطلقة</h3>
-        <p>بلا حسابات ولا تتبّع ولا إعلانات نهائياً — مواقيت الصلاة تعمل بلا إنترنت وبياناتك لا تغادر جهازك.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= المسبحة — التركيز ================= -->
-<section id="misbaha" class="sec-pad">
-  <div class="blob mb1"></div>
-  <div class="container mis-grid">
-    <div class="mis-phones">
-      <div class="phone"><img loading="lazy" src="screens/misbaha-day.png" alt="المسبحة بالوضع النهاري" width="1080" height="2400"><span class="cam"></span></div>
-      <div class="phone"><img loading="lazy" src="screens/misbaha-night.png" alt="المسبحة بالوضع الليلي مع التناثر" width="1080" height="2400"><span class="cam"></span></div>
-    </div>
-    <div>
-      <span class="kicker">جديدة في هذه النسخة</span>
-      <h2 style="font-size:clamp(26px,3.4vw,36px); font-weight:900;">المسبحة: تسبيح ما بعد الصلاة<br>بالترتيب الذي علّمه النبي ﷺ</h2>
-      <div class="seq">
-        <div class="step active"><b>سُبْحَانَ اللَّهِ</b><span>٣٣</span></div>
-        <span class="arrow">←</span>
-        <div class="step"><b>الْحَمْدُ لِلَّهِ</b><span>٣٣</span></div>
-        <span class="arrow">←</span>
-        <div class="step"><b>اللَّهُ أَكْبَرُ</b><span>٣٣</span></div>
-        <span class="arrow">←</span>
-        <div class="step"><b>تكميلة المائة</b><span>× ١</span></div>
-      </div>
-      <ul class="mis-list">
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg></span><span><b>عدّاد تنازلي:</b> يبدأ من العدد المسنون وينحسر تسبيحةً تسبيحة حتى الصفر.</span></li>
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg></span><span><b>انتقال تلقائي بالترتيب:</b> إتمام القسم اهتزازٌ وانتقال لما بعده، وآخر الأقسام يُكمل المائة ويرجع لأول الترتيب.</span></li>
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg></span><span><b>مؤشر الأقسام الأربعة</b> يُظهر موضعك دائماً — والمكتمل بعلامة ✓.</span></li>
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg></span><span><b>حارس التمهّل:</b> لو ضغطت أسرع من نطق الذكر ينبهك بلطف ويتوقف العدّ لحظة.</span></li>
-        <li><span class="tick"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,16.17 L4.83,12 l-1.42,1.41 L9,19 21,7 l-1.41,-1.41 z"/></svg></span><span><b>عدّك محفوظ تلقائياً</b> — أغلق التطبيق في أي لحظة وارجع إلى حيث توقفت.</span></li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- ================= التحميل ================= -->
-<section id="download" class="sec-pad dark">
-  <div class="container">
-    <div class="dl-card">
-      <div class="blob db1"></div><div class="blob db2"></div>
-      <h2>حمّل نور المسلم الآن</h2>
-      <p class="sub">أحدث إصدار مباشرةً — بلا متاجر ولا وسيط.</p>
-      <a class="dl-big js-dl" href="https://github.com/Sawan4Art/noor/releases/download/v0.5.0-alpha26/noor-almuslim-v0.5.0-alpha26.apk">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1,3.6 L12.9,3.6 L12.9,12 L11.1,12 Z M6.9,11.2 L17.1,11.2 L12,16.9 Z M4.2,15.4 L5.9,15.4 L5.9,18.3 L18.1,18.3 L18.1,15.4 L19.8,15.4 L19.8,20 L4.2,20 Z"/></svg>
-        تحميل APK — <span class="js-ver">v0.5.0-alpha26</span>
-      </a>
-      <div class="dl-meta">
-        <span>الإصدار: <b class="js-ver">v0.5.0-alpha26</b></span>
-        <span>الحجم: <b class="js-size">7.9 ميجابايت</b></span>
-        <span>يتطلب: <b>أندرويد 7.0 فأحدث</b></span>
-      </div>
-      <div class="steps">
-        <div class="step-card">
-          <div class="num">١</div>
-          <h4>حمّل ملف الـ APK</h4>
-          <p>اضغط زر التحميل أعلاه — ستجد الملف في مجلد «التنزيلات».</p>
-        </div>
-        <div class="step-card">
-          <div class="num">٢</div>
-          <h4>اسمح بالتثبيت</h4>
-          <p>عند أول تثبيت سيطلب النظام إذن «التثبيت من مصادر غير معروفة» — إذن خاص بهذا التطبيق وحده تمنحه مرة واحدة.</p>
-        </div>
-        <div class="step-card">
-          <div class="num">٣</div>
-          <h4>ثبّت وافتح</h4>
-          <p>ثبّت التطبيق وافتحه — وتابع التحديثات الجديدة من داخله مباشرةً بلا متجر.</p>
-        </div>
-      </div>
-      <p class="alpha-note">ملاحظة: هذه <b>نسخة ألفا تجريبية</b> بمعرّف مستقل (<b>.alpha</b>) — تُثبَّت جنب أي نسخة مستقرة لديك دون استبدالها، وستصلك التحديثات من داخلها.</p>
-      <div class="dl-links">
-        <a href="https://github.com/Sawan4Art/noor/releases" target="_blank" rel="noopener">كل الإصدارات السابقة</a>
-        <a href="#feedback">شكاوى ومقترحات</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= الشكاوى والمقترحات ================= -->
-<section id="feedback" class="sec-pad">
-  <div class="container">
-    <div class="contact-card">
-      <div class="blob cb1"></div><div class="blob cb2"></div>
-      <div class="c-ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20,4 H4 C2.9,4 2,4.9 2,6 V18 C2,19.1 2.9,20 4,20 H20 C21.1,20 22,19.1 22,18 V6 C22,4.9 21.1,4 20,4 Z M20,8 L12,13 L4,8 V6 L12,11 L20,6 Z"/></svg></div>
-      <h2>شكاوى ومقترحات</h2>
-      <p>لديك مشكلة في التطبيق؟ أو فكرة تحب أن تراها في النسخة القادمة؟ راسلنا مباشرة على البريد — كل رسالة تُقرأ بعناية.</p>
-      <a class="btn-mail" href="mailto:yousefsawan940@gmail.com?subject=%D8%B4%D9%83%D8%A7%D9%88%D9%89%20%D9%88%D9%85%D9%82%D8%AA%D8%B1%D8%AD%D8%A7%D8%AA%20%D9%86%D9%88%D8%B1%20%D8%A7%D9%84%D9%85%D8%B3%D9%84%D9%85">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20,4 H4 C2.9,4 2,4.9 2,6 V18 C2,19.1 2.9,20 4,20 H20 C21.1,20 22,19.1 22,18 V6 C22,4.9 21.1,4 20,4 Z M20,8 L12,13 L4,8 V6 L12,11 L20,6 Z"/></svg>
-        شكاوى ومقترحات
-      </a>
-      <a class="contact-mail" href="mailto:yousefsawan940@gmail.com">yousefsawan940@gmail.com</a>
-    </div>
-  </div>
-</section>
-
-<!-- ================= الفوتر ================= -->
-<footer>
-  <div class="container">
-    <div class="foot">
-      <div class="foot-brand">
-        <img src="icon.png" alt="أيقونة نور المسلم">
-        <div><b>نور المسلم</b><span>مؤذن، مسبحة، أذكار</span></div>
-      </div>
-      <nav class="foot-links" aria-label="روابط الفوتر">
-        <a href="#features">المميزات</a>
-        <a href="https://github.com/Sawan4Art/noor/releases" target="_blank" rel="noopener">الإصدارات</a>
-        <a href="mailto:yousefsawan940@gmail.com">شكاوى ومقترحات</a>
-        <a href="#download">التحميل</a>
-      </nav>
-    </div>
-    <p class="sadaqah-foot">صدقة جارية لي ولأبي وأمي.. <b>نسألكم صالح الدعاء</b></p>
-    <p class="made-with">مجاني بلا إعلانات وبلا تتبّع — نسخة ألفا تجريبية تتحدّث باستمرار</p>
-  </div>
-</footer>
+<!-- ================= سطر الصدقة ================= -->
+<div class="end-bar">هذا التطبيق <b>صدقة جارية</b> على روح المرحوم بأذن الله — والد المالك، لا تنسوه من صالح الدعاء</div>
 
 <script>
 // أحدث إصدار من GitHub API — يحدّث الأزرار والشارات تلقائياً مع كل إصدار جديد
