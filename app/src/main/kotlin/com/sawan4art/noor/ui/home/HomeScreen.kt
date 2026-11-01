@@ -29,7 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,6 +86,8 @@ fun HomeScreen(
     state: HomeViewModel.HomeUiState,
     locating: Boolean,
     onDetectLocation: () -> Unit,
+    /** الثيم المثبّت المُعاشُ حالياً — قلبه يحرّك دوران جمل التذكير */
+    isDark: Boolean,
 ) {
     val zone = remember { ZoneId.systemDefault() }
     val now: ZonedDateTime = remember(state.nowMillis) {
@@ -129,16 +133,33 @@ fun HomeScreen(
         )
         Spacer(Modifier.height(12.dp))
         // هيدر التذكيرات — مكان «مواقيت اليوم» المحذوفة (بطلب المالك alpha12)
-        ReminderBadge()
+        // alpha24: يتبدل مع كل قلبٍ للثيم كذلك
+        ReminderBadge(isDark = isDark)
         Spacer(Modifier.height(10.dp))
         PrayerTimesGrid(times = times, activeKey = next.key)
         Spacer(Modifier.height(10.dp))
+        // سطر الصدقة الجارية — الصياغة الجديدة للمالك (alpha24) أول القائمة،
+        // **وبتتبّدل مع كل قلبٍ للثيم نهاري/ليلي** من تجمعٍ مُكبَّر العدد
+        // (توجيه المالك: «عايز مع كل تغيير لمظهر الوضع الليلي او النهاري
+        // تتغير جمله التذكير و زود عددهم اكثر»)
+        val sadaqahIndex = remember { mutableIntStateOf(0) }
+        var sadaqahSeenDark by remember { mutableStateOf<Boolean?>(null) }
+        LaunchedEffect(isDark) {
+            val seen = sadaqahSeenDark
+            if (seen == null) {
+                sadaqahSeenDark = isDark
+            } else if (seen != isDark) {
+                sadaqahSeenDark = isDark
+                sadaqahIndex.intValue =
+                    ReminderRotation.nextIndex(sadaqahIndex.intValue, SadaqahReminders.size)
+            }
+        }
         Text(
-            text = "هذا التطبيق صدقة جارية لي ووالدي لا تنسونا من صالح دعائكم",
+            text = SadaqahReminders[sadaqahIndex.intValue],
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            maxLines = 1,
+            maxLines = 2,
             modifier = Modifier
                 .fillMaxWidth()
                 .alpha(0.75f),
@@ -147,26 +168,8 @@ fun HomeScreen(
     }
 }
 
-/**
- * تذكيرات الشريط — نصوص ثابتة موثقة التسند (قرآن وحديث صحيح)،
- * يُختار أحدها **عشوائياً مع كل فتح للتطبيق** (بطلب المالك alpha11):
- * تنبيه بأهمية الصلاة والأذكار وحفظ القرآن.
- * (alpha12: انتقل الشريط إلى مكان «مواقيت اليوم» فوق الشبكة بطلب المالك).
- */
-private val HomeReminders = listOf(
-    "«أحبّ الأعمال إلى الله الصلاة على وقتها» — متفق عليه",
-    "«من صلّى البردين دخل الجنة» — متفق عليه",
-    "﴿فاذكروني أذكركم﴾ — البقرة ١٥٢",
-    "«خيركم من تعلّم القرآن وعلّمه» — رواه البخاري",
-    "«لا يزال لسانك رطبًا بذكر الله» — رواه الترمذي",
-    "«سبحان الله وبحمده، سبحان الله العظيم» — كلمتان خفيفتان على اللسان",
-    "«من قرأ سورة الكهف يوم الجمعة أضاء له من النور ما بين الجمعتين» — رواه الحاكم",
-    "«الصلوات الخمس والجمعة إلى الجمعة كفارةٌ لما بينهن» — رواه مسلم",
-    "«الطُّهور شطر الإيمان» — رواه مسلم",
-    "﴿إنّ الصلاة تنهى عن الفحشاء والمنكر﴾ — العنكبوت ٤٥",
-    "«أكثر من السجود فإنك لا تسجد لله سجدة إلا رفعك الله بها درجة» — رواه مسلم",
-    "«من صلّى عليّ صلاة صلّى الله عليه بها عشراً» — رواه مسلم",
-)
+// جمل التذكير الدوّارة (تجمع السطر السفلي وشريط الهيدر) في ملفٍ نقيّ
+// يُختبر آلياً — ReminderRotation.kt (توجيه المالك alpha24)
 
 /**
  * شريط التذكير المتغير — أيقونة التطبيق (الهلال الهندسي بلغة الهوية)
@@ -181,9 +184,23 @@ private val HomeReminders = listOf(
  * وقطرة صغيرة تدور ببطء حوله فتغمر في السطح وتبرز منه كماء حي.
  */
 @Composable
-private fun ReminderBadge(modifier: Modifier = Modifier) {
+private fun ReminderBadge(modifier: Modifier = Modifier, isDark: Boolean) {
     val scheme = MaterialTheme.colorScheme
-    val reminder = remember { HomeReminders.random() }
+    // عادة alpha11 محفوظة: بداية عشوائية مع كل فتحٍ للتطبيق،
+    // ثم **دوران حتمي مع كل قلبٍ للثيم** (توجيه المالك alpha24)
+    val reminderIndex = remember { mutableIntStateOf(HomeReminders.indices.random()) }
+    var badgeSeenDark by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(isDark) {
+        val seen = badgeSeenDark
+        if (seen == null) {
+            badgeSeenDark = isDark
+        } else if (seen != isDark) {
+            badgeSeenDark = isDark
+            reminderIndex.intValue =
+                ReminderRotation.nextIndex(reminderIndex.intValue, HomeReminders.size)
+        }
+    }
+    val reminder = HomeReminders[reminderIndex.intValue]
     val density = LocalDensity.current
     val blobR = with(density) { 19.dp.toPx() }
     val iconPx = with(density) { 20.dp.toPx() }

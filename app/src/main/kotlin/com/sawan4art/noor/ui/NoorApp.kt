@@ -49,6 +49,7 @@ import com.sawan4art.noor.ui.nav.NoorTab
 import com.sawan4art.noor.ui.notice.NoorNoticeDialog
 import com.sawan4art.noor.ui.sections.ComingSoonScreen
 import com.sawan4art.noor.ui.settings.SettingsScreen
+import com.sawan4art.noor.ui.tasbih.MisbahaScreen
 import com.sawan4art.noor.ui.theme.AccentPalette
 import com.sawan4art.noor.ui.theme.NoorTheme
 import com.sawan4art.noor.ui.theme.ThemeDialMath
@@ -100,6 +101,7 @@ fun NoorApp(viewModel: HomeViewModel) {
                     onTab = { tab = it },
                     uiState = uiState,
                     locating = locating,
+                    isDark = darkTheme,
                     onDetectLocation = viewModel::detectLocation,
                     onSetMethod = viewModel::setMethod,
                     onSetHanafi = viewModel::setHanafi,
@@ -183,6 +185,11 @@ fun NoorApp(viewModel: HomeViewModel) {
                             onTab = { tab = it },
                             uiState = uiState,
                             locating = locating,
+                            // نسخة المعاينة تتلقى الثيم **المثبّت** لا هدف المعاينة
+                            // كي لا تتقدم دورة الجمل مرتين للقلب الواحد (الطبقة
+                            // تظهر بالثيم الهدف ثم يصل المثبّت — الجملة تتقدم
+                            // عند التثبيت فقط لأن الدوران مرتبط بالثيم المثبّت)
+                            isDark = darkTheme,
                             onDetectLocation = viewModel::detectLocation,
                             onSetMethod = viewModel::setMethod,
                             onSetHanafi = viewModel::setHanafi,
@@ -311,6 +318,8 @@ private fun NoorBody(
     onTab: (NoorTab) -> Unit,
     uiState: HomeViewModel.HomeUiState,
     locating: Boolean,
+    /** الثيم المثبّت الحالي — ينزل للرئيسية كي تدور جمل التذكير مع قلبه */
+    isDark: Boolean,
     onDetectLocation: () -> Unit,
     onSetMethod: (com.sawan4art.noor.domain.prayer.CalculationMethod) -> Unit,
     onSetHanafi: (Boolean) -> Unit,
@@ -347,7 +356,9 @@ private fun NoorBody(
                         state = uiState,
                         locating = locating,
                         onDetectLocation = onDetectLocation,
+                        isDark = isDark,
                     )
+                    NoorTab.TASBIH -> MisbahaScreen()
                     NoorTab.SETTINGS -> SettingsScreen(
                         settings = uiState.settings,
                         locating = locating,
