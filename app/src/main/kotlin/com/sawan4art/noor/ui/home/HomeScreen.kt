@@ -134,7 +134,7 @@ fun HomeScreen(
         PrayerTimesGrid(times = times, activeKey = next.key)
         Spacer(Modifier.height(10.dp))
         Text(
-            text = "هذا التطبيق صدقة جارية على روح والدي أرجو منكم الدعاء له",
+            text = "هذا التطبيق صدقة جارية لي ووالدي لا تنسونا من صالح دعائكم",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

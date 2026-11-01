@@ -26,7 +26,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -44,6 +51,7 @@ import com.sawan4art.noor.ui.sections.ComingSoonScreen
 import com.sawan4art.noor.ui.settings.SettingsScreen
 import com.sawan4art.noor.ui.theme.AccentPalette
 import com.sawan4art.noor.ui.theme.NoorTheme
+import com.sawan4art.noor.ui.theme.ThemeDialMath
 import com.sawan4art.noor.ui.theme.ThemeDialOverlay
 import com.sawan4art.noor.ui.theme.ThemeDialState
 import com.sawan4art.noor.ui.update.UpdateDialog
@@ -106,20 +114,37 @@ fun NoorApp(viewModel: HomeViewModel) {
             }
 
             // ===== طبقة المعاينة المقسومة — الثيم الهدف خلف الأيقونة (الرئيسية فقط) =====
-            // **قصّ صلب** (قرار alpha11 بعد بلاغ المالك بلقطة شاشة: الانقسام لم
-            // يظهر على جهازه قط) — آلية القناع القديمة (Offscreen + DstIn بشرائح
-            // ريشية) تفشل بصمت على بعض معالجات الرسوميات فتُخفي المعاينة كاملة.
-            // clipRect عمل قصّ أساسي مستحيل الفشل: الفاتح يسار الحدّ والمظلم
-            // يمينه دائماً.
-            //
-            // **موت الفاصل الضوئي خالصاً (الكلمة الأخيرة alpha22 — توجيه المالك:
-            // «لا ده كده بقا اوحش بكتير من الاول بقولك شيل الفاصل الضوئى خالص»)**:
-            // سبع محاولات توهج (alpha15→21) رفضها المالك واحداً تلو الآخر حتى
-            // آخرها «أوحش بكتير من الأول» — حزام البلور الذي أُضيف alpha19
-            // كان جزءاً من نفس الحكاية وأُزيل معها. الحدّ حادّ صريح نظيف
-            // **بلا أي عنصر ضوئي ولا مزج** — كما كان في الأول قبل حكاية
-            // الشعاع كلها، وبنفس القصّ الصلب المستحيل الفشل.
+            // **تدرّج مزج ناعم** (توجيه المالك alpha23 بعد قصّ alpha22 الصلب:
+            // «الفاصل بين اللونين حالياً يظهر كخط مستقيم حاد بدلاً من دمج
+            // ومزج اللونين معاً بسلاسة أثناء حركة السحب») — بدل قطع الخلفية
+            // بحدّ واحد، طبقة المعاينة تُرسم كاملة داخل saveLayer معزول ثم
+            // يُقنَّع ألفاها بقناع تدرّج خطي (BlendMode.DstIn) مركزه يركب
+            // الحدّ لحظة بلحظة: الحزام ±15% من عرض الشاشة حول الحدّ بمنحنى
+            // smoothstep (وقفاته من ThemeDialMath مصدر واحد للرسم والاختبارات
+            // والمرآة) — مزج 50/50 عند الحدّ نفسه وشفافية كاملة خارجه،
+            // فتتداخل الثيمتان بمرونة تامة مع حركة الإصبع بلا حواف حادة.
+            // **بلا أي عنصر ضوئي** (حكم alpha22 قائم): القناع شفافية ألفا
+            // خالصة بلا أي لون زائد. وقناع DstIn بهذا الشكل حاضر ومجرَّب
+            // على جهاز المالك نفسه (حقول alpha17-21 حُكم عليها زخرفةً لا
+            // عطلاً — كانت تُرى وتُرَفض بصرياً)، وTileMode.Clamp يمدّ طرفي
+            // المنحدر خارج الحزام فيبقى الشفافية الكاملة عبر الشاشة كلها
+            // حتى خارجها عند المسح النهائي (sweepTargetX يشمل الحزام —
+            // عقد الومضة كامل بلا حزام متبقٍّ لحظة القلب).
             if (onHome && dial.splitActive) {
+                // وقفات القناع ثابتة (الشكل لا يتحرك — الحزام كله يزحف مع الحدّ)
+                // فتُحسب مرة واحدة: نفس blendMaskAlpha حرفياً بوقفات BLEND_STOPS
+                val lightStops = remember {
+                    Array(ThemeDialMath.BLEND_STOPS) { i ->
+                        val s = i / (ThemeDialMath.BLEND_STOPS - 1).toFloat()
+                        s to Color.Black.copy(alpha = 1f - ThemeDialMath.smoothstep(s))
+                    }
+                }
+                val darkStops = remember {
+                    Array(ThemeDialMath.BLEND_STOPS) { i ->
+                        val s = i / (ThemeDialMath.BLEND_STOPS - 1).toFloat()
+                        s to Color.Black.copy(alpha = ThemeDialMath.smoothstep(s))
+                    }
+                }
                 NoorTheme(
                     themeMode = if (dial.overlayIsLight) ThemeMode.LIGHT else ThemeMode.DARK,
                     accent = accent,
@@ -129,16 +154,27 @@ fun NoorApp(viewModel: HomeViewModel) {
                             .fillMaxSize()
                             .drawWithContent {
                                 val edge = dial.maskX.value
-                                // اتجاه القصّ ثابت فيزيائياً: الفاتح يسار الحدّ
-                                // والمظلم يمينه — بلا أي عنصر ضوئي ولا مزج (alpha22)
-                                if (dial.overlayIsLight) {
-                                    clipRect(0f, 0f, edge, size.height) {
-                                        this@drawWithContent.drawContent()
-                                    }
-                                } else {
-                                    clipRect(edge, 0f, size.width, size.height) {
-                                        this@drawWithContent.drawContent()
-                                    }
+                                val w = size.width
+                                val h = size.height
+                                val half = ThemeDialMath.blendHalfSpan(w)
+                                drawIntoCanvas { canvas ->
+                                    val bounds = Rect(0f, 0f, w, h)
+                                    canvas.saveLayer(bounds, Paint())
+                                    this@drawWithContent.drawContent()
+                                    // قناع الألفا المتدرّج: الفاتح يسار الحدّ
+                                    // والمظلم يمينه — ثابت فيزيائياً بلا RTL،
+                                    // ومركز التدرّج يركب الحدّ كل إطار
+                                    drawRect(
+                                        brush = Brush.linearGradient(
+                                            *(if (dial.overlayIsLight) lightStops else darkStops),
+                                            start = Offset(edge - half, 0f),
+                                            end = Offset(edge + half, 0f),
+                                            tileMode = TileMode.Clamp,
+                                        ),
+                                        size = size,
+                                        blendMode = BlendMode.DstIn,
+                                    )
+                                    canvas.restore()
                                 }
                             },
                     ) {

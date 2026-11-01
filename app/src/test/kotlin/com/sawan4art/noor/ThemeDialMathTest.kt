@@ -7,17 +7,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * اختبارات «مزلاج الشمس والقمر» — قواعد المالك حتى الكلمة الأخيرة alpha22:
+ * اختبارات «مزلاج الشمس والقمر» — قواعد المالك حتى الكلمة الأخيرة alpha23:
  * 1) يمين = فاتح، يسار = مظلم، والأيقونة مع اليد حرفياً.
- * 2) الانقسام: النصف الفاتح يسار الحدّ والمظلم يمينه — **قصّ صلب** بلا قناع
- *    (الآلية القديمة فشلت بصمت على جهاز المالك — بلاغ بلقطة شاشة)، والفصل
- *    **حاد وصريح** — وبعد سبع محاولات توهج رفضها المالك **الفاصل الضوئي
- *    أُزيل خالصاً** (alpha22: «شيل الفاصل الضوئى خالص») — لا شعاع ولا
- *    هالة ولا بلور ولا أي عنصر ضوئي على الحدّ.
+ * 2) الانقسام: النصف الفاتح يسار الحدّ والمظلم يمينه — والحدّ نفسه **تدرّج
+ *    مزج ناعم** (alpha23: حزام ±15% من عرض الشاشة حول الحدّ بمنحنى
+ *    smoothstep — مزج 50/50 عند الحدّ نفسه بلا أي حواف حادة) بلا أي
+ *    عنصر ضوئي (حكم alpha22 على حكاية الشعاع قائم).
  * 3) الرفع يحسم بالضفة التي عبرها، والنقرة تبدّل فوراً.
  * 4) الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه.
  * 5) المزلاج في الرئيسية فقط — لا أثر له في بقية الصفحات.
- * 6) هدف المسح يُساق الحدّ خارج الشاشة ببكسل أمان — بلا أي امتداد ضوئي.
+ * 6) هدف المسح يُساق الحدّ خارج الشاشة بحزام المزج كاملاً ببكسل أمان —
+ *    الغطاء صورة كاملة للثيم الجديد بلا حزام متبقٍّ لحظة القلب.
  */
 class ThemeDialMathTest {
 
@@ -127,7 +127,7 @@ class ThemeDialMathTest {
         assertTrue(ThemeDialMath.commitLight(w / 2f, anchorLeft, anchorRight))
     }
 
-    // ===== هدف المسح — الحدّ يغادر الشاشة كلياً بلا بقايا (بلا أي امتداد ضوئي) =====
+    // ===== هدف المسح — الحدّ يغادر الشاشة بحزام المزج كاملاً =====
 
     @Test
     fun `التثبيت الفاتح يساق الحد خارج الحافة اليمنى والعكس يسارا`() {
@@ -148,5 +148,95 @@ class ThemeDialMathTest {
         assertTrue("يجب هامش أمان سالب للمظلم", zeroDark <= -1f)
         ThemeDialMath.sweepTargetX(false, -100f)
         ThemeDialMath.progress(50f, 100f, 100f) // مسار معدوم
+    }
+
+    // ===== حزام المزج الناعم (alpha23) — تدرّج smoothstep بلا حواف حادة =====
+
+    @Test
+    fun `المزج نصف شفافية عند الحد نفسه وكامل قبل الحزام ونافد بعده`() {
+        val w = 1080f
+        val edge = 540f
+        val half = ThemeDialMath.blendHalfSpan(w)
+        assertEquals(half, 162f, 1e-3f) // 15% من العرض — مثال الطلب الحرفي
+        assertEquals(0.5f, ThemeDialMath.blendMaskAlpha(edge, edge, w, true), 1e-5f)
+        assertEquals(0.5f, ThemeDialMath.blendMaskAlpha(edge, edge, w, false), 1e-5f)
+        // شافل الحزام الأيسر: شفافية كاملة للجهة الظاهرة ونفاد للعكس
+        assertEquals(1f, ThemeDialMath.blendMaskAlpha(edge - half, edge, w, true), 1e-5f)
+        assertEquals(0f, ThemeDialMath.blendMaskAlpha(edge - half, edge, w, false), 1e-5f)
+        // شافل الحزام الأيمن: العكس تماماً
+        assertEquals(0f, ThemeDialMath.blendMaskAlpha(edge + half, edge, w, true), 1e-5f)
+        assertEquals(1f, ThemeDialMath.blendMaskAlpha(edge + half, edge, w, false), 1e-5f)
+        // قبل الحزام وبعده: قطعتان صلبتان كما كان قبل الحزام إنما بنعومة عند شرفه
+        assertEquals(1f, ThemeDialMath.blendMaskAlpha(0f, edge, w, true), 1e-5f)
+        assertEquals(0f, ThemeDialMath.blendMaskAlpha(w, edge, w, true), 1e-5f)
+    }
+
+    @Test
+    fun `حزام المزج رتيب للفاتح متزايد للمظلم ومتتامان مجموعهما واحد`() {
+        val w = 1080f
+        val edge = w / 2f
+        var prevLight = 2f
+        var prevDark = -1f
+        var x = 0f
+        while (x <= w) {
+            val l = ThemeDialMath.blendMaskAlpha(x, edge, w, true)
+            val d = ThemeDialMath.blendMaskAlpha(x, edge, w, false)
+            assertTrue("الفاتح يتناقص فقط عند x=$x", l <= prevLight + 1e-6f)
+            assertTrue("المظلم يتزايد فقط عند x=$x", d >= prevDark - 1e-6f)
+            assertEquals("متتامّان مجموعهما 1 عند x=$x", 1f, l + d, 1e-5f)
+            prevLight = l
+            prevDark = d
+            x += 8f
+        }
+    }
+
+    @Test
+    fun `منحنى smoothstep طرفاه بانحدار معدوم ووسطه النصف`() {
+        assertEquals(0f, ThemeDialMath.smoothstep(0f), 1e-6f)
+        assertEquals(1f, ThemeDialMath.smoothstep(1f), 1e-6f)
+        assertEquals(0.5f, ThemeDialMath.smoothstep(0.5f), 1e-6f)
+        assertEquals(0.15625f, ThemeDialMath.smoothstep(0.25f), 1e-5f)
+        assertEquals(0.84375f, ThemeDialMath.smoothstep(0.75f), 1e-5f)
+        // خارج النطاق يُحصر — لا قيم سالبة ولا أكبر من واحد
+        assertEquals(0f, ThemeDialMath.smoothstep(-3f), 1e-6f)
+        assertEquals(1f, ThemeDialMath.smoothstep(3f), 1e-6f)
+    }
+
+    @Test
+    fun `تماثل الحزام حول الحد - اللونان يتبادلان مكانيهما بنفس الشكل`() {
+        val w = 1080f
+        val edge = 400f
+        for (d in intArrayOf(1, 20, 60, 120, 160)) {
+            assertEquals(
+                "التماثل عند المسافة d=$d",
+                ThemeDialMath.blendMaskAlpha(edge + d, edge, w, true),
+                ThemeDialMath.blendMaskAlpha(edge - d, edge, w, false),
+                1e-5f,
+            )
+        }
+    }
+
+    @Test
+    fun `هدف المسح الجديد يغمر الشاشة كلها بشفافية كاملة بلا حزام متبقٍّ`() {
+        val w = 1080f
+        val half = ThemeDialMath.blendHalfSpan(w)
+        val endLight = ThemeDialMath.sweepTargetX(true, w)
+        val endDark = ThemeDialMath.sweepTargetX(false, w)
+        assertEquals(w + half + 1f, endLight, 1e-3f)
+        assertEquals(-half - 1f, endDark, 1e-3f)
+        // الغطاء صورة كاملة للثيم الجديد: القناع معتم عبر الشاشة كلها
+        for (x in floatArrayOf(0f, w / 4f, w / 2f, 3f * w / 4f, w)) {
+            assertEquals("فاتح معتم عند x=$x", 1f, ThemeDialMath.blendMaskAlpha(x, endLight, w, true), 1e-5f)
+            assertEquals("مظلم معتم عند x=$x", 1f, ThemeDialMath.blendMaskAlpha(x, endDark, w, false), 1e-5f)
+        }
+    }
+
+    @Test
+    fun `شاشة معدومة تعود للقص الثنائي الاحتياطي بلا انفجار`() {
+        assertEquals(0f, ThemeDialMath.blendHalfSpan(0f), 1e-6f)
+        assertEquals(1f, ThemeDialMath.blendMaskAlpha(50f, 100f, 0f, true), 1e-6f)
+        assertEquals(0f, ThemeDialMath.blendMaskAlpha(150f, 100f, 0f, true), 1e-6f)
+        assertEquals(0f, ThemeDialMath.blendMaskAlpha(50f, 100f, 0f, false), 1e-6f)
+        assertEquals(1f, ThemeDialMath.blendMaskAlpha(150f, 100f, 0f, false), 1e-6f)
     }
 }

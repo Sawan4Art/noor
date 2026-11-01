@@ -4,17 +4,17 @@
 المنهج: كل صيغة تُنقل حرفياً من ThemeDialMath/GooeyMath/ThemeDialState
 - surfaceWave / centerDrift / bridgeSway / waistFor / bridge (الجسر بلا فصل)
 - addLiquidBlob (كاتمول-روم مغلق) + مسار الجسر بقبتيه
-- حدّ انقسام رأسي بآلية القصّ الصلب (قرار alpha11) — **وبلا أي فاصل ضوئي**
-  (الكلمة الأخيرة alpha22 — توجيه المالك: «لا ده كده بقا اوحش بكتير من
-  الاول بقولك شيل الفاصل الضوئى خالص»): سبع محاولات توهج (alpha15→21)
-  رفضها المالك واحداً تلو الآخر حتى آخرها «أوحش بكتير من الأول» —
-  فالشعاع الغاوسي والقناع المخبوز وحزام البلور أُزيلوا من المرآة
-  كما أُزيلوا من كوتلن: انقسام حادّ صريح نظيف كما في الأول.
+- حدّ انقسام رأسي **بقناع تدرّج خطي ناعم** (توجيه المالك alpha23:
+  «تأثير الفاصل بين اللونين حالياً يظهر كخط مستقيم حاد بدلاً من دمج
+  ومزج اللونين معاً بسلاسة أثناء حركة السحب») — حزام مزج ±15% من
+  عرض الشاشة حول الحدّ بمنحنى smoothstep (مزج 50/50 عند الحدّ نفسه)
+  يتحرك مع السحب لحظة بلحظة — **شفافية ألفا خالصة بلا أي عنصر ضوئي**
+  (حكم alpha22 على حكاية الشعاع قائم: لا شعاع ولا هالة ولا بلور).
 - الإيماءة من الأيقونة وحدها — الفراغ يمر للطبقات تحتيه (درس alpha7)
 - المدد: DRAIN=1040 HEAD=800 JIGGLE=1250 SWEEP=960 و EaseOutBack(0.34,1.56,0.64,1)
 
 السيناريو (بطلب المالك): مظلم → سحب لليمين (الأيقونة مع اليد، الفاتح خلفها
-انقساماً حاداً نظيفاً) → إمساك في المنتصف (نصف فاتح ونصف مظلم بحدّ حاد) →
+بمزج ناعم مدموج) → إمساك في المنتصف (مزج سلس حول الحدّ 50/50) →
 رفع عند 70% (تثبيت فاتح: المسح والمرسى يمين برجفة) → نقرة (عودة للظلام
 برحلة القمر).
 
@@ -23,8 +23,9 @@
 
 قتل الومضة (alpha12): نهاية الرحلة لا تُسقط غطاء المعاينة فوراً — يبقى
 معلقاً (صورة كاملة للثيم الجديد) حتى يصل الثيم المثبت ثم يُسقط في اللحظة
-نفسها؛ هنا لا يتغير شكل الإطارات لأن الغطاء يطابق الأساس بكسلياً — عقد
-الومضة مُختبر وحدةً في ThemeDialStateCommitTest.
+نفسها؛ وهدف المسح يشمل حزام المزج كاملاً (alpha23) كي يبقى الغطاء
+مُغطّياً للشاشة كلها بلا حزام متبقٍّ لحظة القلب — عقد الومضة مُختبر
+وحدةً في ThemeDialStateCommitTest وThemeDialMathTest.
 """
 import math
 import os
@@ -176,9 +177,37 @@ def bridge_polygon(b, time):
     return pts
 
 
-# ===== (alpha22) لا طبقات ضوئية — الانقسام قصّ صلب ثنائي كما في كوتلن =====
-# الشعاع الغاوسي والقناع المخبوز وحزام البلور أُزيلوا خالصين بطلب المالك
-# («شيل الفاصل الضوئى خالص») — قصّ ثنائي عند الحدّ لا أكثر ولا أقل.
+# ===== (alpha23) حزام مزج ناعم — نفس blendMaskAlpha حرفياً =====
+# توجيه المالك: «الفاصل بين اللونين حالياً يظهر كخط مستقيم حاد بدلاً من
+# دمج ومزج اللونين معاً بسلاسة أثناء حركة السحب» — قناع تدرّج خطي مركزه
+# الحدّ ويمتد ±15% من عرض الشاشة حوله بمنحنى smoothstep — شفافية ألفا
+# خالصة بلا أي عنصر ضوئي (حكم alpha22 قائم).
+BLEND_HALF_FRAC = 0.15
+
+
+def smoothstep(s):
+    """نفس ThemeDialMath.smoothstep حرفياً."""
+    x = min(max(s, 0.0), 1.0)
+    return x * x * (3 - 2 * x)
+
+
+def blend_mask_alpha(x, edge, light_overlay):
+    """شفافية قناع المعاينة عند x — نفس ThemeDialMath.blendMaskAlpha حرفياً:
+    المزج 50/50 عند الحدّ نفسه وكامل قبل الحزام ونافد بعده."""
+    half = W * BLEND_HALF_FRAC
+    if half <= 0:
+        vis = 1.0 if x <= edge else 0.0
+    else:
+        vis = 1.0 - smoothstep((x - (edge - half)) / (2 * half))
+    return vis if light_overlay else 1.0 - vis
+
+
+def sweep_target_x(commit_light):
+    """نفس ThemeDialMath.sweepTargetX حرفياً: الحزام كاملاً + بكسل أمان
+    كي يغمر الغطاء الشاشة كلها بلا حزام متبقٍّ لحظة القلب."""
+    span = W * BLEND_HALF_FRAC
+    return W + span + 1 if commit_light else -span - 1
+
 
 def sun_alpha(p):
     return max(0.0, min(1.0, (p - 0.35) / 0.3))
@@ -360,27 +389,21 @@ def render_frame(state, t_sec):
     # الطبقة الأساسية بثيمها
     draw_app(d, 'dark' if base_dark else 'light', t=t_sec, img=img)
 
-    # طبقة الهدف — قصّ صلب ثنائي (alpha22): الفاتح يسار الحدّ والمظلم يمينه
-    # بلا أي حزام مزج ولا شعاع — انقسام حادّ صريح نظيف كما في الأول
+    # طبقة الهدف — قناع تدرّج خطي ناعم (alpha23): الفاتح يسار الحدّ والمظلم
+    # يمينه، ومركز الحزام يركب الحدّ لحظة بلحظة — مزج سلس بلا حواف حادة
     if split:
         ov = Image.new('RGB', (W, H), 0)
         draw_app(ImageDraw.Draw(ov), 'light' if overlay_light else 'dark', t=t_sec, img=ov)
-        mask = Image.new('L', (W, H), 0)
-        buf = bytearray(W * H)
-        cut = max(0, min(W, int(round(boundary))))
-        for y in range(H):
-            base = y * W
-            if overlay_light:
-                for x in range(W):
-                    buf[base + x] = 255 if x < cut else 0
-            else:
-                for x in range(W):
-                    buf[base + x] = 255 if x > cut else 0
-        mask.putdata(bytes(buf))
+        # شفافية كل عمود من blend_mask_alpha — نفس منحنى كوتلن حرفياً
+        cols = bytearray(W)
+        for x in range(W):
+            cols[x] = int(round(255 * blend_mask_alpha(x + 0.5, boundary, overlay_light)))
+        mask = Image.frombytes('L', (W, H), bytes(cols) * H)
         img.paste(ov, (0, 0), mask)
 
     # (alpha22) لا شعاع ضوئي — الفاصل الضوئي ميت خالصاً بطلب المالك:
-    # «شيل الفاصل الضوئى خالص» — لا حقل ولا قناع ولا طيف.
+    # «شيل الفاصل الضوئى خالص» — لا حقل ولا قناع لوني ولا طيف،
+    # والمزج (alpha23) شفافية ألفا خالصة في القناع أعلاه.
 
     # كبسولة المسار
     d.rounded_rectangle([TRACK_X, TRACK_TOP, TRACK_X + TRACK_W, TRACK_TOP + TRACK_H],
@@ -451,7 +474,7 @@ def build_timeline():
         st.update(split_active=True, overlay_is_light=True, mask_x=finger,
                   head_x=finger, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=max(0.0, (finger - A_L) / (A_R - A_L)), dragging=True, energy=1.0)
-        st['label'] = 'سحب يمين = فاتح — انقسام حادّ صريح يركب الأيقونة بلا أي ضوء'
+        st['label'] = 'سحب يمين = فاتح — تدرّج مزج ناعم يركب الأيقونة بلا أي ضوء'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 3) إمساك في المنتصف 1.0s — نصف فاتح ونصف مظلم
@@ -461,7 +484,7 @@ def build_timeline():
         st.update(split_active=True, overlay_is_light=True, mask_x=mid,
                   head_x=mid, head_r=BLOB_R, tail_x=A_L, tail_r=BLOB_R,
                   p=0.5, dragging=True, energy=1.0)
-        st['label'] = 'ممسوك في المنتصف: نص فاتح ونص مظلم بحدّ حادّ نظيف بلا أي عنصر ضوئي (الفاصل الضوئي أُزيل خالصاً)'
+        st['label'] = 'ممسوك في المنتصف: مزج 50/50 حول الحدّ بنعومة تامة — بلا أي عنصر ضوئي'
         frames.append((ms, st)); ms += 1000 // FPS
 
     # 4) سحب لليمين حتى 70% خلال 0.6s
@@ -485,7 +508,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         frac = fast_out_slow_in(sweep_t)
-        end_b = W + 1  # sweepTargetX(true): الحدّ خارج الشاشة ببكسل أمان — لا امتداد ضوئي
+        end_b = sweep_target_x(True)  # الحزام كاملاً + بكسل أمان — غمر كامل بلا حزام متبقٍّ
         start_b = lerp(A_L, A_R, 0.7)
         st.update(split_active=True, overlay_is_light=True,
                   mask_x=lerp(start_b, end_b, frac),
@@ -512,7 +535,7 @@ def build_timeline():
         jig = max(0.0, 1 - max(0.0, ft - (HEAD_MS - 40) / 1000) / (JIGGLE_MS / 1000))
         st = empty_state()
         st.update(base_dark=False, split_active=True, overlay_is_light=False,
-                  mask_x=lerp(A_R, -1.0, fast_out_slow_in(sweep_t)),
+                  mask_x=lerp(A_R, sweep_target_x(False), fast_out_slow_in(sweep_t)),
                   head_x=lerp(A_R, A_L, ease_out_back(head_t)),
                   head_r=BLOB_R * (1 + 0.16 * max(0.0, 1 - abs(ft - HEAD_MS / 1000) / 0.35)),
                   tail_x=A_R, tail_r=BLOB_R * (1 - drain_t),

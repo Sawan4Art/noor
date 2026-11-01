@@ -17,3 +17,9 @@ keystore/
 
 # Kotlin
 .kotlin/
+
+# بقايا بناء الويب القديم في جذر الريبو — لا تدخل الجيت أبداً (كادت تدخل مع add -A)
+dist/
+node_modules/
+public/
+scripts/__pycache__/
