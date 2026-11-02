@@ -90,6 +90,10 @@ fun NoorApp(viewModel: HomeViewModel) {
     val accent = remember(uiState.settings.accentId) {
         AccentPalette.byId(uiState.settings.accentId)
     }
+    // **اللون الأساسي المستقل** (alpha32) — فارغ = يتبع لون التطبيق الحالي
+    val primaryAccent = remember(uiState.settings.primaryId) {
+        uiState.settings.primaryId.takeIf { it.isNotBlank() }?.let { AccentPalette.byId(it) }
+    }
     // بوابات الموقع — حوار الرسالة مع إجراء فتح الإعدادات المناسب (alpha18)
     val locationGate by viewModel.locationGate.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -97,7 +101,11 @@ fun NoorApp(viewModel: HomeViewModel) {
     CompositionLocalProvider(LocalLayoutDirection provides AppDirection) {
         Box(modifier = Modifier.fillMaxSize()) {
             // ===== الطبقة الأساسية — الثيم المثبت =====
-            NoorTheme(themeMode = uiState.settings.themeMode, accent = accent) {
+            NoorTheme(
+                themeMode = uiState.settings.themeMode,
+                accent = accent,
+                primaryAccent = primaryAccent,
+            ) {
                 NoorBody(
                     tab = tab,
                     onTab = { tab = it },
@@ -108,6 +116,7 @@ fun NoorApp(viewModel: HomeViewModel) {
                     onSetMethod = viewModel::setMethod,
                     onSetHanafi = viewModel::setHanafi,
                     onSetAccent = viewModel::setAccent,
+                    onSetPrimary = viewModel::setPrimary,
                     updateState = updateState,
                     onCheckUpdates = UpdateManager::checkNow,
                     onInstallUpdate = {
@@ -152,6 +161,7 @@ fun NoorApp(viewModel: HomeViewModel) {
                 NoorTheme(
                     themeMode = if (dial.overlayIsLight) ThemeMode.LIGHT else ThemeMode.DARK,
                     accent = accent,
+                    primaryAccent = primaryAccent,
                 ) {
                     Box(
                         modifier = Modifier
@@ -196,6 +206,7 @@ fun NoorApp(viewModel: HomeViewModel) {
                             onSetMethod = viewModel::setMethod,
                             onSetHanafi = viewModel::setHanafi,
                             onSetAccent = viewModel::setAccent,
+                            onSetPrimary = viewModel::setPrimary,
                             updateState = updateState,
                             onCheckUpdates = UpdateManager::checkNow,
                             onInstallUpdate = {
@@ -210,7 +221,11 @@ fun NoorApp(viewModel: HomeViewModel) {
             // ===== المزلاج فوق كل شيء — السائل والتوهج الخافت والأيقونة والإيماءة =====
             // في الرئيسية فقط (بطلب المالك) — بقية الصفحات بلا أيقونة ولا طبقة
             if (onHome) {
-                NoorTheme(themeMode = uiState.settings.themeMode, accent = accent) {
+                NoorTheme(
+                    themeMode = uiState.settings.themeMode,
+                    accent = accent,
+                    primaryAccent = primaryAccent,
+                ) {
                     ThemeDialOverlay(
                         dial = dial,
                         committedDark = darkTheme,
@@ -330,6 +345,8 @@ private fun NoorBody(
     onSetMethod: (com.sawan4art.noor.domain.prayer.CalculationMethod) -> Unit,
     onSetHanafi: (Boolean) -> Unit,
     onSetAccent: (String) -> Unit,
+    /** اللون الأساسي — نص فارغ يعني «الحالي» (يتبع لون التطبيق) */
+    onSetPrimary: (String) -> Unit,
     updateState: UpdateUiState,
     onCheckUpdates: () -> Unit,
     onInstallUpdate: () -> Unit,
@@ -373,6 +390,7 @@ private fun NoorBody(
                         onSetMethod = onSetMethod,
                         onSetHanafi = onSetHanafi,
                         onSetAccent = onSetAccent,
+                        onSetPrimary = onSetPrimary,
                         updateState = updateState,
                         onCheckUpdates = onCheckUpdates,
                         onInstallUpdate = onInstallUpdate,

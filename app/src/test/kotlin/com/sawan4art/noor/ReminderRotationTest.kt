@@ -40,11 +40,53 @@ class ReminderRotationTest {
     // ===== تجمع تذكيرات الهيدر =====
 
     @Test
-    fun `تذكيرات الهيدر تكبر ثانية عن السابق (ثلاثون على الأقل)`() {
+    fun `التجمع يحوي خمسين حديثا صحيحا على الأقل — بأمر المالك alpha32`() {
+        val hadiths = HomeReminders.filter { !it.startsWith("﴿") }
         assertTrue(
-            "تجمع التذكير لا يقل عن ٣٠ (كان ١٨ ثم طلب المالك المزيد)",
-            HomeReminders.size >= 30,
+            "الأحاديث ${hadiths.size} أقل من الخمسين المطلوبة",
+            hadiths.size >= 50,
         )
+    }
+
+    @Test
+    fun `التجمع يحوي آيات تذكر بالطاعة والذكر`() {
+        val verses = HomeReminders.filter { it.startsWith("﴿") }
+        assertTrue(
+            "الآيات ${verses.size} — المطلوب آيات كثيرة تذكر بالطاعة",
+            verses.size >= 12,
+        )
+        // كل آية موثقة برقم سورتها
+        assertTrue(verses.all { "— " in it })
+    }
+
+    @Test
+    fun `كل حديث موثق بمصدره — البخاري أو مسلم أو المتفق عليه أو ما صححه الألباني`() {
+        val hadiths = HomeReminders.filter { !it.startsWith("﴿") }
+        val sources = listOf(
+            "متفق عليه", "رواه البخاري", "رواه مسلم", "رواه الترمذي",
+            "رواه النسائي", "رواه أبو داود", "رواه ابن ماجه", "رواه الحاكم",
+        )
+        hadiths.forEach { h ->
+            assertTrue(
+                "حديث بلا تسند: $h",
+                sources.any { it in h },
+            )
+        }
+    }
+
+    @Test
+    fun `صيغ التدوير الصحيحة الثابتة — تصحيحات المراجعة alpha32`() {
+        // «الكلمة الطيبة صدقة» بصيغة البخاري ومسلم الثابتة
+        assertTrue(HomeReminders.any { "الكلمة الطيبة صدقة" in it })
+        // لا صيغة «الكلمات الطيبات» المرفوضة
+        assertTrue(HomeReminders.none { "الكلمات الطيبات" in it })
+        // لفظ المتفق عليه: «تفضل» لا «تفوق»
+        assertTrue(HomeReminders.any { "تفضُل صلاةَ الفذ بسبعٍ وعشرين درجة" in it })
+        assertTrue(HomeReminders.none { "تفوق صلاة" in it })
+        // لفظ مسلم: «مكفرات ما بينهن» بصيغته الموثقة
+        assertTrue(HomeReminders.any { "مكفّرات لما بينهن إذا اجتنبت الكبائر" in it })
+        // لا حديث بلا إطار في صيغة «لا إله إلا الله»
+        assertTrue(HomeReminders.any { "«من قال: لا إله إلا الله" in it })
     }
 
     @Test

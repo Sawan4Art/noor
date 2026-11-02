@@ -105,6 +105,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     /** لون التطبيق الجديد من إعدادات الألوان (alpha18) */
     fun setAccent(id: String) = viewModelScope.launch { repository.setAccentId(id) }
 
+    /**
+     * **اللون الأساسي المستقل** (alpha32) — «اعمل نفس الالوان في قائمه
+     * جديده لتغيير اللون الاساسي في التطبيق و طبعا الافتراضي هو الحالي» —
+     * نص فارغ يعني «الحالي»: يتبع لون التطبيق ولا يجبر على قيمة.
+     */
+    fun setPrimary(id: String) = viewModelScope.launch { repository.setPrimaryId(id) }
+
     fun setMethod(method: CalculationMethod) =
         viewModelScope.launch { repository.setMethod(method) }
 

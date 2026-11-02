@@ -78,11 +78,13 @@ fun SettingsScreen(
     onSetMethod: (CalculationMethod) -> Unit,
     onSetHanafi: (Boolean) -> Unit,
     onSetAccent: (String) -> Unit,
+    /** اللون الأساسي المستقل — نص فارغ يعني «الحالي» (يتبع لون التطبيق) */
+    onSetPrimary: (String) -> Unit,
     updateState: UpdateUiState,
     onCheckUpdates: () -> Unit,
     onInstallUpdate: () -> Unit,
 ) {
-    // الروابط الداخلية: home ← location / method / asr / colors / updates
+    // الروابط الداخلية: home ← location / method / asr / colors / primary / updates
     var section by rememberSaveable { mutableStateOf("home") }
     BackHandler(enabled = section != "home") { section = "home" }
 
@@ -105,6 +107,11 @@ fun SettingsScreen(
         "colors" -> SectionPage(title = "ألوان التطبيق", onBack = { section = "home" }) {
             SectionCard {
                 ColorsSection(settings = settings, onSetAccent = onSetAccent)
+            }
+        }
+        "primary" -> SectionPage(title = "اللون الأساسي", onBack = { section = "home" }) {
+            SectionCard {
+                PrimarySection(settings = settings, onSetPrimary = onSetPrimary)
             }
         }
         "updates" -> SectionPage(title = "التحديثات", onBack = { section = "home" }) {
@@ -174,9 +181,16 @@ private fun SettingsHome(
             icon = NoorIcons.Palette,
             title = "ألوان التطبيق",
             summary = AccentPalette.byId(settings.accentId).arabicName +
-                " — من بين " + MisbahaMath.arabicNumber(AccentPalette.All.size.toLong()) + " ألوان",
+                " — من بين " + MisbahaMath.arabicNumber(AccentPalette.All.size.toLong()) + " لوناً",
             accentDot = AccentPalette.byId(settings.accentId).day.primary,
             onOpen = { onOpen("colors") },
+        )
+        SectionRow(
+            icon = NoorIcons.Moon,
+            title = "اللون الأساسي",
+            summary = primarySummary(settings),
+            accentDot = AccentPalette.byId(settings.primaryId.ifBlank { settings.accentId }).day.primary,
+            onOpen = { onOpen("primary") },
         )
         SectionRow(
             icon = NoorIcons.Update,
@@ -438,19 +452,81 @@ private fun AsrSection(
     }
 }
 
-/** قسم الألوان — شبكة الألوان الاثني عشر المتمايزة مع الأبيض والأسود */
+/** قسم الألوان — شبكة الألوان العشرين المتمايزة مع الأسود المحايد */
 @Composable
 private fun ColorsSection(
     settings: NoorSettingsState,
     onSetAccent: (String) -> Unit,
 ) {
     Text(
-        text = "اثنا عشر لوناً متمايزاً لا تتشابه درجاتها — مع الأبيض والأسود — والتطبيق كله يتبع اختيارك في الوضعين",
+        text = "عشرون لوناً متمايزاً لا تتشابه درجاتها — الجريئة التسع الجديدة مع العائلية والأسود — والتطبيق كله يتبع اختيارك في الوضعين",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Spacer(Modifier.height(14.dp))
     AccentGrid(selectedId = settings.accentId, onPick = onSetAccent)
+}
+
+/** ملخص صف اللون الأساسي في القائمة — «الحالي» حين يتبع لون التطبيق */
+private fun primarySummary(settings: NoorSettingsState): String =
+    if (settings.primaryId.isBlank()) {
+        "الحالي — يتبع لون التطبيق (" +
+            AccentPalette.byId(settings.accentId).arabicName + ")"
+    } else {
+        AccentPalette.byId(settings.primaryId).arabicName +
+            " — بدل لون التطبيق (" + AccentPalette.byId(settings.accentId).arabicName + ")"
+    }
+
+/**
+ * قسم **اللون الأساسي** (alpha32 بأمر المالك: «اعمل نفس الالوان في
+ * قائمه جديده لتغيير اللون الاساسي في التطبيق و طبعا الافتراضي هو
+ * الحالي») — نفس لوحة العشرين في قائمة مستقلة تغيّر الأساسي فقط
+ * (الأزرار والسائل والتحديد)، وافتراضياً يتبع لون التطبيق.
+ */
+@Composable
+private fun PrimarySection(
+    settings: NoorSettingsState,
+    onSetPrimary: (String) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Text(
+        text = "نفس ألوان التطبيق العشرين — لكنها تغيّر اللون الأساسي فقط (الأزرار والسائل والتحديد) وتبقى الحاويات والهيرو بلون التطبيق",
+        style = MaterialTheme.typography.bodySmall,
+        color = scheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(14.dp))
+    // خيار «الحالي» — الافتراضي: يتبع لون التطبيق ولا يجبر على قيمة
+    Surface(
+        onClick = { onSetPrimary("") },
+        shape = RoundedCornerShape(14.dp),
+        color = if (settings.primaryId.isBlank()) scheme.secondaryContainer else scheme.surface,
+        border = BorderStroke(
+            width = if (settings.primaryId.isBlank()) 1.5.dp else 1.dp,
+            color = if (settings.primaryId.isBlank()) scheme.secondary
+            else scheme.outline.copy(alpha = 0.35f),
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+        ) {
+            Icon(
+                Icons.Filled.Check,
+                contentDescription = null,
+                tint = if (settings.primaryId.isBlank()) scheme.secondary else scheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = "الحالي — يتبع لون التطبيق (الافتراضي)",
+                style = MaterialTheme.typography.bodyLarge,
+                color = scheme.onSurface,
+            )
+        }
+    }
+    Spacer(Modifier.height(14.dp))
+    AccentGrid(selectedId = settings.primaryId, onPick = onSetPrimary)
 }
 
 /** قسم التحديثات — النسخة الحالية والفحص اليدوي والتثبيت الداخلي */
@@ -541,9 +617,10 @@ private fun updateStatusText(state: UpdateUiState): String = when (state) {
 }
 
 /**
- * شبكة الألوان الاثني عشر — صفوف بأربع دوائر في الصف، دائرة لكل لون
+ * شبكة الألوان العشرين — صفوف بأربع دوائر في الصف، دائرة لكل لون
  * بلونه النهاري واسمه عربياً تحته، والمختار بإطار مميز (توجيه المالك
- * alpha18 للعشرة الأولى وalpha29 للمتمايزة الاثني عشر مع الأبيض والأسود).
+ * alpha18 للعشرة الأولى وalpha29 للمتمايزة وalpha32 للعشرين بعد
+ * إزالة الأبيض وإضافة الجريئة التسع).
  */
 @Composable
 private fun AccentGrid(selectedId: String, onPick: (String) -> Unit) {

@@ -31,6 +31,9 @@ data class UpdatePrefs(
  * إعدادات التطبيق — DataStore (الخليفة الحديث لـ SharedPreferences).
  * القيم الافتراضية: القاهرة (نفس المرجع) — أول تحديد موقع يستبدلها.
  * accentId معرّف لون التطبيق (ui.theme.AccentPalette) — زمردي افتراضياً.
+ * primaryId معرّف **اللون الأساسي** (alpha32) — فارغ = يتبع لون التطبيق
+ * الحالي (وهذا هو الافتراضي بأمر المالك: «طبعا الافتراضي هو الحالي»)،
+ * وقيمته من AccentPalette نفسها فالقائمتان نفسا بقائمة العشرين.
  */
 data class NoorSettingsState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -43,6 +46,8 @@ data class NoorSettingsState(
     val locationResolved: Boolean = false,
     /** لون التطبيق (مُعرّف من AccentPalette) — تغييره من الإعدادات (alpha18) */
     val accentId: String = "emerald",
+    /** اللون الأساسي (alpha32) — فارغ = يتبع لون التطبيق الحالي */
+    val primaryId: String = "",
 )
 
 class SettingsRepository(private val context: Context) {
@@ -56,6 +61,7 @@ class SettingsRepository(private val context: Context) {
         val LNG = doublePreferencesKey("longitude")
         val LOCATION_RESOLVED = booleanPreferencesKey("location_resolved")
         val ACCENT = stringPreferencesKey("accent_color")
+        val PRIMARY = stringPreferencesKey("primary_color")
         val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check_at")
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
         val UPDATE_DISMISSED = stringPreferencesKey("update_dismissed_version")
@@ -72,11 +78,17 @@ class SettingsRepository(private val context: Context) {
             longitude = p[Keys.LNG] ?: 31.2357,
             locationResolved = p[Keys.LOCATION_RESOLVED] ?: false,
             accentId = p[Keys.ACCENT] ?: "emerald",
+            primaryId = p[Keys.PRIMARY] ?: "",
         )
     }
 
     suspend fun setAccentId(id: String) {
         context.noorDataStore.edit { it[Keys.ACCENT] = id }
+    }
+
+    /** اللون الأساسي — نص فارغ يعني «الحالي» (يتبع لون التطبيق) */
+    suspend fun setPrimaryId(id: String) {
+        context.noorDataStore.edit { it[Keys.PRIMARY] = id }
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {

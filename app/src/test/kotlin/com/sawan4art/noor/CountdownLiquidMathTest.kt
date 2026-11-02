@@ -126,4 +126,61 @@ class CountdownLiquidMathTest {
         assertEquals(112f, CountdownLiquidMath.pointY(100f, 12f, (Math.PI / 2).toFloat()), 1e-4f)
         assertEquals(100f, CountdownLiquidMath.pointY(100f, 12f, 0f), 1e-4f)
     }
+
+    // ===== رقبة الاتصال — الشريط يخرج من النقطة ويلتحق بها (alpha32) =====
+
+    @Test
+    fun `رقبة الاتصال بين سطح النقطة وسط الأنبوب — تغمر الطرفين`() {
+        // في أقيس الصناديق الفعلية: الرقبة الممتدة تغطي سطح النقطة الأقصى
+        // وحافة الأنبوب الداخلية معاً — لا فجوة بين الشريط والنقطة أبداً
+        for (side in listOf(186f, 176f, 160f, 150f, 132f, 120f)) {
+            val bandHalf = 9f / 2f
+            val track = CountdownLiquidMath.trackRadius(side, 10f)
+            val drop = CountdownLiquidMath.dropRadius(track - bandHalf, 11f)
+            val neckCenter = CountdownLiquidMath.neckCenterRadius(drop, track)
+            val neckR = CountdownLiquidMath.neckRadius(bandHalf)
+            // تغمر سطح النقطة (مع أسوأ امتداد له)
+            assertTrue(
+                "side=$side: الرقبة لا تلمس النقطة",
+                neckCenter - neckR < drop * CountdownLiquidMath.MAX_BLOB_EXTENT,
+            )
+            // وتغمر حافة الأنبوب الداخلية
+            assertTrue(
+                "side=$side: الرقبة لا تلمس الأنبوب",
+                neckCenter + neckR > track - bandHalf,
+            )
+        }
+    }
+
+    @Test
+    fun `مركز الرقبة هو منتصف المسافة — ونصف قطرها أكبر من نصف الأنبوب`() {
+        assertEquals(75f, CountdownLiquidMath.neckCenterRadius(67f, 83f), 1e-4f)
+        assertEquals(6.75f, CountdownLiquidMath.neckRadius(4.5f), 1e-4f)
+        assertTrue(
+            CountdownLiquidMath.neckRadius(4.5f) > 4.5f,
+        )
+    }
+
+    @Test
+    fun `دفعة الالتصاق صفر حتى اللوب شبه مكتمل ثم تنهض إلى واحد`() {
+        assertEquals(0f, CountdownLiquidMath.attachSurge(0f), 1e-4f)
+        assertEquals(0f, CountdownLiquidMath.attachSurge(180f), 1e-4f)
+        assertEquals(0f, CountdownLiquidMath.attachSurge(349.9f), 1e-4f)
+        assertEquals(0.5f, CountdownLiquidMath.attachSurge(355f), 1e-4f)
+        assertEquals(1f, CountdownLiquidMath.attachSurge(360f), 1e-4f)
+        assertEquals(1f, CountdownLiquidMath.attachSurge(400f), 1e-4f)
+        // القيم الفاسدة تُستأمن
+        assertEquals(0f, CountdownLiquidMath.attachSurge(Float.NaN), 1e-4f)
+        assertEquals(0f, CountdownLiquidMath.attachSurge(Float.NEGATIVE_INFINITY), 1e-4f)
+    }
+
+    @Test
+    fun `دفعة الالتصاق لا تتراجع مع تقدم السباحة`() {
+        var prev = -1f
+        for (i in 0..360) {
+            val s = CountdownLiquidMath.attachSurge(i.toFloat())
+            assertTrue("الدفعة تراجعت عند $i", s >= prev)
+            prev = s
+        }
+    }
 }

@@ -11,36 +11,70 @@ import org.junit.Test
 import kotlin.math.abs
 
 /**
- * عقد لوحة الألوان (alpha29 توجيه المالك: «الالوان فيها متشابه كثير
- * انا عايز الوان غير متشابه .. و كمان عايز لونين ابيض و اسود دول
- * اضافيين») — اثنا عشر لوناً متمايزاً: عشرة عائلية بتباعد واضح
- * (لا زوج يكاد يُرى الفرق بينه) + محايدَي الأبيض والأسود.
+ * عقد لوحة الألوان (alpha32 توجيه المالك: «امسح اللون الابيض من قائمه
+ * الالوان و واضف الوان جديده جريئه و مختلفه عن الالوان الموجوده و خلي
+ * مجموع الالوان كلها ٢٠ لون») — عشرون لوناً متمايزاً: تسعة عشر لوناً
+ * عائلياً بتباعد واضح (لا زوج يكاد يُرى الفرق بينه) + الأسود المحايد.
  */
 class AccentPaletteTest {
 
-    private val removedSimilarIds =
-        listOf("electric", "royal", "crimson", "copper", "lime", "fuchsia", "hotpink", "vividpurple", "solar", "navy")
+    /** ألوان ألفا المزالة — لا يجوز أن تعود، ومستخدموها ينتقلون للافتراضي */
+    private val removedGhostIds =
+        listOf(
+            "electric", "royal", "crimson", "copper", "lime", "fuchsia",
+            "hotpink", "vividpurple", "solar", "navy",
+            "white", // الأبيض أُزيل بأمر المالك alpha32
+        )
 
     @Test
-    fun `اللوحة اثنا عشر لونا بالضبط — عشرة عائلية والمحايدان`() {
-        assertEquals(12, AccentPalette.All.size)
+    fun `اللوحة عشرون لونا بالضبط — بتسعة ألوان جريئة جديدة`() {
+        assertEquals(20, AccentPalette.All.size)
         assertEquals(
-            listOf("emerald", "turquoise", "sky", "indigo", "violet", "rose", "ruby", "blaze", "amber", "olive", "white", "black"),
+            listOf(
+                "emerald", "grass", "chartreuse", "olive", "amber", "coffee",
+                "blaze", "scarlet", "ruby", "rose", "magenta", "radiant",
+                "violet", "ultraviolet", "indigo", "cobalt", "sky", "cyan",
+                "turquoise", "black",
+            ),
             AccentPalette.All.map { it.id },
         )
         assertEquals(
-            listOf("زمردي", "تركوازي", "سماوي", "نيلي", "بنفسجي", "واردي", "عنابي", "ناري", "كهرماني", "زيتوني", "أبيض", "أسود"),
+            listOf(
+                "زمردي", "أخضر عشبي", "لايم", "زيتوني", "كهرماني", "بندقي",
+                "ناري", "قرمزي", "عنابي", "واردي", "ماجنتا", "أرجواني",
+                "بنفسجي", "أزرق بنفسجي", "نيلي", "كوبالت", "سماوي", "سيان",
+                "تركوازي", "أسود",
+            ),
             AccentPalette.All.map { it.arabicName },
         )
     }
 
     @Test
-    fun `الوان المتشابهة السابقة زالت كلها — لون واحد لكل عائلة درجية`() {
-        removedSimilarIds.forEach { ghost ->
+    fun `الالوان المزالة زالت كلها — ومنها الأبيض بأمر المالك`() {
+        removedGhostIds.forEach { ghost ->
             assertTrue(
-                "اللون المتشابه $ghost ما زال في اللوحة!",
+                "اللون المزال $ghost ما زال في اللوحة!",
                 AccentPalette.All.none { it.id == ghost },
             )
+        }
+    }
+
+    @Test
+    fun `الجريئة التسع الجديدة موجودة بأسمائها`() {
+        listOf(
+            "grass" to "أخضر عشبي",
+            "chartreuse" to "لايم",
+            "coffee" to "بندقي",
+            "scarlet" to "قرمزي",
+            "magenta" to "ماجنتا",
+            "radiant" to "أرجواني",
+            "ultraviolet" to "أزرق بنفسجي",
+            "cobalt" to "كوبالت",
+            "cyan" to "سيان",
+        ).forEach { (id, name) ->
+            val accent = AccentPalette.byId(id)
+            assertEquals("اسم اللون الجديد $id", name, accent.arabicName)
+            assertNotEquals("اللون الجديد $id غير موجود!", AccentPalette.default, accent)
         }
     }
 
@@ -80,8 +114,8 @@ class AccentPaletteTest {
     }
 
     @Test
-    fun `الالعائلية العشرة متباعدة نهارا — لا زوج يكاد يرى الفرق بينه`() {
-        val colored = AccentPalette.All.dropLast(2)
+    fun `الالوان العائلية التسعة عشر متباعدة نهارا — لا زوج يكاد يرى الفرق بينه`() {
+        val colored = AccentPalette.All.dropLast(1) // الأسود محايد خارج الفحص
         for (i in colored.indices) {
             for (j in i + 1 until colored.size) {
                 assertSeparated(
@@ -93,8 +127,8 @@ class AccentPaletteTest {
     }
 
     @Test
-    fun `الالعائلية العشرة متباعدة ليلا أيضا`() {
-        val colored = AccentPalette.All.dropLast(2)
+    fun `الالوان العائلية التسعة عشر متباعدة ليلا أيضا`() {
+        val colored = AccentPalette.All.dropLast(1)
         for (i in colored.indices) {
             for (j in i + 1 until colored.size) {
                 assertSeparated(
@@ -106,8 +140,8 @@ class AccentPaletteTest {
     }
 
     @Test
-    fun `الجريئة الباقية تشبع عال نهارا وحية ليلا`() {
-        listOf("turquoise", "blaze").forEach { id ->
+    fun `الجريئة تشبع عال نهارا وحية ليلا`() {
+        listOf("chartreuse", "scarlet", "magenta", "cobalt", "cyan", "blaze", "turquoise").forEach { id ->
             val accent = AccentPalette.byId(id)
             assertTrue(
                 "النهاري للجريء $id باهت",
@@ -121,13 +155,12 @@ class AccentPaletteTest {
     }
 
     @Test
-    fun `الابيض والاسود محايدان بلا تشبع يذكر في الوضعين`() {
-        listOf("white", "black").forEach { id ->
-            val accent = AccentPalette.byId(id)
-            listOf(accent.day.primary, accent.night.primary).forEach { c ->
-                assertTrue("المحايد $id مشبع؟ ${toHsv(c).second}", toHsv(c).second <= 0.2f)
-            }
+    fun `الأسود محايد بلا تشبع يذكر في الوضعين — والأبيض لم يعد موجودا`() {
+        val black = AccentPalette.byId("black")
+        listOf(black.day.primary, black.night.primary).forEach { c ->
+            assertTrue("المحايد الأسود مشبع؟ ${toHsv(c).second}", toHsv(c).second <= 0.2f)
         }
+        assertEquals(null, AccentPalette.All.firstOrNull { it.id == "white" })
     }
 
     // ===== تباين نصوص الأزرار =====
@@ -180,8 +213,8 @@ class AccentPaletteTest {
         assertSame(AccentPalette.default, AccentPalette.byId("emerald"))
         assertSame(AccentPalette.default, AccentPalette.byId("ghost-color"))
         assertSame(AccentPalette.default, AccentPalette.byId(null))
-        // ألوان alpha28 المزالة — مستخدموها القديمون ينتقلون للزمردي سالمين
-        removedSimilarIds.forEach { ghost ->
+        // ألوان ألفا المزالة — مستخدموها القديمون ينتقلون للزمردي سالمين
+        removedGhostIds.forEach { ghost ->
             assertSame(AccentPalette.default, AccentPalette.byId(ghost))
         }
         assertNotEquals(AccentPalette.default, AccentPalette.byId("indigo"))

@@ -77,6 +77,8 @@ fun NoorTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     /** لون التطبيق — من إعدادات الألوان الجديدة (alpha18: عشرة ألوان) */
     accent: AccentColor = AccentPalette.default,
+    /** اللون الأساسي المستقل (alpha32) — null = يتبع لون التطبيق الحالي */
+    primaryAccent: AccentColor? = null,
     content: @Composable () -> Unit,
 ) {
     val dark = when (themeMode) {
@@ -85,19 +87,21 @@ fun NoorTheme(
         ThemeMode.DARK -> true
     }
     val set = if (dark) accent.night else accent.day
-    // الحياد (خلفيات/أسطح/حدود/ذهبي ثانوي) ثابت هوية — واللون يغذّي الأساسي
-    // والحاويات؛ بطاقة الهيرو كاملة من اللون المختار
+    // **اللون الأساسي المستقل** (alpha32): «اعمل نفس الالوان في قائمه
+    // جديده لتغيير اللون الاساسي في التطبيق و طبعا الافتراضي هو الحالي»
+    // — يغذّي الأساسي ونصه فقط، فتبقى الحاويات والهيرو بلون التطبيق
+    val primarySet = primaryAccent?.let { if (dark) it.night else it.day }
     val scheme = if (dark) {
         NightColors.copy(
-            primary = set.primary,
-            onPrimary = set.onPrimary,
+            primary = primarySet?.primary ?: set.primary,
+            onPrimary = primarySet?.onPrimary ?: set.onPrimary,
             primaryContainer = set.primaryContainer,
             onPrimaryContainer = set.onPrimaryContainer,
         )
     } else {
         DayColors.copy(
-            primary = set.primary,
-            onPrimary = set.onPrimary,
+            primary = primarySet?.primary ?: set.primary,
+            onPrimary = primarySet?.onPrimary ?: set.onPrimary,
             primaryContainer = set.primaryContainer,
             onPrimaryContainer = set.onPrimaryContainer,
         )
