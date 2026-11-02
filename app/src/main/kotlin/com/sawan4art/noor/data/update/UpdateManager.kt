@@ -14,18 +14,26 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * مدير التحديثات — منسق السلسلة الكاملة داخل التطبيق (طلب المالك):
- * فحص تلقائي عند الفتح (بسقف 3 ساعات) + فحص دوري في الخلفية (12 ساعة)
+ * مدير التحديثات — منسق السلسلة الكاملة داخل التطبيق:
+ * فحص عند **كل فتح للتطبيق** + فحص دوري في الخلفية (12 ساعة)
  * + إشعار واحد لكل نسخة + ملخص «ما الجديد» + تنزيل بشريط تقدم
  * + تثبيت بحوار النظام فوق التطبيق بلا متصفح.
+ *
+ * alpha35 إصلاح بلاغ المالك «لا مظهرش» — كان الفحص عند الفتح بسقفٍ
+ * ٣ ساعات فكانت النسخة الجديدة تمرّ صامتاً ساعاتٍ إذا كان آخر فحص
+ * حديثاً: كل فتحات المستخدم داخل السقف لا تفحص ولا تُشعر. الآن كل
+ * فتحٍ بارد يفحص فعلاً (نشرُ الإشعار ثوانٍ من صدور النسخة)، وتكفي
+ * أرضية دقيقةٍ داخل العملية لضبط كثرة الطلبات عند دوران الشاشة
+ * وتغيير المظهر — والفحص اليدوي من الإعدادات بلا أرضية كما هو.
  */
 object UpdateManager {
 
     /** Extra نية فتح التحديث — يأتي من ضغط إشعار التحديث */
     const val EXTRA_OPEN_UPDATE = "noor_extra_open_update"
 
-    /** سقف الفحص التلقائي — يحمي حد الـ API العامة (60 طلب/ساعة لكل IP) */
-    private const val AUTO_CHECK_INTERVAL_MS = 3L * 60 * 60 * 1000
+    /** أرضية الفحص داخل العملية — طلب HTTP كل دقيقة على الأكثر في
+     *  الجلسة الواحدة، ضد تكرار الدوران وتغيير المظهر لا ضد الفتح */
+    private const val PROCESS_CHECK_FLOOR_MS = 60_000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var appContext: Context
@@ -45,6 +53,10 @@ object UpdateManager {
     private var checkRunning = false
     private var downloadRunning = false
 
+    /** زمن انتهاء آخر فحص مكتمل (ساعة تشغيل العملية الرتيبة) */
+    @Volatile
+    private var lastFinishedCheckElapsed = Long.MIN_VALUE / 2
+
     /** يُنادى من NoorApplication — قناة الإشعار وجدولة الفاحص الدوري عند من يجدها */
     fun init(context: Context) {
         if (initialized) return
@@ -56,18 +68,17 @@ object UpdateManager {
         }
     }
 
-    /** فحص عند فتح التطبيق — مقيّد بالسقف الزمني كي لا نسأل عند كل فتح */
+    /** فحص عند فتح التطبيق — كل فتحٍ بارد يفحص فعلاً كي يصل إشعار
+     *  النسخة الجديدة فوراً، وأرضية الدقيقة تحمي من تكرار الطلبات
+     *  عند دوران الشاشة وتغيير المظهر داخل الجلسة نفسها */
     fun onAppStart() {
         if (!initialized) return
-        scope.launch {
-            val lastCheck = repository.updatePrefs.first().lastCheckAt
-            val elapsed = System.currentTimeMillis() - lastCheck
-            val busy = _state.value is UpdateUiState.Checking ||
-                _state.value is UpdateUiState.Downloading
-            if (elapsed >= AUTO_CHECK_INTERVAL_MS && !busy) {
-                check(auto = true)
-            }
-        }
+        val sinceLast = android.os.SystemClock.elapsedRealtime() - lastFinishedCheckElapsed
+        if (sinceLast < PROCESS_CHECK_FLOOR_MS) return
+        val busy = _state.value is UpdateUiState.Checking ||
+            _state.value is UpdateUiState.Downloading
+        if (busy) return
+        scope.launch { check(auto = true) }
     }
 
     /** فحص يدوي فوري (زر الإعدادات أو ضغط الإشعار) — بلا سقف زمني */
@@ -98,6 +109,7 @@ object UpdateManager {
             else UpdateUiState.Failed(failureMessage(t), null)
         } finally {
             checkRunning = false
+            lastFinishedCheckElapsed = android.os.SystemClock.elapsedRealtime()
         }
     }
 

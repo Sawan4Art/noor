@@ -1,5 +1,8 @@
 package com.sawan4art.noor.ui.settings
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -44,6 +47,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +55,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -59,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import com.sawan4art.noor.BuildConfig
 import com.sawan4art.noor.data.NoorSettingsState
 import com.sawan4art.noor.data.update.UpdateUiState
+import com.sawan4art.noor.data.update.UpdateNotifier
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.ui.theme.AccentPalette
@@ -592,6 +598,48 @@ private fun UpdatesSection(
             else -> scheme.onSurfaceVariant
         },
     )
+    // alpha35: إذن الإشعارات معطّل (٣٣+) = تنبيهات النسخ الجديدة لا تصلك
+    // مهما فُحص — نبّه المالك وفتح إعدادات إشعارات التطبيق خطوةً واحدة
+    val context = LocalContext.current
+    if (!UpdateNotifier.canNotify(context)) {
+        Spacer(Modifier.height(12.dp))
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = scheme.errorContainer.copy(alpha = 0.35f),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "الإشعارات معطّلة",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = scheme.error,
+                    )
+                    Text(
+                        text = "اسمح بإشعارات نور المسلم كي يصلك تنبيه كل نسخة جديدة",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = {
+                    val intent = if (Build.VERSION.SDK_INT >= 26) {
+                        Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    } else {
+                        Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            .setData(Uri.parse("package:" + context.packageName))
+                    }
+                    runCatching { context.startActivity(intent) }
+                }) {
+                    Text("فتح الإعدادات")
+                }
+            }
+        }
+    }
     if (updateState is UpdateUiState.Downloading) {
         Spacer(Modifier.height(10.dp))
         LinearProgressIndicator(
