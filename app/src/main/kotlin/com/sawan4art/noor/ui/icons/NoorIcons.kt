@@ -120,6 +120,39 @@ object NoorIcons {
         }
     }
 
+    /** الأحاديث — مخطوطة: لفافتان جانبيتان ورقٌ بثلاثة أسطر (EvenOdd) */
+    val Hadith: ImageVector by lazy {
+        noorIcon("Hadith") {
+            filled(PathFillType.EvenOdd) {
+                // اللفافة اليمنى واليسرى — كبسولتان تبرزان عن الورقة
+                capsule(4.9f, 4.6f, 19.4f, 1.5f)
+                capsule(19.1f, 4.6f, 19.4f, 1.5f)
+                // الورقة بين اللفافتين
+                moveTo(6.4f, 6.9f)
+                lineTo(17.6f, 6.9f)
+                lineTo(17.6f, 17.1f)
+                lineTo(6.4f, 17.1f)
+                close()
+                // أسطر النص الثلاث — فتحات تُفرَّغ من الورقة (EvenOdd)
+                moveTo(8.6f, 9.3f)
+                lineTo(15.4f, 9.3f)
+                lineTo(15.4f, 10.4f)
+                lineTo(8.6f, 10.4f)
+                close()
+                moveTo(8.6f, 11.45f)
+                lineTo(15.4f, 11.45f)
+                lineTo(15.4f, 12.55f)
+                lineTo(8.6f, 12.55f)
+                close()
+                moveTo(8.6f, 13.6f)
+                lineTo(15.4f, 13.6f)
+                lineTo(15.4f, 14.7f)
+                lineTo(8.6f, 14.7f)
+                close()
+            }
+        }
+    }
+
     /** مبدّل المظهر — الشمس والقمر معاً (بطلب المالك 2026-10-30: هندسية شمس وقمر):
      *  هلال بنفس هندسة أيقونة التطبيق (فرق دائرتين بقوسين حقيقيين، الفتحة لأعلى-يمين
      *  نحو الشمس) + قرص شمس بثماني أشعة مثلثية خارج دائرة القمر تماماً.
@@ -491,6 +524,17 @@ object NoorIcons {
 
     /** حبة سبحة صغيرة */
     private fun PathBuilder.bead(cx: Float, cy: Float) = circle(cx, cy, 1.45f)
+
+    /** كبسولة عمودية — دائرتان ونص مستطيل (لفافة المخطوطة) */
+    private fun PathBuilder.capsule(cx: Float, top: Float, bottom: Float, r: Float) {
+        circle(cx, top + r, r)
+        circle(cx, bottom - r, r)
+        moveTo(cx - r, top + r)
+        lineTo(cx + r, top + r)
+        lineTo(cx + r, bottom - r)
+        lineTo(cx - r, bottom - r)
+        close()
+    }
 
     /** شعاع شمس مثلثي بنقاط جاهزة — مولّد آلي (مزلاج المظهر) */
     private fun PathBuilder.rayAt(

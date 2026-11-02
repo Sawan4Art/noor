@@ -45,6 +45,7 @@ import com.sawan4art.noor.domain.location.LocationGate
 import com.sawan4art.noor.ui.home.HomeScreen
 import com.sawan4art.noor.ui.home.HomeViewModel
 import com.sawan4art.noor.ui.azkar.AzkarScreen
+import com.sawan4art.noor.ui.hadith.HadithScreen
 import com.sawan4art.noor.ui.nav.LiquidNavScaffold
 import com.sawan4art.noor.ui.nav.NoorTab
 import com.sawan4art.noor.ui.notice.NoorNoticeDialog
@@ -383,6 +384,7 @@ private fun NoorBody(
                     )
                     NoorTab.TASBIH -> MisbahaScreen()
                     NoorTab.ADHKAR -> AzkarScreen(onExitTab = { onTab(NoorTab.PRAYER) })
+                    NoorTab.HADITH -> HadithScreen()
                     NoorTab.SETTINGS -> SettingsScreen(
                         settings = uiState.settings,
                         locating = locating,

@@ -6,6 +6,17 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
     }
+    // KSP: ربط معرف الإضافة بالأرتيفاكت مباشرة — نفس ما يفعله ماركر
+    // com.google.devtools.ksp.gradle.plugin تماماً، لكن الماركر نفسه
+    // لا يتوفر أحياناً على مرايا Maven فيفشل الحل كله. الأرتيفاكت
+    // symbol-processing-gradle-plugin موجود على Maven Central دائماً.
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == "com.google.devtools.ksp") {
+                useModule("com.google.devtools.ksp:symbol-processing-gradle-plugin:${requested.version}")
+            }
+        }
+    }
 }
 
 dependencyResolutionManagement {
