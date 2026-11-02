@@ -39,19 +39,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 import com.sawan4art.noor.domain.prayer.PrayerMath
 import com.sawan4art.noor.domain.prayer.PrayerTimes
@@ -62,6 +68,7 @@ import com.sawan4art.noor.ui.nav.GooeyMath
 import com.sawan4art.noor.ui.nav.addLiquidBlob
 import com.sawan4art.noor.util.Hijri
 import com.sawan4art.noor.util.TimeFormat
+import java.time.Duration
 import kotlin.math.cos
 import kotlin.math.sin
 import java.time.Instant
@@ -302,33 +309,27 @@ private fun HeroCard(
                 style = MaterialTheme.typography.titleMedium,
                 color = noorColors.heroMuted,
             )
-            // الحلقة تتكيف مع المساحة المتاحة، ونص العدّاد طبقة مستقلة لا ينكمش
-            // أبداً — حتى على أقصر الشاشات يبقى العدّاد مقروءاً بلا تمرير
+            // الحلقة السائلة تتكيف مع المساحة المتاحة — والعدّاد نفسه
+            // يعوم داخل النقطة السائلة فلا ينكمش ولا يخرج عن القطرة أبداً
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                val side = minOf(maxHeight, maxWidth).coerceAtMost(176.dp)
-                ProgressRing(
-                    progressPercent = next.progressPercent,
-                    ringColor = gold,
-                    trackColor = Color.White.copy(alpha = 0.12f),
+                val side = minOf(maxHeight, maxWidth).coerceAtMost(186.dp)
+                // نسبة التقدم اللحظية — الماضي من الفترة ÷ كاملها بقيمة
+                // متصلة (لا أعداد صحيحة) كي يتحرك السائل مع كل ثانية:
+                // «اجعله يتقدم مع تقدم انتهاء الوقت» — يكتمل عند الأذان
+                val windowSec = Duration.between(next.previous, next.target).seconds.coerceAtLeast(1)
+                val progressFraction =
+                    (windowSec - next.remainingSeconds).coerceIn(0, windowSec).toFloat() / windowSec
+                LiquidCountdown(
+                    progressFraction = progressFraction,
+                    remainingText = TimeFormat.remainingArabic(next.remainingSeconds),
+                    sideDp = side,
                     modifier = Modifier.size(side),
                 )
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = TimeFormat.remainingArabic(next.remainingSeconds),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = noorColors.heroContent,
-                    )
-                    Text(
-                        text = "المتبقي",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = noorColors.heroMuted,
-                    )
-                }
             }
             Spacer(Modifier.height(8.dp))
             Row(
@@ -419,47 +420,139 @@ private fun HeroChip(text: String) {
     }
 }
 
+/**
+ * **مؤقت الصلاة السائل الحي** — طلب المالك alpha31:
+ * «الشريط الذي يحيط ب الوقت المتبقي اجعله يتقدم مع تقدم انتهاء الوقت
+ * و اجعل الوقت المتبقي داخل سائل حي و يلتف حوله الشريط الدائري الاسبق»
+ * و«ممكن نعمله شريط دائري عباره عن سائل حي برضو».
+ *
+ * التركيب من الداخل للخارج:
+ * ١. **النقطة السائلة الحية** في المركز — بلغة المسبحة والقبلة نفسها
+ *    (GooeyMath.addLiquidBlob): سطح متموج وتنفس وانسياب رأسي دائم،
+ *    والعدّاد التنازلي «٠٣:٢٤:١٥» وتحته «المتبقي» **يعومان داخلها**
+ *    يتبعان الانسياب نفسه فلا يثبتان فوق السائل.
+ * ٢. **الحلقة السائلة** حوله — الشريط الدائري نفسه صار ماءً حياً:
+ *    أنبوب حافتاه الخارجية والداخلية متموجتان دائماً (بطور معاكس
+ *    كي يتنفس الماء بينهما)، ويمتلئ موضعاً موضعاً كالزئبق **مع كل
+ *    ثانية** من عمر الفترة حتى يكتمل اللوب لحظة الأذان، وعلى رأس
+ *    السائل قطرة قائدة تسبق الامتلاء، وأخرى واقفة عند نقطة البداية
+ *    كي يبقى الأنبوب حياً حتى وهو فارغ.
+ *
+ * الحلقة الخافتة الكاملة (الأنبوب الفارغ) تُرسم أولاً ثم السائل
+ * الممتلئ فوقها — فتُرى نسبة الباقي كزجاج ماء شفيف.
+ * الرياضيات كلها نقية في [CountdownLiquidMath] بعقود اختبار.
+ */
 @Composable
-private fun ProgressRing(
-    progressPercent: Int,
-    ringColor: Color,
-    trackColor: Color,
+private fun LiquidCountdown(
+    progressFraction: Float,
+    remainingText: String,
+    sideDp: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val target = (progressPercent.coerceIn(0, 100)) / 100f
+    val scheme = MaterialTheme.colorScheme
+    val gold = scheme.secondary
+    val textMeasurer = rememberTextMeasurer()
+
+    // أبعاد الطبقات بالـ dp — تُحسب مرة واحدة لكل حجم شاشة
+    val trackDp = CountdownLiquidMath.trackRadius(sideDp.value, 10f)
+    val bandHalfDp = 4.5f
+    val ringInnerDp = trackDp - bandHalfDp
+    val dropDp = CountdownLiquidMath.dropRadius(ringInnerDp, 11f)
+    val fontSizeSp = CountdownLiquidMath.countdownFontSizeSp(dropDp)
+
+    // تخطيط النصوص يُقاس مرة واحدة فقط — لا قياس في كل إطار
+    val remainingLayout = remember(remainingText, fontSizeSp, textMeasurer) {
+        textMeasurer.measure(
+            AnnotatedString(remainingText),
+            TextStyle(fontSize = fontSizeSp.sp, fontWeight = FontWeight.Black),
+        )
+    }
+    val labelLayout = remember(fontSizeSp, textMeasurer) {
+        textMeasurer.measure(
+            AnnotatedString("المتبقي"),
+            TextStyle(fontSize = (fontSizeSp * 0.52f).sp, fontWeight = FontWeight.Bold),
+        )
+    }
+
+    // زمن حي لا يتوقف — السائل لا يسكن (نفس لغة المسبحة والقبلة)
+    var frameNanos by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            withInfiniteAnimationFrameNanos { frameNanos = it }
+        }
+    }
+
     val animated by animateFloatAsState(
-        targetValue = target,
-        animationSpec = tween(durationMillis = 700),
-        label = "prayerProgress",
+        targetValue = progressFraction,
+        animationSpec = tween(durationMillis = 600),
+        label = "prayerLiquidFill",
     )
+
     Canvas(modifier = modifier) {
-        val strokePx = 11.dp.toPx()
-        val diameter = size.minDimension - strokePx
-        val topLeft = androidx.compose.ui.geometry.Offset(
-            (size.width - diameter) / 2f,
-            (size.height - diameter) / 2f,
-        )
-        drawArc(
-            color = trackColor,
-            startAngle = 0f,
-            sweepAngle = 360f,
-            useCenter = false,
-            topLeft = topLeft,
-            size = androidx.compose.ui.geometry.Size(diameter, diameter),
-            style = Stroke(width = strokePx, cap = StrokeCap.Round),
-        )
-        drawArc(
-            brush = Brush.sweepGradient(
-                0f to ringColor.copy(alpha = 0.25f),
-                0.5f to ringColor,
-                1f to ringColor.copy(alpha = 0.25f),
+        val t = frameNanos / 1_000_000_000f
+        val side = size.minDimension
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+
+        val band = 9.dp.toPx()
+        val bandHalf = band / 2f
+        val trackR = CountdownLiquidMath.trackRadius(side, 10.dp.toPx())
+        val wobble = band * 0.35f
+        val dropR = CountdownLiquidMath.dropRadius(trackR - bandHalf, 11.dp.toPx())
+
+        // التنفس والانسياب — لغة السائل الحي نفسها في كل أقسام التطبيق
+        val breathe = 1f + CountdownLiquidMath.BREATH_AMPLITUDE * sin(t * 0.85f + 0.9f)
+        val drift = GooeyMath.centerDrift(t, 0.9f) * 0.8f
+        val dropCy = cy + dropR * drift
+
+        // ١) الأنبوب السائل الخافت — حلقة كاملة حافتاها تتنفسان دائماً
+        val tube = Path()
+        addLiquidRingBand(tube, cx, cy, trackR, bandHalf, 360f, t, wobble, phase = 0.4f)
+        drawPath(tube, Color.White.copy(alpha = 0.09f))
+
+        // ٢) السائل الممتلئ — يتقدم مع كل ثانية من عمر الفترة
+        val sweep = CountdownLiquidMath.sweepDegrees(animated)
+        val fill = Path()
+        addLiquidRingBand(fill, cx, cy, trackR, bandHalf, sweep, t, wobble, phase = -1.7f)
+        if (!fill.isEmpty) {
+            drawPath(
+                fill,
+                Brush.sweepGradient(
+                    0f to gold.copy(alpha = 0.35f),
+                    0.5f to gold,
+                    1f to gold.copy(alpha = 0.35f),
+                ),
+            )
+        }
+
+        // ٣) النقطة السائلة الحية — العدّاد يعوم داخلها
+        val drop = Path()
+        addLiquidBlob(drop, cx, dropCy, dropR * breathe, t, 0f, 1.3f)
+        drawPath(
+            drop,
+            Brush.verticalGradient(
+                listOf(scheme.primaryContainer, scheme.secondaryContainer),
+                startY = dropCy - dropR * 1.2f,
+                endY = dropCy + dropR * 1.2f,
             ),
-            startAngle = -90f,
-            sweepAngle = 360f * animated,
-            useCenter = false,
-            topLeft = topLeft,
-            size = androidx.compose.ui.geometry.Size(diameter, diameter),
-            style = Stroke(width = strokePx, cap = StrokeCap.Round),
+        )
+
+        // ٤) العدّاد «٠٣:٢٤:١٥» وتحته «المتبقي» — يتبعان الانسياب نفسه
+        drawText(
+            remainingLayout,
+            color = scheme.onPrimaryContainer,
+            topLeft = Offset(
+                cx - remainingLayout.size.width / 2f,
+                dropCy - dropR * 0.10f - remainingLayout.size.height / 2f,
+            ),
+        )
+        drawText(
+            labelLayout,
+            color = scheme.onPrimaryContainer.copy(alpha = 0.65f),
+            topLeft = Offset(
+                cx - labelLayout.size.width / 2f,
+                dropCy + dropR * 0.34f - labelLayout.size.height / 2f,
+            ),
         )
     }
 }

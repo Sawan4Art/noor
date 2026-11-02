@@ -212,6 +212,51 @@ class AzkarContentTest {
     }
 
     @Test
+    fun `أذكار البيت والحمام بأسمائها الواضحة ومحتواها الموسع`() {
+        // alpha31 توجيه المالك: «اضف اذكار دخول و خروج من البيت و اذكار
+        // دخول الحمام» — القسمان موجودان بأسماء أصبحت ظاهرة وبمحتوى أوفى
+        val home = AzkarContent.HOME
+        assertEquals("home", home.id)
+        assertTrue("عنوان البيت غير ظاهر: ${home.title}", home.title.contains("البيت"))
+        assertTrue(home.title.contains("دخول"))
+        assertTrue(home.title.contains("خروجه"))
+        assertEquals(4, home.items.size)
+        assertTrue(home.items.first { it.id == "home_enter" }.text.contains("وَلَجْنَا"))
+        assertTrue(
+            home.items.first { it.id == "home_greet" }.text
+                .contains("السَّلَامُ عَلَيْكُمْ وَرَحْمَةُ اللهِ"),
+        )
+        assertTrue(
+            home.items.first { it.id == "home_leave" }.text
+                .contains("تَوَكَّلْتُ عَلَى اللَّهِ"),
+        )
+        assertTrue(
+            home.items.first { it.id == "home_leave_refuge" }.text
+                .contains("اللَّهُمَّ إِنِّي أَعُوذُ"),
+        )
+        assertTrue(
+            home.items.first { it.id == "home_leave_refuge" }.text
+                .contains("أَوْ أَظْلِمَ أَوْ أُظْلَمَ، أَوْ أَجْهَلَ أَوْ يُجْهَلَ عَلَيَّ"),
+        )
+
+        val khilaa = AzkarContent.KHILAA
+        assertEquals("khilaa", khilaa.id)
+        assertTrue("عنوان الحمام غير ظاهر: ${khilaa.title}", khilaa.title.contains("الحمام"))
+        assertEquals(3, khilaa.items.size)
+        assertTrue(
+            khilaa.items.first { it.id == "khilaa_enter" }.text
+                .contains("الْخُبْثِ وَالْخَبَائِثِ"),
+        )
+        assertEquals("غُفْرَانَكَ", khilaa.items.first { it.id == "khilaa_leave" }.text)
+        assertTrue(
+            khilaa.items.first { it.id == "khilaa_bath" }.text
+                .contains("الْحَمْدُ لِلَّهِ الَّذِي أَذْهَبَ"),
+        )
+        // الأقسام الثلاثون قائمة بلا زيادة — الإثراء داخل القسمين لا إضافة قسم
+        assertEquals(30, AzkarContent.GROUPS.size)
+    }
+
+    @Test
     fun `خاتمة القنوت التامة من الترمذي موجودة`() {
         // مراجعة النص واللغة (alpha30): «تباركت ربنا وتعاليت» خاتمة الحديث
         assertTrue(
