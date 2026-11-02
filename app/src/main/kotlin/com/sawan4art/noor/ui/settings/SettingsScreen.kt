@@ -51,11 +51,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -103,6 +106,7 @@ fun SettingsScreen(
     onSetPrimary: (String) -> Unit,
     updateState: UpdateUiState,
     onCheckUpdates: () -> Unit,
+    onDownloadUpdate: () -> Unit,
     onInstallUpdate: () -> Unit,
 ) {
     // الروابط الداخلية: home ← location / method / colors / updates
@@ -148,6 +152,7 @@ fun SettingsScreen(
                     updateState = updateState,
                     currentVersion = BuildConfig.VERSION_NAME,
                     onCheckUpdates = onCheckUpdates,
+                    onDownloadUpdate = onDownloadUpdate,
                     onInstallUpdate = onInstallUpdate,
                 )
             }
@@ -564,12 +569,17 @@ private fun colorsSummary(settings: NoorSettingsState): String =
         (if (settings.primaryId.isBlank()) "يتبع لون التطبيق"
             else AccentPalette.byId(settings.primaryId).arabicName)
 
-/** قسم التحديثات — النسخة الحالية والفحص اليدوي والتثبيت الداخلي */
+/** قسم التحديثات — النسخة الحالية والفحص اليدوي و**سلسلة التنزيل كاملة**
+ *  والتثبيت الداخلي. alpha37 بلاغ المالك «زر التحميل وقف ف اديني رابط
+ *  للنسخ»: كان زر التنزيل في حوار النسخة الجديدة فقط، وبعد ضغط «لاحقاً»
+ *  لا يوجد أي مكان لتنزيل التحديث من التطبيق كله — الآن صفحة التحديثات
+ *  نفسها فيها زر التنزيل وإعادة المحاولة ونسخ رابط التحميل الاحتياطي. */
 @Composable
 private fun UpdatesSection(
     updateState: UpdateUiState,
     currentVersion: String,
     onCheckUpdates: () -> Unit,
+    onDownloadUpdate: () -> Unit,
     onInstallUpdate: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -667,6 +677,41 @@ private fun UpdatesSection(
         }
         Text("تحقق من التحديثات الآن")
     }
+    // alpha37: زر التنزيل في الصفحة نفسها — التحديث المتاح قابل للتنزيل
+    // من هنا دائماً، حتى بعد استبعاد حوار «ما الجديد» بـ«لاحقاً»
+    when (updateState) {
+        is UpdateUiState.Available -> {
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = onDownloadUpdate,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = scheme.secondary,
+                    contentColor = scheme.onSecondary,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("تنزيل التحديث الآن (${updateState.info.sizeText})")
+            }
+        }
+        is UpdateUiState.Failed -> {
+            Spacer(Modifier.height(10.dp))
+            Button(
+                // فشل شبكة عند الفحص = أعد الفحص، وفشل تنزيل وإن
+                // توفر التحديث = أعد التنزيل من نفس الزر
+                onClick = if (updateState.info != null) onDownloadUpdate else onCheckUpdates,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = scheme.secondary,
+                    contentColor = scheme.onSecondary,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (updateState.info != null) "إعادة محاولة التنزيل" else "إعادة المحاولة")
+            }
+        }
+        else -> Unit
+    }
     if (updateState is UpdateUiState.ReadyToInstall) {
         Spacer(Modifier.height(10.dp))
         Button(
@@ -676,8 +721,34 @@ private fun UpdatesSection(
                 containerColor = scheme.secondary,
                 contentColor = scheme.onSecondary,
             ),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Text("تثبيت الآن")
+        }
+    }
+    // alpha37: احتياط المالك «اديني رابط للنسخ» — نسخ رابط الـ APK المباشر
+    // إلى الحافظة ليُحمّل من أي متصفح لو تعذّر التنزيل من داخل التطبيق
+    val apkInfo = when (updateState) {
+        is UpdateUiState.Available -> updateState.info
+        is UpdateUiState.Failed -> updateState.info
+        is UpdateUiState.ReadyToInstall -> updateState.info
+        else -> null
+    }
+    if (apkInfo != null && updateState !is UpdateUiState.Downloading) {
+        val clipboard = LocalClipboardManager.current
+        var linkCopied by remember { mutableStateOf(false) }
+        TextButton(
+            onClick = {
+                clipboard.setText(AnnotatedString(apkInfo.apkUrl))
+                linkCopied = true
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = if (linkCopied) "تم نسخ رابط التحميل — افتحه في أي متصفح" else "نسخ رابط التحميل (احتياط)",
+                style = MaterialTheme.typography.labelMedium,
+                color = scheme.secondary,
+            )
         }
     }
 }

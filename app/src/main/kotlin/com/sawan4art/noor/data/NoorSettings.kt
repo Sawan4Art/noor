@@ -20,10 +20,12 @@ private val Context.noorDataStore: DataStore<Preferences> by preferencesDataStor
 /** وضع المظهر */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
-/** ذاكرة نظام التحديثات — متى فُحص آخر مرة وماذا أُشعر عنه واستُبعد */
+/** ذاكرة نظام التحديثات — متى فُحص آخر مرة وماذا أُشعر عنه ومتى واستُبعد */
 data class UpdatePrefs(
     val lastCheckAt: Long = 0L,
     val notifiedVersion: String? = null,
+    /** آخر وقت نُشر فيه إشعار فعلي — عصا سياسة التكرار (alpha37) */
+    val lastNotifiedAt: Long = 0L,
     val dismissedVersion: String? = null,
 )
 
@@ -64,6 +66,7 @@ class SettingsRepository(private val context: Context) {
         val PRIMARY = stringPreferencesKey("primary_color")
         val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check_at")
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
+        val UPDATE_NOTIFIED_AT = longPreferencesKey("update_notified_at")
         val UPDATE_DISMISSED = stringPreferencesKey("update_dismissed_version")
     }
 
@@ -117,6 +120,7 @@ class SettingsRepository(private val context: Context) {
         UpdatePrefs(
             lastCheckAt = p[Keys.UPDATE_LAST_CHECK] ?: 0L,
             notifiedVersion = p[Keys.UPDATE_NOTIFIED],
+            lastNotifiedAt = p[Keys.UPDATE_NOTIFIED_AT] ?: 0L,
             dismissedVersion = p[Keys.UPDATE_DISMISSED],
         )
     }
@@ -125,11 +129,24 @@ class SettingsRepository(private val context: Context) {
         context.noorDataStore.edit { it[Keys.UPDATE_LAST_CHECK] = atMillis }
     }
 
+    /**
+     * تسجيل النسخة التي نُشر عنها إشعار فعلي + وقت النشر — الوقت هو
+     * ما تمشي عليه سياسة التكرار (alpha37 بلاغ المالك: «عايز الاشعار
+     * ده يوصل لو كتير لو المستخدم محدثش التطبيق»).
+     */
     suspend fun setNotifiedVersion(tag: String) {
-        context.noorDataStore.edit { it[Keys.UPDATE_NOTIFIED] = tag }
+        context.noorDataStore.edit {
+            it[Keys.UPDATE_NOTIFIED] = tag
+            it[Keys.UPDATE_NOTIFIED_AT] = System.currentTimeMillis()
+        }
     }
 
     suspend fun setDismissedVersion(versionName: String) {
         context.noorDataStore.edit { it[Keys.UPDATE_DISMISSED] = versionName }
+    }
+
+    /** إلغاء الاستبعاد — ضغط إشعار التحديث يعيد فتح «ما الجديد» دائماً (alpha37) */
+    suspend fun clearDismissedVersion() {
+        context.noorDataStore.edit { it.remove(Keys.UPDATE_DISMISSED) }
     }
 }

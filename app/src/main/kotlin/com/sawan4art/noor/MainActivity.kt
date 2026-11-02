@@ -137,10 +137,11 @@ class MainActivity : ComponentActivity() {
         handleUpdateIntent(intent)
     }
 
-    /** ضغط إشعار التحديث → فحص فوري بلا سقف زمني فيظهر ملخص ما الجديد */
+    /** ضغط إشعار التحديث → إلغاء أي استبعاد + فحص فوري بلا سقف زمني
+     *  فيظهر ملخص ما الجديد دائماً بضغطة الإشعار (alpha37) */
     private fun handleUpdateIntent(intent: Intent?) {
         if (intent?.getBooleanExtra(UpdateManager.EXTRA_OPEN_UPDATE, false) == true) {
-            UpdateManager.checkNow()
+            UpdateManager.openFromNotification()
         }
     }
 

@@ -120,6 +120,7 @@ fun NoorApp(viewModel: HomeViewModel) {
                     onSetPrimary = viewModel::setPrimary,
                     updateState = updateState,
                     onCheckUpdates = UpdateManager::checkNow,
+                    onDownloadUpdate = UpdateManager::startDownload,
                     onInstallUpdate = {
                         (updateState as? UpdateUiState.ReadyToInstall)
                             ?.let { UpdateManager.installApk(it.apk) }
@@ -210,6 +211,7 @@ fun NoorApp(viewModel: HomeViewModel) {
                             onSetPrimary = viewModel::setPrimary,
                             updateState = updateState,
                             onCheckUpdates = UpdateManager::checkNow,
+                            onDownloadUpdate = UpdateManager::startDownload,
                             onInstallUpdate = {
                                 (updateState as? UpdateUiState.ReadyToInstall)
                                     ?.let { UpdateManager.installApk(it.apk) }
@@ -350,6 +352,7 @@ private fun NoorBody(
     onSetPrimary: (String) -> Unit,
     updateState: UpdateUiState,
     onCheckUpdates: () -> Unit,
+    onDownloadUpdate: () -> Unit,
     onInstallUpdate: () -> Unit,
 ) {
     Surface(
@@ -395,6 +398,7 @@ private fun NoorBody(
                         onSetPrimary = onSetPrimary,
                         updateState = updateState,
                         onCheckUpdates = onCheckUpdates,
+                        onDownloadUpdate = onDownloadUpdate,
                         onInstallUpdate = onInstallUpdate,
                     )
                     NoorTab.QIBLA -> QiblaScreen(settings = uiState.settings)

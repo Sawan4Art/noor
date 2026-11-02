@@ -16,7 +16,8 @@ import java.io.File
 /**
  * مدير التحديثات — منسق السلسلة الكاملة داخل التطبيق:
  * فحص عند **كل فتح للتطبيق** + فحص دوري في الخلفية (12 ساعة)
- * + إشعار واحد لكل نسخة + ملخص «ما الجديد» + تنزيل بشريط تقدم
+ * + **إشعار متكرر كل ١٢ ساعة ما دام التحديث لم يُثبَّت** (alpha37)
+ * + ملخص «ما الجديد» + تنزيل بشريط تقدم
  * + تثبيت بحوار النظام فوق التطبيق بلا متصفح.
  *
  * alpha35 إصلاح بلاغ المالك «لا مظهرش» — كان الفحص عند الفتح بسقفٍ
@@ -113,10 +114,21 @@ object UpdateManager {
         }
     }
 
-    /** الإشعار مرة واحدة لكل نسخة — حتى لو فُحص مرات عديدة، بلون الثيم المختار */
+    /**
+     * الإشعار يتكرر ما دام التحديث لم يُثبَّت — تذكير كل ١٢ ساعة للنسخة
+     * نفسها (alpha37 بلاغ المالك: «عايز الاشعار ده يوصل لو كتير لو
+     * المستخدم محدثش») وبمجرد نسخة أحدث من آخر إشعار يُشعَر فوراً —
+     * بلون الثيم المختار.
+     */
     private suspend fun maybeNotify(info: UpdateInfo) {
-        val notified = repository.updatePrefs.first().notifiedVersion
-        if (!NoorVersion.isNewer(info.tag, notified)) return
+        val prefs = repository.updatePrefs.first()
+        val shouldNotify = UpdateNotifyPolicy.shouldNotify(
+            notifiedVersion = prefs.notifiedVersion,
+            lastNotifiedAt = prefs.lastNotifiedAt,
+            candidateTag = info.tag,
+            now = System.currentTimeMillis(),
+        )
+        if (!shouldNotify) return
         // لون الثيم المختار (alpha19) — فشل قراءته لا يمنع الإشعار
         val accentArgb = runCatching {
             UpdateNotifier.themedAccentArgb(
@@ -184,6 +196,17 @@ object UpdateManager {
     fun dismiss(versionName: String) {
         _dismissedVersion.value = versionName
         scope.launch { repository.setDismissedVersion(versionName) }
+    }
+
+    /**
+     * فتح مسار التحديث من ضغط إشعار النسخة — يلغي أي استبعاد سابق كي
+     * يظهر «ما الجديد» دائماً بضغطة الإشعار (alpha37: كان ضغط الإشعار
+     * بعد استبعاد الحوار يفحص ولا يظهر شيء فيبدو الزر ميتاً).
+     */
+    fun openFromNotification() {
+        _dismissedVersion.value = null
+        scope.launch { repository.clearDismissedVersion() }
+        checkNow()
     }
 
     /** رسالة فشل عربية مفهومة بدل تتبع الاستثناءات الخام */
