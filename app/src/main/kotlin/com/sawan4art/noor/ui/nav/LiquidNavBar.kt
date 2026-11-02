@@ -404,7 +404,20 @@ private fun LiquidNavBar(
 
 
 
-/** درجات الزجاج والقطرة للوضعين الليلي والنهاري — مشتقة من ثيم «نور» */
+/**
+ * درجات الزجاج والقطرة للوضعين الليلي والنهاري — مشتقة من ثيم «نور».
+ *
+ * alpha34 توجيه المالك: «تعديل بسيط في النقطه الحيه الخاصه ب شريط
+ * التنقل الوانها متغيره عن باقي الوان النقاط السائله الحيه في التطبيق
+ * طبعا النقطه الوحيده المختلفه في اللون هي الختصه بتغيير المظهر الفاتح
+ * والمظلم و دي طبيعيه سيبها» — كانت قمة القطرة لوناً ثابتاً (نعناعي
+ * ليلي / مخضر نهاري) وقاعها scheme.primary فكانت النقطة الوحيدة التي
+ * لا تتبع لوحة السوائل حين يغيّر المالك لون التطبيق، وصارت الآن بنفس
+ * وصفة العائلة: تدرّج primaryContainer ← secondaryContainer كقطرات
+ * الشاشة الرئيسية والمسبحة، وأيقونة التبويب المختار onPrimaryContainer
+ * لتباينٍ مضمون على الحاوين — وتبقى نقطة قرص المظهر (الشمس/القمر)
+ * وحدها بألوانها الشمسية والقمرية لأنها تعبّر عن الفاتح والمظلم ذاتهما.
+ */
 private data class GlassSpec(
     val tintTop: Color,
     val tintBottom: Color,
@@ -426,9 +439,11 @@ private fun glassSpec(): GlassSpec {
             tintBottom = Color(0xFF121E1A).copy(alpha = 0.42f),
             sheen = Color.White.copy(alpha = 0.10f),
             border = Color.White.copy(alpha = 0.16f),
-            blobTop = Color(0xFF9BDCC7),
-            blobBottom = scheme.primary,
-            iconOn = scheme.onPrimary,
+            // alpha34: وصفة عائلة السوائل نفسها — كانت القمة نعناعياً
+            // ثابتاً والقاع scheme.primary فاختلفت عن بقية النقاط
+            blobTop = scheme.primaryContainer,
+            blobBottom = scheme.secondaryContainer,
+            iconOn = scheme.onPrimaryContainer,
             iconOff = Color(0xFFB9CEC4).copy(alpha = 0.70f),
         )
     } else {
@@ -437,9 +452,9 @@ private fun glassSpec(): GlassSpec {
             tintBottom = Color.White.copy(alpha = 0.32f),
             sheen = Color.White.copy(alpha = 0.40f),
             border = Color.White.copy(alpha = 0.62f),
-            blobTop = Color(0xFF3B8272),
-            blobBottom = scheme.primary,
-            iconOn = scheme.onPrimary,
+            blobTop = scheme.primaryContainer,
+            blobBottom = scheme.secondaryContainer,
+            iconOn = scheme.onPrimaryContainer,
             iconOff = Color(0xFF17251F).copy(alpha = 0.55f),
         )
     }

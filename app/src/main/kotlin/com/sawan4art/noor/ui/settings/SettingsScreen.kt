@@ -1,6 +1,11 @@
 package com.sawan4art.noor.ui.settings
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -55,7 +60,6 @@ import com.sawan4art.noor.BuildConfig
 import com.sawan4art.noor.data.NoorSettingsState
 import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.domain.prayer.CalculationMethod
-import com.sawan4art.noor.domain.tasbih.MisbahaMath
 import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.ui.theme.AccentPalette
 import java.util.Locale
@@ -65,10 +69,21 @@ import java.util.Locale
  * «عايز كل قسم في الاعدادت يكون له صفحه لوحده»):
  *
  * الصفحة الرئيسية قائمة أقسام بملخصاتها الحية (المدينة، الطريقة
- * المختارة، المذهب، اسم اللون، حالة التحديث) وكل قسم يفتح صفحته
- * الخاصة بزر رجوع يصعد خطوة واحدة — التنقل الداخلي على نمط تبويب
- * الأذكار نفسه (الرجوع يعود للقائمة ولا يسرقه معالج NoorApp لأن
- * آخر معالج مُركَّب هو الأسبق).
+ * المختارة ومذهب العصر معها، اسم اللون وحالة الأساسي، حالة التحديث)
+ * وكل قسم يفتح صفحته الخاصة بزر رجوع يصعد خطوة واحدة — التنقل الداخلي
+ * على نمط تبويب الأذكار نفسه (الرجوع يعود للقائمة ولا يسرقه معالج
+ * NoorApp لأن آخر معالج مُركَّب هو الأسبق).
+ *
+ * alpha34 بتوجيه المالك:
+ * 1) «صفحه مذهب العصر ضيفه داخل صفحه طريقه حساب المواقيت» — قائمة
+ *    مذهب العصر انتقلت داخل صفحة طريقة الحساب فأُلغيت صفحتها المستقلة.
+ * 2) «عايز الوان الون الاساسي داخل صفح الوان التطبيق و عند الضغط على
+ *    زر الحالي يتبع اللون تختفي قائمه الالوان الثانيه و عند فصله تظهر
+ *    قائمه الالوان الاخرى مره اخرى و عند اختيار نفس الون في القائمتين
+ *    يتم تلقائى تفعيل زر الحالى يتبع اللون» — قائمة اللون الأساسي
+ *    انتقلت داخل صفحة ألوان التطبيق: زر «الحالي» يطوي القائمة الثانية
+ *    ويُظهرها عند فصله، واختيار اللون نفسه في القائمتين يفعّل الزر
+ *    تلقائياً لأن التطابق يعني أن الأساسي يتبع أصلاً.
  */
 @Composable
 fun SettingsScreen(
@@ -84,7 +99,7 @@ fun SettingsScreen(
     onCheckUpdates: () -> Unit,
     onInstallUpdate: () -> Unit,
 ) {
-    // الروابط الداخلية: home ← location / method / asr / colors / primary / updates
+    // الروابط الداخلية: home ← location / method / colors / updates
     var section by rememberSaveable { mutableStateOf("home") }
     BackHandler(enabled = section != "home") { section = "home" }
 
@@ -94,24 +109,31 @@ fun SettingsScreen(
                 LocationSection(settings = settings, locating = locating, onDetectLocation = onDetectLocation)
             }
         }
+        // alpha34: مذهب العصر داخل صفحة طريقة الحساب بأمر المالك —
+        // «صفحه مذهب العصر ضيفه داخل صفحه طريقه حساب المواقيت»
         "method" -> SectionPage(title = "طريقة حساب المواقيت", onBack = { section = "home" }) {
             SectionCard {
                 MethodSection(settings = settings, onSetMethod = onSetMethod)
-            }
-        }
-        "asr" -> SectionPage(title = "مذهب العصر", onBack = { section = "home" }) {
-            SectionCard {
+                Spacer(Modifier.height(18.dp))
+                Text(
+                    text = "مذهب العصر",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(10.dp))
                 AsrSection(settings = settings, onSetHanafi = onSetHanafi)
             }
         }
+        // alpha34: اللون الأساسي داخل صفحة الألوان بأمر المالك —
+        // «عايز الوان الون الاساسي داخل صفح الوان التطبيق»
         "colors" -> SectionPage(title = "ألوان التطبيق", onBack = { section = "home" }) {
             SectionCard {
-                ColorsSection(settings = settings, onSetAccent = onSetAccent)
-            }
-        }
-        "primary" -> SectionPage(title = "اللون الأساسي", onBack = { section = "home" }) {
-            SectionCard {
-                PrimarySection(settings = settings, onSetPrimary = onSetPrimary)
+                ColorsSection(
+                    settings = settings,
+                    onSetAccent = onSetAccent,
+                    onSetPrimary = onSetPrimary,
+                )
             }
         }
         "updates" -> SectionPage(title = "التحديثات", onBack = { section = "home" }) {
@@ -168,29 +190,15 @@ private fun SettingsHome(
         SectionRow(
             icon = NoorIcons.PrayerTimes,
             title = "طريقة حساب المواقيت",
-            summary = settings.method.arabicName,
+            summary = methodSummary(settings),
             onOpen = { onOpen("method") },
-        )
-        SectionRow(
-            icon = NoorIcons.AsrShadow,
-            title = "مذهب العصر",
-            summary = if (settings.isHanafi) "الحنفي — ظل مثلهين" else "الجمهور — ظل مثله",
-            onOpen = { onOpen("asr") },
         )
         SectionRow(
             icon = NoorIcons.Palette,
             title = "ألوان التطبيق",
-            summary = AccentPalette.byId(settings.accentId).arabicName +
-                " — من بين " + MisbahaMath.arabicNumber(AccentPalette.All.size.toLong()) + " لوناً",
+            summary = colorsSummary(settings),
             accentDot = AccentPalette.byId(settings.accentId).day.primary,
             onOpen = { onOpen("colors") },
-        )
-        SectionRow(
-            icon = NoorIcons.Moon,
-            title = "اللون الأساسي",
-            summary = primarySummary(settings),
-            accentDot = AccentPalette.byId(settings.primaryId.ifBlank { settings.accentId }).day.primary,
-            onOpen = { onOpen("primary") },
         )
         SectionRow(
             icon = NoorIcons.Update,
@@ -457,47 +465,40 @@ private fun AsrSection(
 private fun ColorsSection(
     settings: NoorSettingsState,
     onSetAccent: (String) -> Unit,
+    onSetPrimary: (String) -> Unit,
 ) {
+    val scheme = MaterialTheme.colorScheme
     Text(
         text = "عشرون لوناً متمايزاً لا تتشابه درجاتها — الجريئة التسع الجديدة مع العائلية والأسود — والتطبيق كله يتبع اختيارك في الوضعين",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Spacer(Modifier.height(14.dp))
-    AccentGrid(selectedId = settings.accentId, onPick = onSetAccent)
-}
-
-/** ملخص صف اللون الأساسي في القائمة — «الحالي» حين يتبع لون التطبيق */
-private fun primarySummary(settings: NoorSettingsState): String =
-    if (settings.primaryId.isBlank()) {
-        "الحالي — يتبع لون التطبيق (" +
-            AccentPalette.byId(settings.accentId).arabicName + ")"
-    } else {
-        AccentPalette.byId(settings.primaryId).arabicName +
-            " — بدل لون التطبيق (" + AccentPalette.byId(settings.accentId).arabicName + ")"
-    }
-
-/**
- * قسم **اللون الأساسي** (alpha32 بأمر المالك: «اعمل نفس الالوان في
- * قائمه جديده لتغيير اللون الاساسي في التطبيق و طبعا الافتراضي هو
- * الحالي») — نفس لوحة العشرين في قائمة مستقلة تغيّر الأساسي فقط
- * (الأزرار والسائل والتحديد)، وافتراضياً يتبع لون التطبيق.
- */
-@Composable
-private fun PrimarySection(
-    settings: NoorSettingsState,
-    onSetPrimary: (String) -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
+    // القائمة الأولى: لون التطبيق — واختيار نفس لون الأساسي فيها
+    // يعيد الأساسي إلى «يتبع» تلقائياً لأن التطابق يساوي الاتباع
+    AccentGrid(selectedId = settings.accentId, onPick = { id ->
+        onSetAccent(id)
+        if (settings.primaryId == id) onSetPrimary("")
+    })
+    Spacer(Modifier.height(22.dp))
     Text(
-        text = "نفس ألوان التطبيق العشرين — لكنها تغيّر اللون الأساسي فقط (الأزرار والسائل والتحديد) وتبقى الحاويات والهيرو بلون التطبيق",
+        text = "اللون الأساسي",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = scheme.onSurface,
+    )
+    Spacer(Modifier.height(4.dp))
+    Text(
+        text = "يغيّر الأزرار والسائل والتحديد فقط — وافتراضياً يتبع لون التطبيق",
         style = MaterialTheme.typography.bodySmall,
         color = scheme.onSurfaceVariant,
     )
     Spacer(Modifier.height(14.dp))
-    // خيار «الحالي» — الافتراضي: يتبع لون التطبيق ولا يجبر على قيمة
+    // زر «الحالي»: ضغطه والأساسي يتبعٌ يفصله فتظهر القائمة الثانية،
+    // وضغطه مجدداً يعيده إلى الاتباع فتختفي القائمة (توجيه المالك)
+    // — الفصل يثبّت لون التطبيق الحالي قيمةً صريحة فلا قفزة بصرية
     Surface(
-        onClick = { onSetPrimary("") },
+        onClick = { onSetPrimary(if (settings.primaryId.isBlank()) settings.accentId else "") },
         shape = RoundedCornerShape(14.dp),
         color = if (settings.primaryId.isBlank()) scheme.secondaryContainer else scheme.surface,
         border = BorderStroke(
@@ -519,15 +520,43 @@ private fun PrimarySection(
             )
             Spacer(Modifier.width(10.dp))
             Text(
-                text = "الحالي — يتبع لون التطبيق (الافتراضي)",
+                text = if (settings.primaryId.isBlank()) {
+                    "الحالي — يتبع لون التطبيق (" + AccentPalette.byId(settings.accentId).arabicName + ")"
+                } else {
+                    "الحالي — يتبع لون التطبيق"
+                },
                 style = MaterialTheme.typography.bodyLarge,
                 color = scheme.onSurface,
             )
         }
     }
-    Spacer(Modifier.height(14.dp))
-    AccentGrid(selectedId = settings.primaryId, onPick = onSetPrimary)
+    // القائمة الثانية: تختفي والأساسي يتبع وتظهر عند فصله — بطيّ سائل
+    AnimatedVisibility(
+        visible = settings.primaryId.isNotBlank(),
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically(),
+    ) {
+        Column {
+            Spacer(Modifier.height(14.dp))
+            // اختيار نفس لون التطبيق هنا يفعّل «الحالي» تلقائياً —
+            // فتطابق القائمتين معناه أن الأساسي يتبع أصلاً
+            AccentGrid(selectedId = settings.primaryId, onPick = { id ->
+                onSetPrimary(if (id == settings.accentId) "" else id)
+            })
+        }
+    }
 }
+
+/** ملخص صف طريقة الحساب — الطريقة ومذهب العصر معاً بعد دمج الصفحتين */
+private fun methodSummary(settings: NoorSettingsState): String =
+    settings.method.arabicName + " • مذهب العصر: " +
+        (if (settings.isHanafi) "الحنفي — ظل مثلهين" else "الجمهور — ظل مثله")
+
+/** ملخص صف الألوان — لون التطبيق وحالة الأساسي بعد دمج القائمتين */
+private fun colorsSummary(settings: NoorSettingsState): String =
+    AccentPalette.byId(settings.accentId).arabicName + " — الأساسي: " +
+        (if (settings.primaryId.isBlank()) "يتبع لون التطبيق"
+            else AccentPalette.byId(settings.primaryId).arabicName)
 
 /** قسم التحديثات — النسخة الحالية والفحص اليدوي والتثبيت الداخلي */
 @Composable
