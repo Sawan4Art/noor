@@ -13,8 +13,8 @@ android {
         minSdk = 24
         targetSdk = 36
         // إصدارات ألفا لإعادة البناء الكوتلنية — النسخة النهائية الموحّدة تُضبط عند اكتمال المراحل
-        versionCode = 50032
-        versionName = "0.5.0-alpha32"
+        versionCode = 50033
+        versionName = "0.5.0-alpha33"
         vectorDrawables { useSupportLibrary = true }
     }
 

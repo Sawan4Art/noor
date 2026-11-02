@@ -23,6 +23,45 @@
         </activity>
 
         <!--
+          مكونات المنبه (تجهيز مرحلة الأذان بطلب المالك 2026-11-03):
+          «وكمان سجل المكونات دي (AlarmActivity, BootReceiver, AlarmService)
+          بالخصائص المطلوبة لتشغيل الشاشة فوق القفل والصوت في الخلفية».
+          المكونات موجودة ومسجلة بخصائصها الكاملة من اليوم، وبلا أي
+          سلوك تشغيلي حتى تُبنى مرحلة الأذان عليها:
+
+          • AlarmActivity — شاشة التنبيه فوق القفل:
+            showWhenLocked/turnScreenOn (٢٧+) وأعلام النافذة المكافئة
+            داخلها للأقدم (٢٤-٢٦)، وبلا إدخال خارجي (exported=false).
+          • BootReceiver — إقلاع الجهاز: إعادة جدولة منبهات الصلوات
+            لاحقاً؛ exported=true إلزامي لاستقبال بث النظام المحمي.
+          • AlarmService — خدمة أمامية بنوع mediaPlayback كي يعمل
+            صوت الأذان والشاشة مطفأة (٢٨+) وبلا إدخال خارجي.
+        -->
+        <activity
+            android:name=".alarm.AlarmActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.Noor"
+            android:turnScreenOn="true" />
+
+        <receiver
+            android:name=".alarm.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".alarm.AlarmService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!--
           موفّر الملفات — يخدم الـ APK المنزّل لمثبّت النظام داخل التطبيق
           (طلب المالك: التثبيت من داخل التطبيق بلا متصفح).
           السلطة بـ applicationId فتختلف آلياً بين نسخة ألفا والمستقرة.
@@ -61,6 +100,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- نافذة التنبيه كاملة الشاشة فوق القفل (الأذان) — إذن عادي ممنوح تثبيتاً -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- إشعال الشاشة من شاشة التنبيه على أندرويد 14+ (٣٤+) — مكمل turnScreenOn -->
+    <uses-permission android:name="android.permission.TURN_SCREEN_ON" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -70,4 +113,11 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <!-- تثبيت التحديث داخل التطبيق — حوار النظام يظهر فوق التطبيق بلا متصفح -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!--
+      استثناء من قتل البطارية — كفاءة المواقيت والأذان: كثير من هواتف
+      الشركات تقتل المنبهات الدقيقة والخدمة الأمامية في وضع التوفير الشديد
+      (بلاغات مستخدمي تطبيقات المواقيت أشهر أسباب فوات الأذان). الإذن عادي
+      والحوار يُطلب وقتياً عند تفعيل الأذان فقط ولا يُفرض على أحد.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 </manifest>

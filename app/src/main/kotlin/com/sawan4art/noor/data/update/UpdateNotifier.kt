@@ -65,12 +65,19 @@ object UpdateNotifier {
         return color.toArgb()
     }
 
+    /**
+     * ينشر إشعار النسخة الجديدة — **يعيد true فقط إذا نُشر فعلاً**:
+     * تعطيل إذن الإشعارات (٣٣+) يمنع النشر ويرجّع false كي لا يُحفظ
+     * الوسم كنسخةٍ أُشعر عنها (إصلاح: كان يُحفظ حتى بلا نشر فتضيع
+     * إشعارات النسخة للأبد ولو مُنح الإذن بعدها) — والفحص القادم
+     * (عند الفتح أو الدوري كل ١٢ ساعة) يعيد المحاولة.
+     */
     fun notifyNewVersion(
         context: Context,
         info: UpdateInfo,
         accentArgb: Int? = null,
-    ) {
-        if (!canNotify(context)) return
+    ): Boolean {
+        if (!canNotify(context)) return false
         ensureChannel(context)
 
         val openIntent = Intent(context, MainActivity::class.java).apply {
@@ -107,5 +114,6 @@ object UpdateNotifier {
         context.getSystemService(Context.NOTIFICATION_SERVICE)
             .let { it as NotificationManager }
             .notify(NOTIFICATION_ID, builder.build())
+        return true
     }
 }

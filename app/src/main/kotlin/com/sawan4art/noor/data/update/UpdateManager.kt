@@ -112,8 +112,13 @@ object UpdateManager {
                 repository.settings.first().accentId,
             )
         }.getOrNull()
-        UpdateNotifier.notifyNewVersion(appContext, info, accentArgb)
-        repository.setNotifiedVersion(info.tag)
+        // **النشر الفعلي فقط يُحفظ كنسخة أُشعر عنها** — تعطيل إذن
+        // الإشعارات (٣٣+) أو فشل النشر لا يضيّع إشعار النسخة: يُترك
+        // الوسم غير محفوظ فيعيد الفحص القادم (عند الفتح أو الدوري
+        // كل ١٢ ساعة) محاولة الإشعار حتى يصل للمستخدم فعلاً
+        if (UpdateNotifier.notifyNewVersion(appContext, info, accentArgb)) {
+            repository.setNotifiedVersion(info.tag)
+        }
     }
 
     /** بدء/استئناف تنزيل الـ APK — من حالة متاح أو فشل (إعادة محاولة) */
