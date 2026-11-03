@@ -85,14 +85,21 @@ class HadithSearchTest {
     @Test
     fun `match expression builds prefix phrases for every word`() {
         assertEquals("\"الصلاه\"*", HadithSearch.matchExpression("الصَّلَاةَ"))
-        assertEquals("\"قل\"* \"الحمد\"*", HadithSearch.matchExpression("قل الحمد"))
+        // كلمتان فأكثر: العبارة الحرفية أولاً ثم الكلمات المتفرقة ببادئات
+        assertEquals(
+            "(\"قل الحمد\"*) OR (\"قل\"* \"الحمد\"*)",
+            HadithSearch.matchExpression("قل الحمد"),
+        )
         // التطبيع يمر عبر التعبير — أي صورة للكلمة تصير نفس البادئة
         assertEquals(
             HadithSearch.matchExpression("الأئمة"),
             HadithSearch.matchExpression("الائمة"),
         )
         // بادئة: الاستعلام القصير يصيد الكلمات الممتدة
-        assertEquals("\"الطهور\"* \"شطر\"*", HadithSearch.matchExpression("الطُّهُور شطر"))
+        assertEquals(
+            "(\"الطهور شطر\"*) OR (\"الطهور\"* \"شطر\"*)",
+            HadithSearch.matchExpression("الطُّهُور شطر"),
+        )
     }
 
     @Test
@@ -105,12 +112,48 @@ class HadithSearchTest {
 
     @Test
     fun `match expression survives fts special characters`() {
-        // علامات FTS5 الخاصة لا تتسرب إلى التعبير
+        // علامات FTS5 الخاصة لا تتسرب إلى التعبير — كل كلمة داخل اقتباس
         assertEquals("\"الحديث\"*", HadithSearch.matchExpression("الحديث\""))
-        assertEquals("\"حديث\"* \"نبوي\"*", HadithSearch.matchExpression("حديث* نبوي?"))
+        assertEquals(
+            "(\"حديث نبوي\"*) OR (\"حديث\"* \"نبوي\"*)",
+            HadithSearch.matchExpression("حديث* نبوي?"),
+        )
+        // «NEAR» كلمة نصية مقتبسة لا صيغة جوار — والعبارات الحرفية تظهر
         val nearExpr = HadithSearch.matchExpression("عشرة NEAR")
-        assertFalse(nearExpr.orEmpty().contains(" OR"))
+        assertTrue(nearExpr.orEmpty().contains(" OR "))
         assertTrue(nearExpr.orEmpty().contains("\"NEAR\"*"))
-        assertFalse(HadithSearch.matchExpression("حديث OR").orEmpty().contains(" OR"))
+        assertFalse(nearExpr.orEmpty().contains(" NEAR ")) // لا «NEAR» عارية بين مسافات
+        // «OR» كلمة نصية مقتبسة حرفياً في الفرعين — لا مؤثِّر جوار كصيغة
+        assertEquals(
+            "(\"حديث OR\"*) OR (\"حديث\"* \"OR\"*)",
+            HadithSearch.matchExpression("حديث OR"),
+        )
+    }
+
+    @Test
+    fun `pure number catches plain digits and arabic digits`() {
+        assertEquals(5L, HadithSearch.pureNumber("٥"))
+        assertEquals(7563L, HadithSearch.pureNumber("7563"))
+        assertEquals(40L, HadithSearch.pureNumber("٤٠"))
+        assertEquals(12L, HadithSearch.pureNumber(" 12 "))
+    }
+
+    @Test
+    fun `pure number strips polite words like hadith and raqm`() {
+        assertEquals(5L, HadithSearch.pureNumber("حديث ٥"))
+        assertEquals(14L, HadithSearch.pureNumber("الحديث ١٤"))
+        assertEquals(1200L, HadithSearch.pureNumber("رقم 1200"))
+        assertEquals(7L, HadithSearch.pureNumber("الرقم ٧"))
+    }
+
+    @Test
+    fun `pure number rejects mixed words long numbers and empty`() {
+        assertNull(HadithSearch.pureNumber(""))
+        assertNull(HadithSearch.pureNumber("   "))
+        assertNull(HadithSearch.pureNumber("انما الاعمال"))
+        assertNull(HadithSearch.pureNumber("12345")) // خمسة أرقام — فوق أكبر رقم في الكتب
+        assertNull(HadithSearch.pureNumber("١٢ سنة")) // رقم مع كلمة غير عطف
+        assertNull(HadithSearch.pureNumber("حديث")) // كلمة العطف وحدها ليست رقماً
+        assertNull(HadithSearch.pureNumber("12a"))
     }
 }

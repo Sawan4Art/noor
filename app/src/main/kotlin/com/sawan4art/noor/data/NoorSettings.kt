@@ -68,6 +68,7 @@ class SettingsRepository(private val context: Context) {
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
         val UPDATE_NOTIFIED_AT = longPreferencesKey("update_notified_at")
         val UPDATE_DISMISSED = stringPreferencesKey("update_dismissed_version")
+        val HADITH_FAVORITES = stringPreferencesKey("hadith_favorites")
     }
 
     val settings: Flow<NoorSettingsState> = context.noorDataStore.data.map { p ->
@@ -148,5 +149,34 @@ class SettingsRepository(private val context: Context) {
     /** إلغاء الاستبعاد — ضغط إشعار التحديث يعيد فتح «ما الجديد» دائماً (alpha37) */
     suspend fun clearDismissedVersion() {
         context.noorDataStore.edit { it.remove(Keys.UPDATE_DISMISSED) }
+    }
+
+    /**
+     * معرفات الأحاديث المحفوظة (alpha38 توجيه المالك: «زر نجمه للحفظ
+     * في قائمه المفضله») — سلسلة مفصولة بفواصل بترتيب الحفظ الأحدث
+     * أولاً فتظهر قائمة المفضلة بأحدث ما حفظه المستخدم أعلاها.
+     */
+    val favoriteHadithIds: Flow<List<Long>> = context.noorDataStore.data.map { p ->
+        p[Keys.HADITH_FAVORITES]?.split(',')?.mapNotNull { it.toLongOrNull() } ?: emptyList()
+    }
+
+    /** حفظ حديث في المفضلة — يُقدَّم إلى رأس القائمة وإن سبق حفظه */
+    suspend fun addHadithFavorite(id: Long) {
+        context.noorDataStore.edit { p ->
+            val current = p[Keys.HADITH_FAVORITES]
+                ?.split(',')?.mapNotNull { it.toLongOrNull() }.orEmpty()
+            p[Keys.HADITH_FAVORITES] = (listOf(id) + (current - id)).joinToString(",")
+        }
+    }
+
+    /** إخراج حديث من المفضلة — وتُحذف المفتاح كلياً عند آخر حديث */
+    suspend fun removeHadithFavorite(id: Long) {
+        context.noorDataStore.edit { p ->
+            val current = p[Keys.HADITH_FAVORITES]
+                ?.split(',')?.mapNotNull { it.toLongOrNull() }.orEmpty()
+            val rest = current - id
+            if (rest.isEmpty()) p.remove(Keys.HADITH_FAVORITES)
+            else p[Keys.HADITH_FAVORITES] = rest.joinToString(",")
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.sawan4art.noor.ui.hadith
 
+import android.content.Intent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -25,6 +26,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,12 +60,15 @@ import com.sawan4art.noor.ui.icons.NoorIcons
  * تبويب مكتبة الأحاديث — توجيه المالك («عايزين نضيف قسم جديد لـ مكتبة
  * الأحاديث والبحث الأوفلاين»):
  *
- * - **شريط بحث فوق**: بحث لحظي أوفلاين على فهرس FTS5 — يفهم التشكيل
- *   والهمزات (HadithSearch يطبّع الاستعلام كما طُبّع الفهرس نفسه).
- * - **فلترة حسب الكتاب**: صف شرائح أفقية بعشرة كتب + شريحة «الكل».
+ * - **شريط بحث فوق**: بحث لحظي أوفلاين على فهرس FTS5 — برقم الحديث أو
+ *   بكلمة أو جزء جملة من نصّه (alpha38)، ويفهم التشكيل والهمزات
+ *   (HadithSearch يطبّع الاستعلام كما طُبّع الفهرس نفسه).
+ * - **فلترة حسب الكتاب**: صف شرائح أفقية بعشرة كتب + شريحة «الكل»
+ *   + شريحة «المفضلة» بنجمة (alpha38) تفتح قائمة المحفوظ.
  * - **قائمة الأحاديث** بتصميم كروت الأذكار نفسه: Surface بحاشية
  *   outline، شارة الكتاب والرقم على نمط عدّاد الأذكار، ونص الحديث
- *   bodyLarge — والحديث الطويل يُطوى ويُفرد بلمسة (مثل بطاقة الذكر).
+ *   bodyLarge — والحديث الطويل يُطوى ويُفرد بلمسة (مثل بطاقة الذكر)،
+ *   وأسفل كل كارت نجمة الحفظ وزر المشاركة (alpha38).
  */
 @Composable
 fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
@@ -88,6 +94,30 @@ fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
     val bookTitles = remember(state.books) {
         state.books.associate { it.id to it.title }
     }
+    val context = LocalContext.current
+    val shareHadith: (HadithEntity, String) -> Unit = { hadith, title ->
+        // نص المشاركة: الحديث ثم مصدره ثم توقيع التطبيق — مقروء في أي وسيط مشاركة
+        val text = buildString {
+            append('«').append(hadith.text).append('»')
+            append("\n\n")
+            append(title)
+            append(" · حديث ")
+            append(MisbahaMath.arabicNumber(hadith.numberInBook.toLong()))
+            append("\n\n")
+            append("من تطبيق نور المسلم")
+        }
+        runCatching {
+            context.startActivity(
+                Intent.createChooser(
+                    Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    },
+                    "مشاركة الحديث",
+                ),
+            )
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -104,7 +134,7 @@ fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
         )
         Spacer(Modifier.height(2.dp))
         Text(
-            text = "عشرة كتب من السنة الشريفة أوفلاين — ابحث بالتشكيل أو بدونه",
+            text = "عشرة كتب من السنة الشريفة أوفلاين — ابحث برقم الحديث أو بكلمة من نصّه",
             style = MaterialTheme.typography.labelMedium,
             color = scheme.onSurfaceVariant,
         )
@@ -119,7 +149,9 @@ fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
         BookFilterChips(
             books = state.books,
             selectedBookId = state.selectedBookId,
+            favoritesMode = state.favoritesMode,
             onSelect = viewModel::onBookSelect,
+            onFavorites = viewModel::onFavoritesToggle,
         )
         Spacer(Modifier.height(10.dp))
 
@@ -130,6 +162,8 @@ fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
                         " نتيجة — جرّب كلمات أدق"
                 state.isSearching ->
                     "النتائج: " + MisbahaMath.arabicNumber(state.items.size.toLong())
+                state.favoritesMode ->
+                    "المحفوظة: " + MisbahaMath.arabicNumber(state.totalCount.toLong())
                 else ->
                     MisbahaMath.arabicNumber(state.totalCount.toLong()) + " حديثاً"
             },
@@ -148,6 +182,8 @@ fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
                 CircularProgressIndicator(color = scheme.primary)
             }
             state.failed -> FailedState(onRetry = viewModel::retry, modifier = Modifier.weight(1f))
+            state.items.isEmpty() && state.favoritesMode ->
+                EmptyFavorites(modifier = Modifier.weight(1f))
             state.items.isEmpty() -> EmptyState(searching = state.isSearching, modifier = Modifier.weight(1f))
             else -> LazyColumn(
                 state = listState,
@@ -158,6 +194,9 @@ fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
                     HadithCard(
                         hadith = hadith,
                         bookTitle = bookTitles[hadith.bookId].orEmpty(),
+                        isFavorite = hadith.id in state.favoriteIds,
+                        onToggleFavorite = viewModel::toggleFavorite,
+                        onShare = shareHadith,
                     )
                 }
                 if (state.canLoadMore) {
@@ -247,12 +286,15 @@ private fun HadithSearchField(
     }
 }
 
-/** صف فلترة الكتب — شرائح أفقية، المختار بلون الحاوية كعائلة الثيم */
+/** صف فلترة الكتب — شرائح أفقية، المختار بلون الحاوية كعائلة الثيم؛
+ *  وشريحة «المفضلة» بنجمة في أول الصف (alpha38) تفتح قائمة المحفوظ */
 @Composable
 private fun BookFilterChips(
     books: List<BookEntity>,
     selectedBookId: Long?,
+    favoritesMode: Boolean,
     onSelect: (Long?) -> Unit,
+    onFavorites: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -261,14 +303,20 @@ private fun BookFilterChips(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         FilterChip(
+            label = "المفضلة",
+            selected = favoritesMode,
+            onClick = onFavorites,
+            star = true,
+        )
+        FilterChip(
             label = "الكل",
-            selected = selectedBookId == null,
+            selected = !favoritesMode && selectedBookId == null,
             onClick = { onSelect(null) },
         )
         books.forEach { book ->
             FilterChip(
                 label = book.title,
-                selected = selectedBookId == book.id,
+                selected = !favoritesMode && selectedBookId == book.id,
                 onClick = { onSelect(book.id) },
             )
         }
@@ -280,6 +328,7 @@ private fun FilterChip(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
+    star: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     Surface(
@@ -291,25 +340,44 @@ private fun FilterChip(
         ),
         onClick = onClick,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-        )
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                color = if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+            )
+            if (star) {
+                Spacer(Modifier.width(5.dp))
+                Icon(
+                    imageVector = if (selected) NoorIcons.StarFilled else NoorIcons.StarOutline,
+                    contentDescription = null,
+                    tint = if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+                    modifier = Modifier.size(15.dp),
+                )
+            }
+        }
     }
 }
 
 /**
  * بطاقة حديث — على هيئة بطاقة الأذكار تماماً: Surface بحاشية، شارة
  * الكتاب والرقم على نمط عدّاد الأذكار، واسم الباب في الطرف المقابل،
- * ونص الحديث الذي يُطوى بلمسة إن طال (هيئة الأطوال متفاوتة في البخاري).
+ * ونص الحديث الذي يُطوى بلمسة إن طال (هيئة الأطوال متفاوتة في البخاري)،
+ * وأسفلها صف الحفظ والمشاركة (alpha38 توجيه المالك: «اضف زر مشاركه لكل
+ * كارت من الاحاديث و زر نجمه للحفظ في قائمه المفضله») — النجمة تمتلئ
+ * بلون التطبيق حين يُحفَظ الحديث، والمشاركة تبعث نصّه بمصدره.
  */
 @Composable
 private fun HadithCard(
     hadith: HadithEntity,
     bookTitle: String,
+    isFavorite: Boolean,
+    onToggleFavorite: (Long) -> Unit,
+    onShare: (HadithEntity, String) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -374,6 +442,31 @@ private fun HadithCard(
                     color = scheme.primary,
                 )
             }
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { onToggleFavorite(hadith.id) },
+                    modifier = Modifier.size(34.dp),
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) NoorIcons.StarFilled else NoorIcons.StarOutline,
+                        contentDescription = if (isFavorite) "إزالة من المفضلة" else "حفظ في المفضلة",
+                        tint = if (isFavorite) scheme.primary else scheme.onSurfaceVariant,
+                        modifier = Modifier.size(21.dp),
+                    )
+                }
+                IconButton(
+                    onClick = { onShare(hadith, bookTitle) },
+                    modifier = Modifier.size(34.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Share,
+                        contentDescription = "مشاركة الحديث",
+                        tint = scheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -400,7 +493,38 @@ private fun EmptyState(searching: Boolean, modifier: Modifier = Modifier) {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = if (searching) "جرّب كلمات أخرى — البحث يفهم التشكيل والهمزات" else "حدّث التطبيق أو أعد فتح المكتبة",
+                text = if (searching) "جرّب كلمات أخرى أو رقم الحديث — البحث يفهم التشكيل والهمزات" else "حدّث التطبيق أو أعد فتح المكتبة",
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** المفضلة الفاضية — دعوة لأول حفظ بالنجمة (alpha38) */
+@Composable
+private fun EmptyFavorites(modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                NoorIcons.StarOutline,
+                contentDescription = null,
+                tint = scheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.size(56.dp),
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "لا توجد أحاديث محفوظة بعد",
+                style = MaterialTheme.typography.titleMedium,
+                color = scheme.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "اضغط النجمة على أي حديث ليُحفظ هنا",
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant,
             )

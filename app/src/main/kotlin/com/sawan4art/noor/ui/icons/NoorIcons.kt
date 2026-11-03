@@ -120,35 +120,40 @@ object NoorIcons {
         }
     }
 
-    /** الأحاديث — مخطوطة: لفافتان جانبيتان ورقٌ بثلاثة أسطر (EvenOdd) */
+    /** الأحاديث — ثلاثة كتب مرصوصة فوق بعض (توجيه المالك: «خلي شكل ايقونه
+     *  الاحاديث عباره عن كتب ثلاث كتب فوق بعض»): رصّة من ثلاثة مجلدات
+     *  مستديرة الأركان بإزاحات متبادلة كرصّة كتبٍ حقيقية على رفّ — الأعلى
+     *  مائل يميناً والأوسط زاحفاً يساراً فتُقرأ فوراً رصّة كتب لا ثلاثة
+     *  خطوط قائمة. */
     val Hadith: ImageVector by lazy {
         noorIcon("Hadith") {
+            filled {
+                // الكتاب الأعلى — مائل إلى اليسار
+                slab(5.0f, 5.4f, 17.2f, 8.8f, 1.5f)
+                // الكتاب الأوسط — زاحف إلى اليمين
+                slab(6.2f, 10.2f, 19.4f, 13.6f, 1.5f)
+                // الكتاب الأسفل — الأعرض والقاعدة
+                slab(4.0f, 15.0f, 19.0f, 18.4f, 1.5f)
+            }
+        }
+    }
+
+    /** نجمة الحفظ الممتلئة — نجمة نور الرباعية (أيقونات «نور» كلها بلا
+     *  مكتبة موسعة، والنجمة الأساسية لا تحوي نجمات فارغة) */
+    val StarFilled: ImageVector by lazy {
+        noorIcon("StarFilled") {
+            filled {
+                star(12f, 12f, 10.2f)
+            }
+        }
+    }
+
+    /** نجمة الحفظ الفارغة — نجمة نور بإطار: نجمتان متداخلتان EvenOdd */
+    val StarOutline: ImageVector by lazy {
+        noorIcon("StarOutline") {
             filled(PathFillType.EvenOdd) {
-                // اللفافة اليمنى واليسرى — كبسولتان تبرزان عن الورقة
-                capsule(4.9f, 4.6f, 19.4f, 1.5f)
-                capsule(19.1f, 4.6f, 19.4f, 1.5f)
-                // الورقة بين اللفافتين
-                moveTo(6.4f, 6.9f)
-                lineTo(17.6f, 6.9f)
-                lineTo(17.6f, 17.1f)
-                lineTo(6.4f, 17.1f)
-                close()
-                // أسطر النص الثلاث — فتحات تُفرَّغ من الورقة (EvenOdd)
-                moveTo(8.6f, 9.3f)
-                lineTo(15.4f, 9.3f)
-                lineTo(15.4f, 10.4f)
-                lineTo(8.6f, 10.4f)
-                close()
-                moveTo(8.6f, 11.45f)
-                lineTo(15.4f, 11.45f)
-                lineTo(15.4f, 12.55f)
-                lineTo(8.6f, 12.55f)
-                close()
-                moveTo(8.6f, 13.6f)
-                lineTo(15.4f, 13.6f)
-                lineTo(15.4f, 14.7f)
-                lineTo(8.6f, 14.7f)
-                close()
+                star(12f, 12f, 10.2f)
+                star(12f, 12f, 6.4f)
             }
         }
     }
@@ -525,14 +530,18 @@ object NoorIcons {
     /** حبة سبحة صغيرة */
     private fun PathBuilder.bead(cx: Float, cy: Float) = circle(cx, cy, 1.45f)
 
-    /** كبسولة عمودية — دائرتان ونص مستطيل (لفافة المخطوطة) */
-    private fun PathBuilder.capsule(cx: Float, top: Float, bottom: Float, r: Float) {
-        circle(cx, top + r, r)
-        circle(cx, bottom - r, r)
-        moveTo(cx - r, top + r)
-        lineTo(cx + r, top + r)
-        lineTo(cx + r, bottom - r)
-        lineTo(cx - r, bottom - r)
+    /** مستطيل مستدير الأركان — مجلد كتاب في رصّة الأحاديث */
+    private fun PathBuilder.slab(x1: Float, y1: Float, x2: Float, y2: Float, r: Float) {
+        val k = 0.552284749831f * r
+        moveTo(x1 + r, y1)
+        lineTo(x2 - r, y1)
+        curveTo(x2 - r + k, y1, x2, y1 + r - k, x2, y1 + r)
+        lineTo(x2, y2 - r)
+        curveTo(x2, y2 - r + k, x2 - r + k, y2, x2 - r, y2)
+        lineTo(x1 + r, y2)
+        curveTo(x1 + r - k, y2, x1, y2 - r + k, x1, y2 - r)
+        lineTo(x1, y1 + r)
+        curveTo(x1, y1 + r - k, x1 + r - k, y1, x1 + r, y1)
         close()
     }
 
