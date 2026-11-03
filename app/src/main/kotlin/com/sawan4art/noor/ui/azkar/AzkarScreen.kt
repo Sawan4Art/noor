@@ -49,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sawan4art.noor.domain.azkar.AzkarContent
 import com.sawan4art.noor.domain.azkar.AzkarGroup
+import com.sawan4art.noor.domain.azkar.AzkarLibrary
 import com.sawan4art.noor.domain.azkar.AzkarMath
 import com.sawan4art.noor.domain.tasbih.MisbahaMath
 import com.sawan4art.noor.ui.icons.NoorIcons
@@ -75,22 +76,25 @@ fun AzkarScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    // الروابط الداخلية: home ← praise / المعرّف النصي للمجموعة
-    var route by rememberSaveable { mutableStateOf("home") }
+    // الروابط الداخلية: index ← praise / المعرّف النصي للمجموعة.
+    // alpha44 إصلاح عطل «أذكار دخول البيت لا تعمل»: المرسل السابق كان
+    // «home» نفسه معرّف قسم أذكار البيت — ففتح البطاقة يعود للرئيسية
+    // ولا تُفتح صفحتها أبداً! المرسل الآن «index» لا يتصادم مع أي قسم.
+    var route by rememberSaveable { mutableStateOf("index") }
 
-    BackHandler(enabled = route != "home") { route = "home" }
+    BackHandler(enabled = route != "index") { route = "index" }
     // الرئيسية داخل التبويب: الرجوع يخرج للتبويب السابق (المواقيت)
-    BackHandler(enabled = route == "home") { onExitTab() }
+    BackHandler(enabled = route == "index") { onExitTab() }
 
     when {
         route == "praise" -> PraiseScreen(
             viewModel = viewModel,
-            onBack = { route = "home" },
+            onBack = { route = "index" },
         )
-        route != "home" -> GroupScreen(
+        route != "index" -> GroupScreen(
             viewModel = viewModel,
             group = AzkarContent.groupById(route),
-            onBack = { route = "home" },
+            onBack = { route = "index" },
         )
         else -> AzkarHome(
             state = state,
@@ -218,12 +222,14 @@ private fun AzkarHome(
                 }
             }
 
-            // ===== شبكة الأقسام التسعة والعشرين =====
+            // ===== شبكة الأقسام التسعة والعشرين — بمحتوى كل قسمٍ الفعلي
+            // (بعد حذف المستخدم وإضافاته — alpha44) =====
             items(AzkarContent.GROUPS, key = { it.id }) { group ->
+                val effective = AzkarLibrary.effectiveGroup(group, state.customs, state.deleted)
                 GroupCard(
-                    group = group,
+                    group = effective,
                     icon = groupIcon(group),
-                    progress = AzkarMath.groupProgress(state.doneToday, group),
+                    progress = AzkarMath.groupProgress(state.doneToday, effective),
                     onOpen = { onOpenGroup(group.id) },
                 )
             }

@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlin.math.ceil
@@ -195,10 +196,16 @@ fun addLiquidFrame(
 }
 
 /**
- * شارة اسم المطور — الاسم داخل إطار سائل حي مستطيل: حافته تتموج ولا تسكن
- * (LiquidFrameMath)، وتدرّج عائلة السوائل نفسه primaryContainer ←
- * secondaryContainer والنص على الحاوي onPrimaryContainer — بنية نقطة
- * الشريط الحية ذاتها لكن شكل مستطيل لا نقطة (بلاغ المالك alpha39).
+ * شارة اسم المطور — الاسم داخل إطار سائل حي مستطيل بحواف دائرية:
+ * حافته تتموج ولا تسكن (LiquidFrameMath)، وتدرّج عائلة السوائل نفسه
+ * primaryContainer ← secondaryContainer والنص على الحاوي onPrimaryContainer.
+ *
+ * alpha44 (بلاغ المالك: «اسم المطور في صفحه الاعدادات عايزه داخل سائل
+ * مستطيل حوافه دائريه و يكون سائل حي بنفس النمط و الالوان») — السائل
+ * صار **حيّاً بوضوح**: زوايا أدورّ (٤٦٪ من الارتفاع)، وموجة أمضخم
+ * (٨٪ من الارتفاع داخل سقف الأمان ١٠٪ بدل ٥٫٥٪ الخفية)، وتنفّسٌ بطيء
+ * يكبر الإطار ويصغّره كقطرةٍ تتنفس، وانسيابٌ رأسي يعوم به الإطار كله
+ * كما يعوم الهلال في قطرة التذكير — نفس نمط سوائل التطبيق وألوانها.
  */
 @Composable
 fun LiquidDeveloperBadge(
@@ -217,26 +224,30 @@ fun LiquidDeveloperBadge(
         modifier = modifier
             .drawBehind {
                 val t = frameNanos / 1_000_000_000f
-                // زوايا ٤٢٪ من الارتفاع: مستديرة بوضوح لكن **ليست كبسولة** —
-                // شكل مستطيل كما أمر المالك (الكبسولة = نصف الارتفاع)
-                val corner = size.height * 0.42f
-                // سعة الموجة ≤ ٦٪ من الارتفاع داخل سقف الأمان ١٠٪
-                val amp = size.height * 0.055f
+                // زوايا ٤٦٪ من الارتفاع — مستديرة بوضوح وتبقى مستطيلاً لا كبسولة
+                val corner = size.height * 0.46f
+                // موجة حيّة أوضح — ٨٪ من الارتفاع داخل سقف الأمان ١٠٪،
+                // وتتنفس سعتها ببطء (الموج تتمدد وتنكمش كنفسٍ حية)
+                val amp = size.height * 0.08f * (1f + 0.18f * sin(t * 0.8f))
+                // انسياب رأسي بطيء — الإطار كله يعوم كما يعوم الهلال في قطرة التذكير
+                val drift = size.height * 0.045f * sin(t * 0.55f)
                 val path = Path()
                 addLiquidFrame(path, size.width, size.height, corner, t, amp)
-                drawPath(
-                    path,
-                    Brush.verticalGradient(
-                        listOf(scheme.primaryContainer, scheme.secondaryContainer),
-                    ),
-                )
+                translate(top = drift) {
+                    drawPath(
+                        path,
+                        Brush.verticalGradient(
+                            listOf(scheme.primaryContainer, scheme.secondaryContainer),
+                        ),
+                    )
+                }
             }
-            .padding(horizontal = 26.dp, vertical = 11.dp),
+            .padding(horizontal = 30.dp, vertical = 13.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = name,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = scheme.onPrimaryContainer,
         )

@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.sawan4art.noor.domain.azkar.AzkarLibrary
+import com.sawan4art.noor.domain.azkar.CustomDhikr
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -29,6 +31,8 @@ data class AzkarSnapshot(
     val day: Long = 0L,
     val done: Set<String> = emptySet(),
     val rounds: Map<String, Int> = emptyMap(),
+    val customs: List<CustomDhikr> = emptyList(),
+    val deleted: Set<String> = emptySet(),
 )
 
 class AzkarRepository(private val context: Context) {
@@ -39,6 +43,9 @@ class AzkarRepository(private val context: Context) {
         val DONE = stringSetPreferencesKey("done_ids")
         // العدّاد الرقمي — مدخلات «المعرّف:العدّ» في مجموعة نصوص (DataStore لا يحفظ خرائط)
         val ROUNDS = stringSetPreferencesKey("round_counts")
+        // أذكار المستخدم المضافة ومعرفات الافتراضي المحذوف (alpha44)
+        val CUSTOMS = stringSetPreferencesKey("custom_dhikr")
+        val DELETED = stringSetPreferencesKey("deleted_ids")
     }
 
     val snapshot: Flow<AzkarSnapshot> = context.azkarDataStore.data.map { p ->
@@ -47,6 +54,8 @@ class AzkarRepository(private val context: Context) {
             day = p[Keys.DAY] ?: 0L,
             done = p[Keys.DONE] ?: emptySet(),
             rounds = parseRounds(p[Keys.ROUNDS] ?: emptySet()),
+            customs = parseCustoms(p[Keys.CUSTOMS] ?: emptySet()),
+            deleted = p[Keys.DELETED] ?: emptySet(),
         )
     }
 
@@ -57,6 +66,8 @@ class AzkarRepository(private val context: Context) {
             p[Keys.DAY] = s.day
             p[Keys.DONE] = s.done
             p[Keys.ROUNDS] = encodeRounds(s.rounds)
+            p[Keys.CUSTOMS] = s.customs.mapNotNull(AzkarLibrary::encodeCustom).toSet()
+            p[Keys.DELETED] = s.deleted
         }
     }
 
@@ -71,4 +82,8 @@ class AzkarRepository(private val context: Context) {
             val count = entry.substring(sep + 1).toIntOrNull() ?: return@mapNotNull null
             if (count <= 0) null else entry.substring(0, sep) to count
         }.toMap()
+
+    /** تحليل متسامح — مدخل مضافٍ تالف يُهمل ولا يكسر القراءة أبداً */
+    private fun parseCustoms(stored: Set<String>): List<CustomDhikr> =
+        stored.mapNotNull(AzkarLibrary::decodeCustom).sortedBy { it.item.id }
 }

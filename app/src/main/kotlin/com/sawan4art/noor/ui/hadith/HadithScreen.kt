@@ -1,10 +1,12 @@
 package com.sawan4art.noor.ui.hadith
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -38,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -50,6 +54,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sawan4art.noor.data.hadith.BookEntity
@@ -57,6 +64,14 @@ import com.sawan4art.noor.data.hadith.HadithEntity
 import com.sawan4art.noor.domain.tasbih.MisbahaMath
 import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.ui.theme.NoorPageTitle
+
+/** مدى تكبير خط بطاقات الأحاديث وصفحة القراءة — أرضية لضعاف البصر وسقفٌ معقول */
+private const val FONT_SCALE_MIN = 0.85f
+private const val FONT_SCALE_MAX = 2f
+private const val FONT_SCALE_STEP = 0.15f
+
+/** خط صفحة القراءة بملء الشاشة — أساسه أكبر من الكارت (بلاغ المالك alpha44) */
+private const val READER_BASE_SP = 20f
 
 /**
  * تبويب مكتبة الأحاديث — توجيه المالك («عايزين نضيف قسم جديد لـ مكتبة
@@ -97,6 +112,10 @@ fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
         state.books.associate { it.id to it.title }
     }
     val context = LocalContext.current
+    // صفحة القراءة بملء الشاشة (alpha44 — بلاغ المالك: «عايز زر اضافي في كل
+    // كارت من الاحاديث يمكن المستخدم من فتح الحديث في صفحه كامل بخط اكبر
+    // يناسب كامل الصفحه لقراءه افضل»)
+    var readingHadith by remember { mutableStateOf<HadithEntity?>(null) }
     val shareHadith: (HadithEntity, String) -> Unit = { hadith, title ->
         // نص المشاركة: الحديث ثم مصدره ثم توقيع التطبيق — مقروء في أي وسيط مشاركة
         val text = buildString {
@@ -226,6 +245,7 @@ fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
                         isFavorite = hadith.id in state.favoriteIds,
                         onToggleFavorite = viewModel::toggleFavorite,
                         onShare = shareHadith,
+                        onRead = { readingHadith = hadith },
                     )
                 }
                 if (state.canLoadMore) {
@@ -249,6 +269,15 @@ fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
                 }
             }
         }
+    }
+
+    // صفحة القراءة بملء الشاشة — فوق كل شيء (alpha44)
+    readingHadith?.let { hadith ->
+        FullScreenHadithReader(
+            hadith = hadith,
+            bookTitle = bookTitles[hadith.bookId].orEmpty(),
+            onDismiss = { readingHadith = null },
+        )
     }
 }
 
@@ -407,10 +436,13 @@ private fun HadithCard(
     isFavorite: Boolean,
     onToggleFavorite: (Long) -> Unit,
     onShare: (HadithEntity, String) -> Unit,
+    onRead: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     var expanded by rememberSaveable { mutableStateOf(false) }
     var truncated by remember { mutableStateOf(false) }
+    // حجم خط هذه البطاقة — يتذكره التطبيق أثناء التنقل (alpha44)
+    var fontScale by rememberSaveable { mutableFloatStateOf(1f) }
 
     Surface(
         shape = RoundedCornerShape(18.dp),
@@ -454,7 +486,9 @@ private fun HadithCard(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = hadith.text,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = (MaterialTheme.typography.bodyLarge.fontSize.value * fontScale).sp,
+                ),
                 color = scheme.onSurface,
                 maxLines = if (expanded) Int.MAX_VALUE else 7,
                 overflow = TextOverflow.Ellipsis,
@@ -493,6 +527,46 @@ private fun HadithCard(
                         contentDescription = "مشاركة الحديث",
                         tint = scheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp),
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                // أزرار تكبير وتصغير الخط لهذه البطاقة (alpha44)
+                IconButton(
+                    onClick = {
+                        fontScale = (fontScale - FONT_SCALE_STEP).coerceAtLeast(FONT_SCALE_MIN)
+                    },
+                    modifier = Modifier.size(38.dp),
+                ) {
+                    Text(
+                        text = "أ−",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = scheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(
+                    onClick = {
+                        fontScale = (fontScale + FONT_SCALE_STEP).coerceAtMost(FONT_SCALE_MAX)
+                    },
+                    modifier = Modifier.size(38.dp),
+                ) {
+                    Text(
+                        text = "أ+",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = scheme.onSurfaceVariant,
+                    )
+                }
+                // فتح الحديث بصفحة كاملة بخطٍ أكبر (alpha44)
+                IconButton(
+                    onClick = onRead,
+                    modifier = Modifier.size(38.dp),
+                ) {
+                    Icon(
+                        NoorIcons.Expand,
+                        contentDescription = "قراءة بملء الشاشة",
+                        tint = scheme.primary,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -594,6 +668,159 @@ private fun FailedState(onRetry: () -> Unit, modifier: Modifier = Modifier) {
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                 )
+            }
+        }
+    }
+}
+
+/**
+ * صفحة قراءة الحديث بملء الشاشة (alpha44 — بلاغ المالك: «عايز زر اضافي
+ * في كل كارت من الاحاديث يمكن المستخدم من فتح الحديث في صفحه كامل بخط
+ * اكبر يناسب كامل الصفحه لقراءه افضل»): نافذة تمتد على الشاشة كلها،
+ * الحديث بخطٍ أساسه أكبر من خط الكارت (٢٠sp) وقابل للتكبير والتصغير،
+ * ويتوسط الصفحة قراءةً مريحة، وزر إغلاقٍ وزر مشاركة في متناول الإبهام.
+ */
+@Composable
+private fun FullScreenHadithReader(
+    hadith: HadithEntity,
+    bookTitle: String,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    var fontScale by rememberSaveable { mutableFloatStateOf(1f) }
+
+    BackHandler(onBack = onDismiss)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = scheme.background,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 22.dp),
+            ) {
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = "إغلاق القراءة",
+                            tint = scheme.primary,
+                        )
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = scheme.surfaceVariant,
+                        contentColor = scheme.onSurfaceVariant,
+                    ) {
+                        Text(
+                            text = bookTitle + " · " +
+                                MisbahaMath.arabicNumber(hadith.numberInBook.toLong()),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Text(
+                        text = hadith.text,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = (READER_BASE_SP * fontScale).sp,
+                            lineHeight = ((READER_BASE_SP * fontScale) * 1.8f).sp,
+                        ),
+                        color = scheme.onSurface,
+                        textAlign = TextAlign.Start,
+                    )
+                    if (hadith.chapter.isNotEmpty()) {
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            text = hadith.chapter,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = scheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.height(40.dp))
+                }
+                // أدوات الصفحة — تكبير وتصغير ومشاركة
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    IconButton(
+                        onClick = {
+                            fontScale = (fontScale - FONT_SCALE_STEP).coerceAtLeast(FONT_SCALE_MIN)
+                        },
+                        modifier = Modifier.size(44.dp),
+                    ) {
+                        Text(
+                            text = "أ−",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = scheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            fontScale = (fontScale + FONT_SCALE_STEP).coerceAtMost(FONT_SCALE_MAX)
+                        },
+                        modifier = Modifier.size(44.dp),
+                    ) {
+                        Text(
+                            text = "أ+",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = scheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(
+                        onClick = {
+                            val text = buildString {
+                                append('«').append(hadith.text).append('»')
+                                append("\n\n")
+                                append(bookTitle)
+                                append(" · حديث ")
+                                append(MisbahaMath.arabicNumber(hadith.numberInBook.toLong()))
+                                append("\n\n")
+                                append("من تطبيق نور المسلم")
+                            }
+                            runCatching {
+                                context.startActivity(
+                                    Intent.createChooser(
+                                        Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, text)
+                                        },
+                                        "مشاركة الحديث",
+                                    ),
+                                )
+                            }
+                        },
+                        modifier = Modifier.size(44.dp),
+                    ) {
+                        Icon(
+                            Icons.Filled.Share,
+                            contentDescription = "مشاركة الحديث",
+                            tint = scheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
             }
         }
     }

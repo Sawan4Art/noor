@@ -487,6 +487,46 @@ object NoorIcons {
         }
     }
 
+    /** قراءة بملء الشاشة — أقواس زوايا أربع تحيط بالصفحة (alpha44) */
+    val Expand: ImageVector by lazy {
+        noorIcon("Expand") {
+            filled {
+                // الزاوية العلوية اليمنى
+                moveTo(4f, 4f)
+                lineTo(10f, 4f)
+                lineTo(10f, 5.8f)
+                lineTo(5.8f, 5.8f)
+                lineTo(5.8f, 10f)
+                lineTo(4f, 10f)
+                close()
+                // الزاوية العلوية اليسرى
+                moveTo(20f, 4f)
+                lineTo(20f, 10f)
+                lineTo(18.2f, 10f)
+                lineTo(18.2f, 5.8f)
+                lineTo(14f, 5.8f)
+                lineTo(14f, 4f)
+                close()
+                // الزاوية السفلية اليسرى
+                moveTo(20f, 20f)
+                lineTo(14f, 20f)
+                lineTo(14f, 18.2f)
+                lineTo(18.2f, 18.2f)
+                lineTo(18.2f, 14f)
+                lineTo(20f, 14f)
+                close()
+                // الزاوية السفلية اليمنى
+                moveTo(4f, 20f)
+                lineTo(4f, 14f)
+                lineTo(5.8f, 14f)
+                lineTo(5.8f, 18.2f)
+                lineTo(10f, 18.2f)
+                lineTo(10f, 20f)
+                close()
+            }
+        }
+    }
+
     // ===== أدوات الرسم =====
 
     /** هندسة شمس مبدّل المظهر — قرص وأشعة (نفس أرقام المولّد) */

@@ -363,7 +363,7 @@ object AzkarContent {
 
     val HOME: AzkarGroup = AzkarGroup(
         id = "home",
-        title = "أذكار دخول البيت وخروجه",
+        title = "أذكار دخول البيت والخروج",
         subtitle = "التسمية عند الدخول والسلام على أهل البيت والتوكل عند الخروج",
         items = listOf(
             AzkarItem(

@@ -110,16 +110,48 @@ class CountdownLiquidMathTest {
 
     @Test
     fun `خط العداد محكوم بسقف وأرضية`() {
-        // alpha43 — العدّاد بطل الشاشة: سقف ٣٠ وأرضية ١٦، لا أصغر من متن الجسم
-        assertTrue(CountdownLiquidMath.countdownFontSizeSp(500f) <= 30f)
+        // alpha44 — النقطة تملأ الحلقة: سقف ٤٠ وأرضية ١٦ (بلاغ المالك:
+        // «كبر النقطه خمس اضعاف … هديك صوره لحجم النقطه اللي انا عايزها»)
+        assertTrue(CountdownLiquidMath.countdownFontSizeSp(500f) <= 40f)
         assertTrue(CountdownLiquidMath.countdownFontSizeSp(5f) >= 16f)
-        // في الهيرو الفعلي (side=216dp) الخط بين ٢٤ و٣٠sp — بارز ومقروء
+        // في الهيرو الفعلي (side=216dp) الخط بين ٢٤ و٣٢sp — بارز ومقروء
         val track = CountdownLiquidMath.trackRadius(216f, 10f)
         val drop = CountdownLiquidMath.dropRadius(track - 4.5f, 11f)
         val fs = CountdownLiquidMath.countdownFontSizeSp(drop)
-        assertTrue("الخط في الهيرو صغير جداً: $fs", fs in 24f..30f)
+        assertTrue("الخط في الهيرو صغير جداً: $fs", fs in 24f..32f)
         // ولا يتجاوز أرضية المتن في أصغر قطرة معقولة — قراءة لنظر ضعيف
         assertTrue(CountdownLiquidMath.countdownFontSizeSp(44.5f) >= 16f)
+    }
+
+    @Test
+    fun `النقطة الجديدة تملأ الحلقة ولا تلمسها في أسوء امتداد`() {
+        // alpha44 — هندسة النقطة البطلة: شريط ٧dp هامش ٢dp، والنقطة
+        // تُقاس بحيث أقصى امتدادٍ لها (موجة + تنفس = ١٢٪) يلامس حافة
+        // الشريط الداخلية تماماً دون تجاوز — في كل أقيس الصناديق
+        for (side in listOf(300f, 260f, 216f, 176f, 150f, 132f, 120f)) {
+            val stroke = 7f
+            val edgeGap = 2f
+            val track = CountdownLiquidMath.trackRadius(side, stroke / 2f + edgeGap)
+            val ringInner = track - stroke / 2f
+            val drop = CountdownLiquidMath.dropRadius(ringInner, 0f) /
+                CountdownLiquidMath.MAX_BLOB_EXTENT
+            assertTrue(
+                "side=$side: النقطة تخرج عن الشريط",
+                drop * CountdownLiquidMath.MAX_BLOB_EXTENT <= ringInner + 1e-3f,
+            )
+            // والشريط نفسه لا يخرج عن الصندوق
+            assertTrue(
+                "side=$side: الشريط يخرج عن الصندوق",
+                track + stroke / 2f <= side / 2f + 1e-3f,
+            )
+            // والنقطة أكبر بوضوح من هندسة alpha43 القديمة (الخماس تقريبًا)
+            val oldTrack = CountdownLiquidMath.trackRadius(side, 10f)
+            val oldDrop = CountdownLiquidMath.dropRadius(oldTrack - 4.5f, 11f)
+            assertTrue(
+                "side=$side: النقطة الجديدة ($drop) ليست أكبر من القديمة ($oldDrop)",
+                drop > oldDrop,
+            )
+        }
     }
 
     @Test

@@ -217,9 +217,11 @@ class AzkarContentTest {
         // دخول الحمام» — القسمان موجودان بأسماء أصبحت ظاهرة وبمحتوى أوفى
         val home = AzkarContent.HOME
         assertEquals("home", home.id)
+        // alpha44 أمر المالك: «اعد تسميتها ل اذكار دخول البيت و الخروج»
+        assertEquals("أذكار دخول البيت والخروج", home.title)
         assertTrue("عنوان البيت غير ظاهر: ${home.title}", home.title.contains("البيت"))
         assertTrue(home.title.contains("دخول"))
-        assertTrue(home.title.contains("خروجه"))
+        assertTrue(home.title.contains("الخروج"))
         assertEquals(4, home.items.size)
         assertTrue(home.items.first { it.id == "home_enter" }.text.contains("وَلَجْنَا"))
         assertTrue(

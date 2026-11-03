@@ -5,7 +5,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sawan4art.noor.data.AzkarRepository
 import com.sawan4art.noor.data.AzkarSnapshot
+import com.sawan4art.noor.domain.azkar.AzkarItem
+import com.sawan4art.noor.domain.azkar.AzkarLibrary
 import com.sawan4art.noor.domain.azkar.AzkarMath
+import com.sawan4art.noor.domain.azkar.CustomDhikr
 import com.sawan4art.noor.domain.tasbih.MisbahaRushGuard
 import com.sawan4art.noor.domain.tasbih.MisbahaSplashMath
 import java.time.ZoneId
@@ -50,6 +53,8 @@ data class AzkarState(
     val today: Long = 0L,
     val doneToday: Set<String> = emptySet(),
     val roundsToday: Map<String, Int> = emptyMap(),
+    val customs: List<CustomDhikr> = emptyList(),
+    val deleted: Set<String> = emptySet(),
 )
 
 /**
@@ -91,6 +96,8 @@ class AzkarViewModel(application: Application) : AndroidViewModel(application) {
                 today = today,
                 doneToday = AzkarMath.effectiveDone(today, snap.day, snap.done),
                 roundsToday = if (today == snap.day) snap.rounds else emptyMap(),
+                customs = snap.customs,
+                deleted = snap.deleted,
             )
             loaded = true
         }
@@ -191,6 +198,61 @@ class AzkarViewModel(application: Application) : AndroidViewModel(application) {
             if (today == cur.today) cur
             else cur.copy(today = today, doneToday = emptySet(), roundsToday = emptyMap())
         }
+    }
+
+    // ===== أذكار المستخدم — إضافة وحذف واسترجاع (alpha44) =====
+
+    /**
+     * إنشاء ذكرٍ إضافي في قسمٍ — معرّفه فريد يبدأ بـ «custom_»،
+     * وعدده مسنون من العادات (١، ٣، ٧، ١٠، ٣٣، ١٠٠) والمصدر اختياري.
+     * يعود true إن قُبل الذكر (نصٌ غير خالٍ وعددٌ صحيح).
+     */
+    fun addCustom(groupId: String, text: String, count: Int, source: String): Boolean {
+        if (!loaded) return false
+        val cleanText = text.trim()
+        if (cleanText.isEmpty()) return false
+        val safeCount = AzkarMath.sanitizedCount(count)
+        val cleanSource = source.trim()
+        val id = AzkarLibrary.CUSTOM_PREFIX + System.currentTimeMillis().toString(36) +
+            "_" + (0..999).random()
+        _state.update { cur ->
+            cur.copy(
+                customs = cur.customs + CustomDhikr(
+                    groupId,
+                    AzkarItem(id, cleanText, safeCount, cleanSource.ifEmpty { "ذكر مضاف" }),
+                ),
+            )
+        }
+        persistNow()
+        return true
+    }
+
+    /**
+     * حذف ذكرٍ: المضاف من المستخدم يُمحى نهائياً، والافتراضي يُسجَّل
+     * في «المحذوف» فقط — فزر الاسترجاع يعيده متى شاء المالك.
+     */
+    fun deleteItem(itemId: String) {
+        if (!loaded) return
+        _state.update { cur ->
+            if (AzkarLibrary.isCustom(itemId)) {
+                cur.copy(customs = cur.customs.filter { it.item.id != itemId })
+            } else {
+                cur.copy(
+                    deleted = cur.deleted + itemId,
+                    // علامة إتمامه وعدّاده يُحصَّنان معه
+                    doneToday = cur.doneToday - itemId,
+                    roundsToday = cur.roundsToday - itemId,
+                )
+            }
+        }
+        persistNow()
+    }
+
+    /** استرجاع كل الأذكار الافتراضية المحذوفة — المضاف لا يُمَس */
+    fun restoreDefaults() {
+        if (!loaded) return
+        _state.update { cur -> cur.copy(deleted = emptySet()) }
+        persistNow()
     }
 
     /** حفظ مؤجَّل — ٧٠٠ مللي سكّة هدوء تتجمع نقرات السرعة في قرصٍ واحد */

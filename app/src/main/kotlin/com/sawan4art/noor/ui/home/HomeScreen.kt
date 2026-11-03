@@ -45,6 +45,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalDensity
@@ -116,7 +118,7 @@ fun HomeScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 12.dp),
     ) {
         Spacer(Modifier.height(8.dp))
         // مسار مزلاج الشمس/القمر — **الوحيد أعلى الشاشة** (بطلب المالك alpha12)
@@ -140,13 +142,13 @@ fun HomeScreen(
                 .fillMaxWidth()
                 .weight(1f),
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
         // هيدر التذكيرات — مكان «مواقيت اليوم» المحذوفة (بطلب المالك alpha12)
         // alpha24: يتبدل مع كل قلبٍ للثيم كذلك
         ReminderBadge(isDark = isDark)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         PrayerTimesGrid(times = times, activeKey = next.key, today = today)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         // سطر الصدقة الجارية — **جملة ثابتة غير متغيرة** بأمر المالك
         // alpha30: «التذكيرات التي في الاسفل نستبدلها بجمله ثابته غير
         // متغيره الجمله التاليه هي هذا العمل صدقة جارية لي و لأبي و أمي
@@ -289,7 +291,7 @@ private fun HeroCard(
         modifier = modifier
             .clip(RoundedCornerShape(32.dp))
             .background(noorColors.heroGradient)
-            .padding(vertical = 20.dp, horizontal = 24.dp),
+            .padding(vertical = 22.dp, horizontal = 18.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         Column(
@@ -320,9 +322,10 @@ private fun HeroCard(
                     .weight(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                val side = minOf(maxHeight, maxWidth).coerceAtMost(216.dp)
-                // alpha43 — سقف الحلقة ١٨٦←٢١٦dp كي يكبر العدّاد داخل القطرة
-                // (بلاغ المالك: «الخط و ايقونه السائل الخاصه بالوقت المتبقي صغيره»)
+                val side = minOf(maxHeight, maxWidth).coerceAtMost(300.dp)
+                // alpha44 — سقف الحلقة ٢١٦←٣٠٠dp: النقطة تملأ الهيدر المستطيل
+                // (بلاغ المالك: «كبر النقطه خمس اضعاف … هديك صوره لحجم النقطه
+                // السائله اللي انا عايزها»)
                 // نسبة التقدم اللحظية — الماضي من الفترة ÷ كاملها بقيمة
                 // متصلة (لا أعداد صحيحة) كي يتحرك السائل مع كل ثانية:
                 // «اجعله يتقدم مع تقدم انتهاء الوقت» — يكتمل عند الأذان
@@ -427,6 +430,11 @@ private fun HeroChip(text: String) {
 
 /**
  * **مؤقت الصلاة السائل الحي** — طلب المالك alpha31:
+ * **alpha44 (بلاغ المالك): «شيل الشريط الملفوف حول النقطه السائله التي
+ * تعرض الوقت المتبقي و كبر النقطه خمس اضعاف … بدل الشريط الملتف حول
+ * نقطه المتبقي هنخليه شريط عادي ملتف و الوانه متدرجه بنفس الوان النقطه»**:
+ * الشريط أصبح حلقةً عادية ملساء (بلا تموج ولا رقبة اتصال) بتدرّج
+ * ألوان النقطة نفسها، والنقطة السائلة كبرت لتملأ الحلقة كلها —
  * «الشريط الذي يحيط ب الوقت المتبقي اجعله يتقدم مع تقدم انتهاء الوقت
  * و اجعل الوقت المتبقي داخل سائل حي و يلتف حوله الشريط الدائري الاسبق»
  * و«ممكن نعمله شريط دائري عباره عن سائل حي برضو».
@@ -464,7 +472,6 @@ private fun LiquidCountdown(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val gold = scheme.secondary
     val textMeasurer = rememberTextMeasurer()
     // alpha41: مقياس التطبيق الثابت لا يدخل حلقة العدّاد — رياضيات
     // CountdownLiquidMath تضبط حجم النص على قطرة الحلقة بوحدات الكثافة
@@ -473,11 +480,15 @@ private fun LiquidCountdown(
     val baseDensity = LocalDensity.current
     val fitDensity = remember(baseDensity) { Density(baseDensity.density, fontScale = 1f) }
 
-    // أبعاد الطبقات بالـ dp — تُحسب مرة واحدة لكل حجم شاشة
-    val trackDp = CountdownLiquidMath.trackRadius(sideDp.value, 10f)
-    val bandHalfDp = 4.5f
-    val ringInnerDp = trackDp - bandHalfDp
-    val dropDp = CountdownLiquidMath.dropRadius(ringInnerDp, 11f)
+    // أبعاد الطبقات بالـ dp — تُحسب مرة واحدة لكل حجم شاشة.
+    // alpha44: النقطة بطل الصفحة — الشريط عاديٌ رقيق يلاصق حافتها
+    // الخارجية، والنقطة تملأ الدائرة بامتدادها الأقصى المحسوب
+    val strokeDp = 7f
+    val edgeGapDp = 2f
+    val trackDp = CountdownLiquidMath.trackRadius(sideDp.value, strokeDp / 2f + edgeGapDp)
+    val ringInnerDp = trackDp - strokeDp / 2f
+    val dropDp = CountdownLiquidMath.dropRadius(ringInnerDp, 0f) /
+        CountdownLiquidMath.MAX_BLOB_EXTENT
     val fontSizeSp = CountdownLiquidMath.countdownFontSizeSp(dropDp)
 
     // تخطيط النصوص يُقاس مرة واحدة فقط — لا قياس في كل إطار
@@ -516,59 +527,51 @@ private fun LiquidCountdown(
         val cx = size.width / 2f
         val cy = size.height / 2f
 
-        val band = 9.dp.toPx()
-        val bandHalf = band / 2f
-        val trackR = CountdownLiquidMath.trackRadius(side, 10.dp.toPx())
-        val wobble = band * 0.35f
-        val dropR = CountdownLiquidMath.dropRadius(trackR - bandHalf, 11.dp.toPx())
+        val stroke = strokeDp.dp.toPx()
+        val trackR = CountdownLiquidMath.trackRadius(side, stroke / 2f + edgeGapDp.dp.toPx())
+        val dropR = CountdownLiquidMath.dropRadius(trackR - stroke / 2f, 0f) /
+            CountdownLiquidMath.MAX_BLOB_EXTENT
 
         // التنفس والانسياب — لغة السائل الحي نفسها في كل أقسام التطبيق
         val breathe = 1f + CountdownLiquidMath.BREATH_AMPLITUDE * sin(t * 0.85f + 0.9f)
         val drift = GooeyMath.centerDrift(t, 0.9f) * 0.8f
         val dropCy = cy + dropR * drift
 
-        // ١) الأنبوب السائل الخافت — حلقة كاملة حافتاها تتنفسان دائماً
-        val tube = Path()
-        addLiquidRingBand(tube, cx, cy, trackR, bandHalf, 360f, t, wobble, phase = 0.4f)
-        drawPath(tube, Color.White.copy(alpha = 0.09f))
+        // ١) الشريط العادي الملتف — حلقة ملساء بلا تموّج، تدرّجها ألوان
+        //    النقطة نفسها (بلاغ المالك alpha44) — والمسار الفارغ خافتٌ
+        //    كزجاج ماء شفيف
+        drawCircle(
+            color = Color.White.copy(alpha = 0.10f),
+            radius = trackR,
+            center = Offset(cx, cy),
+            style = Stroke(width = stroke),
+        )
 
-        // ٢) السائل الممتلئ — يتقدم مع كل ثانية من عمر الفترة
+        // ٢) امتلاء الشريط مع الزمن — يتقدم مع كل ثانية من عمر الفترة
+        //    (عقد alpha31 باقٍ: «اجعله يتقدم مع تقدم انتهاء الوقت»)
         val sweep = CountdownLiquidMath.sweepDegrees(animated)
-        val fill = Path()
-        addLiquidRingBand(fill, cx, cy, trackR, bandHalf, sweep, t, wobble, phase = -1.7f)
-        if (!fill.isEmpty) {
-            drawPath(
-                fill,
-                Brush.sweepGradient(
-                    0f to gold.copy(alpha = 0.35f),
-                    0.5f to gold,
-                    1f to gold.copy(alpha = 0.35f),
+        if (sweep > 0.5f) {
+            drawArc(
+                brush = Brush.sweepGradient(
+                    0f to scheme.primaryContainer,
+                    0.5f to scheme.secondaryContainer,
+                    1f to scheme.primaryContainer,
                 ),
+                startAngle = -90f,
+                sweepAngle = sweep,
+                useCenter = false,
+                topLeft = Offset(cx - trackR, cy - trackR),
+                size = Size(trackR * 2f, trackR * 2f),
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
             )
         }
 
-        // ٣) النقطة السائلة الحية — العدّاد يعوم داخلها
-        //    + **رقبة الاتصال**: السائل يخرج من النقطة الكبيرة من نقطة
-        //    البداية (الأعلى) — رقبتان سائلتان تلحم سطح النقطة بالأنبوب
-        //    فالشريط المحيط جزء منها نفسها، وعند اكتمال اللوب تنتفخ
-        //    الرقبة بدفعة الالتصاق (آخر قطرة تلتحق بالجسد) ثم تبدأ
-        //    فترة جديدة فينفصل السائل ويخرج من جديد
-        val surge = CountdownLiquidMath.attachSurge(sweep)
+        // ٣) النقطة السائلة الحية — تملأ الحلقة تقريباً (كبر النقطة خمس
+        //    أضعافٍ تقريباً بلاغ المالك alpha44): سطحها متموج دائماً بلغة
+        //    المسبحة، وامتدادها الأقصى محسوب بـ MAX_BLOB_EXTENT فلا يلمس
+        //    موجهاً الشريط العادي الملتف حولها أبداً
         val drop = Path()
         addLiquidBlob(drop, cx, dropCy, dropR * breathe, t, 0f, 1.3f)
-        val neckR = CountdownLiquidMath.neckRadius(bandHalf) * (1f + 0.35f * surge)
-        addLiquidBlob(
-            drop,
-            cx,
-            dropCy - CountdownLiquidMath.neckCenterRadius(dropR, trackR),
-            neckR, t, 0f, 2.6f,
-        )
-        addLiquidBlob(
-            drop,
-            cx,
-            dropCy - dropR * 0.92f,
-            bandHalf * 1.15f, t, 0f, 4.1f,
-        )
         drawPath(
             drop,
             Brush.verticalGradient(
@@ -600,9 +603,9 @@ private fun LiquidCountdown(
 
 @Composable
 private fun PrayerTimesGrid(times: PrayerTimes, activeKey: PrayerTimeKey, today: LocalDate) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         PrayerTimeKey.entries.toList().chunked(3).forEach { rowKeys ->
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 rowKeys.forEach { key ->
                     PrayerCard(
                         // يوم الجمعة: صلاة الظهر تُسمّى الجمعة (توجيه المالك alpha30)
@@ -632,7 +635,7 @@ private fun PrayerCard(name: String, time: String, active: Boolean, modifier: Mo
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(vertical = 14.dp, horizontal = 8.dp),
+            modifier = Modifier.padding(vertical = 11.dp, horizontal = 8.dp),
         ) {
             Text(
                 text = name,
