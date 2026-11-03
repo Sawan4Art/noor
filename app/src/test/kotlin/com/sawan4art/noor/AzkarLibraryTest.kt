@@ -4,6 +4,7 @@ import com.sawan4art.noor.domain.azkar.AzkarGroup
 import com.sawan4art.noor.domain.azkar.AzkarItem
 import com.sawan4art.noor.domain.azkar.AzkarLibrary
 import com.sawan4art.noor.domain.azkar.CustomDhikr
+import com.sawan4art.noor.domain.azkar.CustomGroup
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -142,5 +143,68 @@ class AzkarLibraryTest {
         assertNull(AzkarLibrary.decodeCustom("|custom_7|3|مصدر|نص"))
         // معرفات غير مضافة (بلا بادئة) ترفض — حماية من تعديل الافتراضي بالحفظ
         assertNull(AzkarLibrary.decodeCustom("morning|morning_a|3|مصدر|نص"))
+    }
+
+    // ===== الأقسام المضافة (alpha45) =====
+
+    private val defaults = listOf(
+        AzkarGroup("morning", "أذكار الصباح", "", listOf(AzkarItem("morning_a", "ذكرٌ", 1, "مسلم"))),
+        AzkarGroup("evening", "أذكار المساء", "", listOf(AzkarItem("evening_a", "ذكرٌ", 1, "مسلم"))),
+    )
+
+    @Test
+    fun `القسم المضاف يظهر بطاقته في نهاية الشبكة`() {
+        val customGroups = listOf(CustomGroup("cg_1", "أذكار سفري", "قسم من إضافتك"))
+        val groups = AzkarLibrary.effectiveGroups(defaults, customGroups, emptySet())
+        assertEquals(3, groups.size)
+        assertEquals("أذكار سفري", groups[2].title)
+        assertEquals("cg_1", groups[2].id)
+        // صفحة القسم المضاف تبدأ فارغة وأذكاره من مضافات المستخدم
+        assertTrue(groups[2].items.isEmpty())
+    }
+
+    @Test
+    fun `القسم الافتراضي المحذوف يختفي والاسترجاع يعيده`() {
+        val hidden = AzkarLibrary.effectiveGroups(defaults, emptyList(), setOf("morning"))
+        assertEquals(listOf(defaults[1]), hidden)
+        val restored = AzkarLibrary.effectiveGroups(defaults, emptyList(), emptySet())
+        assertEquals(defaults, restored)
+    }
+
+    @Test
+    fun `معرفات الأقسام المضافة بادئتها cg_ وغير ذلك يرفض`() {
+        assertTrue(AzkarLibrary.isCustomGroup("cg_abc"))
+        assertFalse(AzkarLibrary.isCustomGroup("morning"))
+        assertFalse(AzkarLibrary.isCustomGroup(""))
+        // بادئة أذكار المستخدم لا تصلح لأقسامها والعكس
+        assertFalse(AzkarLibrary.isCustomGroup("custom_1"))
+    }
+
+    @Test
+    fun `ترميز القسم المضاف يحمله كاملا ويعود كما هو`() {
+        val group = CustomGroup("cg_9", "أذكار السفر", "قسم من إضافتك — أضف أذكاره من داخل صفحته")
+        assertEquals(group, AzkarLibrary.decodeCustomGroup(AzkarLibrary.encodeCustomGroup(group)!!))
+    }
+
+    @Test
+    fun `عنوان القسم المضاف بفواصل وأسطر يُهرَّب ويصح`() {
+        val group = CustomGroup("cg_10", "أذكار|خاصة\nبيتي", "وصف\\خاص")
+        val decoded = AzkarLibrary.decodeCustomGroup(AzkarLibrary.encodeCustomGroup(group)!!)
+        assertEquals(group, decoded)
+    }
+
+    @Test
+    fun `القسم بلا بادئة أو بعنوان خالٍ يرفض في الترميز`() {
+        assertNull(AzkarLibrary.encodeCustomGroup(CustomGroup("morning", "قسم", "")))
+        assertNull(AzkarLibrary.encodeCustomGroup(CustomGroup("cg_11", "  ", "")))
+    }
+
+    @Test
+    fun `مدخلات الأقسام التالفة تعود بلا قسم ولا انهيار`() {
+        assertNull(AzkarLibrary.decodeCustomGroup(""))
+        assertNull(AzkarLibrary.decodeCustomGroup("morning"))
+        assertNull(AzkarLibrary.decodeCustomGroup("cg_12|وصف|  "))
+        // بادئة ذكر المستخدم لا تصلح لقسم
+        assertNull(AzkarLibrary.decodeCustomGroup("custom_1|وصف|عنوان"))
     }
 }

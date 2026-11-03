@@ -9,6 +9,7 @@ import com.sawan4art.noor.domain.azkar.AzkarItem
 import com.sawan4art.noor.domain.azkar.AzkarLibrary
 import com.sawan4art.noor.domain.azkar.AzkarMath
 import com.sawan4art.noor.domain.azkar.CustomDhikr
+import com.sawan4art.noor.domain.azkar.CustomGroup
 import com.sawan4art.noor.domain.tasbih.MisbahaRushGuard
 import com.sawan4art.noor.domain.tasbih.MisbahaSplashMath
 import java.time.ZoneId
@@ -55,6 +56,9 @@ data class AzkarState(
     val roundsToday: Map<String, Int> = emptyMap(),
     val customs: List<CustomDhikr> = emptyList(),
     val deleted: Set<String> = emptySet(),
+    // أقسام المستخدم المضافة والأقسام الافتراضية المحذوفة (alpha45)
+    val customGroups: List<CustomGroup> = emptyList(),
+    val deletedGroups: Set<String> = emptySet(),
 )
 
 /**
@@ -98,6 +102,8 @@ class AzkarViewModel(application: Application) : AndroidViewModel(application) {
                 roundsToday = if (today == snap.day) snap.rounds else emptyMap(),
                 customs = snap.customs,
                 deleted = snap.deleted,
+                customGroups = snap.customGroups,
+                deletedGroups = snap.deletedGroups,
             )
             loaded = true
         }
@@ -255,6 +261,66 @@ class AzkarViewModel(application: Application) : AndroidViewModel(application) {
         persistNow()
     }
 
+    // ===== أقسام المستخدم — إضافة وحذف واسترجاع (alpha45) =====
+
+    /**
+     * إنشاء قسم أذكار جديد ببطاقته في صفحة الأذكار — معرّفه فريد
+     * يبدأ بـ «cg_»، وأذكاره تُضاف من داخل صفحته بزر «+» كما في كل
+     * قسم. يعود true إن قُبل الاسم (غير خالٍ).
+     */
+    fun addCustomGroup(title: String): Boolean {
+        if (!loaded) return false
+        val cleanTitle = title.trim()
+        if (cleanTitle.isEmpty()) return false
+        val id = AzkarLibrary.CUSTOM_GROUP_PREFIX + System.currentTimeMillis().toString(36) +
+            "_" + (0..999).random()
+        _state.update { cur ->
+            cur.copy(
+                customGroups = cur.customGroups + CustomGroup(
+                    id = id,
+                    title = cleanTitle,
+                    subtitle = "قسم من إضافتك — أضف أذكاره من داخل صفحته",
+                ),
+            )
+        }
+        persistNow()
+        return true
+    }
+
+    /**
+     * حذف بطاقة قسمٍ من صفحة الأذكار: القسم المضاف يُمحى نهائياً
+     * مع أذكاره المضافة، والافتراضي يُسجَّل محذوفاً فقط — فيظهر
+     * شريط الاسترجاع أعلى الشبكة ويعيده بأذكاره كلها.
+     */
+    fun deleteGroup(groupId: String) {
+        if (!loaded) return
+        _state.update { cur ->
+            if (AzkarLibrary.isCustomGroup(groupId)) {
+                // أذكاره المضافة تُمحى معه — لا ذكر يبقى يتيم القسم،
+                // وعلامات إتمامه وعدّاداته تُحصَّن من البقاء يتيمة
+                val removedIds = cur.customs
+                    .filter { it.groupId == groupId }
+                    .mapTo(HashSet()) { it.item.id }
+                cur.copy(
+                    customGroups = cur.customGroups.filter { it.id != groupId },
+                    customs = cur.customs.filter { it.groupId != groupId },
+                    doneToday = cur.doneToday - removedIds,
+                    roundsToday = cur.roundsToday - removedIds,
+                )
+            } else {
+                cur.copy(deletedGroups = cur.deletedGroups + groupId)
+            }
+        }
+        persistNow()
+    }
+
+    /** استرجاع كل الأقسام الافتراضية المحذوفة — المضافة لا تُمَس */
+    fun restoreDefaultGroups() {
+        if (!loaded) return
+        _state.update { cur -> cur.copy(deletedGroups = emptySet()) }
+        persistNow()
+    }
+
     /** حفظ مؤجَّل — ٧٠٠ مللي سكّة هدوء تتجمع نقرات السرعة في قرصٍ واحد */
     private fun scheduleSave() {
         saveJob?.cancel()
@@ -278,6 +344,10 @@ class AzkarViewModel(application: Application) : AndroidViewModel(application) {
                     day = s.today,
                     done = s.doneToday,
                     rounds = s.roundsToday,
+                    customs = s.customs,
+                    deleted = s.deleted,
+                    customGroups = s.customGroups,
+                    deletedGroups = s.deletedGroups,
                 ),
             )
         }

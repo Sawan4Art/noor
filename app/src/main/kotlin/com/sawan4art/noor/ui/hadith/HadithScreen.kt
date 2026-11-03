@@ -27,6 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
@@ -530,18 +531,20 @@ private fun HadithCard(
                     )
                 }
                 Spacer(Modifier.weight(1f))
-                // أزرار تكبير وتصغير الخط لهذه البطاقة (alpha44)
+                // أزرار تكبير وتصغير الخط لهذه البطاقة (alpha44) —
+                // alpha45: أيقونات «+» و«−» صافية بلا حرف (بلاغ المالك:
+                // «ازل حرف أ من علامات تكبير الخط من الكروت»)
                 IconButton(
                     onClick = {
                         fontScale = (fontScale - FONT_SCALE_STEP).coerceAtLeast(FONT_SCALE_MIN)
                     },
                     modifier = Modifier.size(38.dp),
                 ) {
-                    Text(
-                        text = "أ−",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = scheme.onSurfaceVariant,
+                    Icon(
+                        NoorIcons.Minus,
+                        contentDescription = "تصغير خط الحديث",
+                        tint = scheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
                 IconButton(
@@ -550,11 +553,11 @@ private fun HadithCard(
                     },
                     modifier = Modifier.size(38.dp),
                 ) {
-                    Text(
-                        text = "أ+",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = scheme.onSurfaceVariant,
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = "تكبير خط الحديث",
+                        tint = scheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
                 // فتح الحديث بصفحة كاملة بخطٍ أكبر (alpha44)
@@ -766,11 +769,11 @@ private fun FullScreenHadithReader(
                         },
                         modifier = Modifier.size(44.dp),
                     ) {
-                        Text(
-                            text = "أ−",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = scheme.onSurfaceVariant,
+                        Icon(
+                            NoorIcons.Minus,
+                            contentDescription = "تصغير خط القراءة",
+                            tint = scheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp),
                         )
                     }
                     IconButton(
@@ -779,11 +782,11 @@ private fun FullScreenHadithReader(
                         },
                         modifier = Modifier.size(44.dp),
                     ) {
-                        Text(
-                            text = "أ+",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = scheme.onSurfaceVariant,
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = "تكبير خط القراءة",
+                            tint = scheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp),
                         )
                     }
                     Spacer(Modifier.weight(1f))

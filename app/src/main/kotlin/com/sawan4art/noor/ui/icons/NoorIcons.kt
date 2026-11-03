@@ -527,6 +527,19 @@ object NoorIcons {
         }
     }
 
+    /** علامة ناقص — خط أفقي واحد (أيقونة تصغير الخط في الكروت — alpha45) */
+    val Minus: ImageVector by lazy {
+        noorIcon("Minus") {
+            filled {
+                moveTo(19f, 13f)
+                lineTo(5f, 13f)
+                lineTo(5f, 11f)
+                lineTo(19f, 11f)
+                close()
+            }
+        }
+    }
+
     // ===== أدوات الرسم =====
 
     /** هندسة شمس مبدّل المظهر — قرص وأشعة (نفس أرقام المولّد) */

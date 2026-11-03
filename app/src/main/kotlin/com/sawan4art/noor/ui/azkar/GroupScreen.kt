@@ -56,6 +56,7 @@ import com.sawan4art.noor.domain.azkar.AzkarItem
 import com.sawan4art.noor.domain.azkar.AzkarLibrary
 import com.sawan4art.noor.domain.azkar.AzkarMath
 import com.sawan4art.noor.domain.tasbih.MisbahaMath
+import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.ui.theme.NoorPageTitle
 
 /** مدى تكبير خط بطاقة الذكر — أرضية تحمي ضعاف البصر وسقفٌ يبقي النص في الكارت */
@@ -139,10 +140,10 @@ fun GroupScreen(
             Text(
                 text = "اليوم: " + MisbahaMath.arabicNumber(progress.doneCount.toLong()) +
                     " من " + MisbahaMath.arabicNumber(progress.total.toLong()) +
-                    if (progress.allDone) " — اكتملت الحمد لله" else "",
+                    if (progress.allDone && progress.total > 0) " — اكتملت الحمد لله" else "",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
-                color = if (progress.allDone) scheme.primary else scheme.onSurfaceVariant,
+                color = if (progress.allDone && progress.total > 0) scheme.primary else scheme.onSurfaceVariant,
             )
         }
         Spacer(Modifier.height(6.dp))
@@ -199,6 +200,20 @@ fun GroupScreen(
                     onTap = { viewModel.tapCount(item.id, item.count) },
                     onDelete = { viewModel.deleteItem(item.id) },
                 )
+            }
+            if (effective.items.isEmpty()) {
+                // دعوة القسم الفاضي — أذكاره تُضاف من الزر نفسه (alpha45)
+                item {
+                    Text(
+                        text = "هذا القسم فاضٍ — اضغط زر «+» في الأعلى لإضافة أول ذكر فيه",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = scheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 28.dp),
+                    )
+                }
             }
             item { Spacer(Modifier.height(100.dp)) } // مساحة شريط التنقل الزجاجي
         }
@@ -366,7 +381,9 @@ private fun AzkarRow(
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(10.dp))
-            // ===== صف أدوات البطاقة (alpha44) =====
+            // ===== صف أدوات البطاقة (alpha44 — alpha45: أزرار الخط أيقونات
+            // «+» و«−» صافية بلا حرف، بلاغ المالك: «ازل حرف أ من علامات
+            // تكبير الخط من الكروت») =====
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = {
@@ -374,11 +391,11 @@ private fun AzkarRow(
                     },
                     modifier = Modifier.size(36.dp),
                 ) {
-                    Text(
-                        text = "أ−",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = scheme.onSurfaceVariant,
+                    Icon(
+                        NoorIcons.Minus,
+                        contentDescription = "تصغير خط الذكر",
+                        tint = scheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
                 IconButton(
@@ -387,11 +404,11 @@ private fun AzkarRow(
                     },
                     modifier = Modifier.size(36.dp),
                 ) {
-                    Text(
-                        text = "أ+",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = scheme.onSurfaceVariant,
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = "تكبير خط الذكر",
+                        tint = scheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
                 IconButton(

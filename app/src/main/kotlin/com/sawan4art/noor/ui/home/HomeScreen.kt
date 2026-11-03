@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -164,7 +165,7 @@ fun HomeScreen(
                 .fillMaxWidth()
                 .alpha(0.75f),
         )
-        Spacer(Modifier.height(112.dp)) // مساحة شريط التنقل الزجاجي العائم — دائماً
+        Spacer(Modifier.height(104.dp)) // مساحة شريط التنقل الزجاجي العائم (alpha45: مرفوعٌ وأكبر)
     }
 }
 
@@ -286,34 +287,39 @@ private fun HeroCard(
     modifier: Modifier = Modifier,
 ) {
     val noorColors = LocalNoorColors.current
-    val gold = MaterialTheme.colorScheme.secondary
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(32.dp))
             .background(noorColors.heroGradient)
-            .padding(vertical = 22.dp, horizontal = 18.dp),
+            // alpha45: الحشوة الرأسية ٢٢←١٢dp — كل توفيرٍ داخل البطاقة
+            // يذهب للنقطة السائلة التي تظهر أكبر (بلاغ المالك: «كبر النقطه
+            // السائله التي تعرض الوقت المتبقي مره و نص كمان»)
+            .padding(vertical = 12.dp, horizontal = 14.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxSize(),
         ) {
-            Text(
-                text = "الصلاة القادمة",
-                style = MaterialTheme.typography.labelLarge,
-                color = noorColors.heroMuted,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = next.arabicName,
-                style = MaterialTheme.typography.displaySmall,
-                color = noorColors.heroContent,
-            )
-            Text(
-                text = TimeFormat.prayerTime(next.target),
-                style = MaterialTheme.typography.titleMedium,
-                color = noorColors.heroMuted,
-            )
+            // alpha45: اسم الصلاة ووقتها في سطرٍ واحد أنيق — مكان «الصلاة
+            // القادمة» وسطر الوقت المستقل صار مساحةً كاملة للنقطة السائلة
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = next.arabicName,
+                    style = MaterialTheme.typography.displaySmall,
+                    color = noorColors.heroContent,
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = TimeFormat.prayerTime(next.target),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = noorColors.heroMuted,
+                    modifier = Modifier.padding(bottom = 7.dp),
+                )
+            }
             // الحلقة السائلة تتكيف مع المساحة المتاحة — والعدّاد نفسه
             // يعوم داخل النقطة السائلة فلا ينكمش ولا يخرج عن القطرة أبداً
             BoxWithConstraints(
@@ -322,10 +328,9 @@ private fun HeroCard(
                     .weight(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                val side = minOf(maxHeight, maxWidth).coerceAtMost(300.dp)
-                // alpha44 — سقف الحلقة ٢١٦←٣٠٠dp: النقطة تملأ الهيدر المستطيل
-                // (بلاغ المالك: «كبر النقطه خمس اضعاف … هديك صوره لحجم النقطه
-                // السائله اللي انا عايزها»)
+                // alpha45 — سقف الحلقة ٣٠٠←٤٥٠dp: النقطة تملأ ارتفاع
+                // الهيدر كله بعد ترتيب بطاقته من جديد (مره و نص كمان)
+                val side = minOf(maxHeight, maxWidth).coerceAtMost(450.dp)
                 // نسبة التقدم اللحظية — الماضي من الفترة ÷ كاملها بقيمة
                 // متصلة (لا أعداد صحيحة) كي يتحرك السائل مع كل ثانية:
                 // «اجعله يتقدم مع تقدم انتهاء الوقت» — يكتمل عند الأذان
@@ -339,17 +344,27 @@ private fun HeroCard(
                     modifier = Modifier.size(side),
                 )
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
+            // بطاقتا التاريخ — متساويتان تماماً في العرض والارتفاع
+            // (بلاغ المالك alpha45: «ظبط ايقونات التواريخ لتكون بنفس
+            // المقاس لكل منها»): كل بطاقة نصف عرض الهيدر بالنص مُوسَّط
             Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                HeroChip(text = Hijri.of(now.toLocalDate()).formatted)
-                HeroChip(text = Hijri.gregorianArabic(now.toLocalDate()))
+                HeroChip(
+                    text = Hijri.of(now.toLocalDate()).formatted,
+                    modifier = Modifier.weight(1f),
+                )
+                HeroChip(
+                    text = Hijri.gregorianArabic(now.toLocalDate()),
+                    modifier = Modifier.weight(1f),
+                )
             }
             // صف الموقع — انتقل من البطاقة المستقلة إلى **داخل الهيدر المربع
             // تحت التواريخ مباشرة** (بطلب المالك alpha12)
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(6.dp))
             HeroLocationRow(
                 city = city,
                 locating = locating,
@@ -414,16 +429,21 @@ private fun HeroLocationRow(
 }
 
 @Composable
-private fun HeroChip(text: String) {
+private fun HeroChip(text: String, modifier: Modifier = Modifier) {
     Surface(
         color = Color.White.copy(alpha = 0.10f),
         contentColor = Color.White,
         shape = RoundedCornerShape(50),
+        modifier = modifier,
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 6.dp),
         )
     }
 }
@@ -483,8 +503,10 @@ private fun LiquidCountdown(
     // أبعاد الطبقات بالـ dp — تُحسب مرة واحدة لكل حجم شاشة.
     // alpha44: النقطة بطل الصفحة — الشريط عاديٌ رقيق يلاصق حافتها
     // الخارجية، والنقطة تملأ الدائرة بامتدادها الأقصى المحسوب
-    val strokeDp = 7f
-    val edgeGapDp = 2f
+    // alpha45: الشريط أنحف (٧←٦dp) والهوة أضيق (٢←١٫٥dp) — كل
+    // بكسلٍ يُوفَّر يذهب لسطح النقطة نفسها فتظهر أكبر
+    val strokeDp = 6f
+    val edgeGapDp = 1.5f
     val trackDp = CountdownLiquidMath.trackRadius(sideDp.value, strokeDp / 2f + edgeGapDp)
     val ringInnerDp = trackDp - strokeDp / 2f
     val dropDp = CountdownLiquidMath.dropRadius(ringInnerDp, 0f) /
@@ -635,14 +657,14 @@ private fun PrayerCard(name: String, time: String, active: Boolean, modifier: Mo
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(vertical = 11.dp, horizontal = 8.dp),
+            modifier = Modifier.padding(vertical = 9.dp, horizontal = 8.dp),
         ) {
             Text(
                 text = name,
                 style = MaterialTheme.typography.titleMedium,
                 color = if (active) scheme.onSecondaryContainer else scheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(2.dp))
             Text(
                 text = time,
                 style = MaterialTheme.typography.bodyLarge,

@@ -123,7 +123,9 @@ fun LiquidNavScaffold(
             },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                // alpha45 (بلاغ المالك: «كبر حجم شريط التنقل و ارفعه قليلا»):
+                // bottom ١٢←١٨dp — الشريط ارتفع عن حافة الشاشة بمسافة مريحة
+                .padding(start = 16.dp, end = 16.dp, bottom = 18.dp)
                 .fillMaxWidth()
                 // alpha28 (توجيه المالك: «شريط التنقل السفلي عريض شويه صغر حجم
                 // العرض بتاعه ليكون اكبر بمقدار ١ بكسل فوق و تحت السائل») —
@@ -133,10 +135,12 @@ fun LiquidNavScaffold(
                 // alpha39 (بلاغ المالك: «عايز اكبر شريط التنقل شويه و ايقوناته
                 // لاكن بشكل مناسب ليس كبير و لا صغير») — ٥٦ ← ٦٤dp والقطرة
                 // ٢٢ ← ٢٤dp والأيقونة ٢٦ ← ٢٨dp: زيادة معتدلة واحدة على الشريط
-                // وقطته وأيقوناته معاً، والحساب محفوظ: أقصى امتداد =
-                // ٢٤×1.187×١.٠٥ + انسياب ٢٤×0.064 = 31.5dp ≤ نصف ارتفاع 32dp
+                // وقطته وأيقوناته معاً.
+                // alpha45 — ٦٤ ← ٧٦dp والقطرة ٢٤ ← ٢٨dp والأيقونة ٢٨ ← ٣٢dp:
+                // قفزة واضحة واحدة بنفس الوصفة، والحساب محفوظ: أقصى امتداد =
+                // ٢٨×1.187×١.٠٥ + انسياب ٢٨×0.064 = ٣٦٫٧dp ≤ نصف ارتفاع ٣٨dp
                 // فلا يعدي السائل الزجاج أبداً حتى في قمة النبضة والرجفة.
-                .height(64.dp),
+                .height(76.dp),
         )
     }
 }
@@ -176,7 +180,8 @@ private fun LiquidNavBar(
 
     // alpha28: ٢٥ ← ٢٢dp — القطرة تملأ نسبة أكبر من الشريط الأنحف
     // alpha39: ٢٢ ← ٢٤dp مع ارتفاع ٦٤dp (انظر تعليق الارتفاع)
-    val blobRadius = with(density) { 24.dp.toPx() }
+    // alpha45: ٢٤ ← ٢٨dp مع ارتفاع ٧٦dp — القطرة تكبر مع شريطها
+    val blobRadius = with(density) { 28.dp.toPx() }
 
     // زمن حي لا يتوقف — السائل لا يسكن أبداً (تموج وانسياب في الثبات ذاته)
     var frameNanos by remember { mutableLongStateOf(0L) }
@@ -395,7 +400,8 @@ private fun LiquidNavBar(
                         tint = iconTint,
                         modifier = Modifier
                             // alpha39: ٢٦ ← ٢٨dp — أيقونات الشريط أكبر معه (بلاغ المالك)
-                            .size(28.dp)
+                            // alpha45: ٢٨ ← ٣٢dp — مع الشريط الأطول (بلاغ المالك)
+                            .size(32.dp)
                             .graphicsLayer {
                                 scaleX = iconScale
                                 scaleY = iconScale

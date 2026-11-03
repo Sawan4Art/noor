@@ -24,17 +24,25 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -91,15 +99,41 @@ fun AzkarScreen(
             viewModel = viewModel,
             onBack = { route = "index" },
         )
-        route != "index" -> GroupScreen(
-            viewModel = viewModel,
-            group = AzkarContent.groupById(route),
-            onBack = { route = "index" },
-        )
+        route != "index" -> {
+            // alpha45: الأقسام المضافة من المستخدم تُفتح كسائر الأقسام —
+            // والقسم الافتراضي المحذوف يعود به للفهرس تلقائياً
+            val defaultGroup = AzkarContent.GROUPS.firstOrNull { it.id == route }
+            val openedGroup = when {
+                defaultGroup != null && route !in state.deletedGroups -> defaultGroup
+                else -> state.customGroups.firstOrNull { it.id == route }?.let {
+                    AzkarGroup(it.id, it.title, it.subtitle, emptyList())
+                }
+            }
+            if (openedGroup == null) {
+                LaunchedEffect(route) { route = "index" }
+                AzkarHome(
+                    state = state,
+                    onOpenPraise = { route = "praise" },
+                    onOpenGroup = { id -> route = id },
+                    onAddGroup = { viewModel.addCustomGroup(it) },
+                    onDeleteGroup = { viewModel.deleteGroup(it) },
+                    onRestoreGroups = { viewModel.restoreDefaultGroups() },
+                )
+            } else {
+                GroupScreen(
+                    viewModel = viewModel,
+                    group = openedGroup,
+                    onBack = { route = "index" },
+                )
+            }
+        }
         else -> AzkarHome(
             state = state,
             onOpenPraise = { route = "praise" },
             onOpenGroup = { id -> route = id },
+            onAddGroup = { viewModel.addCustomGroup(it) },
+            onDeleteGroup = { viewModel.deleteGroup(it) },
+            onRestoreGroups = { viewModel.restoreDefaultGroups() },
         )
     }
 }
@@ -125,14 +159,26 @@ private fun groupIcon(group: AzkarGroup): ImageVector = when (group.id) {
     else -> Icons.Filled.Star
 }
 
-/** قائمة التبويب: بطاقة الصلاة على النبي بعرض الشاشة ثم شبكة الأقسام */
+/**
+ * قائمة التبويب: بطاقة الصلاة على النبي بعرض الشاشة ثم شبكة الأقسام
+ * — **مكتبة الأقسام الحيّة (alpha45 — بلاغ المالك: «زر زائد يجب ان
+ * يكون ايضا في داخل صفحه الاذكار نفسها لاضافه كارت اذكار جديد و كذالك
+ * زر مسح يكون على كل كرت من الاذكار»)**: زر «+» بجانب العنوان يفتح
+ * حوار إنشاء قسمٍ جديد ببطاقته الخاصة، وكل بطاقة قسم فيها زر حذف —
+ * المضاف يُمحى نهائياً والافتراضي يُسجَّل محذوفاً فيظهر شريط
+ * الاسترجاع أعلى الشبكة ويعيده بأذكاره كلها.
+ */
 @Composable
 private fun AzkarHome(
     state: AzkarState,
     onOpenPraise: () -> Unit,
     onOpenGroup: (String) -> Unit,
+    onAddGroup: (String) -> Unit,
+    onDeleteGroup: (String) -> Unit,
+    onRestoreGroups: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    var showAddGroupDialog by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -141,9 +187,22 @@ private fun AzkarHome(
             .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(8.dp))
-        // alpha39: العنوان داخل إطار NoorPageTitle (توجيه المالك:
-        // «عايز كل عناوين الصفحات تكون داخل اطار متماشي مع تصميم التطبيق»)
-        NoorPageTitle(text = "الأذكار")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                // alpha39: العنوان داخل إطار NoorPageTitle (توجيه المالك:
+                // «عايز كل عناوين الصفحات تكون داخل اطار متماشي مع تصميم التطبيق»)
+                NoorPageTitle(text = "الأذكار")
+            }
+            // زر إنشاء قسم أذكار جديد — في صفحة الأذكار نفسها (alpha45)
+            IconButton(onClick = { showAddGroupDialog = true }) {
+                Icon(
+                    Icons.Filled.Add,
+                    contentDescription = "إضافة قسم أذكار جديد",
+                    tint = scheme.primary,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+        }
         Spacer(Modifier.height(6.dp))
         Text(
             text = "ثلاثون قسماً — لكل قسمٍ صفحته وأذكاره الخاصة من السنة الصحيحة",
@@ -151,6 +210,37 @@ private fun AzkarHome(
             color = scheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(14.dp))
+
+        // ===== شريط استرجاع الأقسام الأصلية — يظهر ما دام في حذفٌ سابق =====
+        if (state.deletedGroups.isNotEmpty()) {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = scheme.secondaryContainer,
+                contentColor = scheme.onSecondaryContainer,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onRestoreGroups),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "استرجاع الأقسام الأصلية المحذوفة (" +
+                            MisbahaMath.arabicNumber(state.deletedGroups.size.toLong()) + ")",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -222,15 +312,25 @@ private fun AzkarHome(
                 }
             }
 
-            // ===== شبكة الأقسام التسعة والعشرين — بمحتوى كل قسمٍ الفعلي
-            // (بعد حذف المستخدم وإضافاته — alpha44) =====
-            items(AzkarContent.GROUPS, key = { it.id }) { group ->
+            // ===== شبكة الأقسام — بمحتوى كل قسمٍ الفعلي (بعد حذف
+            // المستخدم وإضافاته — alpha44) والأقسام المضافة بينها
+            // ببطاقاتها (alpha45) =====
+            items(
+                AzkarLibrary.effectiveGroups(
+                    AzkarContent.GROUPS,
+                    state.customGroups,
+                    state.deletedGroups,
+                ),
+                key = { it.id },
+            ) { group ->
                 val effective = AzkarLibrary.effectiveGroup(group, state.customs, state.deleted)
                 GroupCard(
                     group = effective,
                     icon = groupIcon(group),
                     progress = AzkarMath.groupProgress(state.doneToday, effective),
+                    isCustom = AzkarLibrary.isCustomGroup(group.id),
                     onOpen = { onOpenGroup(group.id) },
+                    onDelete = { onDeleteGroup(group.id) },
                 )
             }
 
@@ -239,15 +339,31 @@ private fun AzkarHome(
             }
         }
     }
+
+    if (showAddGroupDialog) {
+        AddGroupDialog(
+            onDismiss = { showAddGroupDialog = false },
+            onConfirm = { title ->
+                onAddGroup(title)
+                showAddGroupDialog = false
+            },
+        )
+    }
 }
 
-/** بطاقة قسم أذكار — أيقونته وعنوانه ومقدّر تقدّم اليوم */
+/**
+ * بطاقة قسم أذكار — أيقونته وعنوانه ومقدّر تقدّم اليوم، وزر حذفٍ
+ * في زاويتها (alpha45): القسم المضاف يُمحى نهائياً والافتراضي
+ * يُسجَّل محذوفاً لاسترجاعه من الشريط أعلى الشبكة.
+ */
 @Composable
 private fun GroupCard(
     group: AzkarGroup,
     icon: ImageVector,
     progress: AzkarMath.GroupProgress,
+    isCustom: Boolean,
     onOpen: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     Surface(
@@ -261,51 +377,120 @@ private fun GroupCard(
             .fillMaxWidth()
             .clickable(onClick = onOpen),
     ) {
-        Column(Modifier.padding(14.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .background(
-                        brush = Brush.linearGradient(
-                            listOf(
-                                scheme.primaryContainer.copy(alpha = 0.75f),
-                                scheme.secondaryContainer.copy(alpha = 0.75f),
+        Box {
+            Column(Modifier.padding(14.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .background(
+                            brush = Brush.linearGradient(
+                                listOf(
+                                    scheme.primaryContainer.copy(alpha = 0.75f),
+                                    scheme.secondaryContainer.copy(alpha = 0.75f),
+                                ),
                             ),
+                            shape = RoundedCornerShape(14.dp),
                         ),
-                        shape = RoundedCornerShape(14.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = scheme.primary,
-                    modifier = Modifier.size(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = scheme.primary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = group.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = scheme.onSurface,
+                    maxLines = 1,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = MisbahaMath.arabicNumber(progress.doneCount.toLong()) + "/" +
+                        MisbahaMath.arabicNumber(progress.total.toLong()) +
+                        if (progress.allDone) " ✓" else "",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (progress.allDone) scheme.primary else scheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { progress.fraction.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = scheme.primary,
+                    trackColor = scheme.surfaceVariant,
                 )
             }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = group.title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = scheme.onSurface,
-                maxLines = 1,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = MisbahaMath.arabicNumber(progress.doneCount.toLong()) + "/" +
-                    MisbahaMath.arabicNumber(progress.total.toLong()) +
-                    if (progress.allDone) " ✓" else "",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (progress.allDone) scheme.primary else scheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { progress.fraction.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth(),
-                color = scheme.primary,
-                trackColor = scheme.surfaceVariant,
-            )
+            // زر مسح البطاقة — في الزاوية المقابلة للأيقونة، واضحٌ على كل كرت
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(32.dp),
+            ) {
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = if (isCustom) {
+                        "حذف القسم نهائياً"
+                    } else {
+                        "حذف القسم — يمكن استرجاعه لاحقاً"
+                    },
+                    tint = scheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
     }
+}
+
+/** حوار إنشاء قسم أذكار جديد — عنوانٌ فقط والباقي من داخل صفحته (alpha45) */
+@Composable
+private fun AddGroupDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (title: String) -> Unit,
+) {
+    var title by rememberSaveable { mutableStateOf("") }
+    val valid = title.trim().isNotEmpty()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "قسم أذكار جديد",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+        },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("اسم القسم") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "يُنشأ القسم ببطاقة خاصة في شبكة الأذكار، وأذكاره تُضاف من داخل صفحته بزر «+».",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(title) },
+                enabled = valid,
+            ) {
+                Text("إنشاء", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("إلغاء") }
+        },
+    )
 }

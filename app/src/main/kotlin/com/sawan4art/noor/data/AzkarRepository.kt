@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sawan4art.noor.domain.azkar.AzkarLibrary
 import com.sawan4art.noor.domain.azkar.CustomDhikr
+import com.sawan4art.noor.domain.azkar.CustomGroup
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -33,6 +34,9 @@ data class AzkarSnapshot(
     val rounds: Map<String, Int> = emptyMap(),
     val customs: List<CustomDhikr> = emptyList(),
     val deleted: Set<String> = emptySet(),
+    // أقسام المستخدم المضافة ومعرفات الأقسام الافتراضية المحذوفة (alpha45)
+    val customGroups: List<CustomGroup> = emptyList(),
+    val deletedGroups: Set<String> = emptySet(),
 )
 
 class AzkarRepository(private val context: Context) {
@@ -46,6 +50,9 @@ class AzkarRepository(private val context: Context) {
         // أذكار المستخدم المضافة ومعرفات الافتراضي المحذوف (alpha44)
         val CUSTOMS = stringSetPreferencesKey("custom_dhikr")
         val DELETED = stringSetPreferencesKey("deleted_ids")
+        // أقسام المستخدم المضافة ومعرفات الأقسام الافتراضية المحذوفة (alpha45)
+        val CUSTOM_GROUPS = stringSetPreferencesKey("custom_groups")
+        val DELETED_GROUPS = stringSetPreferencesKey("deleted_groups")
     }
 
     val snapshot: Flow<AzkarSnapshot> = context.azkarDataStore.data.map { p ->
@@ -56,6 +63,8 @@ class AzkarRepository(private val context: Context) {
             rounds = parseRounds(p[Keys.ROUNDS] ?: emptySet()),
             customs = parseCustoms(p[Keys.CUSTOMS] ?: emptySet()),
             deleted = p[Keys.DELETED] ?: emptySet(),
+            customGroups = parseCustomGroups(p[Keys.CUSTOM_GROUPS] ?: emptySet()),
+            deletedGroups = p[Keys.DELETED_GROUPS] ?: emptySet(),
         )
     }
 
@@ -68,6 +77,8 @@ class AzkarRepository(private val context: Context) {
             p[Keys.ROUNDS] = encodeRounds(s.rounds)
             p[Keys.CUSTOMS] = s.customs.mapNotNull(AzkarLibrary::encodeCustom).toSet()
             p[Keys.DELETED] = s.deleted
+            p[Keys.CUSTOM_GROUPS] = s.customGroups.mapNotNull(AzkarLibrary::encodeCustomGroup).toSet()
+            p[Keys.DELETED_GROUPS] = s.deletedGroups
         }
     }
 
@@ -86,4 +97,8 @@ class AzkarRepository(private val context: Context) {
     /** تحليل متسامح — مدخل مضافٍ تالف يُهمل ولا يكسر القراءة أبداً */
     private fun parseCustoms(stored: Set<String>): List<CustomDhikr> =
         stored.mapNotNull(AzkarLibrary::decodeCustom).sortedBy { it.item.id }
+
+    /** تحليل متسامح — مدخل قسمٍ مضافٍ تالف يُهمل ولا يكسر القراءة أبداً */
+    private fun parseCustomGroups(stored: Set<String>): List<CustomGroup> =
+        stored.mapNotNull(AzkarLibrary::decodeCustomGroup).sortedBy { it.id }
 }
