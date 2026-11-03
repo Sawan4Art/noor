@@ -1,6 +1,5 @@
 package com.sawan4art.noor.ui.update
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,66 +13,43 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import com.sawan4art.noor.data.update.ChangelogFormatter
-import com.sawan4art.noor.data.update.UpdateInstaller
-import com.sawan4art.noor.data.update.UpdateManager
 import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.ui.icons.NoorIcons
-import java.util.Locale
 
 /**
- * حوار التحديث — ملخص «ما الجديد» مع سلسلة التنزيل والتثبيت كاملة داخله
- * (طلب المالك: التثبيت داخل التطبيق بلا متصفح). يظهر تلقائياً مع كل
- * نسخة جديدة مرة واحدة، والاستبعاد «لاحقاً» يبقى حتى تصدر بعدها نسخة.
+ * حوار التحديث — ملخص «ما الجديد» وزر «تحديث الآن».
+ *
+ * **alpha46**: زر التحديث يفتح ملف الـ APK في المتصفح مباشرة — التنزيل
+ * والتثبيت في الطريق الذي يعرفه كل مستخدم، والتطبيق بلا أي صلاحية تثبيت
+ * فلا يصنّفه فحص جوجل ضمن الأنماط الخطرة (بلاغ المالك: «فحص جوجل بيكتشف
+ * احتمال ان يكون التطبيق مضر و ده بيخوف الناس»). وتحت الزر سطر تطمينٍ
+ * هادئ لمن يواجه رسالة فحص جوجل عند تثبيت الملف لأول مرة.
+ *
+ * يظهر تلقائياً مع كل نسخة جديدة مرة واحدة، والاستبعاد «لاحقاً» يبقى
+ * حتى تصدر بعدها نسخة.
  */
 @Composable
 fun UpdateDialog(
     state: UpdateUiState,
     onDismiss: (versionName: String) -> Unit,
-    onDownload: () -> Unit,
-    onInstall: (apkPath: String) -> Unit,
+    onUpdate: (apkUrl: String) -> Unit,
     onRetry: () -> Unit,
 ) {
-    val context = LocalContext.current
     val info = when (state) {
         is UpdateUiState.Available -> state.info
-        is UpdateUiState.Downloading -> state.info
-        is UpdateUiState.ReadyToInstall -> state.info
         is UpdateUiState.Failed -> state.info
         else -> null
     } ?: return
-
-    // إذن التثبيت يُعاد فحصه عند العودة من صفحة الإعداد — بضغطة واحدة يكمل
-    var canInstall by remember { mutableStateOf(UpdateManager.canRequestInstall) }
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                canInstall = UpdateManager.canRequestInstall
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
 
     androidx.compose.ui.window.Dialog(onDismissRequest = { onDismiss(info.versionName) }) {
         Surface(
@@ -155,28 +131,16 @@ fun UpdateDialog(
                 Spacer(Modifier.padding(top = 16.dp))
                 when (state) {
                     is UpdateUiState.Available -> {
-                        PrimaryButton(text = "تنزيل التحديث", onClick = onDownload)
-                    }
-                    is UpdateUiState.Downloading -> {
-                        val fraction = state.fraction
-                        LinearProgressIndicator(
-                            progress = { fraction },
-                            modifier = Modifier.fillMaxWidth(),
+                        PrimaryButton(
+                            text = "تحديث الآن",
+                            onClick = { onUpdate(info.apkUrl) },
                         )
                         Spacer(Modifier.padding(top = 8.dp))
                         Text(
-                            text = progressText(state.receivedBytes, state.totalBytes),
+                            text = "يفتح التحديث في المتصفح — وإن سألك جوجل عند " +
+                                "التثبيت فالملف من موقع التطبيق الرسمي، اختر «التثبيت على أي حال»",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    is UpdateUiState.ReadyToInstall -> {
-                        PrimaryButton(
-                            text = if (canInstall) "تثبيت الآن" else "تفعيل التثبيت ثم التثبيت",
-                            onClick = {
-                                if (canInstall) onInstall(state.apk)
-                                else UpdateInstaller.openInstallPermissionSettings(context)
-                            },
                         )
                     }
                     is UpdateUiState.Failed -> {
@@ -186,10 +150,7 @@ fun UpdateDialog(
                             color = MaterialTheme.colorScheme.error,
                         )
                         Spacer(Modifier.padding(top = 10.dp))
-                        PrimaryButton(
-                            text = if (state.info != null) "إعادة المحاولة" else "حاول من جديد",
-                            onClick = onRetry,
-                        )
+                        PrimaryButton(text = "إعادة المحاولة", onClick = onRetry)
                     }
                     else -> Unit
                 }
@@ -199,7 +160,7 @@ fun UpdateDialog(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
-                        text = if (state is UpdateUiState.Downloading) "المتابعة في الخلفية" else "لاحقاً",
+                        text = "لاحقاً",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -221,14 +182,4 @@ private fun PrimaryButton(text: String, onClick: () -> Unit) {
     ) {
         Text(text)
     }
-}
-
-/** نص التقدم: «3.2 من 7.1 م.ب» */
-private fun progressText(received: Long, total: Long): String {
-    val format = { bytes: Long ->
-        val mb = bytes / (1024.0 * 1024.0)
-        if (mb >= 1.0) String.format(Locale.US, "%.1f م.ب", mb)
-        else String.format(Locale.US, "%.0f ك.ب", bytes / 1024.0)
-    }
-    return if (total > 0) "${format(received)} من ${format(total)}" else format(received)
 }

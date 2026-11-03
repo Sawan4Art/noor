@@ -3,6 +3,7 @@ package com.sawan4art.noor
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -67,18 +68,37 @@ class ManifestContractTest {
     }
 
     @Test
-    fun `أذونات الأساس الوظيفي باقية — الموقع والشبكة والتثبيت والوسائط`() {
+    fun `أذونات الأساس الوظيفي باقية — الموقع والشبكة والوسائط`() {
         val required = setOf(
             "android.permission.INTERNET",
             "android.permission.ACCESS_NETWORK_STATE",
             "android.permission.ACCESS_COARSE_LOCATION",
             "android.permission.ACCESS_FINE_LOCATION",
-            "android.permission.REQUEST_INSTALL_PACKAGES",
             "android.permission.READ_MEDIA_AUDIO",
         )
         val present = permissions()
         val missing = required - present
         assertTrue("أذونات أساسية ناقصة: $missing", missing.isEmpty())
+    }
+
+    /**
+     * عقد alpha46 (بلاغ المالك: «فحص جوجل بيكتشف احتمال ان يكون التطبيق
+     * مضر و ده بيخوف الناس»): التطبيق الذي ينزّل APK ويثبّته بنفسه يُصنّفه
+     * فحص جوجل ضمن الأنماط الخطرة — فأذون التثبيت ممنوعة، والتحديث عبر
+     * المتصفح مباشرة. عودة هذا الإذن أو موفّر الملفات يفشل البناء فوراً.
+     */
+    @Test
+    fun `لا إذن تثبيت ولا موفر ملفات — التحديث عبر المتصفح`() {
+        val present = permissions()
+        assertFalse(
+            "REQUEST_INSTALL_PACKAGES ممنوعة منذ alpha46 — التحديث عبر المتصفح",
+            "android.permission.REQUEST_INSTALL_PACKAGES" in present,
+        )
+        assertEquals(
+            "لا موفّر ملفات — التثبيت الداخلي أُزيل",
+            0,
+            manifest.getElementsByTagName("provider").length,
+        )
     }
 
     @Test

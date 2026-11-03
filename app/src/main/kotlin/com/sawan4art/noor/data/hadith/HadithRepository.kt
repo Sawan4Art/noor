@@ -11,7 +11,7 @@ import com.sawan4art.noor.domain.hadith.HadithSearch
  * - **التصفح**: بلا استعلام — يُقرأ بترتيب المعرف (ترتيب الإدخال في
  *   المولّد هو ترتيب العرض نفسه: الكتاب ثم رقم الحديث) فيمشي على
  *   الصفوف بالتسلسل بلا فرز.
- * - **البحث**: MATCH على فهرس FTS5 بتعبير [HadithSearch.matchExpression]
+ * - **البحث**: MATCH على فهرس FTS4 بتعبير [HadithSearch.matchExpression]
  *   مرتب بالصلة (rank) — ولأن MATCH يُكتب باسم الجدول الأصلي حتى مع
  *   الاسم المستعار (سلوك SQLite) فالصيغة أدناه مثبتة بفحص المولّد.
  *
@@ -45,16 +45,22 @@ class HadithRepository(context: Context) {
         )?.n ?: 0
 
     /**
-     * صفحة نتائج بحث مرتبة بالصلة — [expr] تعبير MATCH جاهز من
+     * صفحة نتائج بحث مرتبة بترتيب الكتاب — [expr] تعبير MATCH جاهز من
      * HadithSearch.matchExpression، والمستدعي يتأكد أنه غير فارغ أولاً.
+     *
+     * الفهرس **FTS4** (لا FTS5) — أندرويد لا يبني SQLite بنظام FTS5 نهائياً
+     * («no such module: fts5» على أجهزة حقيقية منذ الأقدم وحتى الأحدث)،
+     * فكان البحث بالكلمة يعمل في المحاكي ويسقط في الميدان. FTS4 مضمون
+     * من API 21، ولا يملك عمود rank فالترتيب بترتيب المعرف (ترتيب
+     * الكتاب ثم الأصل في الكتاب).
      */
     suspend fun search(expr: String, bookId: Long?, limit: Int, offset: Int): List<HadithEntity> =
         dao.searchRaw(
             SimpleSQLiteQuery(
                 "SELECT h.* FROM hadiths h " +
-                    "JOIN hadiths_fts f ON f.rowid = h.id " +
+                    "JOIN hadiths_fts f ON f.docid = h.id " +
                     "WHERE hadiths_fts MATCH ? AND (? IS NULL OR h.bookId = ?) " +
-                    "ORDER BY rank LIMIT ? OFFSET ?",
+                    "ORDER BY h.id LIMIT ? OFFSET ?",
                 arrayOf(expr, bookId, bookId, limit, offset),
             ),
         )

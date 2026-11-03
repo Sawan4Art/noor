@@ -149,10 +149,9 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                     onSetPrimary = viewModel::setPrimary,
                     updateState = updateState,
                     onCheckUpdates = UpdateManager::checkNow,
-                    onDownloadUpdate = UpdateManager::startDownload,
-                    onInstallUpdate = {
-                        (updateState as? UpdateUiState.ReadyToInstall)
-                            ?.let { UpdateManager.installApk(it.apk) }
+                    onDownloadUpdate = {
+                        (updateState as? UpdateUiState.Available)?.info
+                            ?.let { UpdateManager.openDownloadPage(it) }
                     },
                 )
             }
@@ -240,10 +239,9 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                             onSetPrimary = viewModel::setPrimary,
                             updateState = updateState,
                             onCheckUpdates = UpdateManager::checkNow,
-                            onDownloadUpdate = UpdateManager::startDownload,
-                            onInstallUpdate = {
-                                (updateState as? UpdateUiState.ReadyToInstall)
-                                    ?.let { UpdateManager.installApk(it.apk) }
+                            onDownloadUpdate = {
+                                (updateState as? UpdateUiState.Available)?.info
+                                    ?.let { UpdateManager.openDownloadPage(it) }
                             },
                         )
                     }
@@ -297,11 +295,9 @@ private fun NoorRoot(viewModel: HomeViewModel) {
     }
 
     // حوار «ما الجديد» — يظهر مرة لكل نسخة، والاستبعاد يخفي كل حالاتها
-    // لذلك الإصدار (التنزيل الجاري يكمل ويُتابَع من بطاقة الإعدادات)
+    // لذلك الإصدار (alpha46: زر التحديث يفتح ملف النسخة في المتصفح مباشرة)
     val dialogVisible = when (val s = updateState) {
         is UpdateUiState.Available -> dismissedVersion != s.info.versionName
-        is UpdateUiState.Downloading -> dismissedVersion != s.info.versionName
-        is UpdateUiState.ReadyToInstall -> dismissedVersion != s.info.versionName
         is UpdateUiState.Failed -> s.info != null && dismissedVersion != s.info?.versionName
         else -> false
     }
@@ -309,9 +305,10 @@ private fun NoorRoot(viewModel: HomeViewModel) {
         UpdateDialog(
             state = updateState,
             onDismiss = UpdateManager::dismiss,
-            onDownload = UpdateManager::startDownload,
-            onInstall = UpdateManager::installApk,
-            onRetry = UpdateManager::startDownload,
+            onUpdate = { _ ->
+                updateInfo(updateState)?.let { UpdateManager.openDownloadPage(it) }
+            },
+            onRetry = UpdateManager::checkNow,
         )
     }
 
@@ -361,6 +358,16 @@ private fun NoorRoot(viewModel: HomeViewModel) {
 }
 
 /**
+ * بيانات التحديث المعروضة من الحالة — null بلا تحديثٍ أو فشلٍ ببيانات
+ */
+private fun updateInfo(state: UpdateUiState): com.sawan4art.noor.data.update.UpdateInfo? =
+    when (state) {
+        is UpdateUiState.Available -> state.info
+        is UpdateUiState.Failed -> state.info
+        else -> null
+    }
+
+/**
  * جسد التطبيق المشترك — يُرسم مرة بالثيم المثبت (الأساس) ومرة بالثيم الهدف
  * (المعاينة المقسومة أثناء السحب) بنفس الحالة تماماً؛ كل آثار جانبية التطبيق
  * (فحص التحديثات، الشبكة، الموقع) تعيش خارج هذا الجسد فلا تتضاعف.
@@ -382,7 +389,6 @@ private fun NoorBody(
     updateState: UpdateUiState,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
-    onInstallUpdate: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -428,7 +434,6 @@ private fun NoorBody(
                         updateState = updateState,
                         onCheckUpdates = onCheckUpdates,
                         onDownloadUpdate = onDownloadUpdate,
-                        onInstallUpdate = onInstallUpdate,
                     )
                     NoorTab.QIBLA -> QiblaScreen(settings = uiState.settings)
                     else -> ComingSoonScreen(target)

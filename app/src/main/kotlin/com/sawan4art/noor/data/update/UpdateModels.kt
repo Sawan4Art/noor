@@ -36,7 +36,13 @@ data class UpdateInfo(
         }
 }
 
-/** حالة نظام التحديث — تُجمع من الواجهة (الحوار + بطاقة الإعدادات) */
+/** حالة نظام التحديث — تُجمع من الواجهة (الحوار + بطاقة الإعدادات)
+ *
+ * alpha46: حالتا «جارٍ التنزيل» و«جاهز للتثبيت» صارا بلا معنى — التنزيل
+ * والتثبيت في المتصفح مباشرة (بلاغ المالك: فحص جوجل كان يصنّف التنزيل
+ * والتثبيت داخل التطبيق ضمن الأنماط الخطرة) — فالزبان فحصٌ فقط + فتح
+ * ملف الـ APK في المتصفح.
+ */
 sealed interface UpdateUiState {
     /** بلا فحص جارٍ ولا تحديث معروض */
     data object Idle : UpdateUiState
@@ -47,16 +53,7 @@ sealed interface UpdateUiState {
     /** تحديث جديد متاح — «ما الجديد» جاهز للعرض */
     data class Available(val info: UpdateInfo) : UpdateUiState
 
-    /** جارٍ تنزيل الـ APK */
-    data class Downloading(val info: UpdateInfo, val receivedBytes: Long, val totalBytes: Long) : UpdateUiState {
-        val fraction: Float
-            get() = if (totalBytes <= 0) 0f else (receivedBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
-    }
-
-    /** الـ APK جاهز على القرص — زر «تثبيت الآن» */
-    data class ReadyToInstall(val info: UpdateInfo, val apk: String) : UpdateUiState
-
-    /** فشل (شبكة/تنزيل) — مع ما يمكن إعادة المحاولة عليه */
+    /** فشل (شبكة) — مع ما يمكن إعادة المحاولة عليه */
     data class Failed(val message: String, val info: UpdateInfo?) : UpdateUiState
 
     /** فحص انتهى ولا يوجد أحدث — تظهر في الإعدادات فقط */

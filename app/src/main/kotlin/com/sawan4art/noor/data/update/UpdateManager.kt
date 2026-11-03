@@ -1,6 +1,9 @@
 package com.sawan4art.noor.data.update
 
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import com.sawan4art.noor.BuildConfig
 import com.sawan4art.noor.data.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -10,15 +13,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
 
 /**
- * مدير التحديثات — منسق السلسلة الكاملة داخل التطبيق:
- * فحص عند **كل فتح للتطبيق** + فحص دوري في الخلفية (12 ساعة)
- * + **إشعار متكرر كل ١٢ ساعة ما دام التحديث لم يُثبَّت** (alpha37)
- * + ملخص «ما الجديد» + تنزيل بشريط تقدم
- * + تثبيت بحوار النظام فوق التطبيق بلا متصفح.
+ * مدير التحديثات — منسق السلسلة: فحص عند **كل فتح للتطبيق** + فحص دوري
+ * في الخلفية (12 ساعة) + **إشعار متكرر كل ١٢ ساعة ما دام التحديث لم يُثبَّت**
+ * (alpha37) + ملخص «ما الجديد».
+ *
+ * **alpha46 — التسليم للمتصفح**: بلاغ المالك «فحص جوجل بيكتشف احتمال ان
+ * يكون التطبيق مضر و ده بيخوف الناس» — التطبيق الذي ينزّل APK ويثبّته
+ * بنفسه يُصنّفه فحص جوجل ضمن الأنماط الخطرة. صار زر التحديث يفتح ملف
+ * الـ APK في المتصفح مباشرة، فيمشي التنزيل والتثبيت في الطريق الذي يعرفه
+ * كل مستخدم، والتطبيق نفسه بلا أي صلاحية تثبيت — سلوكُ تطبيقٍ عادي مأمون.
  *
  * alpha35 إصلاح بلاغ المالك «لا مظهرش» — كان الفحص عند الفتح بسقفٍ
  * ٣ ساعات فكانت النسخة الجديدة تمرّ صامتاً ساعاتٍ إذا كان آخر فحص
@@ -52,7 +57,6 @@ object UpdateManager {
 
     private var initialized = false
     private var checkRunning = false
-    private var downloadRunning = false
 
     /** زمن انتهاء آخر فحص مكتمل (ساعة تشغيل العملية الرتيبة) */
     @Volatile
@@ -76,15 +80,13 @@ object UpdateManager {
         if (!initialized) return
         val sinceLast = android.os.SystemClock.elapsedRealtime() - lastFinishedCheckElapsed
         if (sinceLast < PROCESS_CHECK_FLOOR_MS) return
-        val busy = _state.value is UpdateUiState.Checking ||
-            _state.value is UpdateUiState.Downloading
-        if (busy) return
+        if (_state.value is UpdateUiState.Checking) return
         scope.launch { check(auto = true) }
     }
 
     /** فحص يدوي فوري (زر الإعدادات أو ضغط الإشعار) — بلا سقف زمني */
     fun checkNow() {
-        if (!initialized || checkRunning || downloadRunning) return
+        if (!initialized || checkRunning) return
         scope.launch { check(auto = false) }
     }
 
@@ -92,7 +94,7 @@ object UpdateManager {
     suspend fun backgroundCheck() = check(auto = true)
 
     private suspend fun check(auto: Boolean) {
-        if (checkRunning || downloadRunning) return
+        if (checkRunning) return
         checkRunning = true
         _state.value = UpdateUiState.Checking
         try {
@@ -145,49 +147,26 @@ object UpdateManager {
         }
     }
 
-    /** بدء/استئناف تنزيل الـ APK — من حالة متاح أو فشل (إعادة محاولة) */
-    fun startDownload() {
-        val info = when (val current = _state.value) {
-            is UpdateUiState.Available -> current.info
-            is UpdateUiState.Failed -> current.info ?: return
-            else -> return
-        }
-        if (downloadRunning) return
-        downloadRunning = true
-        _state.value = UpdateUiState.Downloading(info, 0, info.apkSizeBytes)
-        scope.launch {
-            try {
-                val apk = withContext(Dispatchers.IO) {
-                    UpdateDownloader.download(appContext, info) { received, total ->
-                        _state.value = UpdateUiState.Downloading(info, received, total)
-                    }
-                }
-                _state.value = UpdateUiState.ReadyToInstall(info, apk.absolutePath)
-            } catch (t: Throwable) {
-                _state.value = UpdateUiState.Failed(failureMessage(t), info)
-            } finally {
-                downloadRunning = false
-            }
-        }
-    }
-
     /**
-     * التثبيت — يُفتح حوار نظام التثبيت فوق التطبيق مباشرة.
-     * أول مرة بلا إذن المصدر: نفتح صفحة الإعداد لتطبيقنا ثم يعود المستخدم ويضغط من جديد.
+     * فتح ملف الـ APK في المتصفح — التنزيل والتثبيت في طريق المتصفح
+     * المعتاد (alpha46 بلاغ المالك: التحديث من داخل التطبيق كان يجعل فحص
+     * جوجل يصنّف التطبيق ضمن الأنماط الخطرة). يعود برابطٍ إن فتح، وnull
+     * إن لم يتوفر رابط أصلاً كي تعرض الواجهة رسالةً بدل الزر الصامت.
      */
-    fun installApk(apkPath: String): Boolean {
-        if (!initialized) return false
-        val file = File(apkPath)
-        return if (UpdateInstaller.canRequestInstall(appContext)) {
-            UpdateInstaller.installApk(appContext, file)
-        } else {
-            UpdateInstaller.openInstallPermissionSettings(appContext)
-            false
+    fun openDownloadPage(info: UpdateInfo): String? {
+        if (!initialized) return null
+        val url = info.apkUrl.ifBlank { info.releaseUrl }
+        if (url.isBlank()) return null
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return try {
+            appContext.startActivity(intent)
+            url
+        } catch (_: ActivityNotFoundException) {
+            url
         }
     }
-
-    val canRequestInstall: Boolean
-        get() = initialized && UpdateInstaller.canRequestInstall(appContext)
 
     /**
      * استبعاد حوار نسخة حتى تصدر بعدها نسخة — الحالة نفسها تبقى فبطاقة
@@ -209,7 +188,7 @@ object UpdateManager {
         checkNow()
     }
 
-    /** رسالة فشل عربية مفهومة بدل تتبع الاستثناءات الخام */
+    /** رسالة فشل عربية مفهومة بدل تتبع الاستثناءات الخام — الفحص وحده يفشل الآن */
     private fun failureMessage(t: Throwable): String = when {
         t is UpdateException -> t.message ?: "حدث خطأ غير متوقع"
         t.message?.contains("timeout", ignoreCase = true) == true ||

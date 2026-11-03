@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -559,33 +560,38 @@ private fun LiquidCountdown(
         val drift = GooeyMath.centerDrift(t, 0.9f) * 0.8f
         val dropCy = cy + dropR * drift
 
-        // ١) الشريط العادي الملتف — حلقة ملساء بلا تموّج، تدرّجها ألوان
-        //    النقطة نفسها (بلاغ المالك alpha44) — والمسار الفارغ خافتٌ
-        //    كزجاج ماء شفيف
+        // ١) الشريط العادي الملتف — حلقة ملساء بلا تموّج، زجاج الماء الشفيف
+        //    الذي يُملأ بالتدرّج (بلاغ المالك alpha44)
         drawCircle(
-            color = Color.White.copy(alpha = 0.10f),
+            color = Color.White.copy(alpha = 0.16f),
             radius = trackR,
             center = Offset(cx, cy),
             style = Stroke(width = stroke),
         )
 
         // ٢) امتلاء الشريط مع الزمن — يتقدم مع كل ثانية من عمر الفترة
-        //    (عقد alpha31 باقٍ: «اجعله يتقدم مع تقدم انتهاء الوقت»)
+        //    (عقد alpha31 باقٍ: «اجعله يتقدم مع تقدم انتهاء الوقت») ويكتمل
+        //    لحظة الأذان — بلاغ المالك alpha46: «الدائرة الملفوفة حول النقطة
+        //    السائلة تكن دائرة بألوان متدرجة تكتمل مع انتهاء الوقت». التدرّج
+        //    يدور مع بداية القوس (أعلى الحلقة) كي تقرأ الألوان وهي تمشي
+        //    مع الامتلاء — من لون النقطة إلى ثانويها ثم عودة عند الاكتمال
         val sweep = CountdownLiquidMath.sweepDegrees(animated)
         if (sweep > 0.5f) {
-            drawArc(
-                brush = Brush.sweepGradient(
-                    0f to scheme.primaryContainer,
-                    0.5f to scheme.secondaryContainer,
-                    1f to scheme.primaryContainer,
-                ),
-                startAngle = -90f,
-                sweepAngle = sweep,
-                useCenter = false,
-                topLeft = Offset(cx - trackR, cy - trackR),
-                size = Size(trackR * 2f, trackR * 2f),
-                style = Stroke(width = stroke, cap = StrokeCap.Round),
-            )
+            rotate(degrees = -90f) {
+                drawArc(
+                    brush = Brush.sweepGradient(
+                        0f to scheme.primaryContainer,
+                        0.5f to scheme.secondaryContainer,
+                        1f to scheme.primaryContainer,
+                    ),
+                    startAngle = 0f,
+                    sweepAngle = sweep,
+                    useCenter = false,
+                    topLeft = Offset(cx - trackR, cy - trackR),
+                    size = Size(trackR * 2f, trackR * 2f),
+                    style = Stroke(width = stroke, cap = StrokeCap.Round),
+                )
+            }
         }
 
         // ٣) النقطة السائلة الحية — تملأ الحلقة تقريباً (كبر النقطة خمس

@@ -109,7 +109,6 @@ fun SettingsScreen(
     updateState: UpdateUiState,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
-    onInstallUpdate: () -> Unit,
 ) {
     // الروابط الداخلية: home ← location / method / colors / updates
     var section by rememberSaveable { mutableStateOf("home") }
@@ -155,7 +154,6 @@ fun SettingsScreen(
                     currentVersion = BuildConfig.VERSION_NAME,
                     onCheckUpdates = onCheckUpdates,
                     onDownloadUpdate = onDownloadUpdate,
-                    onInstallUpdate = onInstallUpdate,
                 )
             }
         }
@@ -237,8 +235,6 @@ private fun SettingsHome(
 /** ملخص التحديث في القائمة — لغة مفهومة من غير فتح الصفحة */
 private fun updatesSummary(state: UpdateUiState): String = when (state) {
     is UpdateUiState.Available -> "تحديث جديد متاح: ${state.info.versionName}"
-    is UpdateUiState.Downloading -> "جارٍ تنزيل التحديث… ${(state.fraction * 100).toInt()}%"
-    is UpdateUiState.ReadyToInstall -> "التحديث جاهز — افتح الصفحة للتثبيت"
     is UpdateUiState.Failed -> "تعذّر الفحص — افتح الصفحة لإعادة المحاولة"
     else -> "أنت على أحدث نسخة — والفحص تلقائي عند فتح التطبيق"
 }
@@ -573,21 +569,19 @@ private fun colorsSummary(settings: NoorSettingsState): String =
         (if (settings.primaryId.isBlank()) "يتبع لون التطبيق"
             else AccentPalette.byId(settings.primaryId).arabicName)
 
-/** قسم التحديثات — النسخة الحالية والفحص اليدوي و**سلسلة التنزيل كاملة**
- *  والتثبيت الداخلي. alpha37 بلاغ المالك «زر التحميل وقف ف اديني رابط
- *  للنسخ»: كان زر التنزيل في حوار النسخة الجديدة فقط، وبعد ضغط «لاحقاً»
- *  لا يوجد أي مكان لتنزيل التحديث من التطبيق كله — الآن صفحة التحديثات
- *  نفسها فيها زر التنزيل وإعادة المحاولة ونسخ رابط التحميل الاحتياطي. */
+/** قسم التحديثات — النسخة الحالية والفحص اليدوي وزر «تحديث الآن»
+ *  الذي يفتح ملف النسخة في المتصفح مباشرة (alpha46 — بلاغ المالك:
+ *  فحص جوجل كان يصنّف التنزيل والتثبيت داخل التطبيق ضمن الأنماط
+ *  الخطرة) ونسخ رابط التحميل الاحتياطي (alpha37). */
 @Composable
 private fun UpdatesSection(
     updateState: UpdateUiState,
     currentVersion: String,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
-    onInstallUpdate: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val busy = updateState is UpdateUiState.Checking || updateState is UpdateUiState.Downloading
+    val busy = updateState is UpdateUiState.Checking
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -608,7 +602,7 @@ private fun UpdatesSection(
         style = MaterialTheme.typography.bodySmall,
         color = when {
             updateState is UpdateUiState.Failed -> scheme.error
-            updateState is UpdateUiState.Available || updateState is UpdateUiState.ReadyToInstall -> scheme.secondary
+            updateState is UpdateUiState.Available -> scheme.secondary
             else -> scheme.onSurfaceVariant
         },
     )
@@ -654,13 +648,6 @@ private fun UpdatesSection(
             }
         }
     }
-    if (updateState is UpdateUiState.Downloading) {
-        Spacer(Modifier.height(10.dp))
-        LinearProgressIndicator(
-            progress = { updateState.fraction },
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
     Spacer(Modifier.height(12.dp))
     Button(
         onClick = onCheckUpdates,
@@ -681,8 +668,8 @@ private fun UpdatesSection(
         }
         Text("تحقق من التحديثات الآن")
     }
-    // alpha37: زر التنزيل في الصفحة نفسها — التحديث المتاح قابل للتنزيل
-    // من هنا دائماً، حتى بعد استبعاد حوار «ما الجديد» بـ«لاحقاً»
+    // alpha46: زر «تحديث الآن» في الصفحة نفسها — التحديث المتاح يُفتح
+    // في المتصفح من هنا دائماً، حتى بعد استبعاد حوار «ما الجديد» بـ«لاحقاً»
     when (updateState) {
         is UpdateUiState.Available -> {
             Spacer(Modifier.height(10.dp))
@@ -695,15 +682,13 @@ private fun UpdatesSection(
                 ),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("تنزيل التحديث الآن (${updateState.info.sizeText})")
+                Text("تحديث الآن (${updateState.info.sizeText})")
             }
         }
         is UpdateUiState.Failed -> {
             Spacer(Modifier.height(10.dp))
             Button(
-                // فشل شبكة عند الفحص = أعد الفحص، وفشل تنزيل وإن
-                // توفر التحديث = أعد التنزيل من نفس الزر
-                onClick = if (updateState.info != null) onDownloadUpdate else onCheckUpdates,
+                onClick = onCheckUpdates,
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = scheme.secondary,
@@ -711,34 +696,19 @@ private fun UpdatesSection(
                 ),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (updateState.info != null) "إعادة محاولة التنزيل" else "إعادة المحاولة")
+                Text("إعادة المحاولة")
             }
         }
         else -> Unit
     }
-    if (updateState is UpdateUiState.ReadyToInstall) {
-        Spacer(Modifier.height(10.dp))
-        Button(
-            onClick = onInstallUpdate,
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = scheme.secondary,
-                contentColor = scheme.onSecondary,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("تثبيت الآن")
-        }
-    }
     // alpha37: احتياط المالك «اديني رابط للنسخ» — نسخ رابط الـ APK المباشر
-    // إلى الحافظة ليُحمّل من أي متصفح لو تعذّر التنزيل من داخل التطبيق
+    // إلى الحافظة ليُحمّل من أي متصفح
     val apkInfo = when (updateState) {
         is UpdateUiState.Available -> updateState.info
         is UpdateUiState.Failed -> updateState.info
-        is UpdateUiState.ReadyToInstall -> updateState.info
         else -> null
     }
-    if (apkInfo != null && updateState !is UpdateUiState.Downloading) {
+    if (apkInfo != null) {
         val clipboard = LocalClipboardManager.current
         var linkCopied by remember { mutableStateOf(false) }
         TextButton(
@@ -762,8 +732,6 @@ private fun updateStatusText(state: UpdateUiState): String = when (state) {
     is UpdateUiState.Idle -> "يبحث تلقائياً عند فتح التطبيق ومع كل نسخة جديدة يصلك إشعار"
     is UpdateUiState.Checking -> "جارٍ البحث عن تحديثات…"
     is UpdateUiState.Available -> "تحديث جديد متاح: ${state.info.versionName} — ${state.info.sizeText}"
-    is UpdateUiState.Downloading -> "جارٍ تنزيل التحديث… ${(state.fraction * 100).toInt()}%"
-    is UpdateUiState.ReadyToInstall -> "التحديث جاهز — اضغط تثبيت الآن"
     is UpdateUiState.Failed -> state.message
     is UpdateUiState.UpToDate -> "أنت على أحدث نسخة — لا يوجد تحديث جديد"
 }

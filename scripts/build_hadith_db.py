@@ -3,7 +3,10 @@
 """
 بناء databases/hadiths.db لمكتبة الأحاديث (نور المسلم)
 - المصدر: AhmedBaset/hadith-json v1.2.0 (من sunnah.com) — ١٠ كتب مختارة
-- المخطط: جداول Room (books + hadiths) + فهرس FTS5 contentless بنص مُطبَّع
+- المخطط: جداول Room (books + hadiths) + فهرس FTS4 contentless بنص مُطبَّع
+- ملحوظة: بعد البناء يُشغَّل scripts/renumber_hadiths.py (الترقيم المعتمد من
+  sunnah.com عبر fawazahmed0/hadith-api + إعادة بناء الفهرس بترميز موحّد)
+  فلا يُستعمل هذا السكريبت وحده للتغذية النهائية
 - التطبيع (Normalization) هنا هو المرجع الحرفي — وتنفيذه في Kotlin
   (domain/hadith/HadithSearch.kt) يجب أن يطابقه حرفياً، وعقد اختبار
   fixtures يضمن التطابق (app/src/test/resources/hadith_normalization_fixtures.json)
@@ -109,8 +112,11 @@ def main():
         text TEXT NOT NULL,
         PRIMARY KEY(id)
     )''')
-    # FTS5 contentless — الفهرس فقط بلا نسخة نص إضافية، rowid = hadiths.id
-    cur.execute("CREATE VIRTUAL TABLE hadiths_fts USING fts5(norm, content='')")
+    # FTS4 contentless — أندرويد لا يبني SQLite بنظام FTS5 نهائياً («no such
+    # module: fts5» على أجهزة حقيقية) فالفهرس FTS4 بمقطِّع unicode61 المضمون
+    # من API 21، والفهرس فقط بلا نسخة نص إضافية، docid = hadiths.id
+    cur.execute("CREATE VIRTUAL TABLE hadiths_fts USING fts4("
+                "norm, tokenize=unicode61, content='')")
 
     fixtures = []
     total_h = 0
@@ -147,9 +153,8 @@ def main():
         total_h += n
         print('%-24s id=%-3d %s — %d حديث (محذوف فارغ: %d)' % (path, ds_id, title, n, skipped))
 
-    # ضغط الفهرس والتقسيم
-    cur.execute("INSERT INTO hadiths_fts(hadiths_fts) VALUES('optimize')")
-    cur.execute('PRAGMA user_version=1')
+    # أمر optimize غير مدعوم على FTS4 contentless — والضغط لا يلزم هنا
+    cur.execute('PRAGMA user_version=2')
     conn.commit()
 
     # ===== تحقق =====
@@ -180,7 +185,7 @@ def main():
     # ملاحظة: MATCH يُكتب باسم الجدول الأصلي حتى مع alias — نفس استعلام التطبيق
     rows = cur.execute(
         'SELECT h.id, h.bookId, h.numberInBook, h.text FROM hadiths h '
-        'JOIN hadiths_fts f ON f.rowid = h.id '
+        'JOIN hadiths_fts f ON f.docid = h.id '
         'WHERE hadiths_fts MATCH ? AND (? IS NULL OR h.bookId = ?) '
         'ORDER BY rank LIMIT 5', (q, 1, 1)
     ).fetchall()
