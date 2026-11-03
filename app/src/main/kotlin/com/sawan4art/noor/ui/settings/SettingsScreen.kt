@@ -71,6 +71,8 @@ import com.sawan4art.noor.data.update.UpdateNotifier
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.ui.theme.AccentPalette
+import com.sawan4art.noor.ui.theme.LiquidDeveloperBadge
+import com.sawan4art.noor.ui.theme.NoorPageTitle
 import java.util.Locale
 
 /**
@@ -180,16 +182,10 @@ private fun SettingsHome(
             .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(16.dp))
-        Text(
-            text = "الإعدادات",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Text(
-            text = "اضغط أي قسمٍ ليفتح صفحته الخاصة",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // alpha39 (بلاغ المالك: «في نص تحت كلمه الاعدادت … النص ده شيله
+        // و اكتفي بكلمه الاعدادت اللي هي عنوان الصفحه») — العنوان وحده
+        // داخل إطار NoorPageTitle والنص التوضيحي أُزيل تماماً
+        NoorPageTitle(text = "الإعدادات")
         Spacer(Modifier.height(16.dp))
 
         SectionRow(
@@ -218,11 +214,21 @@ private fun SettingsHome(
             onOpen = { onOpen("updates") },
         )
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(24.dp))
+        // توقيع المطور (alpha39 — بلاغ المالك: «اعاده البناء الاصليه بلغه
+        // كوتلن ده شيله و استبدله باسم المطور و اسمه Yousef Sawan و تحته
+        // رقم اصدار النسخه») — الاسم داخل الإطار السائل الحي المستطيل
+        // (LiquidDeveloperBadge) وتحته رقم الإصدار وحده
+        LiquidDeveloperBadge(
+            name = "Yousef Sawan",
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
+        Spacer(Modifier.height(6.dp))
         Text(
-            text = "نور المسلم ${BuildConfig.VERSION_NAME} — إعادة البناء الأصلية بلغة كوتلن",
-            style = MaterialTheme.typography.bodySmall,
+            text = "الإصدار ${BuildConfig.VERSION_NAME}",
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
         )
         Spacer(Modifier.height(116.dp)) // مساحة شريط التنقل الزجاجي العائم
     }
@@ -343,11 +349,9 @@ private fun SectionPage(
                     tint = scheme.primary,
                 )
             }
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                color = scheme.onBackground,
-            )
+            // alpha39: عنوان الصفحة داخل إطار NoorPageTitle (توجيه المالك:
+            // «عايز كل عناوين الصفحات تكون داخل اطار متماشي مع تصميم التطبيق»)
+            NoorPageTitle(text = title)
         }
         Spacer(Modifier.height(12.dp))
         Column(

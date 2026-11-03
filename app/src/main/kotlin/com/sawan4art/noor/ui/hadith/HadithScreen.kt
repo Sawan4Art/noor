@@ -55,6 +55,7 @@ import com.sawan4art.noor.data.hadith.BookEntity
 import com.sawan4art.noor.data.hadith.HadithEntity
 import com.sawan4art.noor.domain.tasbih.MisbahaMath
 import com.sawan4art.noor.ui.icons.NoorIcons
+import com.sawan4art.noor.ui.theme.NoorPageTitle
 
 /**
  * تبويب مكتبة الأحاديث — توجيه المالك («عايزين نضيف قسم جديد لـ مكتبة
@@ -127,12 +128,10 @@ fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
             .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(8.dp))
-        Text(
-            text = "الأحاديث",
-            style = MaterialTheme.typography.headlineSmall,
-            color = scheme.onBackground,
-        )
-        Spacer(Modifier.height(2.dp))
+        // alpha39: العنوان داخل إطار NoorPageTitle (توجيه المالك:
+        // «عايز كل عناوين الصفحات تكون داخل اطار متماشي مع تصميم التطبيق»)
+        NoorPageTitle(text = "الأحاديث")
+        Spacer(Modifier.height(6.dp))
         Text(
             text = "عشرة كتب من السنة الشريفة أوفلاين — ابحث برقم الحديث أو بكلمة من نصّه",
             style = MaterialTheme.typography.labelMedium,

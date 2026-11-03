@@ -35,7 +35,9 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sawan4art.noor.data.ThemeMode
@@ -65,6 +67,22 @@ private val AppDirection = LayoutDirection.Rtl
 
 @Composable
 fun NoorApp(viewModel: HomeViewModel) {
+    // **ثبات مقاس الخط** (alpha39 — بلاغ المالك: «في مشكله عند تكبير حجم
+    // العرض والخط من اعدادات الهاتف يتم ازاله بعض الايقونات انا عايز
+    // التطبيق ميتاثرش بحجم الخط في اعداد الهاتف»): مقياس خط النظام
+    // (fontScale) يُتجاهَل تماماً — التطبيق يرسم نصوصه بمقاساته الثابتة
+    // الخاصة (NoorTypography) فلا تتزحزح عناصر ولا تختفي أيقونات داخل
+    // صناديقها مهما كُبّر خط الهاتف، والمقاس الظاهر هو الذي في Type.kt
+    // نفسه. ويبقى التأثر بحجم العرض (الكثافة dp) كما هو.
+    val system = LocalDensity.current
+    val fixed = Density(density = system.density, fontScale = 1f)
+    CompositionLocalProvider(LocalDensity provides fixed) {
+        NoorRoot(viewModel)
+    }
+}
+
+@Composable
+private fun NoorRoot(viewModel: HomeViewModel) {
     var tab by rememberSaveable { mutableStateOf(NoorTab.PRAYER) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val locating by viewModel.locating.collectAsStateWithLifecycle()

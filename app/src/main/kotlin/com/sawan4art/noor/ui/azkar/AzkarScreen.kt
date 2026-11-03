@@ -52,6 +52,7 @@ import com.sawan4art.noor.domain.azkar.AzkarGroup
 import com.sawan4art.noor.domain.azkar.AzkarMath
 import com.sawan4art.noor.domain.tasbih.MisbahaMath
 import com.sawan4art.noor.ui.icons.NoorIcons
+import com.sawan4art.noor.ui.theme.NoorPageTitle
 
 /**
  * تبويب الأذكار — توجيه المالك alpha29 («خفف الاذكار و اعرض الاذكار الخاصه
@@ -136,12 +137,10 @@ private fun AzkarHome(
             .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(8.dp))
-        Text(
-            text = "الأذكار",
-            style = MaterialTheme.typography.headlineSmall,
-            color = scheme.onBackground,
-        )
-        Spacer(Modifier.height(2.dp))
+        // alpha39: العنوان داخل إطار NoorPageTitle (توجيه المالك:
+        // «عايز كل عناوين الصفحات تكون داخل اطار متماشي مع تصميم التطبيق»)
+        NoorPageTitle(text = "الأذكار")
+        Spacer(Modifier.height(6.dp))
         Text(
             text = "ثلاثون قسماً — لكل قسمٍ صفحته وأذكاره الخاصة من السنة الصحيحة",
             style = MaterialTheme.typography.labelMedium,

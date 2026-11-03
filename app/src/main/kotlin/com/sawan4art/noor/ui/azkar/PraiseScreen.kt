@@ -66,6 +66,7 @@ import com.sawan4art.noor.domain.tasbih.MisbahaMath
 import com.sawan4art.noor.domain.tasbih.MisbahaSplashMath
 import com.sawan4art.noor.ui.nav.GooeyMath
 import com.sawan4art.noor.ui.nav.addLiquidBlob
+import com.sawan4art.noor.ui.theme.NoorPageTitle
 import com.sawan4art.noor.util.MisbahaFeedback
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
@@ -137,11 +138,9 @@ fun PraiseScreen(
                 )
             }
             Column {
-                Text(
-                    text = "الصلاة على النبي",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = scheme.onBackground,
-                )
+                // alpha39: العنوان داخل إطار NoorPageTitle
+                NoorPageTitle(text = "الصلاة على النبي")
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text = "ذكرٌ مستقل — عدّك يُحفظ تلقائياً",
                     style = MaterialTheme.typography.labelMedium,

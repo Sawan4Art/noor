@@ -57,6 +57,7 @@ import com.sawan4art.noor.domain.qibla.QiblaMath
 import com.sawan4art.noor.domain.tasbih.MisbahaMath
 import com.sawan4art.noor.domain.tasbih.MisbahaSplashMath
 import com.sawan4art.noor.ui.nav.addLiquidBlob
+import com.sawan4art.noor.ui.theme.NoorPageTitle
 import com.sawan4art.noor.util.MisbahaFeedback
 import kotlin.math.abs
 import kotlin.math.cos
@@ -126,12 +127,9 @@ fun QiblaScreen(
             .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(8.dp))
-        Text(
-            text = "بوصلة القبلة",
-            style = MaterialTheme.typography.headlineSmall,
-            color = scheme.onBackground,
-        )
-        Spacer(Modifier.height(2.dp))
+        // alpha39: العنوان داخل إطار NoorPageTitle
+        NoorPageTitle(text = "بوصلة القبلة")
+        Spacer(Modifier.height(6.dp))
         Text(
             text = "وجه جهازك حتى يستقيم السهم لأعلى وتبدأ النقطة بالتناثر",
             style = MaterialTheme.typography.labelMedium,

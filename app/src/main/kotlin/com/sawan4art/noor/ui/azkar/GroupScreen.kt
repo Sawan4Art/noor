@@ -40,6 +40,7 @@ import com.sawan4art.noor.domain.azkar.AzkarGroup
 import com.sawan4art.noor.domain.azkar.AzkarItem
 import com.sawan4art.noor.domain.azkar.AzkarMath
 import com.sawan4art.noor.domain.tasbih.MisbahaMath
+import com.sawan4art.noor.ui.theme.NoorPageTitle
 
 /**
  * شاشة مجموعة أذكار — القراءة بهوية التطبيق نفسها: كل ذكرٍ بطاقةٌ
@@ -78,11 +79,10 @@ fun GroupScreen(
                 )
             }
             Column {
-                Text(
-                    text = group.title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = scheme.onBackground,
-                )
+                // alpha39: العنوان داخل إطار NoorPageTitle (توجيه المالك:
+                // «عايز كل عناوين الصفحات تكون داخل اطار متماشي مع تصميم التطبيق»)
+                NoorPageTitle(text = group.title)
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text = group.subtitle,
                     style = MaterialTheme.typography.labelMedium,

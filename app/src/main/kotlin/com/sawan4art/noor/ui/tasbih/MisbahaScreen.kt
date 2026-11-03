@@ -66,6 +66,7 @@ import com.sawan4art.noor.domain.tasbih.MisbahaMath
 import com.sawan4art.noor.domain.tasbih.MisbahaSplashMath
 import com.sawan4art.noor.ui.nav.GooeyMath
 import com.sawan4art.noor.ui.nav.addLiquidBlob
+import com.sawan4art.noor.ui.theme.NoorPageTitle
 import com.sawan4art.noor.util.MisbahaFeedback
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
@@ -139,13 +140,10 @@ fun MisbahaScreen(viewModel: MisbahaViewModel = viewModel()) {
             .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(8.dp))
-        // هيدر الشاشة — العنوان فقط؛ الإجمالي التراكمي أُزيل بطلب المالك
-        Text(
-            text = "المسبحة",
-            style = MaterialTheme.typography.headlineSmall,
-            color = scheme.onBackground,
-        )
-        Spacer(Modifier.height(2.dp))
+        // هيدر الشاشة — العنوان داخل إطار NoorPageTitle (alpha39 توجيه
+        // المالك: كل عناوين الصفحات داخل إطار متماشٍ مع تصميم التطبيق)
+        NoorPageTitle(text = "المسبحة")
+        Spacer(Modifier.height(6.dp))
         Text(
             text = "تسبيح ما بعد الصلاة — ٩٩ وتكميلة المائة",
             style = MaterialTheme.typography.labelMedium,
