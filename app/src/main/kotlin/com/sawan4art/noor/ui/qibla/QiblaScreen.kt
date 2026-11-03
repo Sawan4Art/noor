@@ -453,7 +453,7 @@ private fun LiquidCompass(
                 AnnotatedString("اتجاه القبلة"),
                 style = TextStyle(
                     color = scheme.primary.copy(alpha = 0.85f),
-                    fontSize = 11.sp,
+                    fontSize = 13.sp,
                 ),
             )
             drawText(

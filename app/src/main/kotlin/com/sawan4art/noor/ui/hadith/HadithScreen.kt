@@ -385,7 +385,7 @@ private fun FilterChip(
                     imageVector = if (selected) NoorIcons.StarFilled else NoorIcons.StarOutline,
                     contentDescription = null,
                     tint = if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
-                    modifier = Modifier.size(15.dp),
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }

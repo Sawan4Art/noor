@@ -304,7 +304,7 @@ private fun SectionRow(
                     )
                     if (accentDot != null) {
                         Spacer(Modifier.width(8.dp))
-                        Surface(shape = CircleShape, color = accentDot, modifier = Modifier.size(14.dp)) {}
+                        Surface(shape = CircleShape, color = accentDot, modifier = Modifier.size(16.dp)) {}
                     }
                 }
                 Spacer(Modifier.height(2.dp))
@@ -408,7 +408,7 @@ private fun LocationSection(
     ) {
         if (locating) {
             CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(18.dp),
                 strokeWidth = 2.dp,
                 color = MaterialTheme.colorScheme.onPrimary,
             )
@@ -673,7 +673,7 @@ private fun UpdatesSection(
     ) {
         if (busy) {
             CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(18.dp),
                 strokeWidth = 2.dp,
                 color = scheme.onPrimary,
             )

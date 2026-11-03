@@ -193,7 +193,7 @@ fun MisbahaScreen(viewModel: MisbahaViewModel = viewModel()) {
                     Icon(
                         Icons.Filled.Info,
                         contentDescription = null,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(24.dp),
                     )
                     Spacer(Modifier.size(12.dp))
                     Column {
@@ -235,7 +235,7 @@ fun MisbahaScreen(viewModel: MisbahaViewModel = viewModel()) {
                 Icon(
                     Icons.Filled.Refresh,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(18.dp),
                     tint = scheme.primary,
                 )
                 Spacer(Modifier.size(6.dp))
@@ -466,15 +466,15 @@ private fun SequenceStepChip(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(horizontal = 3.dp, vertical = 9.dp),
+            modifier = Modifier.padding(horizontal = 3.dp, vertical = 11.dp),
         ) {
             if (done) {
                 Icon(
                     Icons.Filled.Check,
                     contentDescription = null,
-                    modifier = Modifier.size(15.dp),
+                    modifier = Modifier.size(18.dp),
                 )
-                Spacer(Modifier.size(3.dp))
+                Spacer(Modifier.size(5.dp))
             }
             Text(
                 text = label,

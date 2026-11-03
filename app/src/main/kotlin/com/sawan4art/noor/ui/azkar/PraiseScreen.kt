@@ -187,7 +187,7 @@ fun PraiseScreen(
                     Icon(
                         Icons.Filled.Info,
                         contentDescription = null,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(24.dp),
                     )
                     Spacer(Modifier.size(12.dp))
                     Column {

@@ -177,7 +177,7 @@ private fun AzkarRow(
                             Icon(
                                 Icons.Filled.Check,
                                 contentDescription = "تمّ",
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier.size(16.dp),
                             )
                             Spacer(Modifier.width(4.dp))
                         }

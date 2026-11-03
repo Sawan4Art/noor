@@ -110,13 +110,16 @@ class CountdownLiquidMathTest {
 
     @Test
     fun `خط العداد محكوم بسقف وأرضية`() {
-        assertTrue(CountdownLiquidMath.countdownFontSizeSp(500f) <= 22f)
-        assertTrue(CountdownLiquidMath.countdownFontSizeSp(5f) >= 13f)
-        // في الهيرو الفعلي (side=186dp) الخط بين ١٧ و٢٢sp — مقروء
-        val track = CountdownLiquidMath.trackRadius(186f, 10f)
+        // alpha43 — العدّاد بطل الشاشة: سقف ٣٠ وأرضية ١٦، لا أصغر من متن الجسم
+        assertTrue(CountdownLiquidMath.countdownFontSizeSp(500f) <= 30f)
+        assertTrue(CountdownLiquidMath.countdownFontSizeSp(5f) >= 16f)
+        // في الهيرو الفعلي (side=216dp) الخط بين ٢٤ و٣٠sp — بارز ومقروء
+        val track = CountdownLiquidMath.trackRadius(216f, 10f)
         val drop = CountdownLiquidMath.dropRadius(track - 4.5f, 11f)
         val fs = CountdownLiquidMath.countdownFontSizeSp(drop)
-        assertTrue("الخط في الهيرو صغير جداً: $fs", fs in 17f..22f)
+        assertTrue("الخط في الهيرو صغير جداً: $fs", fs in 24f..30f)
+        // ولا يتجاوز أرضية المتن في أصغر قطرة معقولة — قراءة لنظر ضعيف
+        assertTrue(CountdownLiquidMath.countdownFontSizeSp(44.5f) >= 16f)
     }
 
     @Test

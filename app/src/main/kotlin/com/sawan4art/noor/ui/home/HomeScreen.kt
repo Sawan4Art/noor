@@ -200,8 +200,10 @@ private fun ReminderBadge(modifier: Modifier = Modifier, isDark: Boolean) {
     }
     val reminder = HomeReminders[reminderIndex.intValue]
     val density = LocalDensity.current
-    val blobR = with(density) { 19.dp.toPx() }
-    val iconPx = with(density) { 20.dp.toPx() }
+    // alpha43 (بلاغ المالك: «الخط و ايقونه السائل الخاصه بالوقت المتبقي
+    // صغيره هي كمان») — قطرة التذكير والهلال داخله كبُرا: ١٩←٢٣ و٢٠←٢٦
+    val blobR = with(density) { 23.dp.toPx() }
+    val iconPx = with(density) { 26.dp.toPx() }
     val moonPainter = rememberVectorPainter(NoorIcons.Moon)
 
     // زمن حي لا يتوقف — السائل لا يسكن (نفس لغة مزلاج المظهر)
@@ -318,7 +320,9 @@ private fun HeroCard(
                     .weight(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                val side = minOf(maxHeight, maxWidth).coerceAtMost(186.dp)
+                val side = minOf(maxHeight, maxWidth).coerceAtMost(216.dp)
+                // alpha43 — سقف الحلقة ١٨٦←٢١٦dp كي يكبر العدّاد داخل القطرة
+                // (بلاغ المالك: «الخط و ايقونه السائل الخاصه بالوقت المتبقي صغيره»)
                 // نسبة التقدم اللحظية — الماضي من الفترة ÷ كاملها بقيمة
                 // متصلة (لا أعداد صحيحة) كي يتحرك السائل مع كل ثانية:
                 // «اجعله يتقدم مع تقدم انتهاء الوقت» — يكتمل عند الأذان
@@ -382,7 +386,7 @@ private fun HeroLocationRow(
         )
         if (locating) {
             CircularProgressIndicator(
-                modifier = Modifier.size(13.dp),
+                modifier = Modifier.size(16.dp),
                 strokeWidth = 2.dp,
                 color = noorColors.heroContent,
             )
@@ -392,14 +396,14 @@ private fun HeroLocationRow(
             onClick = onDetectLocation,
             shape = CircleShape,
             color = Color.White.copy(alpha = 0.10f),
-            modifier = Modifier.size(26.dp),
+            modifier = Modifier.size(30.dp),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     Icons.Filled.LocationOn,
                     contentDescription = "تحديد الموقع تلقائياً",
                     tint = gold,
-                    modifier = Modifier.size(14.dp),
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }
@@ -462,9 +466,10 @@ private fun LiquidCountdown(
     val scheme = MaterialTheme.colorScheme
     val gold = scheme.secondary
     val textMeasurer = rememberTextMeasurer()
-    // alpha41: مقياس التطبيق الثابت (١.٢) لا يدخل حلقة العدّاد — رياضيات
+    // alpha41: مقياس التطبيق الثابت لا يدخل حلقة العدّاد — رياضيات
     // CountdownLiquidMath تضبط حجم النص على قطرة الحلقة بوحدات الكثافة
-    // الخالصة (sp = px دون fontScale)، فالقياس بكثافة بمقياس ١
+    // الخالصة (sp = px دون fontScale) بمقاساتها الصريحة المُكبّرة
+    // (alpha43: نسبة ٠.٣٦ وسقف ٣٠sp)، فالقياس بكثافة بمقياس ١
     val baseDensity = LocalDensity.current
     val fitDensity = remember(baseDensity) { Density(baseDensity.density, fontScale = 1f) }
 
@@ -486,7 +491,7 @@ private fun LiquidCountdown(
     val labelLayout = remember(fontSizeSp, textMeasurer, fitDensity) {
         textMeasurer.measure(
             AnnotatedString("المتبقي"),
-            TextStyle(fontSize = (fontSizeSp * 0.52f).sp, fontWeight = FontWeight.Bold),
+            TextStyle(fontSize = (fontSizeSp * 0.56f).sp, fontWeight = FontWeight.Bold),
             density = fitDensity,
         )
     }
