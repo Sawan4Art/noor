@@ -160,7 +160,9 @@ fun MisbahaScreen(viewModel: MisbahaViewModel = viewModel()) {
             contentAlignment = Alignment.Center,
         ) {
             val side = minOf(maxHeight, maxWidth)
-            val blobR = with(LocalDensity.current) { (side * 0.38f).toPx() }
+            // alpha41 (بلاغ المالك: «الكروت والايقونات في المسبحه و غيرها
+            // صغرت برضو و انا طلبي كان تكبيرهم شويه») — النقطة ٣٨٪ ← ٤٢٪
+            val blobR = with(LocalDensity.current) { (side * 0.42f).toPx() }
             LiquidCounter(
                 remaining = state.remaining,
                 dhikrText = state.step.text,
@@ -470,7 +472,7 @@ private fun SequenceStepChip(
                 Icon(
                     Icons.Filled.Check,
                     contentDescription = null,
-                    modifier = Modifier.size(13.dp),
+                    modifier = Modifier.size(15.dp),
                 )
                 Spacer(Modifier.size(3.dp))
             }

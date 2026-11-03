@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -461,6 +462,11 @@ private fun LiquidCountdown(
     val scheme = MaterialTheme.colorScheme
     val gold = scheme.secondary
     val textMeasurer = rememberTextMeasurer()
+    // alpha41: مقياس التطبيق الثابت (١.٢) لا يدخل حلقة العدّاد — رياضيات
+    // CountdownLiquidMath تضبط حجم النص على قطرة الحلقة بوحدات الكثافة
+    // الخالصة (sp = px دون fontScale)، فالقياس بكثافة بمقياس ١
+    val baseDensity = LocalDensity.current
+    val fitDensity = remember(baseDensity) { Density(baseDensity.density, fontScale = 1f) }
 
     // أبعاد الطبقات بالـ dp — تُحسب مرة واحدة لكل حجم شاشة
     val trackDp = CountdownLiquidMath.trackRadius(sideDp.value, 10f)
@@ -470,16 +476,18 @@ private fun LiquidCountdown(
     val fontSizeSp = CountdownLiquidMath.countdownFontSizeSp(dropDp)
 
     // تخطيط النصوص يُقاس مرة واحدة فقط — لا قياس في كل إطار
-    val remainingLayout = remember(remainingText, fontSizeSp, textMeasurer) {
+    val remainingLayout = remember(remainingText, fontSizeSp, textMeasurer, fitDensity) {
         textMeasurer.measure(
             AnnotatedString(remainingText),
             TextStyle(fontSize = fontSizeSp.sp, fontWeight = FontWeight.Black),
+            density = fitDensity,
         )
     }
-    val labelLayout = remember(fontSizeSp, textMeasurer) {
+    val labelLayout = remember(fontSizeSp, textMeasurer, fitDensity) {
         textMeasurer.measure(
             AnnotatedString("المتبقي"),
             TextStyle(fontSize = (fontSizeSp * 0.52f).sp, fontWeight = FontWeight.Bold),
+            density = fitDensity,
         )
     }
 

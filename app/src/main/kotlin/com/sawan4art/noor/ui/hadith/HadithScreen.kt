@@ -171,7 +171,7 @@ fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
                         Icons.Filled.Info,
                         contentDescription = null,
                         tint = scheme.onSecondaryContainer,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(20.dp),
                     )
                     Spacer(Modifier.width(10.dp))
                     Text(
@@ -475,18 +475,18 @@ private fun HadithCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = { onToggleFavorite(hadith.id) },
-                    modifier = Modifier.size(34.dp),
+                    modifier = Modifier.size(38.dp),
                 ) {
                     Icon(
                         imageVector = if (isFavorite) NoorIcons.StarFilled else NoorIcons.StarOutline,
                         contentDescription = if (isFavorite) "إزالة من المفضلة" else "حفظ في المفضلة",
                         tint = if (isFavorite) scheme.primary else scheme.onSurfaceVariant,
-                        modifier = Modifier.size(21.dp),
+                        modifier = Modifier.size(23.dp),
                     )
                 }
                 IconButton(
                     onClick = { onShare(hadith, bookTitle) },
-                    modifier = Modifier.size(34.dp),
+                    modifier = Modifier.size(38.dp),
                 ) {
                     Icon(
                         Icons.Filled.Share,

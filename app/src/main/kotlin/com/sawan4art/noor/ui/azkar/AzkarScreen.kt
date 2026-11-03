@@ -176,7 +176,7 @@ private fun AzkarHome(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                    .size(44.dp)
+                                    .size(48.dp)
                                     .background(
                                         color = scheme.surface.copy(alpha = 0.45f),
                                         shape = RoundedCornerShape(14.dp),
@@ -187,7 +187,7 @@ private fun AzkarHome(
                                     Icons.Filled.Favorite,
                                     contentDescription = null,
                                     tint = scheme.primary,
-                                    modifier = Modifier.size(24.dp),
+                                    modifier = Modifier.size(26.dp),
                                 )
                             }
                             Spacer(Modifier.width(12.dp))
@@ -258,7 +258,7 @@ private fun GroupCard(
         Column(Modifier.padding(14.dp)) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(46.dp)
                     .background(
                         brush = Brush.linearGradient(
                             listOf(
@@ -274,7 +274,7 @@ private fun GroupCard(
                     icon,
                     contentDescription = null,
                     tint = scheme.primary,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(24.dp),
                 )
             }
             Spacer(Modifier.height(10.dp))

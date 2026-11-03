@@ -65,6 +65,16 @@ import com.sawan4art.noor.ui.update.UpdateDialog
 /** التطبيق عربي أولاً — الاتجاه مثبت يمين-لليسار مهما كانت لغة الجهاز */
 private val AppDirection = LayoutDirection.Rtl
 
+/**
+ * مقياس خط التطبيق الثابت (alpha41 — بلاغ المالك بعد alpha39: «الخط في
+ * التطبيق صغر عن الاول و انا طلبي يكبر شويه مش يصغر»): تثبيت المقياس على
+ * ١.٠ كان يعزل التطبيق عن خط الجهاز لكنه أعاده لمقاس الأساس فصار أصغر من
+ * المعتاد عند المالك (جهازه مظبوط على خط أكبر). الآن المقياس مثبت على
+ * **١.٢** — التطبيق يظل غير متأثر بإعدادات الهاتف (لا أيقونات تختفي) لكن
+ * بمقاسه الخاص الأكبر من الافتراضي بوضوح.
+ */
+private const val APP_FONT_SCALE = 1.2f
+
 @Composable
 fun NoorApp(viewModel: HomeViewModel) {
     // **ثبات مقاس الخط** (alpha39 — بلاغ المالك: «في مشكله عند تكبير حجم
@@ -75,7 +85,7 @@ fun NoorApp(viewModel: HomeViewModel) {
     // صناديقها مهما كُبّر خط الهاتف، والمقاس الظاهر هو الذي في Type.kt
     // نفسه. ويبقى التأثر بحجم العرض (الكثافة dp) كما هو.
     val system = LocalDensity.current
-    val fixed = Density(density = system.density, fontScale = 1f)
+    val fixed = Density(density = system.density, fontScale = APP_FONT_SCALE)
     CompositionLocalProvider(LocalDensity provides fixed) {
         NoorRoot(viewModel)
     }

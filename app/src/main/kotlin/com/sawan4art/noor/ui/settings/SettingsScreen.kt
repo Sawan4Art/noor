@@ -274,7 +274,7 @@ private fun SectionRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(50.dp)
                     .background(
                         brush = Brush.linearGradient(
                             listOf(
@@ -290,7 +290,7 @@ private fun SectionRow(
                     icon,
                     contentDescription = null,
                     tint = scheme.primary,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(26.dp),
                 )
             }
             Spacer(Modifier.width(14.dp))
