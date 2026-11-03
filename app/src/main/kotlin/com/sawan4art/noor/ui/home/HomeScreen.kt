@@ -62,7 +62,6 @@ import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 import com.sawan4art.noor.domain.prayer.PrayerMath
 import com.sawan4art.noor.domain.prayer.PrayerTimes
 import com.sawan4art.noor.ui.theme.DialTrackLayout
-import com.sawan4art.noor.ui.theme.LiquidDeveloperBadge
 import com.sawan4art.noor.ui.theme.LocalNoorColors
 import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.ui.nav.GooeyMath
@@ -161,14 +160,6 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .alpha(0.75f),
-        )
-        Spacer(Modifier.height(10.dp))
-        // توقيع المطور تحت آخر نص في الرئيسية (alpha39 بلاغ المالك: «عايز
-        // اسم المطور في تحت اخر نص موجود في الرئيسيه») — نفس الإطار السائل
-        // الحي المستطيل الموجود في نهاية الإعدادات
-        LiquidDeveloperBadge(
-            name = "Yousef Sawan",
-            modifier = Modifier.align(Alignment.CenterHorizontally),
         )
         Spacer(Modifier.height(112.dp)) // مساحة شريط التنقل الزجاجي العائم — دائماً
     }

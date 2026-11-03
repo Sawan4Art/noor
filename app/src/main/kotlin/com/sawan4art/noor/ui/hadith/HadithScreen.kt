@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
@@ -153,6 +154,35 @@ fun HadithScreen(viewModel: HadithViewModel = viewModel()) {
             onFavorites = viewModel::onFavoritesToggle,
         )
         Spacer(Modifier.height(10.dp))
+
+        // alpha40: تنبيه البحث بالرقم — الأرقام ترقيمٌ داخل كل كتاب، فعند
+        // كتابة رقمٍ من غير اختيار كتابٍ يُنبَّه المستخدم أن يختار الكتاب أولًا
+        if (state.isNumberSearch && state.selectedBookId == null && !state.favoritesMode) {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = scheme.secondaryContainer,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Info,
+                        contentDescription = null,
+                        tint = scheme.onSecondaryContainer,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "أرقام الأحاديث لكل كتابٍ على حِدة — اختر الكتاب من الشرائح ثم ابحث بالرقم",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.onSecondaryContainer,
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
 
         Text(
             text = when {
