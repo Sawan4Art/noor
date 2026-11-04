@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sawan4art.noor.data.ThemeMode
+import com.sawan4art.noor.data.update.DownloadState
 import com.sawan4art.noor.data.update.UpdateManager
 import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.domain.location.LocationGate
@@ -103,6 +104,8 @@ private fun NoorRoot(viewModel: HomeViewModel) {
     // نظام التحديثات — حالة واحدة تخدم حوار «ما الجديد» وبطاقة الإعدادات
     val updateState by UpdateManager.state.collectAsStateWithLifecycle()
     val dismissedVersion by UpdateManager.dismissedVersion.collectAsStateWithLifecycle()
+    // حالة تنزيل التحديث داخل التطبيق (alpha48 — بلا متصفح)
+    val downloadState by UpdateManager.download.collectAsStateWithLifecycle()
     // فحص الفتح — بسقف 3 ساعات، والفحص اليدوي من الإعدادات بلا سقف
     LaunchedEffect(Unit) { UpdateManager.onAppStart() }
     // الظلام الفعلي الحالي — مزلاج الشمس/القمر يقلبه (من النظام → عكس المعمول به الآن)
@@ -153,10 +156,11 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                     adhanPrefs = adhanPrefs,
                     adhanActions = viewModel,
                     updateState = updateState,
+                    downloadState = downloadState,
                     onCheckUpdates = UpdateManager::checkNow,
                     onDownloadUpdate = {
                         (updateState as? UpdateUiState.Available)?.info
-                            ?.let { UpdateManager.openDownloadPage(it) }
+                            ?.let { UpdateManager.downloadAndInstall(it) }
                     },
                 )
             }
@@ -245,10 +249,11 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                             adhanPrefs = adhanPrefs,
                             adhanActions = viewModel,
                             updateState = updateState,
+                            downloadState = downloadState,
                             onCheckUpdates = UpdateManager::checkNow,
                             onDownloadUpdate = {
                                 (updateState as? UpdateUiState.Available)?.info
-                                    ?.let { UpdateManager.openDownloadPage(it) }
+                                    ?.let { UpdateManager.downloadAndInstall(it) }
                             },
                         )
                     }
@@ -302,7 +307,7 @@ private fun NoorRoot(viewModel: HomeViewModel) {
     }
 
     // حوار «ما الجديد» — يظهر مرة لكل نسخة، والاستبعاد يخفي كل حالاتها
-    // لذلك الإصدار (alpha46: زر التحديث يفتح ملف النسخة في المتصفح مباشرة)
+    // لذلك الإصدار (alpha48: زر التحديث ينزّل من داخل التطبيق ويفتح مثبّت النظام)
     val dialogVisible = when (val s = updateState) {
         is UpdateUiState.Available -> dismissedVersion != s.info.versionName
         is UpdateUiState.Failed -> s.info != null && dismissedVersion != s.info?.versionName
@@ -311,9 +316,10 @@ private fun NoorRoot(viewModel: HomeViewModel) {
     if (dialogVisible) {
         UpdateDialog(
             state = updateState,
+            download = downloadState,
             onDismiss = UpdateManager::dismiss,
             onUpdate = { _ ->
-                updateInfo(updateState)?.let { UpdateManager.openDownloadPage(it) }
+                updateInfo(updateState)?.let { UpdateManager.downloadAndInstall(it) }
             },
             onRetry = UpdateManager::checkNow,
         )
@@ -396,6 +402,8 @@ private fun NoorBody(
     adhanPrefs: com.sawan4art.noor.data.AdhanPrefs,
     adhanActions: AdhanActions,
     updateState: UpdateUiState,
+    /** حالة تنزيل التحديث داخل التطبيق (alpha48) */
+    downloadState: DownloadState,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
 ) {
@@ -443,6 +451,7 @@ private fun NoorBody(
                         adhanPrefs = adhanPrefs,
                         adhanActions = adhanActions,
                         updateState = updateState,
+                        downloadState = downloadState,
                         onCheckUpdates = onCheckUpdates,
                         onDownloadUpdate = onDownloadUpdate,
                     )

@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,17 +24,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sawan4art.noor.data.update.ChangelogFormatter
+import com.sawan4art.noor.data.update.DownloadState
 import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.ui.icons.NoorIcons
 
 /**
  * حوار التحديث — ملخص «ما الجديد» وزر «تحديث الآن».
  *
- * **alpha46**: زر التحديث يفتح ملف الـ APK في المتصفح مباشرة — التنزيل
- * والتثبيت في الطريق الذي يعرفه كل مستخدم، والتطبيق بلا أي صلاحية تثبيت
- * فلا يصنّفه فحص جوجل ضمن الأنماط الخطرة (بلاغ المالك: «فحص جوجل بيكتشف
- * احتمال ان يكون التطبيق مضر و ده بيخوف الناس»). وتحت الزر سطر تطمينٍ
- * هادئ لمن يواجه رسالة فحص جوجل عند تثبيت الملف لأول مرة.
+ * **alpha48**: عودة التنزيل من داخل التطبيق بلا متصفح (توجيه المالك:
+ * «التحديث بقا يفتح المتصفح انا مش عايز كده») — الزر ينزّل النسخة
+ * بمدير تنزيل النظام بشريط تقدم حي ثم يفتح مثبّت أندرويد مباشرة،
+ * وتحت الزر سطر تطمينٍ هادئ لمن يواجه رسالة فحص جوجل عند أول تثبيت.
  *
  * يظهر تلقائياً مع كل نسخة جديدة مرة واحدة، والاستبعاد «لاحقاً» يبقى
  * حتى تصدر بعدها نسخة.
@@ -41,6 +42,7 @@ import com.sawan4art.noor.ui.icons.NoorIcons
 @Composable
 fun UpdateDialog(
     state: UpdateUiState,
+    download: DownloadState,
     onDismiss: (versionName: String) -> Unit,
     onUpdate: (apkUrl: String) -> Unit,
     onRetry: () -> Unit,
@@ -131,14 +133,70 @@ fun UpdateDialog(
                 Spacer(Modifier.padding(top = 16.dp))
                 when (state) {
                     is UpdateUiState.Available -> {
-                        PrimaryButton(
-                            text = "تحديث الآن",
-                            onClick = { onUpdate(info.apkUrl) },
-                        )
+                        when (download) {
+                            is DownloadState.Running -> {
+                                // شريط التقدم الحي أثناء تنزيل النسخة من داخل التطبيق
+                                LinearProgressIndicator(
+                                    progress = { download.percent / 100f },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Spacer(Modifier.padding(top = 8.dp))
+                                Text(
+                                    text = "جارٍ تنزيل التحديث… ${download.percent}٪",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+                            }
+                            is DownloadState.Done -> {
+                                PrimaryButton(
+                                    text = "فتح مثبِّت التحديث",
+                                    onClick = { onUpdate(info.apkUrl) },
+                                )
+                                Spacer(Modifier.padding(top = 8.dp))
+                                Text(
+                                    text = "تم التنزيل — اضغط لتفتح مثبِّت أندرويد",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            is DownloadState.Failed -> {
+                                Text(
+                                    text = download.message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                                Spacer(Modifier.padding(top = 10.dp))
+                                PrimaryButton(
+                                    text = "إعادة المحاولة",
+                                    onClick = { onUpdate(info.apkUrl) },
+                                )
+                            }
+                            is DownloadState.NeedsPermission -> {
+                                Text(
+                                    text = "سمح بنور من «التثبيت من مصادر غير معروفة» " +
+                                        "ثم اضغط تحديث تاني — خطوة مرة واحدة بس",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+                                Spacer(Modifier.padding(top = 10.dp))
+                                PrimaryButton(
+                                    text = "تحديث الآن",
+                                    onClick = { onUpdate(info.apkUrl) },
+                                )
+                            }
+                            DownloadState.Idle -> {
+                                PrimaryButton(
+                                    text = "تحديث الآن",
+                                    onClick = { onUpdate(info.apkUrl) },
+                                )
+                            }
+                        }
                         Spacer(Modifier.padding(top = 8.dp))
                         Text(
-                            text = "يفتح التحديث في المتصفح — وإن سألك جوجل عند " +
-                                "التثبيت فالملف من موقع التطبيق الرسمي، اختر «التثبيت على أي حال»",
+                            text = "التنزيل من جوّه التطبيق وبيفتح مثبِّت الهاتف " +
+                                "على طول — ولو سألك جوجل عند أول تثبيت فالملف " +
+                                "من التطبيق نفسه، اختر «التثبيت على أي حال»",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

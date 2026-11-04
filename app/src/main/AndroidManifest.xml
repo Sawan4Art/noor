@@ -68,10 +68,20 @@
             android:foregroundServiceType="mediaPlayback" />
 
         <!--
-          موفّر الملفات أُزيل (alpha46): التثبيت الداخلي للتحديث كان يجعل فحص
-          جوجل يصنّف التطبيق ضمن الأنماط الخطرة — صار التحديث عبر المتصفح
-          مباشرة فلا حاجة لمزوّد ملفات ولا لإذن تثبيت.
+          موفّر الملفات عاد (alpha48): التثبيت الداخلي للتحديث رجع بأمر
+          المالك «التحديث بقا يفتح المتصفح انا مش عايز كده» — بأسلم
+          طريق: التنزيل بمدير تنزيل النظام نفسه والفتح بمثبّت أندرويد
+          الرسمي عبر هذا الموفّر على ملف النسخة داخل ملفات التطبيق فقط.
         -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
     <!--
@@ -84,9 +94,11 @@
       • الاهتزاز والاستيقاظ: تنبيه الأذان والسبحة
       • الخدمة الأمامية للتشغيل: صوت الأذان يعمل والشاشة مطفأة (بميزة الأذان)
       • الوسائط الصوتية: اختيار صوت أذان مخصص من الجهاز (33+ وقديمها)
-      • (alpha46) إذن تثبيت التحديثات REQUEST_INSTALL_PACKAGES أُزيل —
-        التحديث عبر المتصفح مباشرة، وإذن التثبيت كان يجعل فحص جوجل
-        يصنّف التطبيق ضمن الأنماط الخطرة فيخوّف المستخدمين
+      • (alpha48) إذن تثبيت التحديثات REQUEST_INSTALL_PACKAGES عاد —
+        التحديث رجع من داخل التطبيق بأمر المالك (بلا متصفح)، والطريق
+        القياسي الآمن: تنزيل بمدير النظام + مثبّت أندرويد الرسمي،
+        والإذن يُطلَب من المستخدم مرة واحدة في صفحة «المصادر غير
+        المعروفة» قبل أول تنزيل
       الممنوح تلقائياً يُصرَّح به في المانيفست فقط، وحوارات النظام تُطلق عند أول
       حاجة فعلية للميزة (سلسلة الحوارات المتتابعة في MainActivity قائمة).
     -->
@@ -108,6 +120,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!--
+      إذن التثبيت (alpha48): التحديث من داخل التطبيق رجع بأمر المالك —
+      التنزيل بمدير تنزيل النظام والفتح بمثبّت أندرويد الرسمي، والإذن
+      يُطلب من المستخدم مرة واحدة قبل أول تنزيل في صفحة النظام نفسها.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!--
       استثناء من قتل البطارية — كفاءة المواقيت والأذان: كثير من هواتف
       الشركات تقتل المنبهات الدقيقة والخدمة الأمامية في وضع التوفير الشديد

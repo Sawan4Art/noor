@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  مسارات موفّر الملفات (alpha48): ملف نسخة التحديث فقط — داخل مجلد
+  ملفات التطبيق الخارجي «updates»، بلا أي وصول لمسارات عامة.
+-->
+<paths>
+    <external-files-path
+        name="updates"
+        path="updates/" />
+</paths>

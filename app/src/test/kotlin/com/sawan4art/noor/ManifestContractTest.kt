@@ -3,7 +3,6 @@ package com.sawan4art.noor
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -82,22 +81,38 @@ class ManifestContractTest {
     }
 
     /**
-     * عقد alpha46 (بلاغ المالك: «فحص جوجل بيكتشف احتمال ان يكون التطبيق
-     * مضر و ده بيخوف الناس»): التطبيق الذي ينزّل APK ويثبّته بنفسه يُصنّفه
-     * فحص جوجل ضمن الأنماط الخطرة — فأذون التثبيت ممنوعة، والتحديث عبر
-     * المتصفح مباشرة. عودة هذا الإذن أو موفّر الملفات يفشل البناء فوراً.
+     * عقد alpha48 (توجيه المالك: «التحديث بقا يفتح المتصفح انا مش
+     * عايز كده»): التحديث الداخلي عاد بالطريق القياسي الآمن — إذن
+     * التثبيت إلزامي وموفّر الملفات إلزامي على ملف النسخة داخل ملفات
+     * التطبيق فقط (التنزيل بمدير النظام والفتح بمثبّت أندرويد الرسمي).
+     * حذف أيٍّ منهما يفشل البناء فوراً.
      */
     @Test
-    fun `لا إذن تثبيت ولا موفر ملفات — التحديث عبر المتصفح`() {
+    fun `إذن التثبيت وموفر الملفات عادا للتحديث الداخلي`() {
         val present = permissions()
-        assertFalse(
-            "REQUEST_INSTALL_PACKAGES ممنوعة منذ alpha46 — التحديث عبر المتصفح",
+        assertTrue(
+            "REQUEST_INSTALL_PACKAGES إلزامية منذ alpha48 — التحديث من داخل التطبيق",
             "android.permission.REQUEST_INSTALL_PACKAGES" in present,
         )
+        val providers = manifest.getElementsByTagName("provider").let { nodes ->
+            (0 until nodes.length).map { nodes.item(it) as Element }
+        }
+        val fileProvider = providers.firstOrNull {
+            it.getAttribute("android:name") == "androidx.core.content.FileProvider"
+        } ?: error("موفّر الملفات مفقود — فتح مثبّت النظام للتحديث الداخلي معطّل")
         assertEquals(
-            "لا موفّر ملفات — التثبيت الداخلي أُزيل",
-            0,
-            manifest.getElementsByTagName("provider").length,
+            "موفّر الملفات بلا تصدير خارجي",
+            "false",
+            fileProvider.getAttribute("android:exported"),
+        )
+        assertEquals(
+            "موفّر الملفات بلا منح أذونات قراءة",
+            "true",
+            fileProvider.getAttribute("android:grantUriPermissions"),
+        )
+        assertTrue(
+            "سلطة الموفّر يجب أن تنتهي بـ.fileprovider",
+            fileProvider.getAttribute("android:authorities").endsWith(".fileprovider"),
         )
     }
 

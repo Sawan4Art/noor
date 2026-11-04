@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.sawan4art.noor.domain.adhan.AdhanGaps
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -130,17 +131,25 @@ class SettingsRepository(private val context: Context) {
         )
     }
 
-    /** تفضيلات الأذان والإقامة — أي تغيير يعيد جدولة منبهات الأذان */
+    /**
+     * تفضيلات الأذان والإقامة — أي تغيير يعيد جدولة منبهات الأذان.
+     * القيم المقروءة تُطبَّع دائماً على قواعد المالك (alpha48):
+     * فاصل الأذان/الإقامة يُلزَم على الاختيارات الثلاثة ١٠/١٥/٢٠،
+     * وفاصل جمعة الثانٍ يُحصر داخل ١..١٢٠ دقيقة — فلا تعود قيمة
+     * من نسخة سابقة بلا زرٍّ أو خارج الحدود المسموحة.
+     */
     val adhanPrefs: Flow<AdhanPrefs> = context.noorDataStore.data.map { p ->
         AdhanPrefs(
             enabled = p[Keys.ADHAN_ENABLED] ?: true,
             adhanVoice = p[Keys.ADHAN_VOICE] ?: "main",
             iqamahEnabled = p[Keys.IQAMAH_ENABLED] ?: false,
-            iqamahOffsetMinutes = p[Keys.IQAMAH_OFFSET] ?: 10,
+            iqamahOffsetMinutes = AdhanGaps.snapIqamahOffset(p[Keys.IQAMAH_OFFSET] ?: 10),
             iqamahVoice = p[Keys.IQAMAH_VOICE] ?: "makkah",
             fridayDouble = p[Keys.FRIDAY_DOUBLE] ?: true,
             fridayAdhanGapMinutes = p[Keys.FRIDAY_ADHAN_GAP] ?: 10,
-            fridayIqamahGapMinutes = p[Keys.FRIDAY_IQAMAH_GAP] ?: 30,
+            fridayIqamahGapMinutes = AdhanGaps.clampFridayIqamahGap(
+                p[Keys.FRIDAY_IQAMAH_GAP] ?: 30,
+            ),
             muteEnabled = p[Keys.MUTE_ENABLED] ?: false,
             muteMinutes = p[Keys.MUTE_MINUTES] ?: 10,
             customAdhanPath = p[Keys.CUSTOM_ADHAN_PATH] ?: "",
@@ -168,8 +177,9 @@ class SettingsRepository(private val context: Context) {
         context.noorDataStore.edit { it[Keys.IQAMAH_ENABLED] = on }
     }
 
+    /** الفاصل بين الأذان والإقامة — يُلزَم على الاختيارات الثلاثة عند الحفظ */
     suspend fun setIqamahOffsetMinutes(minutes: Int) {
-        context.noorDataStore.edit { it[Keys.IQAMAH_OFFSET] = minutes }
+        context.noorDataStore.edit { it[Keys.IQAMAH_OFFSET] = AdhanGaps.snapIqamahOffset(minutes) }
     }
 
     suspend fun setIqamahVoice(id: String) {
@@ -184,8 +194,11 @@ class SettingsRepository(private val context: Context) {
         context.noorDataStore.edit { it[Keys.FRIDAY_ADHAN_GAP] = minutes }
     }
 
+    /** فاصل جمعة (الأذان الثاني ← الإقامة) — يُحصر داخل ١..١٢٠ دقيقة عند الحفظ */
     suspend fun setFridayIqamahGapMinutes(minutes: Int) {
-        context.noorDataStore.edit { it[Keys.FRIDAY_IQAMAH_GAP] = minutes }
+        context.noorDataStore.edit {
+            it[Keys.FRIDAY_IQAMAH_GAP] = AdhanGaps.clampFridayIqamahGap(minutes)
+        }
     }
 
     suspend fun setMuteEnabled(on: Boolean) {

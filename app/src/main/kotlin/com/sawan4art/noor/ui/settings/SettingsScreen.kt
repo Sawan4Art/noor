@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import com.sawan4art.noor.BuildConfig
 import com.sawan4art.noor.data.AdhanPrefs
 import com.sawan4art.noor.data.NoorSettingsState
+import com.sawan4art.noor.data.update.DownloadState
 import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.data.update.UpdateNotifier
 import com.sawan4art.noor.domain.prayer.CalculationMethod
@@ -112,6 +113,8 @@ fun SettingsScreen(
     adhanPrefs: AdhanPrefs,
     adhanActions: AdhanActions,
     updateState: UpdateUiState,
+    /** حالة تنزيل التحديث داخل التطبيق (alpha48) */
+    downloadState: DownloadState,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
 ) {
@@ -162,6 +165,7 @@ fun SettingsScreen(
             SectionCard {
                 UpdatesSection(
                     updateState = updateState,
+                    downloadState = downloadState,
                     currentVersion = BuildConfig.VERSION_NAME,
                     onCheckUpdates = onCheckUpdates,
                     onDownloadUpdate = onDownloadUpdate,
@@ -606,12 +610,13 @@ private fun colorsSummary(settings: NoorSettingsState): String =
             else AccentPalette.byId(settings.primaryId).arabicName)
 
 /** قسم التحديثات — النسخة الحالية والفحص اليدوي وزر «تحديث الآن»
- *  الذي يفتح ملف النسخة في المتصفح مباشرة (alpha46 — بلاغ المالك:
- *  فحص جوجل كان يصنّف التنزيل والتثبيت داخل التطبيق ضمن الأنماط
- *  الخطرة) ونسخ رابط التحميل الاحتياطي (alpha37). */
+ *  الذي ينزّل النسخة من داخل التطبيق بشريط تقدم ثم يفتح مثبّت النظام
+ *  مباشرة (alpha48 — توجيه المالك: «التحديث بقا يفتح المتصفح انا
+ *  مش عايز كده») ونسخ رابط التحميل الاحتياطي (alpha37). */
 @Composable
 private fun UpdatesSection(
     updateState: UpdateUiState,
+    downloadState: DownloadState,
     currentVersion: String,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
@@ -704,21 +709,91 @@ private fun UpdatesSection(
         }
         Text("تحقق من التحديثات الآن")
     }
-    // alpha46: زر «تحديث الآن» في الصفحة نفسها — التحديث المتاح يُفتح
-    // في المتصفح من هنا دائماً، حتى بعد استبعاد حوار «ما الجديد» بـ«لاحقاً»
+    // alpha48: زر «تحديث الآن» في الصفحة نفسها — التنزيل من داخل التطبيق
+    // بشريط تقدم ثم فتح مثبّت النظام، من هنا دائماً حتى بعد استبعاد
+    // حوار «ما الجديد» بـ«لاحقاً»
     when (updateState) {
         is UpdateUiState.Available -> {
             Spacer(Modifier.height(10.dp))
-            Button(
-                onClick = onDownloadUpdate,
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = scheme.secondary,
-                    contentColor = scheme.onSecondary,
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("تحديث الآن (${updateState.info.sizeText})")
+            when (downloadState) {
+                is DownloadState.Running -> {
+                    LinearProgressIndicator(
+                        progress = { downloadState.percent / 100f },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = scheme.primary,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "جارٍ تنزيل التحديث… ${downloadState.percent}٪",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.secondary,
+                    )
+                }
+                is DownloadState.Failed -> {
+                    Text(
+                        text = downloadState.message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.error,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = onDownloadUpdate,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = scheme.secondary,
+                            contentColor = scheme.onSecondary,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("إعادة المحاولة")
+                    }
+                }
+                is DownloadState.NeedsPermission -> {
+                    Text(
+                        text = "سمح بنور من «التثبيت من مصادر غير معروفة» " +
+                            "ثم اضغط تحديث تاني — خطوة مرة واحدة بس",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.secondary,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = onDownloadUpdate,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = scheme.secondary,
+                            contentColor = scheme.onSecondary,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("تحديث الآن (${updateState.info.sizeText})")
+                    }
+                }
+                is DownloadState.Done -> {
+                    Button(
+                        onClick = onDownloadUpdate,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = scheme.secondary,
+                            contentColor = scheme.onSecondary,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("فتح مثبِّت التحديث")
+                    }
+                }
+                DownloadState.Idle -> {
+                    Button(
+                        onClick = onDownloadUpdate,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = scheme.secondary,
+                            contentColor = scheme.onSecondary,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("تحديث الآن (${updateState.info.sizeText})")
+                    }
+                }
             }
         }
         is UpdateUiState.Failed -> {

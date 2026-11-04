@@ -1,14 +1,12 @@
 package com.sawan4art.noor.data.update
 
-import android.content.ActivityNotFoundException
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import com.sawan4art.noor.BuildConfig
 import com.sawan4art.noor.data.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -19,11 +17,13 @@ import kotlinx.coroutines.launch
  * في الخلفية (12 ساعة) + **إشعار متكرر كل ١٢ ساعة ما دام التحديث لم يُثبَّت**
  * (alpha37) + ملخص «ما الجديد».
  *
- * **alpha46 — التسليم للمتصفح**: بلاغ المالك «فحص جوجل بيكتشف احتمال ان
- * يكون التطبيق مضر و ده بيخوف الناس» — التطبيق الذي ينزّل APK ويثبّته
- * بنفسه يُصنّفه فحص جوجل ضمن الأنماط الخطرة. صار زر التحديث يفتح ملف
- * الـ APK في المتصفح مباشرة، فيمشي التنزيل والتثبيت في الطريق الذي يعرفه
- * كل مستخدم، والتطبيق نفسه بلا أي صلاحية تثبيت — سلوكُ تطبيقٍ عادي مأمون.
+ * **alpha48 — عودة التحديث من جوّه التطبيق بلا متصفح**: بلاغ المالك
+ * «التحديث بقا يفتح المتصفح انا مش عايز كده» — بعد أن كانت alpha46
+ * قد سلّمت التنزيل للمتصفح خوفاً من فحص جوجل. الطريق الجديد أهدأ
+ * ما يمكن: التنزيل بمدير تنزيل النظام نفسه (التطبيق لا يلمس بايتات
+ * الملف) ثم فتح مثبّت أندرويد الرسمي عبر موفّر الملفات — سلوكٌ قياسي
+ * لا كود تثبيت مصنوعاً داخلياً، ومع خطوة إذن «التثبيت من هذا المصدر»
+ * مرة واحدة قبل أول تنزيل.
  *
  * alpha35 إصلاح بلاغ المالك «لا مظهرش» — كان الفحص عند الفتح بسقفٍ
  * ٣ ساعات فكانت النسخة الجديدة تمرّ صامتاً ساعاتٍ إذا كان آخر فحص
@@ -47,6 +47,10 @@ object UpdateManager {
 
     private val _state = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
     val state: StateFlow<UpdateUiState> = _state
+
+    /** حالة تنزيل النسخة الجديدة داخل التطبيق (alpha48) */
+    private val _download = MutableStateFlow<DownloadState>(DownloadState.Idle)
+    val download: StateFlow<DownloadState> = _download
 
     /** آخر نسخة استبعد المالك حوارها — لا يُعاد إزعاجه بها حتى تصدر بعدها نسخة */
     private val _dismissedVersion = MutableStateFlow<String?>(null)
@@ -148,23 +152,66 @@ object UpdateManager {
     }
 
     /**
-     * فتح ملف الـ APK في المتصفح — التنزيل والتثبيت في طريق المتصفح
-     * المعتاد (alpha46 بلاغ المالك: التحديث من داخل التطبيق كان يجعل فحص
-     * جوجل يصنّف التطبيق ضمن الأنماط الخطرة). يعود برابطٍ إن فتح، وnull
-     * إن لم يتوفر رابط أصلاً كي تعرض الواجهة رسالةً بدل الزر الصامت.
+     * تنزيل النسخة من داخل التطبيق ثم فتح مثبّت النظام — بلا متصفح
+     * (alpha48 بتوجيه المالك). خطوة إذن «التثبيت من هذا المصدر» تُطلب
+     * مرة واحدة قبل أول تنزيل، والتنزيل نفسه بعمل مدير النظام ولا يلمسه
+     * التطبيق، وعند الاكتمال يُفتح حوار التثبيت المألوف فوراً.
      */
-    fun openDownloadPage(info: UpdateInfo): String? {
-        if (!initialized) return null
-        val url = info.apkUrl.ifBlank { info.releaseUrl }
-        if (url.isBlank()) return null
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    fun downloadAndInstall(info: UpdateInfo) {
+        if (!initialized) return
+        when (val current = _download.value) {
+            is DownloadState.Running -> return
+            is DownloadState.Done -> {
+                // الملف جاهز — ضغطة أخرى تعيد فتح مثبّت النظام بلا تنزيل ثاني
+                UpdateInstaller.openApk(appContext)
+                return
+            }
+            else -> Unit
         }
-        return try {
-            appContext.startActivity(intent)
-            url
-        } catch (_: ActivityNotFoundException) {
-            url
+        if (!UpdateInstaller.canInstall(appContext)) {
+            _download.value = DownloadState.NeedsPermission
+            UpdateInstaller.openInstallPermissionSettings(appContext)
+            return
+        }
+        val id = UpdateInstaller.enqueue(appContext, info)
+        if (id == null) {
+            _download.value = DownloadState.Failed("تعذّر بدء التنزيل — حاول من جديد")
+            return
+        }
+        _download.value = DownloadState.Running(0)
+        scope.launch { trackDownload(id) }
+    }
+
+    /**
+     * متابعة عملية التنزيل كل نصف ثانية حتى تكتمل أو تفشل — سقف ٣٠
+     * دقيقة يمنع حلقةً أبداً لو تعطّل مدير التنزيل عند حاجة ما.
+     */
+    private suspend fun trackDownload(id: Long) {
+        val deadline = System.currentTimeMillis() + 30 * 60_000L
+        while (System.currentTimeMillis() < deadline) {
+            delay(500)
+            when (val state = UpdateInstaller.queryState(appContext, id)) {
+                null -> Unit // لا معلومة الآن — يبقى آخر حالة معروفة
+                is DownloadState.Done -> {
+                    _download.value = DownloadState.Done
+                    UpdateInstaller.openApk(appContext)
+                    return
+                }
+                is DownloadState.Failed -> {
+                    _download.value = state
+                    return
+                }
+                is DownloadState.Running -> _download.value = state
+                else -> Unit
+            }
+        }
+        _download.value = DownloadState.Failed("اطال التنزيل أكثر من اللازم — حاول من جديد")
+    }
+
+    /** إعادة الزر للوضع العادي بعد حالة إذن أو فشل — لا يُبقى على الإنذار */
+    fun resetDownloadState() {
+        if (_download.value !is DownloadState.Running) {
+            _download.value = DownloadState.Idle
         }
     }
 

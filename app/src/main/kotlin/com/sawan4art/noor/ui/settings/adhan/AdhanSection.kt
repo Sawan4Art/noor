@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -36,23 +38,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sawan4art.noor.alarm.AdhanSoundPlayer
 import com.sawan4art.noor.data.AdhanPrefs
+import com.sawan4art.noor.domain.adhan.AdhanGaps
 import com.sawan4art.noor.domain.adhan.AdhanSoundKind
 import com.sawan4art.noor.domain.adhan.AdhanVoices
 
 /**
  * إعدادات الأذان والإقامة — القسم الجديد كاملاً:
  * تشغيل الأذان • صوت الأذان (خمسة مدمجة + من الهاتف + نغمة الإشعارات)
- * • الإقامة وصوتها والفاصل بينها وبين الأذان (افتراضي ١٠ دقائق)
- * • أذان الجمعة مرتين بفاصلين قابلين للتعديل (١٠ و٣٠ دقيقة)
- * • كتم أصوات الهاتف بعد الأذان (اختياري) مع استعادة تلقائية
+ * • الإقامة وصوتها والفاصل بينها وبين الأذان — ثلاثة اختيارات فقط
+ * ١٠/١٥/٢٠ دقيقة (توجيه المالك alpha48) • أذان الجمعة مرتين بفاصلين:
+ * بين الأذانين اختيارات، وبين الأذان الثاني والإقامة خانة كتابة حرة
+ * من دقيقة إلى ١٢٠ (ساعتان) • كتم أصوات الهاتف بعد الأذان (اختياري)
  */
 
 /** أزرار صفحة الأذان — ينفّذها مسؤول الواجهة الرئيسي */
@@ -82,10 +88,9 @@ interface AdhanActions {
     fun clearCustomSound(kind: AdhanSoundKind)
 }
 
-/** خيارات الفواصل الزمنية — الافتراضيات المعتمدة مظللة */
-private val IQAMAH_OFFSETS = listOf(5, 10, 15, 20, 25, 30)
+/** خيارات الفواصل الزمنية — ثلاثة فقط بتوجيه المالك (alpha48) */
+private val IQAMAH_OFFSETS = AdhanGaps.IQAMAH_OFFSET_CHOICES
 private val FRIDAY_ADHAN_GAPS = listOf(5, 10, 15, 20, 30)
-private val FRIDAY_IQAMAH_GAPS = listOf(10, 15, 20, 30, 45, 60)
 private val MUTE_MINUTES = listOf(5, 10, 15, 20, 30, 45, 60)
 
 @Composable
@@ -249,12 +254,13 @@ fun AdhanSection(
                     selected = adhan.fridayAdhanGapMinutes,
                     onSelect = { actions.setFridayAdhanGapMinutes(it) },
                 )
-                Spacer(Modifier.height(10.dp))
-                ChipsRow(
+                Spacer(Modifier.height(12.dp))
+                // alpha48 بتوجيه المالك: الفاصل بين الأذان الثاني والإقامة
+                // في الجمعة ممكن يصل ساعتين — خانة كتابة حرة لا اختيارات
+                GapInputRow(
                     label = "الفاصل بين الأذان الثاني والإقامة (افتراضي ٣٠ دقيقة)",
-                    options = FRIDAY_IQAMAH_GAPS,
-                    selected = adhan.fridayIqamahGapMinutes,
-                    onSelect = { actions.setFridayIqamahGapMinutes(it) },
+                    minutes = adhan.fridayIqamahGapMinutes,
+                    onCommit = { actions.setFridayIqamahGapMinutes(it) },
                 )
             }
         }
@@ -525,6 +531,73 @@ internal fun ChipsRow(
             )
         }
     }
+}
+
+/**
+ * خانة كتابة حرة لفاصل الجمعة بين الأذان الثاني والإقامة — بتوجيه
+ * المالك (alpha48): «ممكن يصل لغايه ٢ ساعه ف عايز خانه كتابه و ليس
+ * اختيارات». تقبل الأرقام العربية والغربية، وتحفظ فوراً كل قيمة
+ * صالحة (١..١٢٠)، وما تقبلش قيمة خارج الحدود وتوضّح السبب.
+ */
+@Composable
+internal fun GapInputRow(
+    label: String,
+    minutes: Int,
+    onCommit: (Int) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    var text by remember { mutableStateOf(AdhanGaps.toArabicDigits(minutes)) }
+    var invalid by remember { mutableStateOf(false) }
+
+    fun commit(raw: String) {
+        val parsed = AdhanGaps.parseMinutesInput(raw)
+        when {
+            parsed == null -> invalid = raw.isNotEmpty()
+            AdhanGaps.isFridayGapInputValid(parsed) -> {
+                invalid = false
+                if (parsed != minutes) onCommit(parsed)
+            }
+            else -> invalid = true
+        }
+    }
+
+    Text(
+        text = label,
+        fontSize = 12.sp,
+        color = scheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(6.dp))
+    OutlinedTextField(
+        value = text,
+        onValueChange = { raw ->
+            val filtered = raw.filter { it in '٠'..'٩' || it in '0'..'9' }
+            text = filtered
+            commit(filtered)
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { state ->
+                if (!state.isFocused && (invalid || text.isBlank())) {
+                    text = AdhanGaps.toArabicDigits(minutes)
+                    invalid = false
+                }
+            },
+        singleLine = true,
+        isError = invalid,
+        shape = RoundedCornerShape(14.dp),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        supportingText = {
+            Text(
+                text = if (invalid) {
+                    "اكتب عدد دقائق من ١ إلى ١٢٠ (ساعتان)"
+                } else {
+                    "اكتب المدة بالدقايق — من دقيقة إلى ١٢٠ دقيقة (ساعتان)"
+                },
+                fontSize = 11.sp,
+                color = if (invalid) scheme.error else scheme.onSurfaceVariant,
+            )
+        },
+    )
 }
 
 @Composable
