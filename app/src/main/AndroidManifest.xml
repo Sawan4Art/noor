@@ -55,6 +55,12 @@
             </intent-filter>
         </receiver>
 
+        <!-- مستقبِل منبهات الأذان: يدق في وقته (أذان/إقامة/استعادة كتم/تجديد يومي) -->
+        <receiver
+            android:name=".alarm.AdhanAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <service
             android:name=".alarm.AlarmService"
             android:enabled="true"

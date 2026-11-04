@@ -1,11 +1,16 @@
 package com.sawan4art.noor.ui.home
 
 import android.app.Application
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.sawan4art.noor.alarm.AlarmScheduler
+import com.sawan4art.noor.data.AdhanPrefs
 import com.sawan4art.noor.data.NoorSettingsState
 import com.sawan4art.noor.data.SettingsRepository
 import com.sawan4art.noor.data.ThemeMode
+import com.sawan4art.noor.domain.adhan.AdhanSoundKind
 import com.sawan4art.noor.domain.location.CityGeocoder
 import com.sawan4art.noor.domain.location.LocationGate
 import com.sawan4art.noor.domain.location.LocationGateChecker
@@ -15,15 +20,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * مسؤول الشاشة الرئيسية — لقط كل ثانية والشاشة ظاهرة فقط (توفير بطارية)،
  * والإعدادات تُقرأ رياضياً من DataStore فأي تغيير ينعكس فوراً.
  */
-class HomeViewModel(application: Application) : AndroidViewModel(application) {
+class HomeViewModel(application: Application) : AndroidViewModel(application), com.sawan4art.noor.ui.settings.adhan.AdhanActions {
 
     private val repository = SettingsRepository(application)
     private val locationSource = LocationSource(application)
@@ -31,6 +39,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     val settings: StateFlow<NoorSettingsState> = repository.settings
         .stateIn(viewModelScope, SharingStarted.Eagerly, NoorSettingsState())
+
+    /** تفضيلات الأذان والإقامة — مصدر الإعدادات الجديدة */
+    val adhanPrefs: StateFlow<AdhanPrefs> = repository.adhanPrefs
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AdhanPrefs())
 
     /** نبضة الثانية — تعمل والشاشة مشتركة فقط وتتوقف عند الخروج */
     private val ticker: StateFlow<Long> = flow {
@@ -116,4 +128,137 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.setMethod(method) }
 
     fun setHanafi(hanafi: Boolean) = viewModelScope.launch { repository.setHanafi(hanafi) }
+
+    /* ==================== الأذان والإقامة ==================== */
+
+    override fun setAdhanEnabled(on: Boolean) {
+        viewModelScope.launch { repository.setAdhanEnabled(on) }
+    }
+
+    override fun setAdhanVoice(id: String) {
+        viewModelScope.launch { repository.setAdhanVoice(id) }
+    }
+
+    override fun setIqamahEnabled(on: Boolean) {
+        viewModelScope.launch { repository.setIqamahEnabled(on) }
+    }
+
+    override fun setIqamahOffsetMinutes(minutes: Int) {
+        viewModelScope.launch { repository.setIqamahOffsetMinutes(minutes) }
+    }
+
+    override fun setIqamahVoice(id: String) {
+        viewModelScope.launch { repository.setIqamahVoice(id) }
+    }
+
+    override fun setFridayDouble(on: Boolean) {
+        viewModelScope.launch { repository.setFridayDouble(on) }
+    }
+
+    override fun setFridayAdhanGapMinutes(minutes: Int) {
+        viewModelScope.launch { repository.setFridayAdhanGapMinutes(minutes) }
+    }
+
+    override fun setFridayIqamahGapMinutes(minutes: Int) {
+        viewModelScope.launch { repository.setFridayIqamahGapMinutes(minutes) }
+    }
+
+    override fun setMuteEnabled(on: Boolean) {
+        viewModelScope.launch { repository.setMuteEnabled(on) }
+    }
+
+    override fun setMuteMinutes(minutes: Int) {
+        viewModelScope.launch { repository.setMuteMinutes(minutes) }
+    }
+
+    /** استيراد صوت مخصص من الهاتف — يُنسخ داخل مسار التطبيق ليبقى دائماً */
+    override fun importCustomSound(kind: AdhanSoundKind, uri: Uri) {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            runCatching {
+                val resolver = app.contentResolver
+                val name = queryDisplayName(resolver, uri) ?: "صوت مخصص"
+                val ext = guessExtension(resolver, uri, name)
+                val dir = File(app.filesDir, "sounds").apply { if (!exists()) mkdirs() }
+                val outFile = File(
+                    dir,
+                    if (kind == AdhanSoundKind.ADHAN) "adhan_custom$ext" else "iqamah_custom$ext",
+                )
+                resolver.openInputStream(uri)?.use { input ->
+                    outFile.outputStream().use { output -> input.copyTo(output) }
+                }
+                repository.setCustomSound(kind, outFile.absolutePath, name)
+                // الاختيار ينتقل تلقائياً للصوت المستورد
+                if (kind == AdhanSoundKind.ADHAN) repository.setAdhanVoice("custom")
+                else repository.setIqamahVoice("custom")
+            }
+        }
+    }
+
+    /** حذف الصوت المخصص والعودة للمدمج */
+    override fun clearCustomSound(kind: AdhanSoundKind) {
+        viewModelScope.launch {
+        val app = getApplication<Application>()
+        runCatching {
+            val path = when (kind) {
+                AdhanSoundKind.ADHAN -> adhanPrefs.value.customAdhanPath
+                AdhanSoundKind.IQAMAH -> adhanPrefs.value.customIqamahPath
+            }
+            if (path.isNotEmpty()) File(path).delete()
+            repository.clearCustomSound(kind)
+            // لو كان المخصص مختاراً — نرجع للافتراضي
+            if (kind == AdhanSoundKind.ADHAN && adhanPrefs.value.adhanVoice == "custom") {
+                repository.setAdhanVoice("main")
+            }
+            if (kind == AdhanSoundKind.IQAMAH && adhanPrefs.value.iqamahVoice == "custom") {
+                repository.setIqamahVoice("makkah")
+            }
+        }
+        }
+    }
+
+    private fun queryDisplayName(resolver: android.content.ContentResolver, uri: Uri): String? {
+        runCatching {
+            resolver.query(uri, null, null, null, null)?.use { c ->
+                val idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0 && c.moveToFirst()) {
+                    c.getString(idx)?.takeIf { it.isNotBlank() }?.let { return it }
+                }
+            }
+        }
+        return uri.lastPathSegment
+    }
+
+    private fun guessExtension(resolver: android.content.ContentResolver, uri: Uri, name: String): String {
+        val fromName = name.substringAfterLast('.', "").lowercase()
+        if (fromName.isNotEmpty() && fromName.length <= 4 && fromName.all { ch -> ch.isLetterOrDigit() }) {
+            return "." + fromName
+        }
+        val mime = runCatching { resolver.getType(uri) }.getOrNull() ?: return ".audio"
+        return when {
+            mime.contains("mpeg") || mime.contains("mp3") -> ".mp3"
+            mime.contains("ogg") || mime.contains("opus") -> ".ogg"
+            mime.contains("wav") -> ".wav"
+            mime.contains("flac") -> ".flac"
+            mime.contains("mp4") || mime.contains("m4a") || mime.contains("aac") -> ".m4a"
+            else -> ".audio"
+        }
+    }
+
+    init {
+        // أول تشغيل: بناء منبهات الأذان للأيام القادمة فوراً
+        viewModelScope.launch {
+            runCatching { AlarmScheduler.reschedule(getApplication()) }
+        }
+        // أي تغيير في الإعدادات المؤثرة (الموقع/الطريقة/تفضيلات الأذان)
+        // يعيد الجدولة تلقائياً — الموقع من الكشف اليدوي يمر من هنا أيضاً
+        viewModelScope.launch {
+            combine(settings, adhanPrefs) { s, a -> s to a }
+                .drop(1)
+                .distinctUntilChanged()
+                .collect {
+                    runCatching { AlarmScheduler.reschedule(getApplication()) }
+                }
+        }
+    }
 }

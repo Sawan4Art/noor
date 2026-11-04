@@ -60,6 +60,7 @@ import com.sawan4art.noor.ui.theme.NoorTheme
 import com.sawan4art.noor.ui.theme.ThemeDialMath
 import com.sawan4art.noor.ui.theme.ThemeDialOverlay
 import com.sawan4art.noor.ui.theme.ThemeDialState
+import com.sawan4art.noor.ui.settings.adhan.AdhanActions
 import com.sawan4art.noor.ui.update.UpdateDialog
 
 /** التطبيق عربي أولاً — الاتجاه مثبت يمين-لليسار مهما كانت لغة الجهاز */
@@ -97,6 +98,8 @@ private fun NoorRoot(viewModel: HomeViewModel) {
     var tab by rememberSaveable { mutableStateOf(NoorTab.PRAYER) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val locating by viewModel.locating.collectAsStateWithLifecycle()
+    // تفضيلات الأذان والإقامة — القسم الجديد في الإعدادات
+    val adhanPrefs by viewModel.adhanPrefs.collectAsStateWithLifecycle()
     // نظام التحديثات — حالة واحدة تخدم حوار «ما الجديد» وبطاقة الإعدادات
     val updateState by UpdateManager.state.collectAsStateWithLifecycle()
     val dismissedVersion by UpdateManager.dismissedVersion.collectAsStateWithLifecycle()
@@ -147,6 +150,8 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                     onSetHanafi = viewModel::setHanafi,
                     onSetAccent = viewModel::setAccent,
                     onSetPrimary = viewModel::setPrimary,
+                    adhanPrefs = adhanPrefs,
+                    adhanActions = viewModel,
                     updateState = updateState,
                     onCheckUpdates = UpdateManager::checkNow,
                     onDownloadUpdate = {
@@ -237,6 +242,8 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                             onSetHanafi = viewModel::setHanafi,
                             onSetAccent = viewModel::setAccent,
                             onSetPrimary = viewModel::setPrimary,
+                            adhanPrefs = adhanPrefs,
+                            adhanActions = viewModel,
                             updateState = updateState,
                             onCheckUpdates = UpdateManager::checkNow,
                             onDownloadUpdate = {
@@ -386,6 +393,8 @@ private fun NoorBody(
     onSetAccent: (String) -> Unit,
     /** اللون الأساسي — نص فارغ يعني «الحالي» (يتبع لون التطبيق) */
     onSetPrimary: (String) -> Unit,
+    adhanPrefs: com.sawan4art.noor.data.AdhanPrefs,
+    adhanActions: AdhanActions,
     updateState: UpdateUiState,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
@@ -431,6 +440,8 @@ private fun NoorBody(
                         onSetHanafi = onSetHanafi,
                         onSetAccent = onSetAccent,
                         onSetPrimary = onSetPrimary,
+                        adhanPrefs = adhanPrefs,
+                        adhanActions = adhanActions,
                         updateState = updateState,
                         onCheckUpdates = onCheckUpdates,
                         onDownloadUpdate = onDownloadUpdate,

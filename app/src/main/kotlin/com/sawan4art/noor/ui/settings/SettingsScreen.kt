@@ -65,11 +65,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sawan4art.noor.BuildConfig
+import com.sawan4art.noor.data.AdhanPrefs
 import com.sawan4art.noor.data.NoorSettingsState
 import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.data.update.UpdateNotifier
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import com.sawan4art.noor.ui.icons.NoorIcons
+import com.sawan4art.noor.ui.settings.adhan.AdhanActions
+import com.sawan4art.noor.ui.settings.adhan.AdhanSection
 import com.sawan4art.noor.ui.theme.AccentPalette
 import com.sawan4art.noor.ui.theme.LiquidDeveloperBadge
 import com.sawan4art.noor.ui.theme.NoorPageTitle
@@ -106,11 +109,13 @@ fun SettingsScreen(
     onSetAccent: (String) -> Unit,
     /** اللون الأساسي المستقل — نص فارغ يعني «الحالي» (يتبع لون التطبيق) */
     onSetPrimary: (String) -> Unit,
+    adhanPrefs: AdhanPrefs,
+    adhanActions: AdhanActions,
     updateState: UpdateUiState,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
 ) {
-    // الروابط الداخلية: home ← location / method / colors / updates
+    // الروابط الداخلية: home ← location / method / adhan / colors / updates
     var section by rememberSaveable { mutableStateOf("home") }
     BackHandler(enabled = section != "home") { section = "home" }
 
@@ -134,6 +139,12 @@ fun SettingsScreen(
                 )
                 Spacer(Modifier.height(10.dp))
                 AsrSection(settings = settings, onSetHanafi = onSetHanafi)
+            }
+        }
+        // صفحة الأذان والإقامة — القسم الجديد: الأصوات والفواصل والجمعة والكتم
+        "adhan" -> SectionPage(title = "الأذان والإقامة", onBack = { section = "home" }) {
+            SectionCard {
+                AdhanSection(adhan = adhanPrefs, actions = adhanActions)
             }
         }
         // alpha34: اللون الأساسي داخل صفحة الألوان بأمر المالك —
@@ -160,6 +171,7 @@ fun SettingsScreen(
         else -> SettingsHome(
             settings = settings,
             updateState = updateState,
+            adhanPrefs = adhanPrefs,
             onOpen = { section = it },
         )
     }
@@ -170,6 +182,7 @@ fun SettingsScreen(
 private fun SettingsHome(
     settings: NoorSettingsState,
     updateState: UpdateUiState,
+    adhanPrefs: AdhanPrefs,
     onOpen: (String) -> Unit,
 ) {
     Column(
@@ -197,6 +210,12 @@ private fun SettingsHome(
             title = "طريقة حساب المواقيت",
             summary = methodSummary(settings),
             onOpen = { onOpen("method") },
+        )
+        SectionRow(
+            icon = NoorIcons.Mosque,
+            title = "الأذان والإقامة",
+            summary = adhanSummary(adhanPrefs),
+            onOpen = { onOpen("adhan") },
         )
         SectionRow(
             icon = NoorIcons.Palette,
@@ -237,6 +256,23 @@ private fun updatesSummary(state: UpdateUiState): String = when (state) {
     is UpdateUiState.Available -> "تحديث جديد متاح: ${state.info.versionName}"
     is UpdateUiState.Failed -> "تعذّر الفحص — افتح الصفحة لإعادة المحاولة"
     else -> "أنت على أحدث نسخة — والفحص تلقائي عند فتح التطبيق"
+}
+
+/** ملخص قسم الأذان في القائمة — الحالة والصوت الحالي بلا فتح الصفحة */
+private fun adhanSummary(adhan: AdhanPrefs): String {
+    if (!adhan.enabled) return "متوقف — افتح الصفحة لتشغيل الأذان"
+    val voice = if (adhan.adhanVoice == "custom") {
+        adhan.customAdhanName.ifEmpty { "صوت من الهاتف" }
+    } else if (adhan.adhanVoice == "notification") {
+        "نغمة إشعارات الهاتف"
+    } else {
+        com.sawan4art.noor.domain.adhan.AdhanVoices.adhanById(adhan.adhanVoice).name
+    }
+    return if (adhan.iqamahEnabled) {
+        "مفعّل مع الإقامة — $voice"
+    } else {
+        "مفعّل — $voice"
+    }
 }
 
 /**

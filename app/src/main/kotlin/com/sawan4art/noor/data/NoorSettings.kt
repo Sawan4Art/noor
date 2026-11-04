@@ -6,11 +6,13 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.noorDataStore: DataStore<Preferences> by preferencesDataStore(
@@ -19,6 +21,33 @@ private val Context.noorDataStore: DataStore<Preferences> by preferencesDataStor
 
 /** وضع المظهر */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
+/**
+ * تفضيلات الأذان والإقامة — القسم الجديد في الإعدادات:
+ * - الأذان مفعّل افتراضياً للصلوات الخمس (الشروق بلا أذان)
+ * - الإقامة مطفأة افتراضياً والفاصل بينها وبين الأذان ١٠ دقائق
+ * - الجمعة: أذان مرتين — فاصل ١٠ دقائق بين الأذانين ثم الإقامة بعد ٣٠ دقيقة
+ * - كتم أصوات الهاتف بعد الأذان اختياري (مطفأ افتراضياً، ١٠ دقائق)
+ * - صوت مخصص من الهاتف للأذان وللإقامة (مسار واسم الملف)
+ * - أو نغمة إشعارات الهاتف بدلاً من الأذان/الإقامة
+ */
+data class AdhanPrefs(
+    val enabled: Boolean = true,
+    /** صوت الأذان: معرّف مدمج | custom (من الهاتف) | notification (نغمة الإشعارات) */
+    val adhanVoice: String = "main",
+    val iqamahEnabled: Boolean = false,
+    val iqamahOffsetMinutes: Int = 10,
+    val iqamahVoice: String = "makkah",
+    val fridayDouble: Boolean = true,
+    val fridayAdhanGapMinutes: Int = 10,
+    val fridayIqamahGapMinutes: Int = 30,
+    val muteEnabled: Boolean = false,
+    val muteMinutes: Int = 10,
+    val customAdhanPath: String = "",
+    val customAdhanName: String = "",
+    val customIqamahPath: String = "",
+    val customIqamahName: String = "",
+)
 
 /** ذاكرة نظام التحديثات — متى فُحص آخر مرة وماذا أُشعر عنه ومتى واستُبعد */
 data class UpdatePrefs(
@@ -69,6 +98,21 @@ class SettingsRepository(private val context: Context) {
         val UPDATE_NOTIFIED_AT = longPreferencesKey("update_notified_at")
         val UPDATE_DISMISSED = stringPreferencesKey("update_dismissed_version")
         val HADITH_FAVORITES = stringPreferencesKey("hadith_favorites")
+        // الأذان والإقامة
+        val ADHAN_ENABLED = booleanPreferencesKey("adhan_enabled")
+        val ADHAN_VOICE = stringPreferencesKey("adhan_voice")
+        val IQAMAH_ENABLED = booleanPreferencesKey("iqamah_enabled")
+        val IQAMAH_OFFSET = intPreferencesKey("iqamah_offset_minutes")
+        val IQAMAH_VOICE = stringPreferencesKey("iqamah_voice")
+        val FRIDAY_DOUBLE = booleanPreferencesKey("friday_double_adhan")
+        val FRIDAY_ADHAN_GAP = intPreferencesKey("friday_adhan_gap_minutes")
+        val FRIDAY_IQAMAH_GAP = intPreferencesKey("friday_iqamah_gap_minutes")
+        val MUTE_ENABLED = booleanPreferencesKey("adhan_mute_enabled")
+        val MUTE_MINUTES = intPreferencesKey("adhan_mute_minutes")
+        val CUSTOM_ADHAN_PATH = stringPreferencesKey("custom_adhan_path")
+        val CUSTOM_ADHAN_NAME = stringPreferencesKey("custom_adhan_name")
+        val CUSTOM_IQAMAH_PATH = stringPreferencesKey("custom_iqamah_path")
+        val CUSTOM_IQAMAH_NAME = stringPreferencesKey("custom_iqamah_name")
     }
 
     val settings: Flow<NoorSettingsState> = context.noorDataStore.data.map { p ->
@@ -84,6 +128,102 @@ class SettingsRepository(private val context: Context) {
             accentId = p[Keys.ACCENT] ?: "emerald",
             primaryId = p[Keys.PRIMARY] ?: "",
         )
+    }
+
+    /** تفضيلات الأذان والإقامة — أي تغيير يعيد جدولة منبهات الأذان */
+    val adhanPrefs: Flow<AdhanPrefs> = context.noorDataStore.data.map { p ->
+        AdhanPrefs(
+            enabled = p[Keys.ADHAN_ENABLED] ?: true,
+            adhanVoice = p[Keys.ADHAN_VOICE] ?: "main",
+            iqamahEnabled = p[Keys.IQAMAH_ENABLED] ?: false,
+            iqamahOffsetMinutes = p[Keys.IQAMAH_OFFSET] ?: 10,
+            iqamahVoice = p[Keys.IQAMAH_VOICE] ?: "makkah",
+            fridayDouble = p[Keys.FRIDAY_DOUBLE] ?: true,
+            fridayAdhanGapMinutes = p[Keys.FRIDAY_ADHAN_GAP] ?: 10,
+            fridayIqamahGapMinutes = p[Keys.FRIDAY_IQAMAH_GAP] ?: 30,
+            muteEnabled = p[Keys.MUTE_ENABLED] ?: false,
+            muteMinutes = p[Keys.MUTE_MINUTES] ?: 10,
+            customAdhanPath = p[Keys.CUSTOM_ADHAN_PATH] ?: "",
+            customAdhanName = p[Keys.CUSTOM_ADHAN_NAME] ?: "",
+            customIqamahPath = p[Keys.CUSTOM_IQAMAH_PATH] ?: "",
+            customIqamahName = p[Keys.CUSTOM_IQAMAH_NAME] ?: "",
+        )
+    }
+
+    /** قراءة فورية واحدة للتفضيلات — للمجدول والمستقبلات خارج دورة الواجهة */
+    suspend fun adhanPrefsOnce(): AdhanPrefs = adhanPrefs.first()
+
+    /** قراءة فورية واحدة للإعدادات العامة — للمجدول */
+    suspend fun settingsOnce(): NoorSettingsState = settings.first()
+
+    suspend fun setAdhanEnabled(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.ADHAN_ENABLED] = on }
+    }
+
+    suspend fun setAdhanVoice(id: String) {
+        context.noorDataStore.edit { it[Keys.ADHAN_VOICE] = id }
+    }
+
+    suspend fun setIqamahEnabled(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.IQAMAH_ENABLED] = on }
+    }
+
+    suspend fun setIqamahOffsetMinutes(minutes: Int) {
+        context.noorDataStore.edit { it[Keys.IQAMAH_OFFSET] = minutes }
+    }
+
+    suspend fun setIqamahVoice(id: String) {
+        context.noorDataStore.edit { it[Keys.IQAMAH_VOICE] = id }
+    }
+
+    suspend fun setFridayDouble(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.FRIDAY_DOUBLE] = on }
+    }
+
+    suspend fun setFridayAdhanGapMinutes(minutes: Int) {
+        context.noorDataStore.edit { it[Keys.FRIDAY_ADHAN_GAP] = minutes }
+    }
+
+    suspend fun setFridayIqamahGapMinutes(minutes: Int) {
+        context.noorDataStore.edit { it[Keys.FRIDAY_IQAMAH_GAP] = minutes }
+    }
+
+    suspend fun setMuteEnabled(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.MUTE_ENABLED] = on }
+    }
+
+    suspend fun setMuteMinutes(minutes: Int) {
+        context.noorDataStore.edit { it[Keys.MUTE_MINUTES] = minutes }
+    }
+
+    /** حفظ صوت مخصص من الهاتف (الأذان أو الإقامة) — يُنسخ داخل مسار التطبيق */
+    suspend fun setCustomSound(
+        kind: com.sawan4art.noor.domain.adhan.AdhanSoundKind,
+        path: String,
+        name: String,
+    ) {
+        context.noorDataStore.edit {
+            if (kind == com.sawan4art.noor.domain.adhan.AdhanSoundKind.ADHAN) {
+                it[Keys.CUSTOM_ADHAN_PATH] = path
+                it[Keys.CUSTOM_ADHAN_NAME] = name
+            } else {
+                it[Keys.CUSTOM_IQAMAH_PATH] = path
+                it[Keys.CUSTOM_IQAMAH_NAME] = name
+            }
+        }
+    }
+
+    /** حذف الصوت المخصص — يعود الاختيار للأصوات المدمجة */
+    suspend fun clearCustomSound(kind: com.sawan4art.noor.domain.adhan.AdhanSoundKind) {
+        context.noorDataStore.edit {
+            if (kind == com.sawan4art.noor.domain.adhan.AdhanSoundKind.ADHAN) {
+                it.remove(Keys.CUSTOM_ADHAN_PATH)
+                it.remove(Keys.CUSTOM_ADHAN_NAME)
+            } else {
+                it.remove(Keys.CUSTOM_IQAMAH_PATH)
+                it.remove(Keys.CUSTOM_IQAMAH_NAME)
+            }
+        }
     }
 
     suspend fun setAccentId(id: String) {

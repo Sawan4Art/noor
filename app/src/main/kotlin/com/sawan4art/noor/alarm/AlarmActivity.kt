@@ -2,43 +2,77 @@ package com.sawan4art.noor.alarm
 
 import android.os.Build
 import android.os.Bundle
+import android.content.Intent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.sawan4art.noor.data.ThemeMode
+import com.sawan4art.noor.ui.theme.NoorTheme
 
 /**
- * شاشة المنبه (تجهيز مرحلة الأذان بطلب المالك 2026-11-03).
+ * شاشة التنبيه الكاملة فوق القفل — تُفتح من الإشعار المنبثق (full-screen
+ * intent) في وقت الأذان/الإقامة حتى لو الهاتف مقفول:
  *
- * **مكانتها اليوم**: هيكل جاهز مسجّل في المانيفست بخصائصه الكاملة —
- * لا شيء يطلقها بعد، ولا تُظهر أي واجهة (تُنهي نفسها بهدوء إن أُطلقت
- * بلا حمل منبه صالح) كي لا يكسر أي مسارٍ مستقبليٍّ مبكر شيء.
- *
- * **خصائص فوق القفل**:
- * - أندرويد 8.1+ (٢٧+): تقرأ النظام خصيتَي المانيفست
- *   `showWhenLocked` و`turnScreenOn` مباشرة فتظهر الشاشة فوق القفل
- *   وتُشعل الشاشة بلا حاجة لكلمة السر.
- * - أندرويد 7-8.0 (٢٤-٢٦): الأعلام المكافئة على النافذة هي الطريق
- *   الوحيد (FLAG_SHOW_WHEN_LOCKED/FLAG_TURN_SCREEN_ON) — تُضاف هنا.
- * - FLAG_KEEP_SCREEN_ON في الحالتين: شاشة التنبيه تبقى مضاءة ما دامت
- *   ظاهرة — المستخدم لا يفوّت أذان الصلاة بسبب خمول الشاشة.
- *
- * **الإذن TURN_SCREEN_ON** (أندرويد ١٤+): معلن في المانيفست — متطلب
- * إشعال الشاشة في الإصدارات الحديثة، وجميع ما سبق يغطي ٧ حتى ١٥.
- *
- * **مرحلة الأذان القادمة** تبني فوق هذا الهيكل: قراءة حمل المنبه
- * (اسم الصلاة والوقت) من الإكسترا ثم واجهة التنبيه بلغة التطبيق
- * السائلة — والهيكل لا يمنع شيئاً منها.
+ * - خصائص فوق القفل في المانيفست (٢٧+) وأعلام النافذة المكافئة هنا
+ *   للأقدم (٢٤-٢٦)، والشاشة تبقى مضاءة ما دامت ظاهرة.
+ * - المحتوى: اسم الصلاة كبيراً وعنوان التنبيه وزر إيقاف الصوت —
+ *   بلغة التطبيق وثيمه.
+ * - زر «إيقاف الصوت» يوقف الخدمة كلياً (ويعيد صوت الهاتف إن كان
+ *   مكتوماً) — بلا حاجة لفتح التطبيق.
  */
 class AlarmActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         applyOverLockFlags()
-        // لا حمل منبه صالح؟ لا شيء يطلقها اليوم أصلاً — وبأي حال
-        // السلوك الآمن: انتهاء هادئ بلا واجهة ناقصة ولا انهيار
-        if (intent?.getStringExtra(EXTRA_PRAYER_NAME) == null) {
+        val name = intent?.getStringExtra(EXTRA_PRAYER_NAME)
+        if (name == null) {
             finish()
+            return
         }
-        // واجهة التنبيه تُبنى في مرحلة الأذان القادمة فوق هذا الهيكل
+        val mode = intent?.getStringExtra(EXTRA_PRAYER_MODE) ?: AlarmService.MODE_ADHAN
+
+        setContent {
+            NoorTheme(themeMode = ThemeMode.SYSTEM) {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    AlarmAlertContent(
+                        prayerName = name,
+                        isIqamah = mode == AlarmService.MODE_IQAMAH,
+                        onStop = {
+                            runCatching {
+                                startService(
+                                    Intent(this, AlarmService::class.java)
+                                        .setAction(AlarmService.ACTION_STOP),
+                                )
+                            }
+                            finish()
+                        },
+                    )
+                }
+            }
+        }
     }
 
     /** أعلام فوق القفل — الخصائص في المانيفست (٢٧+) والأعلام هنا (٢٤-٢٦) */
@@ -53,11 +87,72 @@ class AlarmActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
+    @Composable
+    private fun AlarmAlertContent(
+        prayerName: String,
+        isIqamah: Boolean,
+        onStop: () -> Unit,
+    ) {
+        val scheme = MaterialTheme.colorScheme
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(scheme.primaryContainer, scheme.surface),
+                    ),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = if (isIqamah) "قد قامت الصلاة" else "حان الآن وقت",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = scheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = prayerName,
+                    fontSize = 44.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = scheme.primary,
+                )
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    text = "«أَقِمِ الصَّلَاةَ لِدُلُوكِ الشَّمْسِ»",
+                    fontSize = 15.sp,
+                    color = scheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(40.dp))
+                Button(
+                    onClick = onStop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = scheme.primary,
+                        contentColor = scheme.onPrimary,
+                    ),
+                ) {
+                    Text(text = "إيقاف الصوت", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+
     companion object {
-        /** إكسترا اسم الصلاة — عقد مرحلة الأذان القادمة (حالياً بلا مُطلِق) */
+        /** إكسترا اسم الصلاة — يحمله الإشعار المنبثق */
         const val EXTRA_PRAYER_NAME: String = "noor_extra_alarm_prayer_name"
 
-        /** إكسترا وقت الصلاة الملقن — عقد مرحلة الأذان القادمة */
-        const val EXTRA_PRAYER_TIME: String = "noor_extra_alarm_prayer_time"
+        /** إكسترا نوع التنبيه: أذان أم إقامة */
+        const val EXTRA_PRAYER_MODE: String = "noor_extra_alarm_prayer_mode"
     }
 }
