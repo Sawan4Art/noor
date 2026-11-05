@@ -15,8 +15,9 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
- * اختبارات منطق خطة الأذان — خاصة أذان الجمعة المزدوج وفواصل الإقامة
- * والكتم (القيم الافتراضية المعتمدة: إقامة ١٠، الجمعة ١٠ و٣٠).
+ * اختبارات منطق خطة الأذان — فاصل الإقامة **لكل صلاة على حدة** (خانة
+ * كتابة)، والجمعة استثناء بأذانين، وعَلَم بداية الكتم بعد الإقامة
+ * (توجيه المالك 2026-11-06).
  */
 class AdhanPlanTest {
 
@@ -63,30 +64,69 @@ class AdhanPlanTest {
         assertEquals(AdhanEventKind.ADHAN, events[0].kind)
         assertEquals(t, events[0].at)
         assertEquals("الظهر", events[0].name)
+        assertEquals(false, events[0].startsMute)
     }
 
     @Test
-    fun `الإقامة بعد الأذان بعشر دقائق افتراضيا والاستعادة بعدها بمقدار الكتم`() {
+    fun `فاصل كل صلاة مستقل - الفجر خمسة عشر والباقي عشرة افتراضيا`() {
         val t = nextTuesdayNoon()
-        val settings = defaults.copy(iqamahEnabled = true, muteEnabled = true, muteMinutes = 10)
+        val settings = defaults.copy(iqamahEnabled = true)
+
+        val fajr = AdhanPlan.eventsForPrayer(PrayerTimeKey.FAJR, "الفجر", t, settings)
+        assertEquals(t.plusMinutes(15), fajr[1].at)
+
+        for (key in listOf(
+            PrayerTimeKey.DHUHR, PrayerTimeKey.ASR,
+            PrayerTimeKey.MAGHRIB, PrayerTimeKey.ISHA,
+        )) {
+            val events = AdhanPlan.eventsForPrayer(key, "صلاة", t, settings)
+            assertEquals(t.plusMinutes(10), events[1].at)
+        }
+    }
+
+    @Test
+    fun `تغيير فاصل صلاة لا يمس باقي الصلوات`() {
+        val t = nextTuesdayNoon()
+        val settings = defaults.copy(iqamahEnabled = true, gapAsrMinutes = 45)
+        val asr = AdhanPlan.eventsForPrayer(PrayerTimeKey.ASR, "العصر", t, settings)
+        assertEquals(t.plusMinutes(45), asr[1].at)
+        val maghrib = AdhanPlan.eventsForPrayer(PrayerTimeKey.MAGHRIB, "المغرب", t, settings)
+        assertEquals(t.plusMinutes(10), maghrib[1].at)
+    }
+
+    @Test
+    fun `علم الكتم على الإقامة لا على الأذان`() {
+        val t = nextTuesdayNoon()
+        val settings = defaults.copy(iqamahEnabled = true, muteEnabled = true)
         val events = AdhanPlan.eventsForPrayer(PrayerTimeKey.MAGHRIB, "المغرب", t, settings)
 
-        assertEquals(3, events.size)
+        // حدثان فقط: أذان ثم إقامة — الاستعادة بمنبه MuteManager بعد المدة
+        assertEquals(2, events.size)
         assertEquals(AdhanEventKind.ADHAN, events[0].kind)
+        assertEquals(false, events[0].startsMute)
         assertEquals(AdhanEventKind.IQAMAH, events[1].kind)
-        assertEquals(t.plusMinutes(10), events[1].at) // الإقامة بعد ١٠ دقائق
-        assertEquals(AdhanEventKind.MUTE_RESTORE, events[2].kind)
-        assertEquals(t.plusMinutes(20), events[2].at) // الاستعادة بعد الإقامة بـ١٠
+        assertEquals(t.plusMinutes(10), events[1].at)
+        assertEquals(true, events[1].startsMute)
     }
 
     @Test
-    fun `بلا إقامة - الاستعادة بعد الأذان مباشرة بمقدار مدة الكتم`() {
+    fun `بلا إقامة - الكتم يبدأ بعد الأذان مباشرة`() {
         val t = nextTuesdayNoon()
-        val settings = defaults.copy(iqamahEnabled = false, muteEnabled = true, muteMinutes = 15)
+        val settings = defaults.copy(iqamahEnabled = false, muteEnabled = true)
         val events = AdhanPlan.eventsForPrayer(PrayerTimeKey.ASR, "العصر", t, settings)
 
-        assertEquals(2, events.size)
-        assertEquals(t.plusMinutes(15), events[1].at)
+        assertEquals(1, events.size)
+        assertEquals(AdhanEventKind.ADHAN, events[0].kind)
+        assertEquals(true, events[0].startsMute)
+    }
+
+    @Test
+    fun `كتم معطل - لا علامة على أي حدث`() {
+        val t = nextTuesdayNoon()
+        val settings = defaults.copy(iqamahEnabled = true, muteEnabled = false)
+        val events = AdhanPlan.eventsForPrayer(PrayerTimeKey.MAGHRIB, "المغرب", t, settings)
+        assertEquals(false, events[0].startsMute)
+        assertEquals(false, events[1].startsMute)
     }
 
     @Test
@@ -111,6 +151,20 @@ class AdhanPlanTest {
     }
 
     @Test
+    fun `الجمعة - فواصلها المستقلة لا تتأثر بفواصل الصلوات`() {
+        val friday = nextFridayNoon()
+        val settings = defaults.copy(
+            iqamahEnabled = true,
+            gapDhuhrMinutes = 99, // فاصل الظهر العادي — لا يمس الجمعة
+            fridayAdhanGapMinutes = 20,
+            fridayIqamahGapMinutes = 60,
+        )
+        val events = AdhanPlan.eventsForPrayer(PrayerTimeKey.DHUHR, "الجمعة", friday, settings)
+        assertEquals(friday.plusMinutes(20), events[1].at)
+        assertEquals(friday.plusMinutes(80), events[2].at)
+    }
+
+    @Test
     fun `الجمعة بميزة الازدواج مطفأة - اذان واحد باقي النظام عادي`() {
         val friday = nextFridayNoon()
         val settings = defaults.copy(iqamahEnabled = true, fridayDouble = false)
@@ -123,17 +177,16 @@ class AdhanPlanTest {
     }
 
     @Test
-    fun `الجمعة - استعادة الكتم بعد الاذان الثاني بلا اقامة`() {
+    fun `الجمعة بلا اقامة - الكتم يبدأ بعد الأذان الثاني`() {
         val friday = nextFridayNoon()
-        val settings = defaults.copy(iqamahEnabled = false, muteEnabled = true, muteMinutes = 20)
+        val settings = defaults.copy(iqamahEnabled = false, muteEnabled = true)
         val events = AdhanPlan.eventsForPrayer(PrayerTimeKey.DHUHR, "الجمعة", friday, settings)
 
-        assertEquals(3, events.size)
+        assertEquals(2, events.size)
         assertNull(events[1].iqamahAt)
         assertEquals(false, events[1].carriesIqamah)
-        assertEquals(AdhanEventKind.MUTE_RESTORE, events[2].kind)
-        // بعد الأذان الثاني (بعد ١٠) بمقدار مدة الكتم ٢٠
-        assertEquals(friday.plusMinutes(30), events[2].at)
+        assertEquals(false, events[0].startsMute) // الأذان الأول لا يكتم
+        assertEquals(true, events[1].startsMute) // الثاني هو آخر صوت
     }
 
     @Test

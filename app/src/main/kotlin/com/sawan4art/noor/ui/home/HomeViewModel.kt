@@ -16,6 +16,7 @@ import com.sawan4art.noor.domain.location.LocationGate
 import com.sawan4art.noor.domain.location.LocationGateChecker
 import com.sawan4art.noor.domain.location.LocationSource
 import com.sawan4art.noor.domain.prayer.CalculationMethod
+import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -143,8 +144,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
         viewModelScope.launch { repository.setIqamahEnabled(on) }
     }
 
-    override fun setIqamahOffsetMinutes(minutes: Int) {
-        viewModelScope.launch { repository.setIqamahOffsetMinutes(minutes) }
+    /** فاصل الأذان←الإقامة لصلاة بعينها — خانة كتابة مستقلة لكل صلاة */
+    override fun setPrayerGapMinutes(key: PrayerTimeKey, minutes: Int) {
+        viewModelScope.launch { repository.setPrayerGapMinutes(key, minutes) }
     }
 
     override fun setIqamahVoice(id: String) {
@@ -169,6 +171,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
 
     override fun setMuteMinutes(minutes: Int) {
         viewModelScope.launch { repository.setMuteMinutes(minutes) }
+    }
+
+    override fun setMuteCancelOnUnlock(on: Boolean) {
+        viewModelScope.launch { repository.setMuteCancelOnUnlock(on) }
     }
 
     /** استيراد صوت مخصص من الهاتف — يُنسخ داخل مسار التطبيق ليبقى دائماً */

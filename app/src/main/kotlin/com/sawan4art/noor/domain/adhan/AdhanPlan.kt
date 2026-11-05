@@ -6,26 +6,45 @@ import java.time.ZonedDateTime
 
 /**
  * إعدادات الأذان التي يحتاجها بنّاء الخطة — قيمها الافتراضية هي
- * الافتراضيات المعتمدة (الإقامة بعد الأذان ١٠ دقائق، والجمعة أذان
- * مرتين: فاصل ١٠ دقائق بين الأذانين ثم الإقامة بعد ٣٠ دقيقة).
+ * الافتراضيات المعتمدة (تحديث المالك 2026-11-06: فاصل الإقامة خانة
+ * كتابة لكل صلاة على حدة — كل الصلوات ١٠ دقائق ماعاد الفجر ١٥ دقيقة —
+ * والجمعة استثناء: فاصل ١٠ دقائق بين الأذانين ثم الإقامة بعد ٣٠ دقيقة).
  */
 data class AdhanPlanSettings(
     val adhanEnabled: Boolean = true,
     val iqamahEnabled: Boolean = false,
-    val iqamahOffsetMinutes: Int = 10,
+    /** فاصل الأذان←الإقامة لكل صلاة على حدة (خانة كتابة لكل واحدة) */
+    val gapFajrMinutes: Int = 15,
+    val gapDhuhrMinutes: Int = 10,
+    val gapAsrMinutes: Int = 10,
+    val gapMaghribMinutes: Int = 10,
+    val gapIshaMinutes: Int = 10,
     val fridayDouble: Boolean = true,
     val fridayAdhanGapMinutes: Int = 10,
     val fridayIqamahGapMinutes: Int = 30,
     val muteEnabled: Boolean = false,
-    val muteMinutes: Int = 10,
-)
+) {
+    /** فاصل الصلاة المطلوبة — الفجر استثناء بـ١٥ والباقي بـ١٠ افتراضياً */
+    fun gapFor(key: PrayerTimeKey): Int = when (key) {
+        PrayerTimeKey.FAJR -> gapFajrMinutes
+        PrayerTimeKey.DHUHR -> gapDhuhrMinutes
+        PrayerTimeKey.ASR -> gapAsrMinutes
+        PrayerTimeKey.MAGHRIB -> gapMaghribMinutes
+        PrayerTimeKey.ISHA -> gapIshaMinutes
+        PrayerTimeKey.SUNRISE -> 0
+    }
+}
 
 /** نوع حدث الأذان */
-enum class AdhanEventKind { ADHAN, IQAMAH, MUTE_RESTORE }
+enum class AdhanEventKind { ADHAN, IQAMAH }
 
 /**
- * حدث مُجدول في الوقت المحدد — أذان أو إقامة أو استعادة صوت الهاتف
- * بعد الكتم. `prayerKey` فارغ لأحداث الاستعادة (لا صلاة لها).
+ * حدث مُجدول في الوقت المحدد — أذان أو إقامة. `prayerKey` يحدد الصلاة.
+ *
+ * `startsMute` (تحديث المالك 2026-11-06): هل يبدأ كتم أصوات الهاتف بعد
+ * انتهاء صوت هذا الحدث؟ الإقامة تبدأه (الكتم «بعد الاقامه» كما حدد
+ * المالك)، والأذان يبدأه فقط إن كانت الإقامة مطفأة — وكل إدارة الكتم
+ * (المُدة والاستعادة والمنبه الاحتياطي) في MuteManager وقت التنفيذ.
  */
 data class AdhanEvent(
     val kind: AdhanEventKind,
@@ -35,18 +54,22 @@ data class AdhanEvent(
     /** هل هذا الأذان الثاني في الجمعة (يحمل وقت الإقامة المحدد سلفاً) */
     val carriesIqamah: Boolean = false,
     val iqamahAt: ZonedDateTime? = null,
+    /** يبدأ كتم أصوات الهاتف بعد انتهاء صوت هذا الحدث */
+    val startsMute: Boolean = false,
 )
 
 /**
  * بنّاء خطة أحداث صلاة واحدة — النقل الأمين لمنطق النسخة المرجعية:
  *
  * - **باقي الأيام**: أذان واحد عند وقت الصلاة، والإقامة (إن مفعّلة)
- *   بعده بعدة الدقائق المحددة، واستعادة الصوت بعد الإقامة بمُدة الكتم.
+ *   بعده بفاصل الصلاة نفسها (خانة الكتابة الخاصة بها).
  * - **يوم الجمعة** (صلاة الظهر فقط): أذانان ثم الإقامة — الفاصل بين
- *   الأذان الأول والثاني يحدده المستخدم (افتراضي ١٠ دقائق)، والفاصل
- *   بين الأذان الثاني والإقامة يحدده (افتراضي ٣٠ دقيقة)، والاستعادة
- *   بعدها بمُدة الكتم.
+ *   الأذان الأول والثاني خانته الخاصة (افتراضي ١٠ دقائق)، والفاصل
+ *   بين الأذان الثاني والإقامة خانته الخاصة (افتراضي ٣٠ دقيقة).
  * - **الشروق ليست صلاة** — بلا أذان (وقت شمس لا كِران).
+ * - **الكتم** عَلَم `startsMute` على الحدث الأخير قبل الصلاة: الإقامة
+ *   إن مفعّلة وإلا الأذان — والاستعادة يتولاها MuteManager بعد المُدة
+ *   المحددة فلا حاجة لحدث استعادة مجدول سلفاً.
  */
 object AdhanPlan {
 
@@ -81,6 +104,8 @@ object AdhanPlan {
                 name = prayerName,
                 carriesIqamah = settings.iqamahEnabled,
                 iqamahAt = if (settings.iqamahEnabled) iqamah else null,
+                // بلا إقامة: الأذان الثاني هو آخر صوت قبل الصلاة — يبدأ الكتم
+                startsMute = settings.muteEnabled && !settings.iqamahEnabled,
             )
             if (settings.iqamahEnabled) {
                 events += AdhanEvent(
@@ -88,22 +113,13 @@ object AdhanPlan {
                     at = iqamah,
                     prayerKey = key,
                     name = prayerName,
-                )
-            }
-            // استعادة الصوت بعد الإقامة (أو بعد الأذان الثاني إن بلا إقامة)
-            if (settings.muteEnabled) {
-                val restoreBase = if (settings.iqamahEnabled) iqamah else second
-                events += AdhanEvent(
-                    kind = AdhanEventKind.MUTE_RESTORE,
-                    at = restoreBase.plusMinutes(settings.muteMinutes.toLong()),
-                    prayerKey = key,
-                    name = prayerName,
+                    startsMute = settings.muteEnabled,
                 )
             }
             return events
         }
 
-        // المسار العادي: أذان واحد (+ إقامة اختيارية + استعادة كتم)
+        // المسار العادي: أذان واحد (+ إقامة اختيارية بفاصل الصلاة نفسها)
         events += AdhanEvent(
             kind = AdhanEventKind.ADHAN,
             at = prayerTime,
@@ -111,29 +127,17 @@ object AdhanPlan {
             name = prayerName,
         )
         if (settings.iqamahEnabled) {
-            val iqamah = prayerTime.plusMinutes(settings.iqamahOffsetMinutes.toLong())
+            val iqamah = prayerTime.plusMinutes(settings.gapFor(key).toLong())
             events += AdhanEvent(
                 kind = AdhanEventKind.IQAMAH,
                 at = iqamah,
                 prayerKey = key,
                 name = prayerName,
+                startsMute = settings.muteEnabled,
             )
-            if (settings.muteEnabled) {
-                events += AdhanEvent(
-                    kind = AdhanEventKind.MUTE_RESTORE,
-                    at = iqamah.plusMinutes(settings.muteMinutes.toLong()),
-                    prayerKey = key,
-                    name = prayerName,
-                )
-            }
         } else if (settings.muteEnabled) {
-            // بلا إقامة: الكتم ينتهي بعد الأذان بمُدة الكتم نفسها
-            events += AdhanEvent(
-                kind = AdhanEventKind.MUTE_RESTORE,
-                at = prayerTime.plusMinutes(settings.muteMinutes.toLong()),
-                prayerKey = key,
-                name = prayerName,
-            )
+            // بلا إقامة: الأذان هو آخر صوت — الكتم يبدأ بعد انتهائه
+            events[0] = events[0].copy(startsMute = true)
         }
         return events
     }

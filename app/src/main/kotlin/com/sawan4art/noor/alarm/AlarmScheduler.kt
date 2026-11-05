@@ -56,12 +56,15 @@ object AlarmScheduler {
         val plan = AdhanPlanSettings(
             adhanEnabled = prefs.enabled,
             iqamahEnabled = prefs.iqamahEnabled,
-            iqamahOffsetMinutes = prefs.iqamahOffsetMinutes,
+            gapFajrMinutes = prefs.gapFajrMinutes,
+            gapDhuhrMinutes = prefs.gapDhuhrMinutes,
+            gapAsrMinutes = prefs.gapAsrMinutes,
+            gapMaghribMinutes = prefs.gapMaghribMinutes,
+            gapIshaMinutes = prefs.gapIshaMinutes,
             fridayDouble = prefs.fridayDouble,
             fridayAdhanGapMinutes = prefs.fridayAdhanGapMinutes,
             fridayIqamahGapMinutes = prefs.fridayIqamahGapMinutes,
             muteEnabled = prefs.muteEnabled,
-            muteMinutes = prefs.muteMinutes,
         )
 
         // مواقيت اليوم + الغد + بعده — ثلاثة أيام تكفي حتى لو لم يُفتح التطبيق
@@ -149,6 +152,7 @@ object AlarmScheduler {
                 .putExtra(AdhanAlarmReceiver.EXTRA_KIND, event.kind.name)
                 .putExtra(AdhanAlarmReceiver.EXTRA_NAME, event.name)
                 .putExtra(AdhanAlarmReceiver.EXTRA_IQAMAH_AT, event.iqamahAt?.toInstant()?.toEpochMilli() ?: 0L)
+                .putExtra(AdhanAlarmReceiver.EXTRA_MUTE_START, event.startsMute)
         }
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         return PendingIntent.getBroadcast(context, requestCode, intent, flags)

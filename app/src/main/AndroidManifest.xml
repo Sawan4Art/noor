@@ -121,6 +121,13 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <!--
+      عدم الإزعاج (alpha49 — توجيه المالك «امنح التطبيق اذونات عدم الازعاج»):
+      كتم أصوات الهاتف كاملاً بعد الإقامة بمفتاح عدم الإزعاج نفسه،
+      الإذن معلن هنا ويُمنح من صفحة النظام الخاصة به ضمن سلسلة
+      الصلاحيات (أول تشغيل + بعد كل تحديث).
+    -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <!--
       إذن التثبيت (alpha48): التحديث من داخل التطبيق رجع بأمر المالك —
       التنزيل بمدير تنزيل النظام والفتح بمثبّت أندرويد الرسمي، والإذن
       يُطلب من المستخدم مرة واحدة قبل أول تنزيل في صفحة النظام نفسها.

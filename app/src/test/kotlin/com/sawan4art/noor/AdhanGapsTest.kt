@@ -8,71 +8,61 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * اختبارات قواعد الفواصل الزمنية (توجيه المالك 2026-11-05):
- * - الفاصل بين الأذان والإقامة ثلاثة اختيارات فقط: ١٠ و١٥ و٢٠ دقيقة
- *   («اقصى حد ليه هو ٢٠ دقيقه و اقصر حد ليه هو ١٠ دقائق»).
- * - فاصل الجمعة بين الأذان الثاني والإقامة خانة كتابة من دقيقة إلى
- *   ١٢٠ دقيقة («ممكن يصل لغايه ٢ ساعه»).
+ * اختبارات قواعد الفواصل الزمنية — تحديث المالك 2026-11-06:
+ * - الفاصل بين الأذان والإقامة **خانة كتابة رقم لكل صلاة على حدة**
+ *   («مش اختيارات») من دقيقة إلى ١٢٠ دقيقة (ساعتان).
+ * - الافتراضيات: كل الصلوات ١٠ دقائق ماعاد الفجر ١٥ دقيقة، والجمعة
+ *   استثناء (بين الأذانين ١٠ وبين الثاني والإقامة ٣٠).
  */
 class AdhanGapsTest {
 
-    // ===== الاختيارات الثلاثة =====
+    // ===== حدود خانة الكتابة (كل الفواصل) =====
 
     @Test
-    fun `الاختيارات الثلاثة هي عشرة وخمسة عشر وعشرين فقط`() {
-        assertEquals(listOf(10, 15, 20), AdhanGaps.IQAMAH_OFFSET_CHOICES)
+    fun `حدود الخانة من دقيقة الى مئة وعشرين`() {
+        assertEquals(1, AdhanGaps.GAP_MIN_MINUTES)
+        assertEquals(120, AdhanGaps.GAP_MAX_MINUTES)
     }
 
     @Test
-    fun `قيم النسخ السابقة تلزم على أقرب اختيار`() {
-        assertEquals(10, AdhanGaps.snapIqamahOffset(5))
-        assertEquals(10, AdhanGaps.snapIqamahOffset(8))
-        assertEquals(15, AdhanGaps.snapIqamahOffset(15))
-        assertEquals(20, AdhanGaps.snapIqamahOffset(25))
-        assertEquals(20, AdhanGaps.snapIqamahOffset(30))
-        assertEquals(20, AdhanGaps.snapIqamahOffset(60))
-        assertEquals(10, AdhanGaps.snapIqamahOffset(0))
-        assertEquals(20, AdhanGaps.snapIqamahOffset(100))
+    fun `الحصر يبقي القيم الصالحة كما هي`() {
+        assertEquals(1, AdhanGaps.clampGap(1))
+        assertEquals(10, AdhanGaps.clampGap(10))
+        assertEquals(15, AdhanGaps.clampGap(15))
+        assertEquals(30, AdhanGaps.clampGap(30))
+        assertEquals(90, AdhanGaps.clampGap(90))
+        assertEquals(120, AdhanGaps.clampGap(120))
     }
 
     @Test
-    fun `القيم داخل الثلاثة تمر كما هي`() {
-        assertEquals(10, AdhanGaps.snapIqamahOffset(10))
-        assertEquals(15, AdhanGaps.snapIqamahOffset(15))
-        assertEquals(20, AdhanGaps.snapIqamahOffset(20))
+    fun `القيم الخارج الحدود تُحصر لا تُرفض عند القراءة`() {
+        assertEquals(1, AdhanGaps.clampGap(0))
+        assertEquals(1, AdhanGaps.clampGap(-5))
+        assertEquals(120, AdhanGaps.clampGap(121))
+        assertEquals(120, AdhanGaps.clampGap(600))
     }
 
     @Test
-    fun `أقرب اختيار يحسم القيم بين الاختيارات`() {
-        // منتصف المسافة بين 10 و15 هو 12.5 — فـ12 يؤول لـ10 و13 يؤول لـ15
-        assertEquals(10, AdhanGaps.snapIqamahOffset(12))
-        assertEquals(15, AdhanGaps.snapIqamahOffset(13))
-        // ومنتصف المسافة بين 15 و20 هو 17.5 — فـ17 يؤول لـ15 و18 يؤول لـ20
-        assertEquals(15, AdhanGaps.snapIqamahOffset(17))
-        assertEquals(20, AdhanGaps.snapIqamahOffset(18))
-    }
-
-    // ===== حصر فاصل الجمعة =====
-
-    @Test
-    fun `فاصل الجمعة محصور بين دقيقة ومئة وعشرين`() {
-        assertEquals(1, AdhanGaps.clampFridayIqamahGap(0))
-        assertEquals(1, AdhanGaps.clampFridayIqamahGap(-5))
-        assertEquals(1, AdhanGaps.clampFridayIqamahGap(1))
-        assertEquals(30, AdhanGaps.clampFridayIqamahGap(30))
-        assertEquals(90, AdhanGaps.clampFridayIqamahGap(90))
-        assertEquals(120, AdhanGaps.clampFridayIqamahGap(120))
-        assertEquals(120, AdhanGaps.clampFridayIqamahGap(121))
-        assertEquals(120, AdhanGaps.clampFridayIqamahGap(600))
+    fun `قيم النسخ السابقة داخل الحدود تمر كما هي`() {
+        // اختيارات alpha48 القديمة ١٠/١٥/٢٠ كلها داخل ١..١٢٠ فتبقى كما هي
+        for (v in listOf(10, 15, 20)) assertEquals(v, AdhanGaps.clampGap(v))
     }
 
     @Test
-    fun `صلاحية مدخل فاصل الجمعة`() {
-        assertTrue(AdhanGaps.isFridayGapInputValid(1))
-        assertTrue(AdhanGaps.isFridayGapInputValid(120))
-        assertFalse(AdhanGaps.isFridayGapInputValid(0))
-        assertFalse(AdhanGaps.isFridayGapInputValid(121))
-        assertFalse(AdhanGaps.isFridayGapInputValid(null))
+    fun `الافتراضيات المعتمدة فجر خمسة عشر والباقي عشرة`() {
+        assertEquals(15, AdhanGaps.DEFAULT_FAJR_GAP_MINUTES)
+        assertEquals(10, AdhanGaps.DEFAULT_PRAYER_GAP_MINUTES)
+        assertEquals(10, AdhanGaps.DEFAULT_FRIDAY_ADHAN_GAP_MINUTES)
+        assertEquals(30, AdhanGaps.DEFAULT_FRIDAY_IQAMAH_GAP_MINUTES)
+    }
+
+    @Test
+    fun `صلاحية مدخل الخانة`() {
+        assertTrue(AdhanGaps.isGapInputValid(1))
+        assertTrue(AdhanGaps.isGapInputValid(120))
+        assertFalse(AdhanGaps.isGapInputValid(0))
+        assertFalse(AdhanGaps.isGapInputValid(121))
+        assertFalse(AdhanGaps.isGapInputValid(null))
     }
 
     // ===== تحويل نص خانة الكتابة =====

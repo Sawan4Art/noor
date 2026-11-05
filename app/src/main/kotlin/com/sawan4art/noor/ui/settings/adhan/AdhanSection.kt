@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -51,14 +52,18 @@ import com.sawan4art.noor.data.AdhanPrefs
 import com.sawan4art.noor.domain.adhan.AdhanGaps
 import com.sawan4art.noor.domain.adhan.AdhanSoundKind
 import com.sawan4art.noor.domain.adhan.AdhanVoices
+import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 
 /**
- * إعدادات الأذان والإقامة — القسم الجديد كاملاً:
+ * إعدادات الأذان والإقامة — القسم كاملاً بتحديث المالك 2026-11-06:
  * تشغيل الأذان • صوت الأذان (خمسة مدمجة + من الهاتف + نغمة الإشعارات)
- * • الإقامة وصوتها والفاصل بينها وبين الأذان — ثلاثة اختيارات فقط
- * ١٠/١٥/٢٠ دقيقة (توجيه المالك alpha48) • أذان الجمعة مرتين بفاصلين:
- * بين الأذانين اختيارات، وبين الأذان الثاني والإقامة خانة كتابة حرة
- * من دقيقة إلى ١٢٠ (ساعتان) • كتم أصوات الهاتف بعد الأذان (اختياري)
+ * • الإقامة وصوتها وفاصلها **خانة كتابة رقم لكل صلاة على حدة** («مش
+ * اختيارات») — الافتراضي كل الصلوات ١٠ دقائق ماعاد الفجر ١٥ دقيقة
+ * • أذان الجمعة مرتين — «و طبعا صلاه الجمعه دي استثناء» بخانتَي كتابة
+ * مستقلتين (بين الأذانين ١٠ افتراضياً، وبين الأذان الثاني والإقامة ٣٠
+ * افتراضياً حتى ١٢٠ دقيقة = ساعتان) • كتم أصوات الهاتف **بعد الإقامة**
+ * بمدة محددة، واختيار جانبي لإلغاء الكتم بمجرد فتح قفل الشاشة يظهر مع
+ * تفعيل الكتم فقط.
  */
 
 /** أزرار صفحة الأذان — ينفّذها مسؤول الواجهة الرئيسي */
@@ -69,7 +74,8 @@ interface AdhanActions {
 
     fun setIqamahEnabled(on: Boolean)
 
-    fun setIqamahOffsetMinutes(minutes: Int)
+    /** فاصل الأذان←الإقامة لصلاة بعينها — خانة كتابة مستقلة */
+    fun setPrayerGapMinutes(key: PrayerTimeKey, minutes: Int)
 
     fun setIqamahVoice(id: String)
 
@@ -83,15 +89,12 @@ interface AdhanActions {
 
     fun setMuteMinutes(minutes: Int)
 
+    fun setMuteCancelOnUnlock(on: Boolean)
+
     fun importCustomSound(kind: AdhanSoundKind, uri: Uri)
 
     fun clearCustomSound(kind: AdhanSoundKind)
 }
-
-/** خيارات الفواصل الزمنية — ثلاثة فقط بتوجيه المالك (alpha48) */
-private val IQAMAH_OFFSETS = AdhanGaps.IQAMAH_OFFSET_CHOICES
-private val FRIDAY_ADHAN_GAPS = listOf(5, 10, 15, 20, 30)
-private val MUTE_MINUTES = listOf(5, 10, 15, 20, 30, 45, 60)
 
 @Composable
 fun AdhanSection(
@@ -185,17 +188,46 @@ fun AdhanSection(
         SectionBlock(title = "الإقامة") {
             ToggleRow(
                 title = "أذان الإقامة",
-                subtitle = "«قد قامت الصلاة» — يشتغل بعد الأذان بالمدة المحددة",
+                subtitle = "«قد قامت الصلاة» — يشتغل بعد الأذان بالمدة المحددة لكل صلاة",
                 checked = adhan.iqamahEnabled,
                 onToggle = { actions.setIqamahEnabled(it) },
             )
             if (adhan.iqamahEnabled) {
                 Spacer(Modifier.height(10.dp))
-                ChipsRow(
-                    label = "الفاصل بين الأذان والإقامة (افتراضي ١٠ دقائق)",
-                    options = IQAMAH_OFFSETS,
-                    selected = adhan.iqamahOffsetMinutes,
-                    onSelect = { actions.setIqamahOffsetMinutes(it) },
+                Text(
+                    text = "الفاصل بين الأذان والإقامة — خانة لكل صلاة على حدة",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(4.dp))
+                // تحديث المالك 2026-11-06: «تحديد الوقت بين الاذان يكون
+                // خانه كتابه رقم مش اختيارات و يكون لكل صلاه على حده و
+                // الظبط الافتراضي كل الصلوات ١٠د ماعاد صلاه الفجر تكون ١٥ د»
+                GapInputRow(
+                    label = "الفجر (افتراضي ١٥ دقيقة)",
+                    minutes = adhan.gapFajrMinutes,
+                    onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.FAJR, it) },
+                )
+                GapInputRow(
+                    label = "الظهر (افتراضي ١٠ دقائق)",
+                    minutes = adhan.gapDhuhrMinutes,
+                    onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.DHUHR, it) },
+                )
+                GapInputRow(
+                    label = "العصر (افتراضي ١٠ دقائق)",
+                    minutes = adhan.gapAsrMinutes,
+                    onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.ASR, it) },
+                )
+                GapInputRow(
+                    label = "المغرب (افتراضي ١٠ دقائق)",
+                    minutes = adhan.gapMaghribMinutes,
+                    onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.MAGHRIB, it) },
+                )
+                GapInputRow(
+                    label = "العشاء (افتراضي ١٠ دقائق)",
+                    minutes = adhan.gapIshaMinutes,
+                    onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.ISHA, it) },
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -248,17 +280,15 @@ fun AdhanSection(
             )
             if (adhan.fridayDouble) {
                 Spacer(Modifier.height(10.dp))
-                ChipsRow(
-                    label = "الفاصل بين الأذان الأول والثاني (افتراضي ١٠ دقائق)",
-                    options = FRIDAY_ADHAN_GAPS,
-                    selected = adhan.fridayAdhanGapMinutes,
-                    onSelect = { actions.setFridayAdhanGapMinutes(it) },
+                // الجمعة استثناء كما حدد المالك — فاصلاها خانتا كتابة مستقلتان
+                GapInputRow(
+                    label = "بين الأذان الأول والثاني (افتراضي ١٠ دقائق)",
+                    minutes = adhan.fridayAdhanGapMinutes,
+                    onCommit = { actions.setFridayAdhanGapMinutes(it) },
                 )
                 Spacer(Modifier.height(12.dp))
-                // alpha48 بتوجيه المالك: الفاصل بين الأذان الثاني والإقامة
-                // في الجمعة ممكن يصل ساعتين — خانة كتابة حرة لا اختيارات
                 GapInputRow(
-                    label = "الفاصل بين الأذان الثاني والإقامة (افتراضي ٣٠ دقيقة)",
+                    label = "بين الأذان الثاني والإقامة (افتراضي ٣٠ دقيقة)",
                     minutes = adhan.fridayIqamahGapMinutes,
                     onCommit = { actions.setFridayIqamahGapMinutes(it) },
                 )
@@ -267,22 +297,31 @@ fun AdhanSection(
 
         SectionBlock(title = "كتم أصوات الهاتف") {
             ToggleRow(
-                title = "كتم الهاتف مع الأذان",
+                title = "كتم الهاتف بعد الإقامة",
                 subtitle = if (adhan.muteEnabled) {
-                    "يكتم الهاتف كله مع بدء الأذان ويرجع الصوت بعد الإقامة تلقائياً"
+                    "يكتم الهاتف كله بعد انتهاء الإقامة ويرجع الصوت تلقائياً بعد المدة المحددة"
                 } else {
-                    "مطفأ — اختياري لمن يريد سكوناً تاماً وقت الصلاة"
+                    "مطفأ — اختياري لمن يريد سكوناً تاماً وقت الصلاة (وبعد الأذان لو الإقامة مطفأة)"
                 },
                 checked = adhan.muteEnabled,
                 onToggle = { actions.setMuteEnabled(it) },
             )
             if (adhan.muteEnabled) {
                 Spacer(Modifier.height(10.dp))
-                ChipsRow(
+                GapInputRow(
                     label = "بعد الإقامة بكم دقيقة يرجع الصوت؟ (افتراضي ١٠ دقائق)",
-                    options = MUTE_MINUTES,
-                    selected = adhan.muteMinutes,
-                    onSelect = { actions.setMuteMinutes(it) },
+                    minutes = adhan.muteMinutes,
+                    onCommit = { actions.setMuteMinutes(it) },
+                )
+                Spacer(Modifier.height(8.dp))
+                // الاختيار الجانبي بتوجيه المالك: يظهر فقط مع تفعيل الكتم —
+                // «يتم الغاء تفعيل كتم الاصوات عند فتح قفل الشاشه» حتى لو
+                // المدة المحددة لم تنقضِ بعد
+                ToggleRow(
+                    title = "إلغاء الكتم عند فتح قفل الشاشة",
+                    subtitle = "أول ما تفتح قفل هاتفك يرجع الصوت فوراً حتى لو المدة لم تنقضِ — مثال: حددت ١٥ دقيقة وخلصت صلاتك في ١٠ ففتحت هاتفك فيرجع الصوت في الحال",
+                    checked = adhan.muteCancelOnUnlock,
+                    onToggle = { actions.setMuteCancelOnUnlock(it) },
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -318,7 +357,7 @@ internal fun SectionBlock(
     title: String,
     content: @Composable () -> Unit,
 ) {
-    androidx.compose.foundation.layout.Column(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 10.dp),
@@ -348,7 +387,7 @@ internal fun ToggleRow(
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 fontSize = 14.sp,
@@ -384,7 +423,7 @@ internal fun VoiceList(
     onPickCustom: () -> Unit,
     onClearCustom: () -> Unit,
 ) {
-    androidx.compose.foundation.layout.Column {
+    Column {
         val builtin = if (kind == AdhanSoundKind.ADHAN) AdhanVoices.ADHAN else AdhanVoices.IQAMAH
         for (voice in builtin) {
             VoiceRow(
@@ -446,7 +485,7 @@ internal fun VoiceRow(
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 fontSize = 13.sp,
@@ -494,49 +533,11 @@ internal fun VoiceRow(
     }
 }
 
-@Composable
-internal fun ChipsRow(
-    label: String,
-    options: List<Int>,
-    selected: Int,
-    onSelect: (Int) -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
-    Text(
-        text = label,
-        fontSize = 12.sp,
-        color = scheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(6.dp))
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        for (option in options) {
-            val isSelected = option == selected
-            Text(
-                text = option.toString(),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isSelected) scheme.onPrimary else scheme.onSurfaceVariant,
-                modifier = Modifier
-                    .weight(1f)
-                    .background(
-                        if (isSelected) scheme.primary else scheme.surfaceVariant.copy(alpha = 0.25f),
-                        RoundedCornerShape(12.dp),
-                    )
-                    .clickable { onSelect(option) }
-                    .padding(vertical = 10.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
-        }
-    }
-}
-
 /**
- * خانة كتابة حرة لفاصل الجمعة بين الأذان الثاني والإقامة — بتوجيه
- * المالك (alpha48): «ممكن يصل لغايه ٢ ساعه ف عايز خانه كتابه و ليس
- * اختيارات». تقبل الأرقام العربية والغربية، وتحفظ فوراً كل قيمة
+ * خانة كتابة حرة لفاصل زمني بالدقائق — بتوجيه المالك (2026-11-06):
+ * «خانه كتابه رقم مش اختيارات» لكل صلاة على حدة، وفاصل الجمعة بين
+ * الأذان الثاني والإقامة «ممكن يصل لغايه ٢ ساعه ف انت عايز خانه كتابه
+ * و ليس اختيارات». تقبل الأرقام العربية والغربية، وتحفظ فوراً كل قيمة
  * صالحة (١..١٢٠)، وما تقبلش قيمة خارج الحدود وتوضّح السبب.
  */
 @Composable
@@ -553,7 +554,7 @@ internal fun GapInputRow(
         val parsed = AdhanGaps.parseMinutesInput(raw)
         when {
             parsed == null -> invalid = raw.isNotEmpty()
-            AdhanGaps.isFridayGapInputValid(parsed) -> {
+            AdhanGaps.isGapInputValid(parsed) -> {
                 invalid = false
                 if (parsed != minutes) onCommit(parsed)
             }

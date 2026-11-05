@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.AudioManager
@@ -33,9 +35,13 @@ import java.io.File
  *   إقامات) أو صوت مختار من الهاتف أو نغمة إشعارات الهاتف.
  * - **الانبثاق فوق القفل**: إشعار بأولوية قصوى ومنبثق كامل الشاشة
  *   (full-screen intent) يفتح شاشة التنبيه فوق القفل ويُشعل الشاشة.
- * - **كتم الهاتف**: مع بدء الأذان (إن كان الكتم مفعّلاً) يُكتم الهاتف
- *   كله بعدم الإزعاج أو بالوضع الصامت، والاستعادة بمنبه مستقل بعد
- *   الإقامة بمُدة محددة — وأيضاً عند الإيقاف اليدوي كإجراء أمان.
+ * - **كتم الهاتف بعد الإقامة** (تحديث المالك 2026-11-06: «ميزه لكتم
+ *   الاصوات لو المستخدم حدد ٣٠ دقيقه مثلا بعد الاقامه»): بعد انتهاء
+ *   صوت الإقامة (أو الأذان إن بلا إقامة) تدخل الخدمة «نافذة الكتم» —
+ *   إشعار هادئ دائم يوضّح متى يرجع الصوت، وفَكُّ قفل الشاشة يلغي
+ *   الكتم فوراً إن اختار المالك ذلك («اصوات الهاتف ترجع تشتغل تاني
+ *   حتى لو لسه الوقت لم ينقضي»)، والاستعادة التلقائية بمنبه مستقل
+ *   حتى لو قُتلت العملية.
  */
 class AlarmService : Service() {
 
@@ -43,10 +49,23 @@ class AlarmService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var safetyStop: Runnable? = null
 
-    /** هل الكتم مفعّل حالياً من هذه الخدمة (لاستعادته عند الإيقاف اليدوي) */
-    private var muteAppliedHere = false
-    private var previousRingerMode = AudioManager.RINGER_MODE_NORMAL
-    private var previousInterruptionFilter = NotificationManager.INTERRUPTION_FILTER_ALL
+    /** إعدادات نافذة الكتم للحبة الحالية — تُملأ من نية الحدث */
+    private var muteStartPending = false
+    private var muteMinutes = 10
+    private var muteCancelOnUnlock = true
+
+    /** هل نحن الآن داخل نافذة الكتم (بعد انتهاء الصوت)؟ */
+    private var inMuteWindow = false
+
+    /** مستقبِل فتح قفل الشاشة — يلغي الكتم فوراً إن كان الاختيار مفعّلاً */
+    private val unlockReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != Intent.ACTION_USER_PRESENT) return
+            if (!inMuteWindow || !muteCancelOnUnlock) return
+            // المالك: المستخدم فتح تلفونه — أصوات الهاتف ترجع فوراً
+            endMuteWindow()
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -58,16 +77,33 @@ class AlarmService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                restoreMuteIfApplied()
+                MuteManager.restore(this)
                 stopSelf()
                 return START_NOT_STICKY
             }
+            ACTION_RESTORE_MUTE -> {
+                MuteManager.restore(this)
+                stopSelf()
+                return START_NOT_STICKY
+            }
+        }
+
+        // حدث جديد يصل والكتم ما زال حياً من صلاة سابقة — يُرجَع الصوت
+        // أولاً كي يُسمع هذا الحدث ويبدأ الكتم من جديد في وقته
+        if (MuteManager.isActive(this)) {
+            MuteManager.restore(this)
+            endMuteWindowInternal()
         }
 
         val mode = intent?.getStringExtra(EXTRA_MODE) ?: MODE_ADHAN
         val prayerName = intent?.getStringExtra(EXTRA_PRAYER_NAME) ?: "الصلاة"
         val soundId = intent?.getStringExtra(EXTRA_SOUND_ID) ?: "main"
         val customPath = intent?.getStringExtra(EXTRA_CUSTOM_PATH) ?: ""
+
+        muteStartPending = intent?.getBooleanExtra(EXTRA_MUTE_START, false) == true
+        muteMinutes = intent?.getIntExtra(EXTRA_MUTE_MINUTES, 10)?.coerceAtLeast(1) ?: 10
+        muteCancelOnUnlock = intent?.getBooleanExtra(EXTRA_MUTE_CANCEL_ON_UNLOCK, true) ?: true
+        inMuteWindow = false
 
         val started = runCatching {
             startInForeground(prayerName, mode)
@@ -81,11 +117,6 @@ class AlarmService : Service() {
         if (!started) return START_NOT_STICKY
 
         acquireWakeLock()
-
-        if (mode == MODE_ADHAN) {
-            // كتم أصوات الهاتف مع بدء الأذان الصوتي (اختياري من الإعدادات)
-            applyMute(intent?.getBooleanExtra(EXTRA_MUTE_ENABLED, false) == true)
-        }
 
         val kind = if (mode == MODE_IQAMAH) AdhanSoundKind.IQAMAH else AdhanSoundKind.ADHAN
         play(kind, soundId, customPath)
@@ -161,6 +192,32 @@ class AlarmService : Service() {
             .build()
     }
 
+    /** إشعار نافذة الكتم — هادئ دائم يوضّح متى يرجع الصوت وكيف يُستعجل */
+    private fun postMuteWindowNotification(): Notification {
+        val restorePi = PendingIntent.getService(
+            this,
+            1,
+            Intent(this, AlarmService::class.java).setAction(ACTION_RESTORE_MUTE),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val until = MuteManager.restoreAtText(this, muteMinutes)
+        val text = if (muteCancelOnUnlock) {
+            "يُرجَع الصوت تلقائياً حوالي $until — أو فور فتح قفل الشاشة"
+        } else {
+            "يُرجَع الصوت تلقائياً حوالي $until"
+        }
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_update)
+            .setContentTitle("أصوات الهاتف مكتومة بعد الإقامة")
+            .setContentText(text)
+            .setOngoing(true)
+            .addAction(0, "إرجاع الصوت الآن", restorePi)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .build()
+    }
+
     /* ============================ التشغيل ============================ */
 
     private fun play(kind: AdhanSoundKind, soundId: String, customPath: String) {
@@ -218,76 +275,82 @@ class AlarmService : Service() {
         }.getOrNull()
 
         if (prepared == null) {
-            stopSelf()
+            // فشل التشغيل — نمر بنفس مسار الانتهاء (الكتم إن كان هو بدايته)
+            finishPlayback()
             return
         }
         player = prepared
-        prepared.setOnCompletionListener {
-            restoreMuteIfApplied()
-            stopSelf()
-        }
+        prepared.setOnCompletionListener { finishPlayback() }
         prepared.setOnErrorListener { _, _, _ ->
-            restoreMuteIfApplied()
-            stopSelf()
+            finishPlayback()
             true
         }
         prepared.start()
 
-        // أمان: إيقاف تلقائي بعد الحد الأقصى مهما حدث
+        // أمان: نهاية التشغيل تلقائياً بعد الحد الأقصى مهما حدث —
+        // وتنتهي بنفس مسار الانتهاء الطبيعي (نافذة الكتم إن كانت بدايته)
         val self = this
-        safetyStop = Runnable {
-            restoreMuteIfApplied()
-            self.stopSelf()
-        }
+        safetyStop = Runnable { finishPlayback() }
         handler.postDelayed(safetyStop!!, AlarmScheduler.MAX_PLAY_MINUTES * 60_000)
     }
 
+    /**
+     * نهاية الصوت — المسار الموحد لاكتمال التشغيل أو خطئه أو أمانه:
+     * إن كان هذا الحدث بداية الكتم تدخل نافذة الكتم، وإلا تنتهي الخدمة.
+     */
+    private fun finishPlayback() {
+        releasePlayer()
+        if (muteStartPending && !inMuteWindow) {
+            muteStartPending = false
+            enterMuteWindow()
+        } else {
+            stopSelf()
+        }
+    }
+
+    /* ============================ نافذة الكتم ============================ */
+
+    /**
+     * نافذة الكتم بعد الإقامة — الصوت مكتوم المُدة المحددة، والخدمة
+     * حية بإشعار هادئ تحفظ فك القفل (إن اختاره المالك) والاستعادة اليدوية.
+     */
+    private fun enterMuteWindow() {
+        val applied = MuteManager.apply(this, muteMinutes)
+        if (!applied) {
+            stopSelf()
+            return
+        }
+        inMuteWindow = true
+        if (muteCancelOnUnlock) {
+            val filter = if (Build.VERSION.SDK_INT >= 33) {
+                Context.RECEIVER_NOT_EXPORTED
+            } else {
+                0
+            }
+            runCatching {
+                registerReceiver(unlockReceiver, IntentFilter(Intent.ACTION_USER_PRESENT), filter)
+            }
+        }
+        // تحديث إشعار الخدمة الأمامية نفسه — بلا إشعار ثانٍ
+        runCatching {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(NOTIFICATION_ID, postMuteWindowNotification())
+        }
+    }
+
+    /** إلغاء نافذة الكتم: استعادة الصوت + تنظيف المستقبِل + إنهاء الخدمة */
+    private fun endMuteWindow() {
+        MuteManager.restore(this)
+        endMuteWindowInternal()
+    }
+
+    private fun endMuteWindowInternal() {
+        inMuteWindow = false
+        runCatching { unregisterReceiver(unlockReceiver) }
+        stopSelf()
+    }
+
     private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
-
-    /* ============================ كتم أصوات الهاتف ============================ */
-
-    private fun applyMute(enabled: Boolean) {
-        if (!enabled) return
-        runCatching {
-            val audio = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-
-            previousRingerMode = audio?.ringerMode ?: AudioManager.RINGER_MODE_NORMAL
-            previousInterruptionFilter = nm?.currentInterruptionFilter
-                ?: NotificationManager.INTERRUPTION_FILTER_ALL
-
-            var applied = false
-            // الأولوية لعدم الإزعاج الكامل إن مُنح الإذن (الأشمل)
-            if (nm?.isNotificationPolicyAccessGranted == true) {
-                runCatching {
-                    nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE)
-                    applied = true
-                }
-            }
-            if (!applied && audio != null) {
-                runCatching {
-                    audio.ringerMode = AudioManager.RINGER_MODE_SILENT
-                    applied = true
-                }
-            }
-            muteAppliedHere = applied
-        }
-    }
-
-    private fun restoreMuteIfApplied() {
-        if (!muteAppliedHere) return
-        muteAppliedHere = false
-        runCatching {
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-            if (nm?.isNotificationPolicyAccessGranted == true) {
-                runCatching { nm.setInterruptionFilter(previousInterruptionFilter) }
-            }
-            val audio = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-            if (audio != null && previousRingerMode != AudioManager.RINGER_MODE_SILENT) {
-                runCatching { audio.ringerMode = previousRingerMode }
-            }
-        }
-    }
 
     private fun acquireWakeLock() {
         runCatching {
@@ -310,6 +373,12 @@ class AlarmService : Service() {
 
     override fun onDestroy() {
         releasePlayer()
+        if (inMuteWindow) {
+            // قُتلت الخدمة من النظام — المستقبِل الديناميكي يرحل معها،
+            // والاستعادة بمنبه MuteManager الاحتياطي في موعده مهما حدث
+            inMuteWindow = false
+            runCatching { unregisterReceiver(unlockReceiver) }
+        }
         wakeLock?.let { w -> runCatching { if (w.isHeld) w.release() } }
         wakeLock = null
         super.onDestroy()
@@ -327,10 +396,13 @@ class AlarmService : Service() {
         const val EXTRA_PRAYER_NAME = "noor_extra_alarm_prayer_name"
         const val EXTRA_SOUND_ID = "noor_extra_alarm_sound_id"
         const val EXTRA_CUSTOM_PATH = "noor_extra_alarm_custom_path"
-        const val EXTRA_MUTE_ENABLED = "noor_extra_alarm_mute_enabled"
+        const val EXTRA_MUTE_START = "noor_extra_alarm_mute_start"
+        const val EXTRA_MUTE_MINUTES = "noor_extra_alarm_mute_minutes"
+        const val EXTRA_MUTE_CANCEL_ON_UNLOCK = "noor_extra_alarm_mute_cancel_on_unlock"
         const val MODE_ADHAN = "adhan"
         const val MODE_IQAMAH = "iqamah"
         const val ACTION_STOP = "com.sawan4art.noor.action.ADHAAN_STOP"
+        const val ACTION_RESTORE_MUTE = "com.sawan4art.noor.action.ADHAAN_RESTORE_MUTE"
 
         /** قنوات الأذان تُنشأ مبكراً أيضاً من المستقبِل قبل أي إشعار */
         fun ensureChannels(context: Context) {
@@ -352,18 +424,9 @@ class AlarmService : Service() {
             )
         }
 
-        /** استعادة فورية لأصوات الهاتف (منبه الاستعادة / الإيقاف اليدوي) */
+        /** استعادة فورية لأصوات الهاتف (منبه الاحتياط / إجراءات المستخدم) */
         fun restoreMuteNow(context: Context) {
-            runCatching {
-                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-                if (nm?.isNotificationPolicyAccessGranted == true) {
-                    runCatching { nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL) }
-                }
-                val audio = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-                if (audio?.ringerMode == AudioManager.RINGER_MODE_SILENT) {
-                    runCatching { audio.ringerMode = AudioManager.RINGER_MODE_NORMAL }
-                }
-            }
+            MuteManager.restore(context)
         }
 
         /** إشعار هادئ عند تعذّر تشغيل الصوت — لا صلاة تفوت بلا أي ذكر */

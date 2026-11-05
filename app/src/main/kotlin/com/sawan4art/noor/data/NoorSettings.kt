@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sawan4art.noor.domain.adhan.AdhanGaps
 import com.sawan4art.noor.domain.prayer.CalculationMethod
+import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -26,9 +27,13 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 /**
  * تفضيلات الأذان والإقامة — القسم الجديد في الإعدادات:
  * - الأذان مفعّل افتراضياً للصلوات الخمس (الشروق بلا أذان)
- * - الإقامة مطفأة افتراضياً والفاصل بينها وبين الأذان ١٠ دقائق
- * - الجمعة: أذان مرتين — فاصل ١٠ دقائق بين الأذانين ثم الإقامة بعد ٣٠ دقيقة
- * - كتم أصوات الهاتف بعد الأذان اختياري (مطفأ افتراضياً، ١٠ دقائق)
+ * - الإقامة مطفأة افتراضياً — وفاصلها خانة كتابة **لكل صلاة على حدة**
+ *   (تحديث المالك 2026-11-06: «خانه كتابه رقم مش اختيارات و يكون لكل
+ *   صلاه على حده») — الافتراضي كل الصلوات ١٠ دقائق ماعاد الفجر ١٥ دقيقة
+ * - الجمعة استثناء: أذان مرتين — فاصل ١٠ دقائق بين الأذانين ثم
+ *   الإقامة بعد ٣٠ دقيقة (خانتا كتابة مستقلتان حتى ١٢٠ دقيقة)
+ * - كتم أصوات الهاتف **بعد الإقامة** اختياري (مطفأ افتراضياً، ١٠ دقائق)
+ *   واختيار جانبي لإلغاء الكتم بمجرد فتح قفل الشاشة يظهر مع تفعيل الكتم فقط
  * - صوت مخصص من الهاتف للأذان وللإقامة (مسار واسم الملف)
  * - أو نغمة إشعارات الهاتف بدلاً من الأذان/الإقامة
  */
@@ -37,18 +42,35 @@ data class AdhanPrefs(
     /** صوت الأذان: معرّف مدمج | custom (من الهاتف) | notification (نغمة الإشعارات) */
     val adhanVoice: String = "main",
     val iqamahEnabled: Boolean = false,
-    val iqamahOffsetMinutes: Int = 10,
+    /** فاصل الأذان←الإقامة لكل صلاة على حدة (خانة كتابة ١..١٢٠ دقيقة) */
+    val gapFajrMinutes: Int = AdhanGaps.DEFAULT_FAJR_GAP_MINUTES,
+    val gapDhuhrMinutes: Int = AdhanGaps.DEFAULT_PRAYER_GAP_MINUTES,
+    val gapAsrMinutes: Int = AdhanGaps.DEFAULT_PRAYER_GAP_MINUTES,
+    val gapMaghribMinutes: Int = AdhanGaps.DEFAULT_PRAYER_GAP_MINUTES,
+    val gapIshaMinutes: Int = AdhanGaps.DEFAULT_PRAYER_GAP_MINUTES,
     val iqamahVoice: String = "makkah",
     val fridayDouble: Boolean = true,
-    val fridayAdhanGapMinutes: Int = 10,
-    val fridayIqamahGapMinutes: Int = 30,
+    val fridayAdhanGapMinutes: Int = AdhanGaps.DEFAULT_FRIDAY_ADHAN_GAP_MINUTES,
+    val fridayIqamahGapMinutes: Int = AdhanGaps.DEFAULT_FRIDAY_IQAMAH_GAP_MINUTES,
     val muteEnabled: Boolean = false,
     val muteMinutes: Int = 10,
+    /** إلغاء الكتم بمجرد فتح قفل الشاشة — اختيار جانبي يظهر مع الكتم فقط */
+    val muteCancelOnUnlock: Boolean = true,
     val customAdhanPath: String = "",
     val customAdhanName: String = "",
     val customIqamahPath: String = "",
     val customIqamahName: String = "",
-)
+) {
+    /** فاصل الأذان←الإقامة الخاص بصلاة معينة — استهلاك خطّة الأذان */
+    fun gapFor(key: PrayerTimeKey): Int = when (key) {
+        PrayerTimeKey.FAJR -> gapFajrMinutes
+        PrayerTimeKey.DHUHR -> gapDhuhrMinutes
+        PrayerTimeKey.ASR -> gapAsrMinutes
+        PrayerTimeKey.MAGHRIB -> gapMaghribMinutes
+        PrayerTimeKey.ISHA -> gapIshaMinutes
+        PrayerTimeKey.SUNRISE -> 0 // الشروق ليست صلاة ولا أذان فيها
+    }
+}
 
 /** ذاكرة نظام التحديثات — متى فُحص آخر مرة وماذا أُشعر عنه ومتى واستُبعد */
 data class UpdatePrefs(
@@ -103,17 +125,41 @@ class SettingsRepository(private val context: Context) {
         val ADHAN_ENABLED = booleanPreferencesKey("adhan_enabled")
         val ADHAN_VOICE = stringPreferencesKey("adhan_voice")
         val IQAMAH_ENABLED = booleanPreferencesKey("iqamah_enabled")
+        /** مفتاح النسخ القديم (فاصل عام واحد) — يُورَّث لكل الصلوات إن لم تُحدَّد */
         val IQAMAH_OFFSET = intPreferencesKey("iqamah_offset_minutes")
+        /** مفاتيح الفاصل لكل صلاة على حدة (تحديث المالك 2026-11-06) */
+        val GAP_FAJR = intPreferencesKey("gap_fajr_minutes")
+        val GAP_DHUHR = intPreferencesKey("gap_dhuhr_minutes")
+        val GAP_ASR = intPreferencesKey("gap_asr_minutes")
+        val GAP_MAGHRIB = intPreferencesKey("gap_maghrib_minutes")
+        val GAP_ISHA = intPreferencesKey("gap_isha_minutes")
         val IQAMAH_VOICE = stringPreferencesKey("iqamah_voice")
         val FRIDAY_DOUBLE = booleanPreferencesKey("friday_double_adhan")
         val FRIDAY_ADHAN_GAP = intPreferencesKey("friday_adhan_gap_minutes")
         val FRIDAY_IQAMAH_GAP = intPreferencesKey("friday_iqamah_gap_minutes")
         val MUTE_ENABLED = booleanPreferencesKey("adhan_mute_enabled")
         val MUTE_MINUTES = intPreferencesKey("adhan_mute_minutes")
+        val MUTE_CANCEL_ON_UNLOCK = booleanPreferencesKey("adhan_mute_cancel_on_unlock")
         val CUSTOM_ADHAN_PATH = stringPreferencesKey("custom_adhan_path")
         val CUSTOM_ADHAN_NAME = stringPreferencesKey("custom_adhan_name")
         val CUSTOM_IQAMAH_PATH = stringPreferencesKey("custom_iqamah_path")
         val CUSTOM_IQAMAH_NAME = stringPreferencesKey("custom_iqamah_name")
+        // طلب الصلاحيات — آخر نسخة طُلبت عندها السلسلة كاملة
+        val PERMISSIONS_ASKED_VERSION = intPreferencesKey("permissions_asked_version")
+    }
+
+    /**
+     * قراءة فاصل صلاة من مخزن مع وراثة المفتاح القديم العام — لو لم
+     * تُحدَّد الصلاة قط فقيمة المفتاح القديم (إن وُجدت) تحكم، وإلا الافتراضي.
+     */
+    private fun readGap(
+        p: androidx.datastore.preferences.core.Preferences,
+        key: androidx.datastore.preferences.core.Preferences.Key<Int>,
+        fallback: Int,
+    ): Int {
+        p[key]?.let { return AdhanGaps.clampGap(it) }
+        p[Keys.IQAMAH_OFFSET]?.let { return AdhanGaps.clampGap(it) }
+        return fallback
     }
 
     val settings: Flow<NoorSettingsState> = context.noorDataStore.data.map { p ->
@@ -133,25 +179,31 @@ class SettingsRepository(private val context: Context) {
 
     /**
      * تفضيلات الأذان والإقامة — أي تغيير يعيد جدولة منبهات الأذان.
-     * القيم المقروءة تُطبَّع دائماً على قواعد المالك (alpha48):
-     * فاصل الأذان/الإقامة يُلزَم على الاختيارات الثلاثة ١٠/١٥/٢٠،
-     * وفاصل جمعة الثانٍ يُحصر داخل ١..١٢٠ دقيقة — فلا تعود قيمة
-     * من نسخة سابقة بلا زرٍّ أو خارج الحدود المسموحة.
+     * القيم المقروءة تُحصر دائماً في حدود خانة الكتابة (١..١٢٠ دقيقة)
+     * فلا تعود قيمة من نسخة سابقة خارج الحدود المسموحة، وفواصل الصلوات
+     * لكل صلاة على حدة مع وراثة المفتاح العام القديم إن لم تُحدَّد.
      */
     val adhanPrefs: Flow<AdhanPrefs> = context.noorDataStore.data.map { p ->
         AdhanPrefs(
             enabled = p[Keys.ADHAN_ENABLED] ?: true,
             adhanVoice = p[Keys.ADHAN_VOICE] ?: "main",
             iqamahEnabled = p[Keys.IQAMAH_ENABLED] ?: false,
-            iqamahOffsetMinutes = AdhanGaps.snapIqamahOffset(p[Keys.IQAMAH_OFFSET] ?: 10),
+            gapFajrMinutes = readGap(p, Keys.GAP_FAJR, AdhanGaps.DEFAULT_FAJR_GAP_MINUTES),
+            gapDhuhrMinutes = readGap(p, Keys.GAP_DHUHR, AdhanGaps.DEFAULT_PRAYER_GAP_MINUTES),
+            gapAsrMinutes = readGap(p, Keys.GAP_ASR, AdhanGaps.DEFAULT_PRAYER_GAP_MINUTES),
+            gapMaghribMinutes = readGap(p, Keys.GAP_MAGHRIB, AdhanGaps.DEFAULT_PRAYER_GAP_MINUTES),
+            gapIshaMinutes = readGap(p, Keys.GAP_ISHA, AdhanGaps.DEFAULT_PRAYER_GAP_MINUTES),
             iqamahVoice = p[Keys.IQAMAH_VOICE] ?: "makkah",
             fridayDouble = p[Keys.FRIDAY_DOUBLE] ?: true,
-            fridayAdhanGapMinutes = p[Keys.FRIDAY_ADHAN_GAP] ?: 10,
-            fridayIqamahGapMinutes = AdhanGaps.clampFridayIqamahGap(
-                p[Keys.FRIDAY_IQAMAH_GAP] ?: 30,
+            fridayAdhanGapMinutes = AdhanGaps.clampGap(
+                p[Keys.FRIDAY_ADHAN_GAP] ?: AdhanGaps.DEFAULT_FRIDAY_ADHAN_GAP_MINUTES,
+            ),
+            fridayIqamahGapMinutes = AdhanGaps.clampGap(
+                p[Keys.FRIDAY_IQAMAH_GAP] ?: AdhanGaps.DEFAULT_FRIDAY_IQAMAH_GAP_MINUTES,
             ),
             muteEnabled = p[Keys.MUTE_ENABLED] ?: false,
-            muteMinutes = p[Keys.MUTE_MINUTES] ?: 10,
+            muteMinutes = AdhanGaps.clampGap(p[Keys.MUTE_MINUTES] ?: 10),
+            muteCancelOnUnlock = p[Keys.MUTE_CANCEL_ON_UNLOCK] ?: true,
             customAdhanPath = p[Keys.CUSTOM_ADHAN_PATH] ?: "",
             customAdhanName = p[Keys.CUSTOM_ADHAN_NAME] ?: "",
             customIqamahPath = p[Keys.CUSTOM_IQAMAH_PATH] ?: "",
@@ -177,9 +229,18 @@ class SettingsRepository(private val context: Context) {
         context.noorDataStore.edit { it[Keys.IQAMAH_ENABLED] = on }
     }
 
-    /** الفاصل بين الأذان والإقامة — يُلزَم على الاختيارات الثلاثة عند الحفظ */
-    suspend fun setIqamahOffsetMinutes(minutes: Int) {
-        context.noorDataStore.edit { it[Keys.IQAMAH_OFFSET] = AdhanGaps.snapIqamahOffset(minutes) }
+    /** فاصل الأذان←الإقامة لصلاة بعينها — خانة كتابة تُحصر في ١..١٢٠ عند الحفظ */
+    suspend fun setPrayerGapMinutes(key: PrayerTimeKey, minutes: Int) {
+        context.noorDataStore.edit {
+            when (key) {
+                PrayerTimeKey.FAJR -> it[Keys.GAP_FAJR] = AdhanGaps.clampGap(minutes)
+                PrayerTimeKey.DHUHR -> it[Keys.GAP_DHUHR] = AdhanGaps.clampGap(minutes)
+                PrayerTimeKey.ASR -> it[Keys.GAP_ASR] = AdhanGaps.clampGap(minutes)
+                PrayerTimeKey.MAGHRIB -> it[Keys.GAP_MAGHRIB] = AdhanGaps.clampGap(minutes)
+                PrayerTimeKey.ISHA -> it[Keys.GAP_ISHA] = AdhanGaps.clampGap(minutes)
+                PrayerTimeKey.SUNRISE -> Unit // الشروق بلا أذان ولا إقامة
+            }
+        }
     }
 
     suspend fun setIqamahVoice(id: String) {
@@ -190,14 +251,17 @@ class SettingsRepository(private val context: Context) {
         context.noorDataStore.edit { it[Keys.FRIDAY_DOUBLE] = on }
     }
 
+    /** فاصل الجمعة (الأذان الأول ← الثاني) — يُحصر داخل ١..١٢٠ دقيقة عند الحفظ */
     suspend fun setFridayAdhanGapMinutes(minutes: Int) {
-        context.noorDataStore.edit { it[Keys.FRIDAY_ADHAN_GAP] = minutes }
+        context.noorDataStore.edit {
+            it[Keys.FRIDAY_ADHAN_GAP] = AdhanGaps.clampGap(minutes)
+        }
     }
 
     /** فاصل جمعة (الأذان الثاني ← الإقامة) — يُحصر داخل ١..١٢٠ دقيقة عند الحفظ */
     suspend fun setFridayIqamahGapMinutes(minutes: Int) {
         context.noorDataStore.edit {
-            it[Keys.FRIDAY_IQAMAH_GAP] = AdhanGaps.clampFridayIqamahGap(minutes)
+            it[Keys.FRIDAY_IQAMAH_GAP] = AdhanGaps.clampGap(minutes)
         }
     }
 
@@ -205,8 +269,30 @@ class SettingsRepository(private val context: Context) {
         context.noorDataStore.edit { it[Keys.MUTE_ENABLED] = on }
     }
 
+    /** مُدة الكتم بعد الإقامة — خانة كتابة تُحصر في ١..١٢٠ دقيقة عند الحفظ */
     suspend fun setMuteMinutes(minutes: Int) {
-        context.noorDataStore.edit { it[Keys.MUTE_MINUTES] = minutes }
+        context.noorDataStore.edit { it[Keys.MUTE_MINUTES] = AdhanGaps.clampGap(minutes) }
+    }
+
+    /** إلغاء الكتم عند فتح قفل الشاشة — اختيار جانبي مع تفعيل الكتم */
+    suspend fun setMuteCancelOnUnlock(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.MUTE_CANCEL_ON_UNLOCK] = on }
+    }
+
+    /**
+     * ذاكرة نسخة طلب الصلاحيات — السلسلة تعمل أول تشغيل (ذاكرة ٠)
+     * وبعد كل تحديث (نسخة جديدة) بتوجيه المالك: «خلي التطبيق يطلب
+     * الاوذنات كلها بعد فتح التطبيق لاول مره و بعد صدور تحديث جديد يتم
+     * اخذ الاوذنات ثانيه للموافقه عليها من قبل المستخدم».
+     */
+    val permissionsAskedVersion: Flow<Int> = context.noorDataStore.data.map { p ->
+        p[Keys.PERMISSIONS_ASKED_VERSION] ?: 0
+    }
+
+    suspend fun permissionsAskedVersionOnce(): Int = permissionsAskedVersion.first()
+
+    suspend fun setPermissionsAskedVersion(code: Int) {
+        context.noorDataStore.edit { it[Keys.PERMISSIONS_ASKED_VERSION] = code }
     }
 
     /** حفظ صوت مخصص من الهاتف (الأذان أو الإقامة) — يُنسخ داخل مسار التطبيق */

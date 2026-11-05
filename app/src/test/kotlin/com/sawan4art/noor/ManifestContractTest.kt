@@ -66,6 +66,19 @@ class ManifestContractTest {
         assertTrue("أذونات ناقصة عن طلب المالك: $missing", missing.isEmpty())
     }
 
+    /**
+     * عقد alpha49 (توجيه المالك: «امنح التطبيق اذونات عدم الازعاج»):
+     * كتم أصوات الهاتف كاملاً بعد الإقامة يحتاج إذن عدم الإزعاج معلناً
+     * — يُمنح من صفحة النظام ضمن سلسلة الصلاحيات.
+     */
+    @Test
+    fun `إذن عدم الإزعاج معلن لكتم ما بعد الإقامة`() {
+        assertTrue(
+            "ACCESS_NOTIFICATION_POLICY مفقودة — كتم ما بعد الإقامة الكامل معطّل",
+            "android.permission.ACCESS_NOTIFICATION_POLICY" in permissions(),
+        )
+    }
+
     @Test
     fun `أذونات الأساس الوظيفي باقية — الموقع والشبكة والوسائط`() {
         val required = setOf(

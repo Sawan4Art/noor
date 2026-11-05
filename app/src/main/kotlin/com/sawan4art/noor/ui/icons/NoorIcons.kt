@@ -68,6 +68,109 @@ object NoorIcons {
         }
     }
 
+    /* ======= أيقونات المصحف المنبثق — علامة ونسخ وإيقاف ======= */
+
+    /** علامة مرجعية مملوءة — شريط الآية المحفوظة */
+    val QuranBookmark: ImageVector by lazy {
+        noorIcon("QuranBookmark") {
+            filled {
+                moveTo(7f, 3.2f)
+                curveTo(6.45f, 3.2f, 6f, 3.65f, 6f, 4.2f)
+                lineTo(6f, 20.6f)
+                curveTo(6f, 21.1f, 6.55f, 21.4f, 6.98f, 21.12f)
+                lineTo(12f, 17.1f)
+                lineTo(17.02f, 21.12f)
+                curveTo(17.45f, 21.4f, 18f, 21.1f, 18f, 20.6f)
+                lineTo(18f, 4.2f)
+                curveTo(18f, 3.65f, 17.55f, 3.2f, 17f, 3.2f)
+                close()
+            }
+        }
+    }
+
+    /** علامة مرجعية مجوفة — شريط بلا تعليم (EvenOdd: إطار خارجي وداخلي) */
+    val QuranBookmarkOutline: ImageVector by lazy {
+        noorIcon("QuranBookmarkOutline") {
+            filled(PathFillType.EvenOdd) {
+                moveTo(7f, 3.2f)
+                curveTo(6.45f, 3.2f, 6f, 3.65f, 6f, 4.2f)
+                lineTo(6f, 20.6f)
+                curveTo(6f, 21.1f, 6.55f, 21.4f, 6.98f, 21.12f)
+                lineTo(12f, 17.1f)
+                lineTo(17.02f, 21.12f)
+                curveTo(17.45f, 21.4f, 18f, 21.1f, 18f, 20.6f)
+                lineTo(18f, 4.2f)
+                curveTo(18f, 3.65f, 17.55f, 3.2f, 17f, 3.2f)
+                close()
+                moveTo(8f, 5.2f)
+                lineTo(16f, 5.2f)
+                lineTo(16f, 18.7f)
+                lineTo(12.62f, 15.98f)
+                curveTo(12.26f, 15.7f, 11.74f, 15.7f, 11.38f, 15.98f)
+                lineTo(8f, 18.7f)
+                close()
+            }
+        }
+    }
+
+    /** نسخ — لوحتان متراكبتان بإطارين مفرّغين (EvenOdd) */
+    val QuranCopy: ImageVector by lazy {
+        noorIcon("QuranCopy") {
+            filled(PathFillType.EvenOdd) {
+                // اللوحة الخلفية بإطار سماكة ١٫٦
+                moveTo(9.6f, 3f)
+                lineTo(19f, 3f)
+                curveTo(19.55f, 3f, 20f, 3.45f, 20f, 4f)
+                lineTo(20f, 13.4f)
+                curveTo(20f, 13.95f, 19.55f, 14.4f, 19f, 14.4f)
+                lineTo(17.2f, 14.4f)
+                lineTo(17.2f, 12.8f)
+                lineTo(18.4f, 12.8f)
+                lineTo(18.4f, 4.6f)
+                lineTo(10.2f, 4.6f)
+                lineTo(10.2f, 6.8f)
+                lineTo(8.6f, 6.8f)
+                lineTo(8.6f, 4f)
+                curveTo(8.6f, 3.45f, 9.05f, 3f, 9.6f, 3f)
+                close()
+                // اللوحة الأمامية بإطار سماكة ١٫٦
+                moveTo(5f, 8.6f)
+                lineTo(14.4f, 8.6f)
+                curveTo(14.95f, 8.6f, 15.4f, 9.05f, 15.4f, 9.6f)
+                lineTo(15.4f, 20f)
+                curveTo(15.4f, 20.55f, 14.95f, 21f, 14.4f, 21f)
+                lineTo(5f, 21f)
+                curveTo(4.45f, 21f, 4f, 20.55f, 4f, 20f)
+                lineTo(4f, 9.6f)
+                curveTo(4f, 9.05f, 4.45f, 8.6f, 5f, 8.6f)
+                close()
+                moveTo(5.6f, 10.2f)
+                lineTo(5.6f, 19.4f)
+                lineTo(13.8f, 19.4f)
+                lineTo(13.8f, 10.2f)
+                close()
+            }
+        }
+    }
+
+    /** إيقاف — مربع مستدير الزوايا مملوء */
+    val QuranStop: ImageVector by lazy {
+        noorIcon("QuranStop") {
+            filled {
+                moveTo(7.4f, 5.6f)
+                lineTo(16.6f, 5.6f)
+                curveTo(17.7f, 5.6f, 18.4f, 6.3f, 18.4f, 7.4f)
+                lineTo(18.4f, 16.6f)
+                curveTo(18.4f, 17.7f, 17.7f, 18.4f, 16.6f, 18.4f)
+                lineTo(7.4f, 18.4f)
+                curveTo(6.3f, 18.4f, 5.6f, 17.7f, 5.6f, 16.6f)
+                lineTo(5.6f, 7.4f)
+                curveTo(5.6f, 6.3f, 6.3f, 5.6f, 7.4f, 5.6f)
+                close()
+            }
+        }
+    }
+
     /** القبلة — بوصلة: حلقة وإبرة معينية */
     val Qibla: ImageVector by lazy {
         noorIcon("Qibla") {
