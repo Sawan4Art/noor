@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sawan4art.noor.domain.adhan.AdhanGaps
+import com.sawan4art.noor.domain.mushaf.MushafPages
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 import kotlinx.coroutines.flow.Flow
@@ -102,6 +103,8 @@ data class NoorSettingsState(
     val accentId: String = "emerald",
     /** اللون الأساسي (alpha32) — فارغ = يتبع لون التطبيق الحالي */
     val primaryId: String = "",
+    /** آخر صفحة مصحف (alpha49) — القارئ يفتح مكمنه الذي تركه، الافتراضي الفاتحة */
+    val mushafPage: Int = 1,
 )
 
 class SettingsRepository(private val context: Context) {
@@ -116,6 +119,7 @@ class SettingsRepository(private val context: Context) {
         val LOCATION_RESOLVED = booleanPreferencesKey("location_resolved")
         val ACCENT = stringPreferencesKey("accent_color")
         val PRIMARY = stringPreferencesKey("primary_color")
+        val MUSHAF_PAGE = intPreferencesKey("mushaf_page")
         val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check_at")
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
         val UPDATE_NOTIFIED_AT = longPreferencesKey("update_notified_at")
@@ -174,6 +178,7 @@ class SettingsRepository(private val context: Context) {
             locationResolved = p[Keys.LOCATION_RESOLVED] ?: false,
             accentId = p[Keys.ACCENT] ?: "emerald",
             primaryId = p[Keys.PRIMARY] ?: "",
+            mushafPage = MushafPages.clampPage(p[Keys.MUSHAF_PAGE] ?: 1),
         )
     }
 
@@ -332,6 +337,11 @@ class SettingsRepository(private val context: Context) {
     /** اللون الأساسي — نص فارغ يعني «الحالي» (يتبع لون التطبيق) */
     suspend fun setPrimaryId(id: String) {
         context.noorDataStore.edit { it[Keys.PRIMARY] = id }
+    }
+
+    /** حفظ آخر صفحة مصحف — يُقيَّد داخل ١..٦٠٤ عند الكتابة أيضاً */
+    suspend fun setMushafPage(page: Int) {
+        context.noorDataStore.edit { it[Keys.MUSHAF_PAGE] = MushafPages.clampPage(page) }
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {

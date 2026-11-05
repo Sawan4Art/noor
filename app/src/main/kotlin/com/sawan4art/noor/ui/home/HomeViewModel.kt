@@ -125,6 +125,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
      */
     fun setPrimary(id: String) = viewModelScope.launch { repository.setPrimaryId(id) }
 
+    /** حفظ آخر صفحة مصحف — المصحف يفتح مكمنه الذي تركه القارئ (alpha49) */
+    fun setMushafPage(page: Int) = viewModelScope.launch { repository.setMushafPage(page) }
+
     fun setMethod(method: CalculationMethod) =
         viewModelScope.launch { repository.setMethod(method) }
 

@@ -52,9 +52,8 @@ import com.sawan4art.noor.ui.hadith.HadithScreen
 import com.sawan4art.noor.ui.nav.LiquidNavScaffold
 import com.sawan4art.noor.ui.nav.NoorTab
 import com.sawan4art.noor.ui.notice.NoorNoticeDialog
+import com.sawan4art.noor.ui.mushaf.MushafScreen
 import com.sawan4art.noor.ui.qibla.QiblaScreen
-import com.sawan4art.noor.ui.quran.MushafScreen
-import com.sawan4art.noor.ui.sections.ComingSoonScreen
 import com.sawan4art.noor.ui.settings.SettingsScreen
 import com.sawan4art.noor.ui.tasbih.MisbahaScreen
 import com.sawan4art.noor.ui.theme.AccentPalette
@@ -163,6 +162,7 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                         (updateState as? UpdateUiState.Available)?.info
                             ?.let { UpdateManager.downloadAndInstall(it) }
                     },
+                    onSaveMushafPage = viewModel::setMushafPage,
                 )
             }
 
@@ -256,6 +256,7 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                                 (updateState as? UpdateUiState.Available)?.info
                                     ?.let { UpdateManager.downloadAndInstall(it) }
                             },
+                            onSaveMushafPage = viewModel::setMushafPage,
                         )
                     }
                 }
@@ -400,6 +401,8 @@ private fun NoorBody(
     onSetAccent: (String) -> Unit,
     /** اللون الأساسي — نص فارغ يعني «الحالي» (يتبع لون التطبيق) */
     onSetPrimary: (String) -> Unit,
+    /** حفظ آخر صفحة مصحف — المصحف يفتح مكمنه الذي تركه القارئ (alpha49) */
+    onSaveMushafPage: (Int) -> Unit,
     adhanPrefs: com.sawan4art.noor.data.AdhanPrefs,
     adhanActions: AdhanActions,
     updateState: UpdateUiState,
@@ -457,8 +460,11 @@ private fun NoorBody(
                         onDownloadUpdate = onDownloadUpdate,
                     )
                     NoorTab.QIBLA -> QiblaScreen(settings = uiState.settings)
-                    NoorTab.QURAN -> MushafScreen()
-                    else -> ComingSoonScreen(target)
+                    NoorTab.QURAN -> MushafScreen(
+                        initialPage = uiState.settings.mushafPage,
+                        onSavePage = onSaveMushafPage,
+                        onBack = { onTab(NoorTab.PRAYER) },
+                    )
                 }
             }
         }
