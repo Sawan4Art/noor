@@ -163,6 +163,7 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                             ?.let { UpdateManager.downloadAndInstall(it) }
                     },
                     onSaveMushafPage = viewModel::setMushafPage,
+                    onSetMushafBookmark = viewModel::setMushafBookmark,
                 )
             }
 
@@ -257,6 +258,7 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                                     ?.let { UpdateManager.downloadAndInstall(it) }
                             },
                             onSaveMushafPage = viewModel::setMushafPage,
+                            onSetMushafBookmark = viewModel::setMushafBookmark,
                         )
                     }
                 }
@@ -403,6 +405,8 @@ private fun NoorBody(
     onSetPrimary: (String) -> Unit,
     /** حفظ آخر صفحة مصحف — المصحف يفتح مكمنه الذي تركه القارئ (alpha49) */
     onSaveMushafPage: (Int) -> Unit,
+    /** حفظ علامة مرجعية على آية أو مسحها — سورة صفر للمسح (alpha51) */
+    onSetMushafBookmark: (Int, Int, Int) -> Unit,
     adhanPrefs: com.sawan4art.noor.data.AdhanPrefs,
     adhanActions: AdhanActions,
     updateState: UpdateUiState,
@@ -462,7 +466,11 @@ private fun NoorBody(
                     NoorTab.QIBLA -> QiblaScreen(settings = uiState.settings)
                     NoorTab.QURAN -> MushafScreen(
                         initialPage = uiState.settings.mushafPage,
+                        bookmarkSura = uiState.settings.mushafBookmarkSura,
+                        bookmarkAyah = uiState.settings.mushafBookmarkAyah,
+                        bookmarkPage = uiState.settings.mushafBookmarkPage,
                         onSavePage = onSaveMushafPage,
+                        onSetBookmark = onSetMushafBookmark,
                         onBack = { onTab(NoorTab.PRAYER) },
                     )
                 }

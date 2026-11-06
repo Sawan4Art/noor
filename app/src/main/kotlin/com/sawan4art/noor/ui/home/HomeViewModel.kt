@@ -128,6 +128,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     /** حفظ آخر صفحة مصحف — المصحف يفتح مكمنه الذي تركه القارئ (alpha49) */
     fun setMushafPage(page: Int) = viewModelScope.launch { repository.setMushafPage(page) }
 
+    /** حفظ علامة مرجعية على آية أو مسحها — سورة صفر للمسح (alpha51) */
+    fun setMushafBookmark(sura: Int, ayah: Int, page: Int) =
+        viewModelScope.launch { repository.setMushafBookmark(sura, ayah, page) }
+
     fun setMethod(method: CalculationMethod) =
         viewModelScope.launch { repository.setMethod(method) }
 

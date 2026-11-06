@@ -105,6 +105,10 @@ data class NoorSettingsState(
     val primaryId: String = "",
     /** آخر صفحة مصحف (alpha49) — القارئ يفتح مكمنه الذي تركه، الافتراضي الفاتحة */
     val mushafPage: Int = 1,
+    /** العلامة المرجعية للمصحف — صفر سورة يعني لا علامة (alpha51) */
+    val mushafBookmarkSura: Int = 0,
+    val mushafBookmarkAyah: Int = 0,
+    val mushafBookmarkPage: Int = 1,
 )
 
 class SettingsRepository(private val context: Context) {
@@ -120,6 +124,9 @@ class SettingsRepository(private val context: Context) {
         val ACCENT = stringPreferencesKey("accent_color")
         val PRIMARY = stringPreferencesKey("primary_color")
         val MUSHAF_PAGE = intPreferencesKey("mushaf_page")
+        val MUSHAF_BOOKMARK_SURA = intPreferencesKey("mushaf_bookmark_sura")
+        val MUSHAF_BOOKMARK_AYAH = intPreferencesKey("mushaf_bookmark_ayah")
+        val MUSHAF_BOOKMARK_PAGE = intPreferencesKey("mushaf_bookmark_page")
         val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check_at")
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
         val UPDATE_NOTIFIED_AT = longPreferencesKey("update_notified_at")
@@ -179,6 +186,9 @@ class SettingsRepository(private val context: Context) {
             accentId = p[Keys.ACCENT] ?: "emerald",
             primaryId = p[Keys.PRIMARY] ?: "",
             mushafPage = MushafPages.clampPage(p[Keys.MUSHAF_PAGE] ?: 1),
+            mushafBookmarkSura = p[Keys.MUSHAF_BOOKMARK_SURA] ?: 0,
+            mushafBookmarkAyah = p[Keys.MUSHAF_BOOKMARK_AYAH] ?: 0,
+            mushafBookmarkPage = MushafPages.clampPage(p[Keys.MUSHAF_BOOKMARK_PAGE] ?: 1),
         )
     }
 
@@ -342,6 +352,20 @@ class SettingsRepository(private val context: Context) {
     /** حفظ آخر صفحة مصحف — يُقيَّد داخل ١..٦٠٤ عند الكتابة أيضاً */
     suspend fun setMushafPage(page: Int) {
         context.noorDataStore.edit { it[Keys.MUSHAF_PAGE] = MushafPages.clampPage(page) }
+    }
+
+    /** حفظ علامة مرجعية على آية — سورة صفر تعني إزالة العلامة */
+    suspend fun setMushafBookmark(sura: Int, ayah: Int, page: Int) {
+        context.noorDataStore.edit {
+            if (sura <= 0 || ayah <= 0) {
+                it[Keys.MUSHAF_BOOKMARK_SURA] = 0
+                it[Keys.MUSHAF_BOOKMARK_AYAH] = 0
+            } else {
+                it[Keys.MUSHAF_BOOKMARK_SURA] = sura
+                it[Keys.MUSHAF_BOOKMARK_AYAH] = ayah
+                it[Keys.MUSHAF_BOOKMARK_PAGE] = MushafPages.clampPage(page)
+            }
+        }
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
