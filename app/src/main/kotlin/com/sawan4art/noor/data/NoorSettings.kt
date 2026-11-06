@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sawan4art.noor.domain.adhan.AdhanGaps
 import com.sawan4art.noor.domain.mushaf.MushafPages
@@ -109,6 +110,8 @@ data class NoorSettingsState(
     val mushafBookmarkSura: Int = 0,
     val mushafBookmarkAyah: Int = 0,
     val mushafBookmarkPage: Int = 1,
+    /** آيات الحفظ الميسر — مجموعة «سورة:آية» المعلَّمة محفوظة (alpha53) */
+    val mushafHifz: Set<String> = emptySet(),
 )
 
 class SettingsRepository(private val context: Context) {
@@ -127,6 +130,7 @@ class SettingsRepository(private val context: Context) {
         val MUSHAF_BOOKMARK_SURA = intPreferencesKey("mushaf_bookmark_sura")
         val MUSHAF_BOOKMARK_AYAH = intPreferencesKey("mushaf_bookmark_ayah")
         val MUSHAF_BOOKMARK_PAGE = intPreferencesKey("mushaf_bookmark_page")
+        val MUSHAF_HIFZ = stringSetPreferencesKey("mushaf_hifz_set")
         val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check_at")
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
         val UPDATE_NOTIFIED_AT = longPreferencesKey("update_notified_at")
@@ -189,6 +193,7 @@ class SettingsRepository(private val context: Context) {
             mushafBookmarkSura = p[Keys.MUSHAF_BOOKMARK_SURA] ?: 0,
             mushafBookmarkAyah = p[Keys.MUSHAF_BOOKMARK_AYAH] ?: 0,
             mushafBookmarkPage = MushafPages.clampPage(p[Keys.MUSHAF_BOOKMARK_PAGE] ?: 1),
+            mushafHifz = p[Keys.MUSHAF_HIFZ] ?: emptySet(),
         )
     }
 
@@ -295,10 +300,10 @@ class SettingsRepository(private val context: Context) {
     }
 
     /**
-     * ذاكرة نسخة طلب الصلاحيات — السلسلة تعمل أول تشغيل (ذاكرة ٠)
-     * وبعد كل تحديث (نسخة جديدة) بتوجيه المالك: «خلي التطبيق يطلب
-     * الاوذنات كلها بعد فتح التطبيق لاول مره و بعد صدور تحديث جديد يتم
-     * اخذ الاوذنات ثانيه للموافقه عليها من قبل المستخدم».
+     * ذاكرة طلب الصلاحيات — السلسلة تعمل أول تشغيل (ذاكرة ٠) فحسب
+     * بتوجيه المالك بعد alpha52: «عدم اعاده فتح قائمه اخذ الاوذنات اذا
+     * تم اخذها بالفعل مره واحده حتى بعد التحديث» — أي قيمة غير صفرية
+     * تعني «أُخذت الأذنات من قبل» فلا يعاد فتح القائمة إطلاقاً.
      */
     val permissionsAskedVersion: Flow<Int> = context.noorDataStore.data.map { p ->
         p[Keys.PERMISSIONS_ASKED_VERSION] ?: 0
@@ -365,6 +370,26 @@ class SettingsRepository(private val context: Context) {
                 it[Keys.MUSHAF_BOOKMARK_AYAH] = ayah
                 it[Keys.MUSHAF_BOOKMARK_PAGE] = MushafPages.clampPage(page)
             }
+        }
+    }
+
+    /**
+     * تعليم مُدى آيات محفوظة أو مسح التعليم — الحفظ الميسر (alpha53):
+     * المجموعة تُخزَّن كسلاسل «سورة:آية»، وسورة صفر تمسح كل الحفظ.
+     */
+    suspend fun setMushafHifz(sura: Int, ayahs: List<Int>, memorized: Boolean) {
+        context.noorDataStore.edit { prefs ->
+            if (sura <= 0) {
+                prefs[Keys.MUSHAF_HIFZ] = emptySet()
+                return@edit
+            }
+            val old = prefs[Keys.MUSHAF_HIFZ] ?: emptySet()
+            val updated = old.toMutableSet()
+            for (ayah in ayahs) {
+                val key = "$sura:$ayah"
+                if (memorized) updated.add(key) else updated.remove(key)
+            }
+            prefs[Keys.MUSHAF_HIFZ] = updated
         }
     }
 

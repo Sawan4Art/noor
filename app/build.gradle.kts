@@ -14,8 +14,8 @@ android {
         minSdk = 24
         targetSdk = 36
         // إصدارات ألفا لإعادة البناء الكوتلنية — النسخة النهائية الموحّدة تُضبط عند اكتمال المراحل
-        versionCode = 50052
-        versionName = "0.5.0-alpha52"
+        versionCode = 50053
+        versionName = "0.5.0-alpha53"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -95,8 +95,6 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.kotlinx.coroutines.android)
 
-    // صفحات المصحف الملون بالتجويد — تحميل صفحة صفحة وذاكرة قرص (alpha49)
-    implementation(libs.coil.compose)
 
     // مكتبة الأحاديث — Room على قاعدة SQLite جاهزة في الـ Assets مع فهرس FTS5
     implementation(libs.androidx.room.runtime)

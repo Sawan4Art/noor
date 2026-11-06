@@ -220,4 +220,12 @@ object MushafPlaylist {
 
     /** السورة كاملة من بدايتها بغض النظر عن التحديد */
     fun surahFull(surahAyahCount: Int): List<Int> = (1..surahAyahCount.coerceAtLeast(0)).toList()
+
+    /**
+     * تلاوة الحفظ الميسر — كل آية تُكرَّر عِدة مرات (٣ عادةً) ثم تليها
+     * الأخرى، ويعيد المشغّل الدورة على المُدى حتى يقف المستخدم — طريقة
+     * الحفظ بالتكرار والاستمرار.
+     */
+    fun hifzRepeats(ayahs: List<Int>, repeats: Int): List<Int> =
+        ayahs.flatMap { ayah -> List(repeats.coerceAtLeast(1)) { ayah } }
 }

@@ -2,6 +2,7 @@ package com.sawan4art.noor.data.mushaf
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import com.sawan4art.noor.domain.mushaf.MushafSearch
 import com.sawan4art.noor.domain.mushaf.MushafSegment
 import java.io.File
 
@@ -184,4 +185,91 @@ object MushafDb {
             }
         }
     }
+
+    /**
+     * كل نصوص الآيات بترتيبها المصحفي — ذاكرة بحث واحدة (٦٬٢٣٦ آية نحو
+     * ميغابايت لا تُذكر) تُقرأ مرة عند أول بحث وتُكاش فالباقي فوري.
+     */
+    fun allAyahs(context: Context): List<MushafSearch.Hit> {
+        allAyahsCache?.let { return it }
+        synchronized(this) {
+            allAyahsCache?.let { return it }
+            val rows = open(context).query(
+                "ayah_text",
+                arrayOf("sura", "ayah", "text"),
+                null,
+                null,
+                null,
+                null,
+                "sura, ayah",
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        add(
+                            MushafSearch.Hit(
+                                sura = cursor.getInt(0),
+                                ayah = cursor.getInt(1),
+                                text = cursor.getString(2),
+                            ),
+                        )
+                    }
+                }
+            }
+            allAyahsCache = rows
+            return rows
+        }
+    }
+
+    @Volatile
+    private var allAyahsCache: List<MushafSearch.Hit>? = null
+
+    /** صفحة بداية كل سورة — أقل صفحة كُتبت فيها آية السورة، كاش دائم */
+    fun surahStartPages(context: Context): Map<Int, Int> {
+        startPagesCache?.let { return it }
+        synchronized(this) {
+            startPagesCache?.let { return it }
+            val rows = open(context).query(
+                "glyphs",
+                arrayOf("sura_number", "MIN(page_number)"),
+                null,
+                null,
+                "sura_number",
+                null,
+                null,
+            ).use { cursor ->
+                buildMap {
+                    while (cursor.moveToNext()) put(cursor.getInt(0), cursor.getInt(1))
+                }
+            }
+            startPagesCache = rows
+            return rows
+        }
+    }
+
+    @Volatile
+    private var startPagesCache: Map<Int, Int>? = null
+
+    /** أول صفحة تظهر فيها آية معينة — لقفزة نتائج البحث إلى موضعها */
+    fun pageOfAyah(context: Context, sura: Int, ayah: Int): Int =
+        open(context).query(
+            "glyphs",
+            arrayOf("MIN(page_number)"),
+            "sura_number = ? AND ayah_number = ?",
+            arrayOf(sura.toString(), ayah.toString()),
+            null,
+            null,
+            null,
+        ).use { if (it.moveToFirst()) it.getInt(0) else 1 }
+
+    /** أول سورة تُفتتح بها الصفحة — لتسمية الأجزاء في قائمة الاختيار */
+    fun firstSurahOnPage(context: Context, page: Int): Int =
+        open(context).query(
+            "glyphs",
+            arrayOf("sura_number"),
+            "page_number = ?",
+            arrayOf(page.toString()),
+            null,
+            null,
+            "line_number, position",
+        ).use { if (it.moveToFirst()) it.getInt(0) else 1 }
 }

@@ -198,6 +198,43 @@ object NoorIcons {
         }
     }
 
+    /**
+     * الحفظ الميسر — كتاب مفتوح تحت نجمة «نور» الرباعية (توقيع التطبيق):
+     * التسميع بنور الحفظ — أيقونة قائمة المصحف المنبثقة (alpha53).
+     */
+    val QuranHifz: ImageVector by lazy {
+        noorIcon("QuranHifz") {
+            filled(PathFillType.EvenOdd) {
+                // نجمة نور الرباعية أعلى الأيقونة
+                moveTo(12f, 2.1f)
+                curveTo(12.5f, 3.2f, 13.1f, 3.8f, 14.2f, 4.35f)
+                curveTo(13.1f, 4.9f, 12.5f, 5.5f, 12f, 6.6f)
+                curveTo(11.5f, 5.5f, 10.9f, 4.9f, 9.8f, 4.35f)
+                curveTo(10.9f, 3.8f, 11.5f, 3.2f, 12f, 2.1f)
+                close()
+                // الكتاب المفتوح — عين كتاب التفسير منخفضاً تحت النجمة
+                moveTo(12f, 9.4f)
+                curveTo(10f, 8.1f, 7f, 7.75f, 4.7f, 8.15f)
+                curveTo(4.32f, 8.22f, 4f, 8.52f, 4f, 8.9f)
+                lineTo(4f, 17.8f)
+                curveTo(4f, 18.15f, 4.28f, 18.45f, 4.62f, 18.48f)
+                curveTo(7f, 18.72f, 9.7f, 19.2f, 12f, 20.4f)
+                curveTo(14.3f, 19.2f, 17f, 18.72f, 19.38f, 18.48f)
+                curveTo(19.72f, 18.45f, 20f, 18.15f, 20f, 17.8f)
+                lineTo(20f, 8.9f)
+                curveTo(20f, 8.52f, 19.68f, 8.22f, 19.3f, 8.15f)
+                curveTo(17f, 7.75f, 14f, 8.1f, 12f, 9.4f)
+                close()
+                // شقّ العمود الفقري — يفصل الصفحتين
+                moveTo(11.6f, 10.2f)
+                curveTo(11.85f, 9.95f, 12.15f, 9.95f, 12.4f, 10.2f)
+                lineTo(12.4f, 19.3f)
+                curveTo(12.15f, 19.55f, 11.85f, 19.55f, 11.6f, 19.3f)
+                close()
+            }
+        }
+    }
+
     /** القبلة — بوصلة: حلقة وإبرة معينية */
     val Qibla: ImageVector by lazy {
         noorIcon("Qibla") {

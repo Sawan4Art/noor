@@ -6,7 +6,6 @@ import com.sawan4art.noor.data.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -153,9 +152,12 @@ object UpdateManager {
 
     /**
      * تنزيل النسخة من داخل التطبيق ثم فتح مثبّت النظام — بلا متصفح
-     * (alpha48 بتوجيه المالك). خطوة إذن «التثبيت من هذا المصدر» تُطلب
-     * مرة واحدة قبل أول تنزيل، والتنزيل نفسه بعمل مدير النظام ولا يلمسه
-     * التطبيق، وعند الاكتمال يُفتح حوار التثبيت المألوف فوراً.
+     * وبلا مدير تنزيل النظام (alpha53 بتوجيه المالك: «عالج مشكله فحص
+     * جوجل بان التطبيق قد يكون ضار بدون ما نعمل حركه تحميل التحديث
+     * من المتصفح»): اتصال HTTPS مباشر داخل مسار التطبيق الخاص فلا
+     * يظهر ملف النسخة في قوائم عامة يجتاحها فاحص جوجل، وعند الاكتمال
+     * يُفتح حوار التثبيت المألوف فوراً. خطوة إذن «التثبيت من هذا
+     * المصدر» تُطلب مرة واحدة قبل أول تنزيل.
      */
     fun downloadAndInstall(info: UpdateInfo) {
         if (!initialized) return
@@ -173,39 +175,27 @@ object UpdateManager {
             UpdateInstaller.openInstallPermissionSettings(appContext)
             return
         }
-        val id = UpdateInstaller.enqueue(appContext, info)
-        if (id == null) {
-            _download.value = DownloadState.Failed("تعذّر بدء التنزيل — حاول من جديد")
-            return
-        }
         _download.value = DownloadState.Running(0)
-        scope.launch { trackDownload(id) }
-    }
-
-    /**
-     * متابعة عملية التنزيل كل نصف ثانية حتى تكتمل أو تفشل — سقف ٣٠
-     * دقيقة يمنع حلقةً أبداً لو تعطّل مدير التنزيل عند حاجة ما.
-     */
-    private suspend fun trackDownload(id: Long) {
-        val deadline = System.currentTimeMillis() + 30 * 60_000L
-        while (System.currentTimeMillis() < deadline) {
-            delay(500)
-            when (val state = UpdateInstaller.queryState(appContext, id)) {
-                null -> Unit // لا معلومة الآن — يبقى آخر حالة معروفة
-                is DownloadState.Done -> {
-                    _download.value = DownloadState.Done
-                    UpdateInstaller.openApk(appContext)
-                    return
+        scope.launch(Dispatchers.IO) {
+            val result = UpdateInstaller.download(appContext, info) { percent ->
+                // التقدم يصل من خيط التنزيل — نحدّث الحالة الآمنة قيمةً قيمة
+                val current = _download.value
+                if (current is DownloadState.Running && current.percent != percent) {
+                    _download.value = DownloadState.Running(percent)
                 }
-                is DownloadState.Failed -> {
-                    _download.value = state
-                    return
+            }
+            // فتح المثبّت وتحديث الحالة النهائية على الخيط الرئيسي
+            scope.launch {
+                when (result) {
+                    is DownloadState.Done -> {
+                        _download.value = DownloadState.Done
+                        UpdateInstaller.openApk(appContext)
+                    }
+                    is DownloadState.Failed -> _download.value = result
+                    else -> Unit
                 }
-                is DownloadState.Running -> _download.value = state
-                else -> Unit
             }
         }
-        _download.value = DownloadState.Failed("اطال التنزيل أكثر من اللازم — حاول من جديد")
     }
 
     /** إعادة الزر للوضع العادي بعد حالة إذن أو فشل — لا يُبقى على الإنذار */

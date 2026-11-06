@@ -132,6 +132,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     fun setMushafBookmark(sura: Int, ayah: Int, page: Int) =
         viewModelScope.launch { repository.setMushafBookmark(sura, ayah, page) }
 
+    /** تعليم مُدى آيات محفوظة أو مسح التعليم — الحفظ الميسر (alpha53) */
+    fun setMushafHifz(sura: Int, ayahs: List<Int>, memorized: Boolean) =
+        viewModelScope.launch { repository.setMushafHifz(sura, ayahs, memorized) }
+
     fun setMethod(method: CalculationMethod) =
         viewModelScope.launch { repository.setMethod(method) }
 

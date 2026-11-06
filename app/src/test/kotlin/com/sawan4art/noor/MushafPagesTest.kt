@@ -2,13 +2,13 @@ package com.sawan4art.noor
 
 import com.sawan4art.noor.domain.mushaf.MushafPages
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 /**
- * منطق صفحات المصحف — الترقيم القياسي ٦٠٤ وروابط الشبكة الأساسية
- * والاحتياطية (alpha49 توجيه المالك: المصحف حفص مجوّد بالتجويد الملون).
+ * منطق صفحات المصحف — الترقيم القياسي ٦٠٤ والمسار داخل المرفقات
+ * (alpha53 توجيه المالك: «كل الصفحات والتفاسير تكون داخل الكود علشان
+ * ميظهرش ابدا ان الصفحه بتحمل» — الصفحات مرفق WebP لا روابط شبكة).
  */
 class MushafPagesTest {
 
@@ -28,35 +28,19 @@ class MushafPagesTest {
     }
 
     @Test
-    fun `الرابط الأساسي يحمل رقم الصفحة ومسار مصحف التجويد`() {
-        val url = MushafPages.primaryUrl(50)
-        assertTrue(url.startsWith("https://cdn.jsdelivr.net/"))
-        assertTrue(url.endsWith("images_1053/50.jpg"))
+    fun `مسار الصفحة داخل مرفقات التطبيق بصيغة webp`() {
+        assertEquals("mushaf_pages/1.webp", MushafPages.assetPath(1))
+        assertEquals("mushaf_pages/50.webp", MushafPages.assetPath(50))
+        assertEquals("mushaf_pages/604.webp", MushafPages.assetPath(604))
+        assertEquals("mushaf_pages/1.webp", MushafPages.assetPath(0))
+        assertEquals("mushaf_pages/604.webp", MushafPages.assetPath(1000))
     }
 
     @Test
-    fun `الرابط الاحتياطي أرشيف جيتهاب الخام لنفس الصفحة`() {
-        val url = MushafPages.fallbackUrl(604)
-        assertTrue(url.startsWith("https://raw.githubusercontent.com/"))
-        assertTrue(url.endsWith("images_1053/604.jpg"))
-    }
-
-    @Test
-    fun `كل صفحة لها رابطان أساسي واحتياطي مختلفان`() {
-        for (page in 1..MushafPages.PAGE_COUNT) {
-            val primary = MushafPages.primaryUrl(page)
-            val fallback = MushafPages.fallbackUrl(page)
-            assertTrue(primary.endsWith("/$page.jpg"))
-            assertTrue(fallback.endsWith("/$page.jpg"))
-            assertNotEquals(primary, fallback)
-        }
-    }
-
-    @Test
-    fun `الروابط الخارجة عن النطاق تُقيَّد أيضاً`() {
-        assertTrue(MushafPages.primaryUrl(0).endsWith("/1.jpg"))
-        assertTrue(MushafPages.fallbackUrl(0).endsWith("/1.jpg"))
-        assertTrue(MushafPages.primaryUrl(1000).endsWith("/604.jpg"))
-        assertTrue(MushafPages.fallbackUrl(1000).endsWith("/604.jpg"))
+    fun `لا روابط شبكة بعدما — الصفحات داخل التطبيق`() {
+        // حارس رجعي: أي إضافة لروابط شبكة في MushafPages تكسر الاختبار
+        val methods = MushafPages::class.java.methods.map { it.name }
+        assertFalse("primaryUrl قديمة", methods.contains("primaryUrl"))
+        assertFalse("fallbackUrl قديمة", methods.contains("fallbackUrl"))
     }
 }

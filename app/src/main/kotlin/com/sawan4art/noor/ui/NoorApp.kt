@@ -164,6 +164,8 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                     },
                     onSaveMushafPage = viewModel::setMushafPage,
                     onSetMushafBookmark = viewModel::setMushafBookmark,
+                    hifzMemorized = uiState.settings.mushafHifz,
+                    onSetMushafHifz = viewModel::setMushafHifz,
                 )
             }
 
@@ -259,6 +261,8 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                             },
                             onSaveMushafPage = viewModel::setMushafPage,
                             onSetMushafBookmark = viewModel::setMushafBookmark,
+                            hifzMemorized = uiState.settings.mushafHifz,
+                            onSetMushafHifz = viewModel::setMushafHifz,
                         )
                     }
                 }
@@ -407,6 +411,10 @@ private fun NoorBody(
     onSaveMushafPage: (Int) -> Unit,
     /** حفظ علامة مرجعية على آية أو مسحها — سورة صفر للمسح (alpha51) */
     onSetMushafBookmark: (Int, Int, Int) -> Unit,
+    /** آيات الحفظ الميسر المعلّمة — سلاسل «سورة:آية» (alpha53) */
+    hifzMemorized: Set<String>,
+    /** تعليم آيات محفوظة أو مسح التعليم — الحفظ الميسر (alpha53) */
+    onSetMushafHifz: (Int, List<Int>, Boolean) -> Unit,
     adhanPrefs: com.sawan4art.noor.data.AdhanPrefs,
     adhanActions: AdhanActions,
     updateState: UpdateUiState,
@@ -469,8 +477,10 @@ private fun NoorBody(
                         bookmarkSura = uiState.settings.mushafBookmarkSura,
                         bookmarkAyah = uiState.settings.mushafBookmarkAyah,
                         bookmarkPage = uiState.settings.mushafBookmarkPage,
+                        hifzMemorized = hifzMemorized,
                         onSavePage = onSaveMushafPage,
                         onSetBookmark = onSetMushafBookmark,
+                        onSetHifz = onSetMushafHifz,
                         onBack = { onTab(NoorTab.PRAYER) },
                     )
                 }

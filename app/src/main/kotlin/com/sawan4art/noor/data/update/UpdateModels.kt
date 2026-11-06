@@ -71,7 +71,7 @@ sealed interface DownloadState {
     /** التطبيق بلا حق «التثبيت من هذا المصدر» — يُفتح بيان الإذن ثم يعيد المستخدم الضغط */
     data object NeedsPermission : DownloadState
 
-    /** جارٍ التنزيل بمدير النظام — بالنسبة المئوية */
+    /** جارٍ التنزيل من جوّه التطبيق مباشرةً — بالنسبة المئوية (alpha53) */
     data class Running(val percent: Int) : DownloadState
 
     /** اكتمل التنزيل — مثبّت النظام فُتح على الملف (ويُعاد فتحه بضغطة أخرى) */
