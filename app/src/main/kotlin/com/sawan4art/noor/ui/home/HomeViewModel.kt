@@ -136,6 +136,50 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     fun setMushafHifz(sura: Int, ayahs: List<Int>, memorized: Boolean) =
         viewModelScope.launch { repository.setMushafHifz(sura, ayahs, memorized) }
 
+    /** حفظ الشيخ المختار لتلاوة المصحف — قسم «أصوات الشيخ» (alpha54) */
+    fun setQuranReciter(id: String) =
+        viewModelScope.launch { repository.setQuranReciter(id) }
+
+    /** حفظ خطبة الجمعة المكتوبة — عنوان ونص (alpha54) */
+    fun setKhutbah(title: String, text: String) =
+        viewModelScope.launch { repository.setKhutbah(title, text) }
+
+    /**
+     * استيراد صورة إلى خطبة الجمعة — تُنسخ داخل مجلد صور الخطبة
+     * فيصل اسمُها إلى الإعدادات ويبقى ملفُها دائماً (alpha54).
+     */
+    fun importKhutbahImage(uri: Uri) {
+        viewModelScope.launch {
+            runCatching {
+                val app = getApplication<Application>()
+                val resolver = app.contentResolver
+                val name = queryDisplayName(resolver, uri) ?: "khutbah.jpg"
+                val ext = guessExtension(resolver, uri, name).takeIf { it != ".audio" }
+                    ?: ".jpg"
+                val dir = File(app.filesDir, "khutbah_images").apply { if (!exists()) mkdirs() }
+                val outFile = File(dir, "kh_${System.currentTimeMillis()}$ext")
+                resolver.openInputStream(uri)?.use { input ->
+                    outFile.outputStream().use { output -> input.copyTo(output) }
+                }
+                val current = uiState.value.settings.khutbahImages
+                repository.setKhutbahImages(current + outFile.name)
+            }
+        }
+    }
+
+    /** حذف صورة من خطبة الجمعة — من المجلد ومن القائمة معاً */
+    fun deleteKhutbahImage(fileName: String) {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            runCatching {
+                File(File(app.filesDir, "khutbah_images"), fileName).delete()
+                repository.setKhutbahImages(
+                    uiState.value.settings.khutbahImages - fileName,
+                )
+            }
+        }
+    }
+
     fun setMethod(method: CalculationMethod) =
         viewModelScope.launch { repository.setMethod(method) }
 

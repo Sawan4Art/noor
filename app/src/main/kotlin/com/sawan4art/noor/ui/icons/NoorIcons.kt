@@ -707,6 +707,57 @@ object NoorIcons {
         }
     }
 
+    /**
+     * صوت الشيخ — مكبر صوت بأمواجه الثلاث (قسم «أصوات الشيخ» — alpha54)
+     */
+    val QuranVoice: ImageVector by lazy {
+        noorIcon("QuranVoice") {
+            filled(PathFillType.EvenOdd) {
+                // جسم المكبر — مكعب مفرّغ (EvenOdd)
+                moveTo(4f, 9.6f)
+                lineTo(9f, 9.6f)
+                lineTo(14.6f, 4.8f)
+                curveTo(15.15f, 4.33f, 16f, 4.73f, 16f, 5.46f)
+                lineTo(16f, 18.54f)
+                curveTo(16f, 19.27f, 15.15f, 19.67f, 14.6f, 19.2f)
+                lineTo(9f, 14.4f)
+                lineTo(4f, 14.4f)
+                curveTo(3.45f, 14.4f, 3f, 13.95f, 3f, 13.4f)
+                lineTo(3f, 10.6f)
+                curveTo(3f, 10.05f, 3.45f, 9.6f, 4f, 9.6f)
+                close()
+                // فجوة جسم المكبر
+                moveTo(4.6f, 11.2f)
+                lineTo(9.4f, 11.2f)
+                curveTo(9.61f, 11.2f, 9.81f, 11.28f, 9.96f, 11.42f)
+                lineTo(14.4f, 15.25f)
+                lineTo(14.4f, 8.75f)
+                lineTo(9.96f, 12.58f)
+                curveTo(9.81f, 12.72f, 9.61f, 12.8f, 9.4f, 12.8f)
+                lineTo(4.6f, 12.8f)
+                close()
+            }
+            filled {
+                // الموجة الأولى — قوس صغير
+                moveTo(18f, 9.9f)
+                curveTo(18.45f, 10.55f, 18.7f, 11.25f, 18.7f, 12f)
+                curveTo(18.7f, 12.75f, 18.45f, 13.45f, 18f, 14.1f)
+                lineTo(19.3f, 15f)
+                curveTo(19.95f, 14.1f, 20.3f, 13.08f, 20.3f, 12f)
+                curveTo(20.3f, 10.92f, 19.95f, 9.9f, 19.3f, 9f)
+                close()
+                // الموجة الثانية — قوس أوسع
+                moveTo(20.4f, 6.6f)
+                curveTo(21.42f, 8.13f, 22f, 10f, 22f, 12f)
+                curveTo(22f, 14f, 21.42f, 15.87f, 20.4f, 17.4f)
+                lineTo(19f, 16.46f)
+                curveTo(19.84f, 15.18f, 20.34f, 13.65f, 20.34f, 12f)
+                curveTo(20.34f, 10.35f, 19.84f, 8.82f, 19f, 7.54f)
+                close()
+            }
+        }
+    }
+
     // ===== أدوات الرسم =====
 
     /** هندسة شمس مبدّل المظهر — قرص وأشعة (نفس أرقام المولّد) */

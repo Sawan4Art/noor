@@ -73,6 +73,7 @@ import com.sawan4art.noor.ui.nav.GooeyMath
 import com.sawan4art.noor.ui.nav.addLiquidBlob
 import com.sawan4art.noor.util.Hijri
 import com.sawan4art.noor.util.TimeFormat
+import java.time.DayOfWeek
 import java.time.Duration
 import kotlin.math.cos
 import kotlin.math.sin
@@ -101,6 +102,16 @@ fun HomeScreen(
     onDetectLocation: () -> Unit,
     /** الثيم المثبّت المُعاشُ حالياً — قلبه يحرّك دوران جمل التذكير */
     isDark: Boolean,
+    /** خطبة الجمعة المحفوظة — العنوان والنص والصور (alpha54) */
+    khutbahTitle: String,
+    khutbahText: String,
+    khutbahImages: List<String>,
+    /** حفظ خطبة الجمعة المكتوبة */
+    onSetKhutbah: (String, String) -> Unit,
+    /** استيراد صورة إلى الخطبة */
+    onImportKhutbahImage: (android.net.Uri) -> Unit,
+    /** حذف صورة من الخطبة */
+    onDeleteKhutbahImage: (String) -> Unit,
 ) {
     val zone = remember { ZoneId.systemDefault() }
     val now: ZonedDateTime = remember(state.nowMillis) {
@@ -115,6 +126,11 @@ fun HomeScreen(
     }
     val next = remember(times, now) { PrayerMath.nextPrayer(times, now) }
 
+    // زر خطبة الجمعة — لا يظهر إلا يوم الجمعة (توجيه المالك alpha54)
+    var khutbahOpen by remember { mutableStateOf(false) }
+    val isFriday = today.dayOfWeek == DayOfWeek.FRIDAY
+
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -140,6 +156,8 @@ fun HomeScreen(
             city = settings.city,
             locating = locating,
             onDetectLocation = onDetectLocation,
+            isFriday = isFriday,
+            onKhutbahClick = { khutbahOpen = true },
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
@@ -168,6 +186,20 @@ fun HomeScreen(
         )
         Spacer(Modifier.height(104.dp)) // مساحة شريط التنقل الزجاجي العائم (alpha45: مرفوعٌ وأكبر)
     }
+
+    // لوحة خطبة الجمعة — تنبثق فوق الرئيسية من زر يوم الجمعة
+    if (khutbahOpen) {
+        KhutbahSheet(
+            savedTitle = khutbahTitle,
+            savedText = khutbahText,
+            savedImages = khutbahImages,
+            onSetKhutbah = onSetKhutbah,
+            onImportImage = onImportKhutbahImage,
+            onDeleteImage = onDeleteKhutbahImage,
+            onDismiss = { khutbahOpen = false },
+        )
+    }
+    } // Box
 }
 
 // جمل التذكير الدوّارة (تجمع السطر السفلي وشريط الهيدر) في ملفٍ نقيّ
@@ -285,6 +317,10 @@ private fun HeroCard(
     city: String,
     locating: Boolean,
     onDetectLocation: () -> Unit,
+    /** يوم الجمعة وحده — يظهر زر خطبة الجمعة (alpha54) */
+    isFriday: Boolean,
+    /** فتح لوحة خطبة الجمعة */
+    onKhutbahClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val noorColors = LocalNoorColors.current
@@ -346,6 +382,40 @@ private fun HeroCard(
                 )
             }
             Spacer(Modifier.height(4.dp))
+            // زر خطبة الجمعة — يوم الجمعة فقط: زرّ صغير فوق التاريخ على
+            // اليمين (توجيه المالك: «زر صغير فوق التاريخ عل اليمين»)
+            if (isFriday) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Surface(
+                        onClick = onKhutbahClick,
+                        shape = RoundedCornerShape(50),
+                        color = Color.White.copy(alpha = 0.12f),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        ) {
+                            Icon(
+                                imageVector = NoorIcons.Mosque,
+                                contentDescription = "خطبة الجمعة",
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = "خطبة الجمعة",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = noorColors.heroContent,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+            }
             // بطاقتا التاريخ — متساويتان تماماً في العرض والارتفاع
             // (بلاغ المالك alpha45: «ظبط ايقونات التواريخ لتكون بنفس
             // المقاس لكل منها»): كل بطاقة نصف عرض الهيدر بالنص مُوسَّط

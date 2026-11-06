@@ -19,6 +19,11 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -79,6 +84,8 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -92,6 +99,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.sawan4art.noor.data.mushaf.MushafDb
+import com.sawan4art.noor.data.mushaf.QuranAudioLibrary
 import com.sawan4art.noor.domain.mushaf.MushafAyah
 import com.sawan4art.noor.domain.mushaf.MushafGeometry
 import com.sawan4art.noor.domain.mushaf.MushafJuz
@@ -103,6 +111,8 @@ import com.sawan4art.noor.domain.mushaf.MushafSelection
 import com.sawan4art.noor.domain.mushaf.MushafSelectionOps
 import com.sawan4art.noor.domain.mushaf.MushafSurahs
 import com.sawan4art.noor.domain.mushaf.MushafTransform
+import com.sawan4art.noor.domain.mushaf.MushafZoomMath
+import com.sawan4art.noor.domain.mushaf.QuranReciters
 import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.ui.nav.GooeyMath
 import com.sawan4art.noor.ui.nav.addLiquidBlob
@@ -154,6 +164,28 @@ import kotlin.math.sin
  *    فقط كتابه كلمه واحده» — حقل البحث في لوحة الاختيار يطبع تطبيع
  *    التشكيل على الكلمة والنص معاً فيرجع كل الآيات الحاملة لها ولموضعها
  *    سورةً ورقماً وصفحةً تقفز إليها الضغطة.
+ *
+ * توجيه المالك ٢٠٢٦-١١-٠٦ بعد alpha53 — ست وصايا جديدة:
+ *
+ * 9) «عايز تحديد الايات لا يقتصر على ايه واحده فقط عايز يبقى في
+ *    امكانيه تحديد عده ايات مع بعضها» — الضغط المطوّل ثم السحب على
+ *    الأسطر يمدّ المُدى حيّاً آيةً وراء آية بإيماءة واحدة، والنقر على
+ *    آيةٍ أخرى يمدّه، والمنغّلة تظهر على نهاية الإيماءة.
+ * 10) «شكل التحديد بدل ما هو بنفسجي خليه بالوان تتماشى مع الوان
+ *     الثيم و يكون شفاف لدرجه تسمح برؤيه النص المحدد» — الإبراز
+ *     من لون الثيم الأساسي بشفافية تُبقي النص مقروءاً.
+ * 11) «اضف امكانيه عمل زوم في صفحات المصحف» — القرص بإصبعين يكبّر
+ *     حتى ٤٫٥×حول مركز القرص، والنقرة المزدوجة تقلب بين ١× و٢٫٥×،
+ *     والإصبع الواحد عند التكبير يحرّك الصفحة (التنقل موقوف) ويعود
+ *     عند العودة إلى ١×.
+ * 12) «قائمه اختيار السوره والجزء اخر جزء منها تحت شريط التنقل…
+ *     خلي حدود القائمه مع اخر حدود شريط التنقل» — كل اللوحات
+ *     الصاعدة رُفعت حدّها السفلي ليقف على آخر شريط التنقل فلا
+ *     يبقى سطرٌ مخفي تحتَه.
+ * 13) «اضف عشرين مقرء يتم تحميل اصواتهم من قبل المستخدم نفسه…» —
+ *     التلاوة صارت بصوت الشيخ المختار من قسم «أصوات الشيخ» في
+ *     الإعدادات: الملف المحلي المنزَّل يُشغَّل أولاً والغائب يُبثّ
+ *     من الشبكة بالمعرّف نفسه.
  */
 
 /** المساحة المحجوزة أسفل الشاشة قبل شريط التنقل السائل (١٨+٧٦dp — alpha45) */
@@ -162,8 +194,38 @@ private val NAV_BAR_CLEAR = 94.dp
 /** خلفية بطاقات المصحف — دافئة داكنة تليق فوق ورق الطبعة */
 private val PanelBg = Color(0xFF1E1814)
 
-/** لون إبراز التحديد — بنفسجي شفاف كما في صورة المالك */
-private val SelectionPurple = Color(0xFF7C4DFF).copy(alpha = 0.45f)
+/**
+ * شفافية إبراز التحديد — توجيه المالك: «بدل ما هو بنفسجي خليه بالوان
+ * تتماشى مع الوان الثيم و يكون شفاف لدرجه تسمح برؤيه النص المحدد» —
+ * اللون الآن من لون الثيم الأساسي نفسه، والشفافية تُبقي النص مقروءًا
+ * تحته، فالإبراز تابعةٌ للثيم المختار أينما تغيّر.
+ */
+private const val SELECTION_ALPHA = 0.32f
+
+/**
+ * حالة تكبير صفحات المصحف — معامل وإزاحة محصورة بحدود [MushafZoomMath]،
+ * واحدة لكل المصحف (صفحةٌ ظاهرةٌ واحدة) وتُصفَّر عند قلب الصفحة.
+ */
+internal class MushafZoomState {
+    var scale by androidx.compose.runtime.mutableFloatStateOf(1f)
+    var offX by androidx.compose.runtime.mutableFloatStateOf(0f)
+    var offY by androidx.compose.runtime.mutableFloatStateOf(0f)
+
+    /** هل الصفحة مكبَّرة الآن؟ (وإذن التنقل موقوف والسحب يحرّك الصفحة) */
+    val zoomed: Boolean get() = MushafZoomMath.isZoomed(scale)
+
+    fun set(s: Float, x: Float, y: Float) {
+        scale = s
+        offX = x
+        offY = y
+    }
+
+    fun reset() {
+        scale = 1f
+        offX = 0f
+        offY = 0f
+    }
+}
 
 /** هندسة المنغّلة السائلة — حلقة سداسية حول قلب الإغلاق (alpha53) */
 private val RING_RADIUS = 64.dp
@@ -184,6 +246,8 @@ fun MushafScreen(
     bookmarkAyah: Int,
     /** صفحة العلامة المرجعية — قفزة الضغطة عليها */
     bookmarkPage: Int,
+    /** معرّف الشيخ المختار من قسم «أصوات الشيخ» (alpha54) */
+    reciterId: String,
     /** آيات الحفظ المعلَّمة — سلاسل «سورة:آية» */
     hifzMemorized: Set<String>,
     /** حفظ آخر صفحة وصل إليها القارئ */
@@ -219,6 +283,12 @@ fun MushafScreen(
     )
     val scope = rememberCoroutineScope()
 
+    // زوم الصفحات — حالة واحدة لكل المصحف وتُصفَّر عند قلب الصفحة (alpha54)
+    val zoom = remember { MushafZoomState() }
+
+    // لون إبراز التحديد من الثيم — يتتبع اللون المختار أينما تغيّر
+    val selectionColor = MaterialTheme.colorScheme.primary.copy(alpha = SELECTION_ALPHA)
+
     // لوحة اختيار السورة تنبثق عند الدخول — توجيه المالك الحرفي: «اول ما
     // اضغط على ايقونه المصحف يظهر لي اختيار السوره»
     var chooserOpen by remember { mutableStateOf(true) }
@@ -252,6 +322,7 @@ fun MushafScreen(
             .distinctUntilChanged()
             .collect { page ->
                 onSavePage(page + 1)
+                zoom.reset() // قلب الصفحة يعيد الزوم للعرض الطبيعي
                 menuAt = null // قلب الصفحة يُخفي المنغّلة والتحديد يبقى للمُدى
                 playMenuOpen = false
             }
@@ -285,17 +356,16 @@ fun MushafScreen(
         }
     }
 
-    /** تشغيل مُدى آيات متتابع — رابط كل آية من ترتيبها العالمي، والحفظ يكرر كل آية ثلاثاً */
+    /** تشغيل مُدى آيات متتابع بصوت الشيخ المختار — محليٌّ أولاً ثم الشبكة */
     fun startPlaylist(sura: Int, ayahs: List<Int>, loop: Boolean = false) {
         scope.launch {
             val sequence = if (loop) MushafPlaylist.hifzRepeats(ayahs, HIFZ_REPEATS) else ayahs
-            val urls = withContext(Dispatchers.IO) {
+            val sources = withContext(Dispatchers.IO) {
                 sequence.map { ayah ->
-                    val global = MushafDb.globalAyah(context, sura, ayah)
-                    "https://cdn.islamic.network/quran/audio/128/ar.alafasy/$global.mp3"
+                    QuranAudioLibrary.ayahSource(context, reciterId, sura, ayah)
                 }
             }
-            val ok = withContext(Dispatchers.IO) { MushafPlayer.play(urls, loop) }
+            val ok = withContext(Dispatchers.IO) { MushafPlayer.play(sources, loop) }
             if (!ok) {
                 Toast.makeText(context, "التلاوة تحتاج اتصالاً بالإنترنت", Toast.LENGTH_SHORT).show()
             }
@@ -309,7 +379,9 @@ fun MushafScreen(
             .background(Color.Black)
             .onSizeChanged { rootSize = it },
     ) {
-        // مساحة القراءة — تقف قبل شريط التنقل السائل، والصفحة تتسع لكاملها
+        // مساحة القراءة — تقف قبل شريط التنقل السائل، والصفحة تتسع لكاملها.
+        // عند التكبير لا يحتاج قلبُ الصفحات مفتاحَ إيقاف خارجيّ — معالج
+        // التحريك على الصفحة نفسها يستهلك السحب فلا يبلغ قلب الصفحات
         HorizontalPager(
             state = pagerState,
             beyondViewportPageCount = 1,
@@ -321,9 +393,20 @@ fun MushafScreen(
             MushafPage(
                 page = index + 1,
                 selection = selection,
-                onLongPressAyah = { ayah, at ->
+                zoom = zoom,
+                selectionColor = selectionColor,
+                onLongPressAyah = { ayah ->
+                    // بداية تحديد جديد — والمنغّلة تظهر عند نهاية الإيماءة
                     selection = MushafSelectionOps.extend(null, ayah)
                     playMenuOpen = false
+                    menuAt = null
+                },
+                onDragExtendAyah = { ayah ->
+                    // السحب على الأسطر يمدّ المُدى حيّاً — تحديد آيات مع بعضها
+                    selection = selection?.let { MushafSelectionOps.extend(it, ayah) }
+                        ?: MushafSelectionOps.extend(null, ayah)
+                },
+                onDragEndAyah = { at ->
                     menuAt = clampMenu(at)
                 },
                 onTapAyah = { ayah, at ->
@@ -344,6 +427,7 @@ fun MushafScreen(
                         rootSize = rootSize,
                         selection = sel,
                         surahCount = surahCount,
+                        reciterName = QuranReciters.byId(reciterId).name,
                         onPlay = { ayahs -> startPlaylist(sel.sura, ayahs) },
                         onClose = { playMenuOpen = false },
                     )
@@ -496,13 +580,22 @@ fun MushafScreen(
  * البصر فلا علامة تحميل تظهر أبداً — توجيه المالك: «انا مش عايز كده انا
  * عايز التفاسير و المصحف يكونوا داخل التطبيق بشكل دائم مش يتم تحميلهم
  * كل مره .. علشان ميظهرش ابدا ان الصفحه بتحمل» — مع إبراز الآيات
- * المحدَّدة وضغطها وشرائح الآيات من قاعدة الطبعة المصاحبة.
+ * المحدَّدة بلون الثيم، والزوم بالقرص والنقرة المزدوجة (alpha54)،
+ * وشرائح الآيات من قاعدة الطبعة المصاحبة.
  */
 @Composable
 private fun MushafPage(
     page: Int,
     selection: MushafSelection?,
-    onLongPressAyah: (MushafAyah, Offset) -> Unit,
+    zoom: MushafZoomState,
+    selectionColor: Color,
+    /** بداية تحديد جديد بالضغط المطوّل — بلا منغّلة بعد */
+    onLongPressAyah: (MushafAyah) -> Unit,
+    /** سحب الأسطر يمدّ المُدى حيّاً آيةً وراء آية */
+    onDragExtendAyah: (MushafAyah) -> Unit,
+    /** نهاية سحب التحديد — موضع ظهور المنغّلة */
+    onDragEndAyah: (Offset) -> Unit,
+    /** ضغطة على آيةٍ تمدّ المُدى الحالي */
     onTapAyah: (MushafAyah, Offset) -> Unit,
 ) {
     val context = LocalContext.current
@@ -557,21 +650,125 @@ private fun MushafPage(
             .fillMaxSize()
             .background(Color.Black)
             .onSizeChanged { viewSize = it }
-            .pointerInput(page, bitmap, segments) {
+            // ===== القرص بإصبعين يكبّر ويصغّر حول مركز القرص، والإصبع
+            // الواحد حين تكون الصفحة مكبَّرة يحرّكها — وعند ١× يبقى
+            // السحب الأفقي حراً لقلب الصفحات (توجيه المالك: زوم) =====
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    var pinching = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val pressed = event.changes.filter { it.pressed }
+                        if (pressed.size >= 2) {
+                            pinching = true
+                            break
+                        }
+                        if (pressed.isEmpty()) return@awaitEachGesture
+                        // إصبع واحد والصفحة مكبَّرة — تحريك الصفحة
+                        // (قلب الصفحات موقوف أصلاً عند التكبير)
+                        if (zoom.zoomed) {
+                            val w = viewSize.width.toFloat()
+                            val h = viewSize.height.toFloat()
+                            if (w > 0f && h > 0f) {
+                                val delta = pressed.first().positionChange()
+                                if (delta != Offset.Zero) {
+                                    val (ox, oy) = MushafZoomMath.pannedOffset(
+                                        zoom.offX, zoom.offY, delta.x, delta.y,
+                                        zoom.scale, w, h,
+                                    )
+                                    zoom.set(zoom.scale, ox, oy)
+                                    event.changes.forEach { change ->
+                                        if (change.positionChanged()) change.consume()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (pinching) {
+                        do {
+                            val ev = awaitPointerEvent()
+                            val ps = ev.changes.filter { it.pressed }
+                            if (ps.size >= 2) {
+                                val w = viewSize.width.toFloat()
+                                val h = viewSize.height.toFloat()
+                                if (w > 0f && h > 0f) {
+                                    val change = ev.calculateZoom()
+                                    if (change != 1f) {
+                                        val after = MushafZoomMath.clampScale(zoom.scale, change)
+                                        val centroid = ev.calculateCentroid()
+                                        val (ox, oy) = MushafZoomMath.pinchedOffset(
+                                            zoom.scale, after, zoom.offX, zoom.offY,
+                                            centroid.x, centroid.y, w, h,
+                                        )
+                                        zoom.set(after, ox, oy)
+                                        ev.changes.forEach { c ->
+                                            if (c.positionChanged()) c.consume()
+                                        }
+                                    }
+                                }
+                            }
+                        } while (ev.changes.any { it.pressed })
+                        // العودة إلى ١× تصفّر الإزاحة — عودة نظيفة لقلب الصفحات
+                        if (!MushafZoomMath.isZoomed(zoom.scale)) zoom.reset()
+                    }
+                }
+            }
+            // ===== الضغط المطوّل ثم السحب — تحديد آيات متتابعة بإيماءة
+            // واحدة: «عايز يبقى في امكانيه تحديد عده ايات مع بعضها» =====
+            .pointerInput(page, bitmap, segments, viewSize) {
+                var dragging = false
+                var lastPos = Offset.Zero
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { pos ->
+                        dragging = false
+                        val segs = segments ?: return@detectDragGesturesAfterLongPress
+                        val t = transform ?: return@detectDragGesturesAfterLongPress
+                        val (gx, gy) = glyphAt(t, pos, zoom, viewSize)
+                        MushafSelectionOps.hit(segs, gx, gy)?.let {
+                            onLongPressAyah(it)
+                            lastPos = pos
+                            dragging = true
+                        }
+                    },
+                    onDrag = { change, _ ->
+                        if (!dragging) return@detectDragGesturesAfterLongPress
+                        change.consume()
+                        lastPos = change.position
+                        val segs = segments ?: return@detectDragGesturesAfterLongPress
+                        val t = transform ?: return@detectDragGesturesAfterLongPress
+                        val (gx, gy) = glyphAt(t, lastPos, zoom, viewSize)
+                        MushafSelectionOps.hit(segs, gx, gy)?.let { onDragExtendAyah(it) }
+                    },
+                    onDragEnd = {
+                        if (dragging) {
+                            dragging = false
+                            onDragEndAyah(lastPos)
+                        }
+                    },
+                    onDragCancel = { dragging = false },
+                )
+            }
+            // ===== النقر يمدّ المُدى الحالي، والنقرة المزدوجة تقلب الزوم
+            // بين ١× و٢٫٥× حول نقطة الضغطة =====
+            .pointerInput(page, bitmap, segments, viewSize, selection != null) {
                 detectTapGestures(
-                    // الضغط المطوّل يبدأ تحديداً جديداً بالآية تحت الإصبع
-                    onLongPress = { pos ->
-                        val segs = segments ?: return@detectTapGestures
-                        val t = transform ?: return@detectTapGestures
-                        val (gx, gy) = t.toGlyph(pos.x, pos.y)
-                        MushafSelectionOps.hit(segs, gx, gy)?.let { onLongPressAyah(it, pos) }
+                    onDoubleTap = { pos ->
+                        val w = viewSize.width.toFloat()
+                        val h = viewSize.height.toFloat()
+                        if (w > 0f && h > 0f) {
+                            val (s, target) = MushafZoomMath.doubleTapped(
+                                zoom.scale, zoom.offX, zoom.offY, pos.x, pos.y, w, h,
+                            )
+                            zoom.set(s, target.first, target.second)
+                        }
                     },
                     // الضغطة التالية تمدّ المُدى حتى الآية الجديدة (٥٠ ← ٥٥)
                     onTap = { pos ->
                         if (selection != null) {
                             val segs = segments ?: return@detectTapGestures
                             val t = transform ?: return@detectTapGestures
-                            val (gx, gy) = t.toGlyph(pos.x, pos.y)
+                            val (gx, gy) = glyphAt(t, pos, zoom, viewSize)
                             MushafSelectionOps.hit(segs, gx, gy)?.let { onTapAyah(it, pos) }
                         }
                     },
@@ -582,8 +779,21 @@ private fun MushafPage(
         val bmp = bitmap
         val t = transform
         if (bmp != null && t != null) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                drawMushafPage(bmp, t, page, segments, selection)
+            // طبقة الزوم — تكبير حول مركز الصفحة مع الإزاحة المحصورة،
+            // والإبرازات داخلها تتكبّر معها لأنها تُرسم في الكانفس نفسه
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = zoom.scale
+                        scaleY = zoom.scale
+                        translationX = zoom.offX
+                        translationY = zoom.offY
+                    },
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawMushafPage(bmp, t, page, segments, selection, selectionColor)
+                }
             }
         }
 
@@ -612,8 +822,8 @@ private fun MushafPage(
 
 /**
  * رسم الصفحة داخل الكانفس: القص الجانبي (بلا تفاسير) ثم تنظيف الزوايا
- * العلوية بلون الورق ثم إبراز المُدى المحدَّد بشريط بنفسجي على أسطره —
- * والامتداد الكامل للمساحة يجري في التحويل نفسه.
+ * العلوية بلون الورق ثم إبراز المُدى المحدَّد بلون الثيم الشفاف على
+ * أسطره — والامتداد الكامل للمساحة يجري في التحويل نفسه.
  */
 private fun DrawScope.drawMushafPage(
     bitmap: ImageBitmap,
@@ -621,6 +831,7 @@ private fun DrawScope.drawMushafPage(
     page: Int,
     segments: List<MushafSegment>?,
     selection: MushafSelection?,
+    selectionColor: Color,
 ) {
     drawImage(
         image = bitmap,
@@ -660,19 +871,38 @@ private fun DrawScope.drawMushafPage(
         }
     }
 
-    // إبراز المُدى المحدَّد — شريط بنفسجي شفاف على أسطر الآيات كما في
-    // صورة المالك، لكل شريحة سطر على حِدة فالسطر المشترك يُبرز نصيبه
+    // إبراز المُدى المحدَّد — شريط بلون الثيم الشفاف على أسطر الآيات
+    // (توجيه المالك: «بدل ما هو بنفسجي خليه بالوان تتماشى مع الوان
+    // الثيم و يكون شفاف لدرجه تسمح برؤيه النص المحدد») — لكل شريحة
+    // سطر على حِدة فالسطر المشترك يُبرز نصيبه
     val sel = selection ?: return
     segs.filter { it.sura == sel.sura && it.ayah in sel.ayahs }.forEach { seg ->
         val (x0, y0) = t.toDisplay(seg.minX - 2f, seg.minY - 1f)
         val (x1, y1) = t.toDisplay(seg.maxX + 2f, seg.maxY + 1f)
         drawRoundRect(
-            color = SelectionPurple,
+            color = selectionColor,
             topLeft = Offset(x0, y0),
             size = Size(x1 - x0, y1 - y0),
             cornerRadius = CornerRadius(7f, 7f),
         )
     }
+}
+
+/**
+ * نقطة شاشة ← إحداثي فراغ المرجع بالآيات — تمرّ بعكس زوم الصفحة أولاً
+ * ثم بعكس تحويل الطبعة، فتبقى المعاينة مليمترية مع الصفحة المكبّرة.
+ */
+private fun glyphAt(
+    t: MushafTransform,
+    pos: Offset,
+    zoom: MushafZoomState,
+    viewSize: IntSize,
+): Pair<Float, Float> {
+    val (cx, cy) = MushafZoomMath.toContent(
+        pos.x, pos.y, zoom.scale, zoom.offX, zoom.offY,
+        viewSize.width.toFloat(), viewSize.height.toFloat(),
+    )
+    return t.toGlyph(cx, cy)
 }
 
 /** فعل المنغّلة — أيقونة وعنوان وإجراء */
@@ -849,6 +1079,7 @@ private fun PlayOptionsCard(
     rootSize: IntSize,
     selection: MushafSelection,
     surahCount: Int,
+    reciterName: String,
     onPlay: (List<Int>) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -904,11 +1135,18 @@ private fun PlayOptionsCard(
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "التلاوة · ${MushafSurahs.name(selection.sura)}",
-                    color = Color.White.copy(alpha = 0.55f),
-                    style = MaterialTheme.typography.labelMedium,
-                )
+                Column {
+                    Text(
+                        text = "التلاوة · ${MushafSurahs.name(selection.sura)}",
+                        color = Color.White.copy(alpha = 0.55f),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    Text(
+                        text = "الشيخ $reciterName",
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
             }
             PlayOptionRow(
                 icon = Icons.Filled.PlayArrow,
@@ -1769,6 +2007,11 @@ private fun BottomSheet(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                // alpha54 — توجيه المالك: «اخر جزء منها تحت شريط التنقل
+                // … خلي حدود القائمه مع اخر حدود شريط التنقل» — اللوحة
+                // كلها تُرفع لتقف حدّها السفلي على آخر شريط التنقل فلا
+                // يبقى سطرٌ مخفيّ تحتَه ولا خيارٌ مستحيل الضغط
+                .padding(bottom = NAV_BAR_CLEAR)
                 .height(with(LocalDensity.current) { cardH.toDp() })
                 .graphicsLayer { translationY = (1f - slide.value) * cardH }
                 .shadow(18.dp, RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))

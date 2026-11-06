@@ -112,6 +112,17 @@ data class NoorSettingsState(
     val mushafBookmarkPage: Int = 1,
     /** آيات الحفظ الميسر — مجموعة «سورة:آية» المعلَّمة محفوظة (alpha53) */
     val mushafHifz: Set<String> = emptySet(),
+    /**
+     * الشيخ المختار لتلاوة المصحف (alpha54) — معرّف من [com.sawan4art.noor.domain.mushaf.QuranReciters]،
+     * والافتراضي العفاسي (كان هو المصدر الوحيد قبل قسم أصوات الشيخ).
+     */
+    val quranReciter: String = com.sawan4art.noor.domain.mushaf.QuranReciters.DEFAULT_ID,
+    /** خطبة الجمعة — العنوان المكتوب (alpha54) */
+    val khutbahTitle: String = "",
+    /** خطبة الجمعة — نصها المكتوب (alpha54) */
+    val khutbahText: String = "",
+    /** خطبة الجمعة — أسماء ملفات الصور المرفقة (alpha54) */
+    val khutbahImages: List<String> = emptyList(),
 )
 
 class SettingsRepository(private val context: Context) {
@@ -131,6 +142,11 @@ class SettingsRepository(private val context: Context) {
         val MUSHAF_BOOKMARK_AYAH = intPreferencesKey("mushaf_bookmark_ayah")
         val MUSHAF_BOOKMARK_PAGE = intPreferencesKey("mushaf_bookmark_page")
         val MUSHAF_HIFZ = stringSetPreferencesKey("mushaf_hifz_set")
+        // أصوات الشيخ وخطبة الجمعة (alpha54)
+        val QURAN_RECITER = stringPreferencesKey("quran_reciter")
+        val KHUTBAH_TITLE = stringPreferencesKey("khutbah_title")
+        val KHUTBAH_TEXT = stringPreferencesKey("khutbah_text")
+        val KHUTBAH_IMAGES = stringPreferencesKey("khutbah_images")
         val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check_at")
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
         val UPDATE_NOTIFIED_AT = longPreferencesKey("update_notified_at")
@@ -194,6 +210,12 @@ class SettingsRepository(private val context: Context) {
             mushafBookmarkAyah = p[Keys.MUSHAF_BOOKMARK_AYAH] ?: 0,
             mushafBookmarkPage = MushafPages.clampPage(p[Keys.MUSHAF_BOOKMARK_PAGE] ?: 1),
             mushafHifz = p[Keys.MUSHAF_HIFZ] ?: emptySet(),
+            quranReciter = p[Keys.QURAN_RECITER]
+                ?: com.sawan4art.noor.domain.mushaf.QuranReciters.DEFAULT_ID,
+            khutbahTitle = p[Keys.KHUTBAH_TITLE] ?: "",
+            khutbahText = p[Keys.KHUTBAH_TEXT] ?: "",
+            khutbahImages = p[Keys.KHUTBAH_IMAGES]
+                ?.split(',')?.filter { it.isNotBlank() } ?: emptyList(),
         )
     }
 
@@ -395,6 +417,31 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setThemeMode(mode: ThemeMode) {
         context.noorDataStore.edit { it[Keys.THEME] = mode.name }
+    }
+
+    /** حفظ الشيخ المختار لتلاوة المصحف — يُرجع للافتراضي لو غاب المعرّف */
+    suspend fun setQuranReciter(id: String) {
+        context.noorDataStore.edit {
+            it[Keys.QURAN_RECITER] = id.ifBlank {
+                com.sawan4art.noor.domain.mushaf.QuranReciters.DEFAULT_ID
+            }
+        }
+    }
+
+    /** حفظ خطبة الجمعة المكتوبة — عنوان ونص */
+    suspend fun setKhutbah(title: String, text: String) {
+        context.noorDataStore.edit {
+            it[Keys.KHUTBAH_TITLE] = title
+            it[Keys.KHUTBAH_TEXT] = text
+        }
+    }
+
+    /** حفظ قائمة صور الخطبة — أسماء الملفات داخل مجلد صور الخطبة */
+    suspend fun setKhutbahImages(images: List<String>) {
+        context.noorDataStore.edit {
+            it[Keys.KHUTBAH_IMAGES] = images.filter { name -> name.isNotBlank() }
+                .joinToString(",")
+        }
     }
 
     suspend fun setMethod(method: CalculationMethod) {

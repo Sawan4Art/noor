@@ -70,6 +70,7 @@ import com.sawan4art.noor.data.NoorSettingsState
 import com.sawan4art.noor.data.update.DownloadState
 import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.data.update.UpdateNotifier
+import com.sawan4art.noor.domain.mushaf.QuranReciters
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.ui.settings.adhan.AdhanActions
@@ -117,8 +118,12 @@ fun SettingsScreen(
     downloadState: DownloadState,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
+    /** معرّف الشيخ المختار لتلاوة المصحف (alpha54) */
+    reciterId: String,
+    /** تغيير الشيخ المختار — قسم «أصوات الشيخ» */
+    onSetReciter: (String) -> Unit,
 ) {
-    // الروابط الداخلية: home ← location / method / adhan / colors / updates
+    // الروابط الداخلية: home ← location / method / adhan / colors / voices / updates
     var section by rememberSaveable { mutableStateOf("home") }
     BackHandler(enabled = section != "home") { section = "home" }
 
@@ -161,6 +166,15 @@ fun SettingsScreen(
                 )
             }
         }
+        // قسم أصوات الشيخ — عشرون شيخاً وتنزيل صوت كلٍّ منهم (alpha54)
+        "voices" -> SectionPage(title = "أصوات الشيخ", onBack = { section = "home" }) {
+            SectionCard {
+                QuranVoicesSection(
+                    reciterId = reciterId,
+                    onSetReciter = onSetReciter,
+                )
+            }
+        }
         "updates" -> SectionPage(title = "التحديثات", onBack = { section = "home" }) {
             SectionCard {
                 UpdatesSection(
@@ -176,6 +190,7 @@ fun SettingsScreen(
             settings = settings,
             updateState = updateState,
             adhanPrefs = adhanPrefs,
+            reciterId = reciterId,
             onOpen = { section = it },
         )
     }
@@ -187,6 +202,7 @@ private fun SettingsHome(
     settings: NoorSettingsState,
     updateState: UpdateUiState,
     adhanPrefs: AdhanPrefs,
+    reciterId: String,
     onOpen: (String) -> Unit,
 ) {
     Column(
@@ -220,6 +236,12 @@ private fun SettingsHome(
             title = "الأذان والإقامة",
             summary = adhanSummary(adhanPrefs),
             onOpen = { onOpen("adhan") },
+        )
+        SectionRow(
+            icon = NoorIcons.QuranVoice,
+            title = "أصوات الشيخ",
+            summary = reciterSummary(reciterId),
+            onOpen = { onOpen("voices") },
         )
         SectionRow(
             icon = NoorIcons.Palette,
@@ -260,6 +282,12 @@ private fun updatesSummary(state: UpdateUiState): String = when (state) {
     is UpdateUiState.Available -> "تحديث جديد متاح: ${state.info.versionName}"
     is UpdateUiState.Failed -> "تعذّر الفحص — افتح الصفحة لإعادة المحاولة"
     else -> "أنت على أحدث نسخة — والفحص تلقائي عند فتح التطبيق"
+}
+
+/** ملخص قسم أصوات الشيخ — اسم الشيخ المختار وعلامة الصوت المحمَّل */
+private fun reciterSummary(reciterId: String): String {
+    val name = QuranReciters.byId(reciterId).name
+    return "تلاوة المصحف بصوت: $name — والتنزيل للجهاز من القسم"
 }
 
 /** ملخص قسم الأذان في القائمة — الحالة والصوت الحالي بلا فتح الصفحة */

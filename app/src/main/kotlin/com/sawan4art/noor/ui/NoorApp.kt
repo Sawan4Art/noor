@@ -166,6 +166,14 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                     onSetMushafBookmark = viewModel::setMushafBookmark,
                     hifzMemorized = uiState.settings.mushafHifz,
                     onSetMushafHifz = viewModel::setMushafHifz,
+                    reciterId = uiState.settings.quranReciter,
+                    onSetReciter = viewModel::setQuranReciter,
+                    khutbahTitle = uiState.settings.khutbahTitle,
+                    khutbahText = uiState.settings.khutbahText,
+                    khutbahImages = uiState.settings.khutbahImages,
+                    onSetKhutbah = viewModel::setKhutbah,
+                    onImportKhutbahImage = viewModel::importKhutbahImage,
+                    onDeleteKhutbahImage = viewModel::deleteKhutbahImage,
                 )
             }
 
@@ -263,6 +271,14 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                             onSetMushafBookmark = viewModel::setMushafBookmark,
                             hifzMemorized = uiState.settings.mushafHifz,
                             onSetMushafHifz = viewModel::setMushafHifz,
+                            reciterId = uiState.settings.quranReciter,
+                            onSetReciter = viewModel::setQuranReciter,
+                            khutbahTitle = uiState.settings.khutbahTitle,
+                            khutbahText = uiState.settings.khutbahText,
+                            khutbahImages = uiState.settings.khutbahImages,
+                            onSetKhutbah = viewModel::setKhutbah,
+                            onImportKhutbahImage = viewModel::importKhutbahImage,
+                            onDeleteKhutbahImage = viewModel::deleteKhutbahImage,
                         )
                     }
                 }
@@ -415,6 +431,20 @@ private fun NoorBody(
     hifzMemorized: Set<String>,
     /** تعليم آيات محفوظة أو مسح التعليم — الحفظ الميسر (alpha53) */
     onSetMushafHifz: (Int, List<Int>, Boolean) -> Unit,
+    /** خطبة الجمعة — العنوان والنص والصور المحفوظة (alpha54) */
+    khutbahTitle: String,
+    khutbahText: String,
+    khutbahImages: List<String>,
+    /** حفظ خطبة الجمعة المكتوبة */
+    onSetKhutbah: (String, String) -> Unit,
+    /** استيراد صورة إلى الخطبة */
+    onImportKhutbahImage: (android.net.Uri) -> Unit,
+    /** حذف صورة من الخطبة */
+    onDeleteKhutbahImage: (String) -> Unit,
+    /** معرّف الشيخ المختار — قسم «أصوات الشيخ» في الإعدادات */
+    reciterId: String,
+    /** تغيير الشيخ المختار */
+    onSetReciter: (String) -> Unit,
     adhanPrefs: com.sawan4art.noor.data.AdhanPrefs,
     adhanActions: AdhanActions,
     updateState: UpdateUiState,
@@ -452,6 +482,12 @@ private fun NoorBody(
                         locating = locating,
                         onDetectLocation = onDetectLocation,
                         isDark = isDark,
+                        khutbahTitle = khutbahTitle,
+                        khutbahText = khutbahText,
+                        khutbahImages = khutbahImages,
+                        onSetKhutbah = onSetKhutbah,
+                        onImportKhutbahImage = onImportKhutbahImage,
+                        onDeleteKhutbahImage = onDeleteKhutbahImage,
                     )
                     NoorTab.TASBIH -> MisbahaScreen()
                     NoorTab.ADHKAR -> AzkarScreen(onExitTab = { onTab(NoorTab.PRAYER) })
@@ -470,6 +506,8 @@ private fun NoorBody(
                         downloadState = downloadState,
                         onCheckUpdates = onCheckUpdates,
                         onDownloadUpdate = onDownloadUpdate,
+                        reciterId = reciterId,
+                        onSetReciter = onSetReciter,
                     )
                     NoorTab.QIBLA -> QiblaScreen(settings = uiState.settings)
                     NoorTab.QURAN -> MushafScreen(
@@ -477,6 +515,7 @@ private fun NoorBody(
                         bookmarkSura = uiState.settings.mushafBookmarkSura,
                         bookmarkAyah = uiState.settings.mushafBookmarkAyah,
                         bookmarkPage = uiState.settings.mushafBookmarkPage,
+                        reciterId = reciterId,
                         hifzMemorized = hifzMemorized,
                         onSavePage = onSaveMushafPage,
                         onSetBookmark = onSetMushafBookmark,
