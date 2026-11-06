@@ -174,12 +174,56 @@ class MushafGeometryTest {
     }
 
     @Test
-    fun `الملاءمة داخل مساحة أصغر توسّط الصفحة لا تشوهها`() {
+    fun `الصفحة تتسع لكامل المساحة بلا فراغ فوق ولا تحت`() {
+        // توجيه المالك: من أول الشاشة فوق إلى آخر حدود شريط التنقل —
+        // الامتداد على كل محور فالقص ٦٤٨×١٠٥٣ يملأ ٤٠٠×٩٠٠ كاملة
         val t = MushafTransform(776f, 1053f, 12f, 660f, 400f, 900f)
-        // نسبة القص ٦٤٨×١٠٥٣ أعرض من ٤٠٠×٩٠٠ → العرض يربط
-        assertEquals(400f, t.dstWidth, 0.5f)
-        assertTrue(t.dstHeight < 900f)
-        assertEquals((900f - t.dstHeight) / 2f, t.dy, 0.5f)
-        assertEquals(0f, t.dx, 0.5f)
+        assertEquals(400f, t.dstWidth, 0.01f)
+        assertEquals(900f, t.dstHeight, 0.01f)
+        assertEquals(0f, t.dstLeft, 0.01f)
+        assertEquals(0f, t.dstTop, 0.01f)
+        // ملامسة الحواف: أول بكسل القص عند حافة العرض وأخرك عند حرفتها
+        assertEquals(0f, t.toDisplay(12f, 0f).first, 0.01f)
+        assertEquals(0f, t.toDisplay(12f, 0f).second, 0.01f)
+        assertEquals(400f, t.toDisplay(660f, 1053f).first, 0.01f)
+        assertEquals(900f, t.toDisplay(660f, 1053f).second, 0.01f)
+    }
+
+    @Test
+    fun `الامتداد المختلف على المحورين يحفظ المحاذاة المليمترية`() {
+        // تمديد رأسي أكبر من الأفقي — التحويلان متعاكسان على كل محور
+        val t = MushafTransform(776f, 1053f, 12f, 660f, 648f, 1016f * 2f)
+        val (dx, dy) = t.toDisplay(400f, 500f)
+        val (gx, gy) = t.toGlyph(dx, dy)
+        assertEquals(400f, gx, 0.01f)
+        assertEquals(500f, gy, 0.01f)
+    }
+}
+
+/** اختبارات آيات التلاوة الثلاثية — قائمة الاختيارات التي طلبها المالك */
+class MushafPlaylistTest {
+
+    private val sel = MushafSelection(2, 50, 55)
+
+    @Test
+    fun `المحدد فقط يرجع المدى المنتظم`() {
+        assertEquals((50..55).toList(), com.sawan4art.noor.domain.mushaf.MushafPlaylist.selected(sel))
+        assertEquals((50..55).toList(), com.sawan4art.noor.domain.mushaf.MushafPlaylist.selected(MushafSelection(2, 55, 50)))
+    }
+
+    @Test
+    fun `السورة من بداية التحديد حتى آخر آية فيها`() {
+        assertEquals((50..286).toList(), com.sawan4art.noor.domain.mushaf.MushafPlaylist.surahFromSelection(sel, 286))
+    }
+
+    @Test
+    fun `السورة كاملة من بدايتها بغض النظر عن التحديد`() {
+        assertEquals((1..286).toList(), com.sawan4art.noor.domain.mushaf.MushafPlaylist.surahFull(286))
+    }
+
+    @Test
+    fun `عدد غير سليم لا يفجّر القوائم`() {
+        assertTrue(com.sawan4art.noor.domain.mushaf.MushafPlaylist.surahFromSelection(sel, 0).isEmpty())
+        assertTrue(com.sawan4art.noor.domain.mushaf.MushafPlaylist.surahFull(0).isEmpty())
     }
 }

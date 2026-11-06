@@ -11,6 +11,9 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -20,13 +23,20 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
@@ -41,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,7 +59,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -56,8 +69,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -76,56 +92,72 @@ import com.sawan4art.noor.data.mushaf.MushafDb
 import com.sawan4art.noor.domain.mushaf.MushafAyah
 import com.sawan4art.noor.domain.mushaf.MushafGeometry
 import com.sawan4art.noor.domain.mushaf.MushafPages
+import com.sawan4art.noor.domain.mushaf.MushafPlaylist
 import com.sawan4art.noor.domain.mushaf.MushafSegment
 import com.sawan4art.noor.domain.mushaf.MushafSelection
 import com.sawan4art.noor.domain.mushaf.MushafSelectionOps
 import com.sawan4art.noor.domain.mushaf.MushafSurahs
 import com.sawan4art.noor.domain.mushaf.MushafTransform
 import com.sawan4art.noor.ui.icons.NoorIcons
+import com.sawan4art.noor.ui.nav.GooeyMath
+import com.sawan4art.noor.ui.nav.addBridgePath
+import com.sawan4art.noor.ui.nav.addLiquidBlob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
- * المصحف — صفحات طبعة التجويد الملون بكامل الشاشة وتفاعل آيات (alpha51).
+ * المصحف — صفحات طبعة التجويد الملون المتسعة بكامل الشاشة وتفاعل آيات
+ * سائل حي (alpha52).
  *
- * توجيه المالك ٢٠٢٦-١١-٠٦: «شيل زر الرجوع من المصحف و خلي صفحه المصحف
- * بكامل الشاشه و اخرها لاقى حد قبل شريط التنقل» + «هديك صوره لازرار
- * تفاعليه تظهر عند الضغط المطول و عايز المصحف يكون تفاعلي و يكون الايات
- * قابله للتحديد مع مراعاه تحديد ايات و ترك ايات في المنتصف اذا حدد
- * المستخدم مثلا ايه رقم ٥٠ و جيه يدوس على ايه ٥٥ يبقى اوتماتك الايات
- * التي في المنتصف تحدد» + «في جزء في الصفحات جانبي في تفاسير شيل الجزء
- * ده من كل الصفحات و ابقي فقط على اطار الصفحه المزغرف مع طبعا الجزء
- * السفلي الذي ينبه معنى الالوان»:
+ * توجيه المالك ٢٠٢٦-١١-٠٦ بعد alpha51: «صفحه المصحف نفسها في فراغ فوقها و
+ * تحتها يعني عايز الصفحه تتسع لكامل الشاشه من اولها من فوق الى اخر حدود شريط
+ * التنقل» و «عايز امكانيه تحديد عده ايات مع بعض لتشغيلها» و «عايز لما ادوس
+ * على زر تشغيل الصوت يظهر قائمه اختار منها تشغيل السوره كامله من بدايه
+ * التحديد او تشغيل المحدد فقط او تشغيل السوره كامله من بدايتها بغض النظر عن
+ * التحديد» و «عايز استايل الايقونات الدائريه المنبثقه تكون بشكل سائل حي زي
+ * باقي الموجود في التطبيق و عايز ايقونه جديده تظهر مع الايقونات المنبثقه
+ * تكون خاصه بالتفاسير»:
  *
- * • بلا زر رجوع: إيماءة الرجوع النظامية تعود للرئيسية، والتحديد النشيط
- *   يأكل الضغطة الأولى فمستهلكان لا يتصادمان.
- * • كامل الشاشة: شريط الحالة مستخفى أثناء قراءة المصحف ويظهر إن غادرت،
- *   وقلب الصفحة يقف قبل شريط التنقل السائل (٩٤dp أسفل الشاشة: هامش ١٨ +
- *   ارتفاع ٧٦ كما ضبطهما المالك في alpha45) فلا يمر الزجاج فوق الآيات.
- * • قصّ التفاسير الجانبية من كل الصفحات (١..٦٠٤) وتبقى الطبعة بعنوانها:
- *   الإطار المزخرف وشريط دليل الألوان السفلي عينهما، والزوايا العلوية
- *   تُنظَّف بلون ورق الطبعة نفسه فلا بقايا مقصوصة.
- * • الآيات قابلة للتحديد بإحداثيات الطبعة نفسها (قاعدة glyphs المرافقة
- *   للصور): ضغط مطوّل يحدّد آية ويفتح المنغّلة البرتقالية حول الإصبع،
- *   وضغطة تالية على آية أخرى تمدّ التحديد لكل الآيات بينهما آلياً،
- *   والإيماءة الرجوع تُلغي التحديد قبل مغادرة المصحف.
- * • المنغّلة البرتقالية: تلاوة (العفاسي أونلاين) • علامة مرجعية • نسخ
- *   • مشاركة • إغلاق — أفعالها على كامل المُدى المحدَّد.
+ * • الصفحة تتسع على كل محور على حدة فتملأ المساحة من أول الشاشة فوق إلى
+ *   آخر حدود شريط التنقل السائل بلا أي فراغ — عين ما تفعل تطبيقات المصحف
+ *   المرجعية، ومحاذاة الضغط والإبراز تظل مليمترية رغم الامتداد.
+ * • المُدى المحدد يُتشغَّل كله متتابعاً آية وراء آية، وزر التلاوة يفتح
+ *   قائمة الاختيارات الثلاثة: المحدد فقط، السورة من بداية التحديد،
+ *   السورة كاملة من بدايتها بغض النظر عن التحديد.
+ * • المنغّلة البرتقالية صارت سائلة حية من نفس عائلة شريط التنقل: ست
+ *   قطرات متموجة بتموج GooeyMath وجسورها الموصولة بلا فصل، تقفز من نقطة
+ *   الضغط بنابض وترفرف في الثبات ذاته، وفي قلبها زر التفسير الجديد
+ *   (كتاب مفتوح مرسوم بنمط التطبيق).
+ * • زر التفسير يفتح لوحة التفسير الميسر كاملاً (بلا إنترنت — مرفقة
+ *   بقاعدة المصحف) لكل آيات المُدى المحدد نصاً وتفسيراً.
  */
 
 /** المساحة المحجوزة أسفل الشاشة قبل شريط التنقل السائل (١٨+٧٦dp — alpha45) */
 private val NAV_BAR_CLEAR = 94.dp
 
-/** برتقالي المنغّلة — عين برتقال الأزرار في صورة المالك */
+/** برتقالي المنغّلة السائلة — عين برتقال الأزرار في صورة المالك */
 private val MenuOrange = Color(0xFFF57C00)
+
+/** خلفية بطاقتَي التلاوة والتفسير — دافئة داكنة تليق فوق ورق الطبعة */
+private val PanelBg = Color(0xFF1E1814)
 
 /** لون إبراز التحديد — بنفسجي شفاف كما في صورة المالك */
 private val SelectionPurple = Color(0xFF7C4DFF).copy(alpha = 0.45f)
+
+/** هندسة المنغّلة السائلة — حلقة خماسية حول قلب الإغلاق */
+private val RING_RADIUS = 56.dp
+private val ITEM_SIZE = 46.dp
+private val CLUSTER_SIZE = 172.dp
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -169,15 +201,23 @@ fun MushafScreen(
     )
     val scope = rememberCoroutineScope()
 
-    // التحديد والمنغّلة — يعيشان فوق الصفحات فقلب الصفحة لا يفقد المُدى
+    // التحديد والمنغّلة وقائمتها ولوحة التفسير — فوق الصفحات فقلب الصفحة لا يفقد المُدى
     var selection by remember { mutableStateOf<MushafSelection?>(null) }
     var menuAt by remember { mutableStateOf<Offset?>(null) }
+    var playMenuOpen by remember { mutableStateOf(false) }
+    var tafsirOpen by remember { mutableStateOf(false) }
     var rootSize by remember { mutableStateOf(IntSize.Zero) }
+    var surahCount by remember { mutableStateOf(0) }
 
-    // الإيماءة الرجوع تأكل التحديد أولاً ثم تعود للرئيسية (لا زر ظاهر)
-    BackHandler(enabled = selection != null) {
-        selection = null
-        menuAt = null
+    // الإيماءة الرجوع: تُغلق لوحة التفسير أولاً ثم تلغي التحديد ثم تعود للرئيسية
+    BackHandler(enabled = tafsirOpen || selection != null) {
+        if (tafsirOpen) {
+            tafsirOpen = false
+        } else {
+            selection = null
+            menuAt = null
+            playMenuOpen = false
+        }
     }
 
     // حفظ آخر صفحة عند وصول القارئ إليها — المصحف يظل مكمنه الذي تركه
@@ -187,7 +227,14 @@ fun MushafScreen(
             .collect { page ->
                 onSavePage(page + 1)
                 menuAt = null // قلب الصفحة يُخفي المنغّلة والتحديد يبقى للمُدى
+                playMenuOpen = false
             }
+    }
+
+    // عدّ آيات السورة المحددة — لعناوين خيارات التلاوة الثلاثة
+    LaunchedEffect(selection?.sura) {
+        val sura = selection?.sura ?: return@LaunchedEffect
+        surahCount = withContext(Dispatchers.IO) { MushafDb.surahAyahCount(context, sura) }
     }
 
     val playing by MushafPlayer.playing.collectAsState()
@@ -201,13 +248,30 @@ fun MushafScreen(
         )
     }
 
+    /** تشغيل مُدى آيات متتابع — رابط كل آية من ترتيبها العالمي */
+    fun startPlaylist(sura: Int, ayahs: List<Int>) {
+        scope.launch {
+            val urls = withContext(Dispatchers.IO) {
+                ayahs.map { ayah ->
+                    val global = MushafDb.globalAyah(context, sura, ayah)
+                    "https://cdn.islamic.network/quran/audio/128/ar.alafasy/$global.mp3"
+                }
+            }
+            val ok = withContext(Dispatchers.IO) { MushafPlayer.play(urls) }
+            if (!ok) {
+                Toast.makeText(context, "التلاوة تحتاج اتصالاً بالإنترنت", Toast.LENGTH_SHORT).show()
+            }
+            playMenuOpen = false
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
             .onSizeChanged { rootSize = it },
     ) {
-        // مساحة القراءة — تقف قبل شريط التنقل السائل فلا يمر الزجاج فوق الآيات
+        // مساحة القراءة — تقف قبل شريط التنقل السائل، والصفحة تتسع لكاملها
         HorizontalPager(
             state = pagerState,
             beyondViewportPageCount = 1,
@@ -221,6 +285,7 @@ fun MushafScreen(
                 selection = selection,
                 onLongPressAyah = { ayah, at ->
                     selection = MushafSelectionOps.extend(null, ayah)
+                    playMenuOpen = false
                     menuAt = clampMenu(at)
                 },
                 onTapAyah = { ayah, at ->
@@ -230,81 +295,85 @@ fun MushafScreen(
             )
         }
 
-        // المنغّلة البرتقالية حول الإصبع — أفعالها على كامل المُدى المحدَّد
+        // المنغّلة السائلة أو قائمة التلاوة الثلاثة
         val at = menuAt
         if (at != null) {
             val sel = selection
             if (sel != null) {
-                AyahMenuCluster(
-                    offset = at,
-                    playing = playing,
-                    bookmarkedHere = bookmarkSura == sel.sura &&
-                        bookmarkAyah == MushafSelectionOps.firstOf(sel).ayah,
-                    onPlay = {
-                        val first = MushafSelectionOps.firstOf(sel)
-                        scope.launch {
-                            if (MushafPlayer.playing.value) {
-                                MushafPlayer.stop()
+                if (playMenuOpen) {
+                    PlayOptionsCard(
+                        offset = at,
+                        rootSize = rootSize,
+                        selection = sel,
+                        surahCount = surahCount,
+                        onPlay = { ayahs -> startPlaylist(sel.sura, ayahs) },
+                        onCancel = { playMenuOpen = false },
+                    )
+                } else {
+                    AyahMenuCluster(
+                        offset = at,
+                        playing = playing,
+                        bookmarkedHere = bookmarkSura == sel.sura &&
+                            bookmarkAyah == MushafSelectionOps.firstOf(sel).ayah,
+                        onPlay = { playMenuOpen = true },
+                        onBookmark = {
+                            val first = MushafSelectionOps.firstOf(sel)
+                            if (bookmarkSura == first.sura && bookmarkAyah == first.ayah) {
+                                onSetBookmark(0, 0, 0)
+                                Toast.makeText(context, "أُزيلت العلامة المرجعية", Toast.LENGTH_SHORT).show()
                             } else {
-                                val global = withContext(Dispatchers.IO) {
-                                    MushafDb.globalAyah(context, first.sura, first.ayah)
-                                }
-                                val url = "https://cdn.islamic.network/quran/audio/128/ar.alafasy/$global.mp3"
-                                val ok = withContext(Dispatchers.IO) { MushafPlayer.play(url) }
-                                if (!ok) {
-                                    Toast.makeText(
-                                        context,
-                                        "التلاوة تحتاج اتصالاً بالإنترنت",
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                }
+                                onSetBookmark(first.sura, first.ayah, pagerState.currentPage + 1)
+                                Toast.makeText(
+                                    context,
+                                    "حُفظت العلامة · ${MushafSurahs.caption(sel)}",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
                             }
-                        }
-                    },
-                    onBookmark = {
-                        val first = MushafSelectionOps.firstOf(sel)
-                        if (bookmarkSura == first.sura && bookmarkAyah == first.ayah) {
-                            onSetBookmark(0, 0, 0)
-                            Toast.makeText(context, "أُزيلت العلامة المرجعية", Toast.LENGTH_SHORT).show()
-                        } else {
-                            onSetBookmark(first.sura, first.ayah, pagerState.currentPage + 1)
-                            Toast.makeText(
-                                context,
-                                "حُفظت العلامة · ${MushafSurahs.caption(sel)}",
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                        menuAt = null
-                    },
-                    onCopy = {
-                        scope.launch {
-                            val text = withContext(Dispatchers.IO) {
-                                MushafDb.ayahRangeText(context, sel.sura, sel.from, sel.to)
-                            }
-                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            cm.setPrimaryClip(ClipData.newPlainText("آيات", text))
-                            Toast.makeText(
-                                context,
-                                "نُسخ نص ${MushafSurahs.caption(sel)}",
-                                Toast.LENGTH_SHORT,
-                            ).show()
                             menuAt = null
-                        }
-                    },
-                    onShare = {
-                        scope.launch {
-                            val text = withContext(Dispatchers.IO) {
-                                MushafDb.ayahRangeText(context, sel.sura, sel.from, sel.to)
+                        },
+                        onTafsir = { tafsirOpen = true },
+                        onCopy = {
+                            scope.launch {
+                                val text = withContext(Dispatchers.IO) {
+                                    MushafDb.ayahRangeText(context, sel.sura, sel.from, sel.to)
+                                }
+                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                cm.setPrimaryClip(ClipData.newPlainText("آيات", text))
+                                Toast.makeText(
+                                    context,
+                                    "نُسخ نص ${MushafSurahs.caption(sel)}",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                                menuAt = null
                             }
-                            val send = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, "${MushafSurahs.caption(sel)}\n$text")
+                        },
+                        onShare = {
+                            scope.launch {
+                                val text = withContext(Dispatchers.IO) {
+                                    MushafDb.ayahRangeText(context, sel.sura, sel.from, sel.to)
+                                }
+                                val send = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, "${MushafSurahs.caption(sel)}\n$text")
+                                }
+                                context.startActivity(Intent.createChooser(send, "مشاركة الآيات"))
+                                menuAt = null
                             }
-                            context.startActivity(Intent.createChooser(send, "مشاركة الآيات"))
-                            menuAt = null
-                        }
-                    },
-                    onClose = { menuAt = null },
+                        },
+                        onClose = { menuAt = null },
+                    )
+                }
+            }
+        }
+
+        // لوحة التفسير الميسر — صاعدة من الأسفل فوق كل شيء
+        if (tafsirOpen) {
+            val sel = selection
+            if (sel != null) {
+                TafsirPanel(
+                    selection = sel,
+                    rootSize = rootSize,
+                    onDismiss = { tafsirOpen = false },
                 )
             }
         }
@@ -350,8 +419,8 @@ fun MushafScreen(
 }
 
 /**
- * صفحة واحدة من المصحف — صورة الطبعة المقصوصة (بلا تفاسير جانبية) مع
- * إبراز الآيات المحدَّدة وضغطها: التسلسل الأساسي ← الاحتياطي بصمت ←
+ * صفحة واحدة من المصحف — صورة الطبعة المقصوصة المتسعة بكامل مساحة القراءة
+ * مع إبراز الآيات المحدَّدة وضغطها: التسلسل الأساسي ← الاحتياطي بصمت ←
  * رسالة إعادة المحاولة، وشرائح الآيات من قاعدة الطبعة المصاحبة للصور.
  */
 @Composable
@@ -489,7 +558,8 @@ private fun MushafPage(
 
 /**
  * رسم الصفحة داخل الكانفس: القص الجانبي (بلا تفاسير) ثم تنظيف الزوايا
- * العلوية بلون الورق ثم إبراز المُدى المحدَّد بشريط بنفسجي على أسطره.
+ * العلوية بلون الورق ثم إبراز المُدى المحدَّد بشريط بنفسجي على أسطره —
+ * والامتداد الكامل للمساحة يجري في التحويل نفسه.
  */
 private fun DrawScope.drawMushafPage(
     bitmap: ImageBitmap,
@@ -559,9 +629,14 @@ private data class MenuAction(
 )
 
 /**
- * المنغّلة البرتقالية حول الإصبع — خمس دوائر برتقالية بأيقونات بيضاء:
- * أربعة أفعال في الأطراف (علامة أعلى، تلاوة يميناً، نسخ أسفل، مشاركة
- * يساراً) وإغلاق في القلب فوق نقطة الضغط، كما في صورة المالك.
+ * المنغّلة السائلة الحية — من نفس عائلة شريط التنقل السائل: ست قطرات
+ * برتقالية متموجة سطحها بتموج GooeyMath، وجسور موصولة من القلب لكل قطرة
+ * بأي زاوية (إطار مُدار حول القلب فيدور الجسر معها)، تقفز من نقطة الضغط
+ * بنابض زائد وترفرف في الثبات ذاته — والقطرات نفسها هي مقابض الضغط
+ * فالأيقونات عائمة فوق سائل يعيش.
+ *
+ * الحلقة خماسية: علامة أعلى، تلاوة يميناً، تفسير أسفل اليمين (الجديد)،
+ * نسخ أسفل اليسار، مشاركة يساراً — وإغلاق في القلب فوق نقطة الضغط.
  */
 @Composable
 private fun AyahMenuCluster(
@@ -570,30 +645,99 @@ private fun AyahMenuCluster(
     bookmarkedHere: Boolean,
     onPlay: () -> Unit,
     onBookmark: () -> Unit,
+    onTafsir: () -> Unit,
     onCopy: () -> Unit,
     onShare: () -> Unit,
     onClose: () -> Unit,
 ) {
     val density = LocalDensity.current
-    val itemPx = with(density) { 46.dp.roundToPx() }
-    val radiusPx = with(density) { 52.dp.roundToPx() }
+    val ringPx = with(density) { RING_RADIUS.roundToPx() }
+    val itemPx = with(density) { ITEM_SIZE.roundToPx() }
+    val clusterPx = with(density) { CLUSTER_SIZE.roundToPx() }
+    val half = clusterPx / 2f
+
+    // زمن حي لا يتوقف — السائل لا يسكن (تموج ورفرفة في الثبات ذاته)
+    var frameNanos by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            withInfiniteAnimationFrameNanos { frameNanos = it }
+        }
+    }
+
+    // قفزة السائل من نقطة الضغط — نابض بزوائد فيتضخم ويستقر كماء لزج
+    val appear = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        appear.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 340f))
+    }
+    val timeSec = frameNanos / 1_000_000_000f
+    val ap = appear.value
+    val grow = ap.coerceIn(0f, 1f)
 
     val actions = listOf(
-        Triple(0f, -1f, MenuAction("علامة مرجعية", if (bookmarkedHere) NoorIcons.QuranBookmark else NoorIcons.QuranBookmarkOutline, onBookmark)),
-        Triple(1f, 0f, MenuAction("تلاوة", if (playing) NoorIcons.QuranStop else Icons.Filled.PlayArrow, onPlay)),
-        Triple(0f, 1f, MenuAction("نسخ", NoorIcons.QuranCopy, onCopy)),
-        Triple(-1f, 0f, MenuAction("مشاركة", Icons.Filled.Share, onShare)),
+        -90f to MenuAction("علامة مرجعية", if (bookmarkedHere) NoorIcons.QuranBookmark else NoorIcons.QuranBookmarkOutline, onBookmark),
+        -18f to MenuAction("تلاوة", if (playing) NoorIcons.QuranStop else Icons.Filled.PlayArrow, onPlay),
+        54f to MenuAction("تفسير", NoorIcons.QuranTafsir, onTafsir),
+        126f to MenuAction("نسخ", NoorIcons.QuranCopy, onCopy),
+        198f to MenuAction("مشاركة", Icons.Filled.Share, onShare),
     )
 
-    Box(modifier = Modifier.offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }) {
-        actions.forEach { (fx, fy, action) ->
+    Box(modifier = Modifier.offset {
+        IntOffset((offset.x - half).roundToInt(), (offset.y - half).roundToInt())
+    }) {
+        // السائل الموحد — مسار واحد لكل القطرات والجسور فتتحد بلا فواصل
+        Canvas(modifier = Modifier.size(CLUSTER_SIZE)) {
+            if (ap <= 0.02f) return@Canvas
+            val centerR = itemPx / 2f * grow
+            val liquid = Path()
+            addLiquidBlob(liquid, half, half, centerR, timeSec, 0.32f, 0f)
+            val drops = actions.mapIndexed { i, (deg, _) ->
+                val rad = deg * PI.toFloat() / 180f
+                val cx = half + ringPx * grow * cos(rad)
+                val cy = half + ringPx * grow * sin(rad)
+                val wave = 1f + GooeyMath.surfaceWave(rad, timeSec, 0.3f, i * 0.9f)
+                addLiquidBlob(liquid, cx, cy, itemPx / 2f * grow * wave, timeSec, 0.26f, i * 0.9f)
+                Triple(cx, cy, wave)
+            }
+            // جسور السائل من القلب لكل قطرة — بأي زاوية: الإطار يدور حول
+            // القلب فيصير الخط أفقياً فيعمل جسر GooeyMath ثم يعود بالدوران
+            drops.forEach { (cx, cy, _) ->
+                val dx = cx - half
+                val dy = cy - half
+                val d = sqrt(dx * dx + dy * dy)
+                if (d > 1f) {
+                    rotate(atan2(dy, dx) * 180f / PI.toFloat(), pivot = Offset(half, half)) {
+                        val bridge = GooeyMath.bridge(
+                            half, half, centerR,
+                            half + d, half, itemPx / 2f * grow,
+                            waist = 0.45f,
+                        )
+                        if (bridge != null) {
+                            val sway = itemPx * 0.05f * GooeyMath.bridgeSway(timeSec, dx * 0.013f)
+                            bridge.qA1y += sway
+                            bridge.qA2y += sway * 0.55f
+                            bridge.qB1y -= sway * 0.85f
+                            bridge.qB2y -= sway * 0.5f
+                            addBridgePath(liquid, bridge)
+                        }
+                    }
+                }
+            }
+            drawPath(liquid, MenuOrange)
+        }
+
+        // الأيقونات عائمة فوق القطرات — نفس المواضع والتموج بعينه
+        actions.forEachIndexed { i, (deg, action) ->
+            val rad = deg * PI.toFloat() / 180f
+            val cx = half + ringPx * grow * cos(rad)
+            val cy = half + ringPx * grow * sin(rad)
             MenuButton(
                 icon = action.icon,
                 contentDescription = action.label,
                 offsetPx = IntOffset(
-                    (fx * radiusPx).roundToInt() - itemPx / 2,
-                    (fy * radiusPx).roundToInt() - itemPx / 2,
+                    (cx - itemPx / 2f).roundToInt(),
+                    (cy - itemPx / 2f).roundToInt(),
                 ),
+                appear = ap,
                 onClick = action.onClick,
             )
         }
@@ -601,28 +745,36 @@ private fun AyahMenuCluster(
         MenuButton(
             icon = Icons.Filled.Close,
             contentDescription = "إغلاق",
-            offsetPx = IntOffset(-itemPx / 2, -itemPx / 2),
+            offsetPx = IntOffset(
+                (half - itemPx / 2f).roundToInt(),
+                (half - itemPx / 2f).roundToInt(),
+            ),
+            appear = ap,
             onClick = onClose,
         )
     }
 }
 
-/** دائرة المنغّلة الواحدة — برتقالية ظليلة بأيقونة بيضاء */
+/**
+ * قطرة المنغّلة القابلة للضغط — بلا خلفية ذاتية: السائل المرسوم في
+ * الكانفس هو الدائرة المرئية، وهنا أيقونة بيضاء عائمة تظهر مع النمو.
+ */
 @Composable
 private fun MenuButton(
     icon: ImageVector,
     contentDescription: String,
     offsetPx: IntOffset,
+    appear: Float,
     onClick: () -> Unit,
 ) {
+    val pop = appear.coerceIn(0.2f, 1.12f)
     Box(
         modifier = Modifier
             .offset { offsetPx }
-            .size(46.dp)
-            .shadow(8.dp, CircleShape)
-            .clip(CircleShape)
-            .background(MenuOrange)
-            .clickable(onClick = onClick),
+            .size(ITEM_SIZE)
+            .scale(pop)
+            .alpha(appear.coerceIn(0f, 1f))
+            .clickable(enabled = appear > 0.55f, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -634,7 +786,294 @@ private fun MenuButton(
     }
 }
 
-/** مشغّل تلاوة الآية — واحد فقط في آن، ويقف عند مغادرة المصحف */
+/**
+ * قائمة التلاوة الثلاثية — توجيه المالك الحرفي: «تشغيل السوره كامله من
+ * بدايه التحديد او تشغيل المحدد فقط او تشغيل السوره كامله من بدايتها بغض
+ * النظر عن التحديد» — بطاقة دافئة تنبثق مكان المنغّلة بسنام نابض، وكل
+ * سطر يحمل عنوانه ومتى يبدأ وينتهي بعينه فلا التباس.
+ */
+@Composable
+private fun PlayOptionsCard(
+    offset: Offset,
+    rootSize: IntSize,
+    selection: MushafSelection,
+    surahCount: Int,
+    onPlay: (List<Int>) -> Unit,
+    onCancel: () -> Unit,
+) {
+    val density = LocalDensity.current
+    val cardW = with(density) { 252.dp.roundToPx() }
+    val cardH = with(density) { 236.dp.roundToPx() }
+    val x = (offset.x.roundToInt() - cardW / 2).coerceIn(8, (rootSize.width - cardW - 8).coerceAtLeast(9))
+    val y = (offset.y.roundToInt() - cardH - with(density) { 12.dp.roundToPx() })
+        .coerceIn(8, (rootSize.height - cardH - 8).coerceAtLeast(9))
+
+    val appear = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        appear.animateTo(1f, spring(dampingRatio = 0.62f, stiffness = 380f))
+    }
+    val ap = appear.value
+
+    val first = MushafSelectionOps.firstOf(selection).ayah
+    val last = selection.ayahs.last
+    val span = MushafSurahs.caption(selection)
+
+    Box(modifier = Modifier.offset { IntOffset(x, y) }) {
+        Column(
+            modifier = Modifier
+                .width(252.dp)
+                .scale(0.85f + 0.15f * ap)
+                .alpha(ap.coerceIn(0f, 1f))
+                .shadow(16.dp, RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(20.dp))
+                .background(PanelBg.copy(alpha = 0.97f))
+                .padding(vertical = 4.dp),
+        ) {
+            Text(
+                text = "التلاوة · ${MushafSurahs.name(selection.sura)}",
+                color = Color.White.copy(alpha = 0.55f),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            PlayOptionRow(
+                icon = Icons.Filled.PlayArrow,
+                title = "تشغيل المحدد فقط",
+                subtitle = span,
+            ) { onPlay(MushafPlaylist.selected(selection)) }
+            PlayOptionRow(
+                icon = Icons.Filled.PlayArrow,
+                title = "تشغيل السورة من بداية التحديد",
+                subtitle = "من آية ${MushafSurahs.arabicDigits(first)} إلى آية ${MushafSurahs.arabicDigits(surahCount)}",
+            ) { onPlay(MushafPlaylist.surahFromSelection(selection, surahCount)) }
+            PlayOptionRow(
+                icon = Icons.Filled.PlayArrow,
+                title = "تشغيل السورة كاملة من بدايتها",
+                subtitle = "الآيات ١–${MushafSurahs.arabicDigits(surahCount)} بغض النظر عن التحديد",
+            ) { onPlay(MushafPlaylist.surahFull(surahCount)) }
+            PlayOptionRow(
+                icon = Icons.Filled.Close,
+                title = "رجوع إلى المنغّلة",
+                subtitle = null,
+            ) { onCancel() }
+        }
+    }
+}
+
+/** سطر خيار واحد في بطاقة التلاوة — أيقونة برتقالية وعنوان ووصفه */
+@Composable
+private fun PlayOptionRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String?,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MenuOrange,
+            modifier = Modifier.size(22.dp),
+        )
+        Column(modifier = Modifier.padding(start = 12.dp)) {
+            Text(
+                text = title,
+                color = Color.White,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    color = Color.White.copy(alpha = 0.5f),
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * لوحة التفسير الميسر — صاعدة من الأسفل فوق صفحة المصحف: لكل آية في
+ * المُدى المحدد نصها العثماني وتفسيرها الميسر، ومصدرها مرفق التطبيق نفسه
+ * فتعمل بلا إنترنت. ضغطة العاتم أو الإيماءة الرجوع أو زر الإغلاق يقفلها.
+ */
+@Composable
+private fun TafsirPanel(
+    selection: MushafSelection,
+    rootSize: IntSize,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+
+    // محتوى المُدى: (الآية، نصها العثماني، تفسيرها) — قراءة واحدة خفيفة
+    var entries by remember(selection) {
+        mutableStateOf<List<Triple<Int, String, String>>?>(null)
+    }
+    LaunchedEffect(selection) {
+        entries = withContext(Dispatchers.IO) {
+            val lo = minOf(selection.from, selection.to)
+            val hi = maxOf(selection.from, selection.to)
+            MushafDb.tafsirRange(context, selection.sura, lo, hi).map { (ayah, tafsir) ->
+                Triple(ayah, MushafDb.ayahText(context, selection.sura, ayah) ?: "", tafsir)
+            }
+        }
+    }
+
+    // صعود اللوحة — نابض هادئ من أسفل الشاشة
+    val slide = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        slide.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = 420f))
+    }
+    val cardH = (rootSize.height * 0.72f).coerceAtLeast(320f)
+        .coerceAtMost(rootSize.height - with(LocalDensity.current) { 90.dp.roundToPx() }.toFloat())
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // العاتم — ضغطة تقفل
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.55f * slide.value.coerceIn(0f, 1f)))
+                .clickable(onClick = onDismiss),
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(with(LocalDensity.current) { cardH.toDp() })
+                .graphicsLayer { translationY = (1f - slide.value) * cardH }
+                .shadow(18.dp, RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
+                .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
+                .background(PanelBg)
+                .clickable(enabled = false) { },
+        ) {
+            // مقبض السحب + الترويسة
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = 10.dp)
+                    .size(width = 44.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White.copy(alpha = 0.25f)),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = NoorIcons.QuranTafsir,
+                    contentDescription = null,
+                    tint = MenuOrange,
+                    modifier = Modifier.size(22.dp),
+                )
+                Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
+                    Text(
+                        text = "التفسير الميسر",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = MushafSurahs.caption(selection),
+                        color = Color.White.copy(alpha = 0.55f),
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "إغلاق التفسير",
+                        tint = Color.White.copy(alpha = 0.8f),
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+
+            val content = entries
+            if (content == null) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(26.dp),
+                        color = MenuOrange,
+                        strokeWidth = 2.dp,
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
+                ) {
+                    items(content) { (ayah, text, tafsir) ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 18.dp, vertical = 10.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MenuOrange.copy(alpha = 0.16f))
+                                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                                ) {
+                                    Text(
+                                        text = "آية ${MushafSurahs.arabicDigits(ayah)}",
+                                        color = MenuOrange,
+                                        style = MaterialTheme.typography.labelMedium,
+                                    )
+                                }
+                            }
+                            if (text.isNotBlank()) {
+                                Text(
+                                    text = text,
+                                    color = Color.White.copy(alpha = 0.72f),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
+                            Text(
+                                text = tafsir,
+                                color = Color.White.copy(alpha = 0.95f),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 18.dp)
+                                .height(0.5.dp)
+                                .background(Color.White.copy(alpha = 0.1f)),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * مشغّل التلاوة بقائمة آيات متتابعة — توجيه المالك: «امكانيه تحديد عده
+ * ايات مع بعض لتشغيلها» — آية وراء آية حتى آخر المُدى المختار، وواحد فقط
+ * في آن، ويقف مع مغادرة المصحف أو الضغطة على زر الإيقاف.
+ */
 private object MushafPlayer {
 
     private val _playing = MutableStateFlow(false)
@@ -643,9 +1082,24 @@ private object MushafPlayer {
     @Volatile
     private var player: MediaPlayer? = null
 
-    /** يشغّل رابط الآية ويرجع نجاح بدئه — الفشل يعرض رسالة الاتصال */
-    fun play(url: String): Boolean = runCatching {
+    /** قائمة روابط الآيات وما بقي منها */
+    @Volatile
+    private var queue: List<String> = emptyList()
+    @Volatile
+    private var queueIndex = 0
+
+    /** تشغيل قائمة روابط آيات بالتتابع — يرجع نجاح بدء الأولى */
+    fun play(urls: List<String>): Boolean {
         stop()
+        if (urls.isEmpty()) return false
+        queue = urls
+        queueIndex = 0
+        return startCurrent()
+    }
+
+    /** تحضير الآية الحالية وتشغيلها — فشل التحضير يوقف الكل برسالة صاحبها */
+    private fun startCurrent(): Boolean = runCatching {
+        val url = queue[queueIndex]
         val p = MediaPlayer()
         p.setAudioAttributes(
             AudioAttributes.Builder()
@@ -658,9 +1112,18 @@ private object MushafPlayer {
             it.start()
             _playing.value = true
         }
-        p.setOnCompletionListener {
-            _playing.value = false
-            runCatching { it.release() }
+        p.setOnCompletionListener { done ->
+            runCatching { done.release() }
+            player = null
+            val next = queueIndex + 1
+            if (next < queue.size) {
+                queueIndex = next
+                if (!startCurrent()) _playing.value = false
+            } else {
+                _playing.value = false
+                queue = emptyList()
+                queueIndex = 0
+            }
         }
         p.setOnErrorListener { _, _, _ ->
             _playing.value = false
@@ -680,6 +1143,8 @@ private object MushafPlayer {
         }
         player = null
         _playing.value = false
+        queue = emptyList()
+        queueIndex = 0
     }
 }
 

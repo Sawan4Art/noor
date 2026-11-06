@@ -171,6 +171,33 @@ object NoorIcons {
         }
     }
 
+    /** تفسير — كتاب مفتوح بصفحتين وشقّ للعمود الفقري (EvenOdd) */
+    val QuranTafsir: ImageVector by lazy {
+        noorIcon("QuranTafsir") {
+            filled(PathFillType.EvenOdd) {
+                // كتلة الكتاب المفتوح — الصفحتان تلتقيان في عمود منخفض بالمنتصف
+                moveTo(12f, 7.6f)
+                curveTo(9.5f, 5.9f, 6.1f, 5.5f, 3.5f, 5.9f)
+                curveTo(3.21f, 5.94f, 3f, 6.2f, 3f, 6.5f)
+                lineTo(3f, 17.6f)
+                curveTo(3f, 17.92f, 3.25f, 18.18f, 3.57f, 18.21f)
+                curveTo(6.4f, 18.5f, 9.5f, 19.05f, 12f, 20.4f)
+                curveTo(14.5f, 19.05f, 17.6f, 18.5f, 20.43f, 18.21f)
+                curveTo(20.75f, 18.18f, 21f, 17.92f, 21f, 17.6f)
+                lineTo(21f, 6.5f)
+                curveTo(21f, 6.2f, 20.79f, 5.94f, 20.5f, 5.9f)
+                curveTo(17.9f, 5.5f, 14.5f, 5.9f, 12f, 7.6f)
+                close()
+                // شقّ العمود الفقري — يفصل الصفحتين
+                moveTo(11.6f, 8.4f)
+                curveTo(11.85f, 8.14f, 12.15f, 8.14f, 12.4f, 8.4f)
+                lineTo(12.4f, 19.0f)
+                curveTo(12.15f, 19.26f, 11.85f, 19.26f, 11.6f, 19.0f)
+                close()
+            }
+        }
+    }
+
     /** القبلة — بوصلة: حلقة وإبرة معينية */
     val Qibla: ImageVector by lazy {
         noorIcon("Qibla") {

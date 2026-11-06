@@ -63,8 +63,14 @@ object MushafGeometry {
 
 /**
  * تحويل نقطي بين فراغ الإحداثيات وشاشة العرض — صفحة واحدة ظاهرة واحدة.
- * نقطة البداية: قص جانبي بالبكسل الفعلي ثم ملاءمة (Fit) داخل مساحة العرض
- * بتوسيط، والتحويلان متعاكسان دائماً (ضغط ← آية، آية ← إبراز).
+ *
+ * توجيه المالك ٢٠٢٦-١١-٠٦ بعد alpha51: «صفحه المصحف نفسها في فراغ فوقها و
+ * تحتها يعني عايز الصفحه تتسع لكامل الشاشه من اولها من فوق الى اخر حدود شريط
+ * التنقل» — طبعة المصحف أعرض نسبياً من شاشات الهواتف، والملاءمة Fit كانت
+ * تترك فراغين أعلى وأسفل، فالامتداد هنا على كل محور على حدة (كسحِب السائل
+ * على قطرة): الصفحة تملأ المساحة من أولها فوق إلى آخر حدود شريط التنقل بلا
+ * فراغ، عين ما تفعل تطبيقات المصحف المرجعية — والتحويلان متعاكسان دائماً
+ * (ضغط ← آية، آية ← إبراز) فالمحاذاة تظل مليمترية رغم الامتداد.
  *
  * @param imgW عرض الصورة الفعلية بالبكسل (٧٧٦ عادة، ٨٢٧ للصفحتين ١-٢)
  * @param imgH ارتفاع الصورة الفعلية بالبكسل
@@ -93,28 +99,29 @@ class MushafTransform(
     private val srcW = srcX1 - srcX0
     private val srcH = imgH
 
-    /** معامل الملاءمة Fit داخل مساحة العرض */
-    val scale = min(viewW / srcW, viewH / srcH)
+    /** معامل الامتداد الأفقي — كامل العرض بلا هوامش */
+    val scaleX = viewW / srcW
 
-    /** إزاحة التوسيط الأفقية داخل مساحة العرض */
-    val dx = (viewW - srcW * scale) / 2f
+    /** معامل الامتداد الرأسي — من أول الشاشة فوق إلى آخر شريط التنقل */
+    val scaleY = viewH / srcH
 
-    /** إزاحة التوسيط الرأسية داخل مساحة العرض */
-    val dy = (viewH - srcH * scale) / 2f
+    /** الصفحة تبدأ من حافة مساحة العرض نفسها */
+    val dstLeft = 0f
+    val dstTop = 0f
 
-    /** مدى عرض الصفحة الظاهرة على الشاشة — لإبرازات تغطي القصّ كله */
-    val dstLeft = dx
-    val dstTop = dy
-    val dstWidth = srcW * scale
-    val dstHeight = srcH * scale
+    /** كامل عرض مساحة العرض */
+    val dstWidth = viewW
+
+    /** كامل ارتفاع مساحة العرض — من فوق إلى آخر حدود شريط التنقل */
+    val dstHeight = viewH
 
     /** نقطة فراغ مرجعية ← نقطة شاشة */
     fun toDisplay(x: Float, y: Float): Pair<Float, Float> =
-        Pair(dx + (x * sx - srcX0) * scale, dy + y * sy * scale)
+        Pair((x * sx - srcX0) * scaleX, y * sy * scaleY)
 
     /** نقطة شاشة ← نقطة فراغ مرجعي (لضغط الإصبع) */
     fun toGlyph(x: Float, y: Float): Pair<Float, Float> =
-        Pair(((x - dx) / scale + srcX0) / sx, (y - dy) / scale / sy)
+        Pair((x / scaleX + srcX0) / sx, y / scaleY / sy)
 }
 
 /**
@@ -192,4 +199,25 @@ object MushafSelectionOps {
     /** أول آية في التحديد — للعلامة المرجعية والتلاوة */
     fun firstOf(selection: MushafSelection): MushafAyah =
         MushafAyah(selection.sura, min(selection.from, selection.to))
+}
+
+/**
+ * آيات التلاوة الثلاثية — توجيه المالك ٢٠٢٦-١١-٠٦: «عايز لما ادوس على زر
+ * تشغيل الصوت يظهر قائمه اختار منها تشغيل السوره كامله من بدايه التحديد او
+ * تشغيل المحدد فقط او تشغيل السوره كامله من بدايتها بغض النظر عن التحديد».
+ * كله تشغيل متتابع آية وراء آية حتى آخر المُدى المختار.
+ */
+object MushafPlaylist {
+
+    /** المحدد فقط — المُدى المنتظب من التحديد */
+    fun selected(selection: MushafSelection): List<Int> = selection.ayahs.toList()
+
+    /** السورة من بداية التحديد إلى آخر آية فيها */
+    fun surahFromSelection(selection: MushafSelection, surahAyahCount: Int): List<Int> {
+        val start = min(selection.from, selection.to)
+        return if (start <= surahAyahCount) (start..surahAyahCount).toList() else emptyList()
+    }
+
+    /** السورة كاملة من بدايتها بغض النظر عن التحديد */
+    fun surahFull(surahAyahCount: Int): List<Int> = (1..surahAyahCount.coerceAtLeast(0)).toList()
 }

@@ -16,6 +16,9 @@ import java.io.File
  *    تراكب بكسلي على صفحات مفصلية (٣، ٥٠، ١، ٢، ٦٠٤).
  * 2) ayah_text: نص الآيات العثماني الكامل (تانزيل verbatim كما في نسخة
  *    alpha49 — CC BY 3.0) للمشاركة والنسخ وحساب ترتيب آية التلاوة.
+ * 3) tafsir_muyassar (الإصدار ٢): التفسير الميسر كاملاً (٦٬٢٣٦ آية — مجمع
+ *    الملك فهد، من edition ar.muyassar في api.alquran.cloud) للتفاسير المنبثقة
+ *    من زر التفسير — مرفوق يعمل بلا إنترنت بعد أول فتح.
  *
  * القراءة فقط: لا إدراج ولا تعديل إطلاقاً — ينسخ المرفق إلى ملفات التطبيق
  * عند أول فتح ويستبدل النسخة الأقدم إن تغيّر الإصدار (نمط HadithDatabase).
@@ -23,7 +26,7 @@ import java.io.File
 object MushafDb {
 
     const val NAME = "mushaf_ayahinfo.db"
-    const val VERSION = 1
+    const val VERSION = 2
 
     @Volatile
     private var db: SQLiteDatabase? = null
@@ -158,5 +161,27 @@ object MushafDb {
         var before = 0
         for (s in 1 until sura) before += surahAyahCount(context, s)
         return before + ayah
+    }
+
+    /**
+     * تفسير المُدى المحدد — التفسير الميسر لكل آية بالترتيب، وnull للآية
+     * الغائبة تُسقط بصمت فيبقى الباقي.
+     */
+    fun tafsirRange(context: Context, sura: Int, from: Int, to: Int): List<Pair<Int, String>> {
+        val lo = minOf(from, to)
+        val hi = maxOf(from, to)
+        return open(context).query(
+            "tafsir_muyassar",
+            arrayOf("ayah", "text"),
+            "sura = ? AND ayah BETWEEN ? AND ?",
+            arrayOf(sura.toString(), lo.toString(), hi.toString()),
+            null,
+            null,
+            "ayah",
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(cursor.getInt(0) to cursor.getString(1))
+            }
+        }
     }
 }
