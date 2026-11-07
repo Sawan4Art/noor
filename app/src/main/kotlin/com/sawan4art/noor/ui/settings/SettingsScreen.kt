@@ -46,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -56,6 +57,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -122,8 +124,12 @@ fun SettingsScreen(
     reciterId: String,
     /** تغيير الشيخ المختار — قسم «أصوات الشيخ» */
     onSetReciter: (String) -> Unit,
+    /** زر خطبة الجمعة في الرئيسية مفعّل؟ — قسم «خطبة الجمعة» (alpha56) */
+    khutbahEnabled: Boolean,
+    /** تفعيل/إيقاف زر خطبة الجمعة */
+    onSetKhutbahEnabled: (Boolean) -> Unit,
 ) {
-    // الروابط الداخلية: home ← location / method / adhan / colors / voices / updates
+    // الروابط الداخلية: home ← location / method / adhan / colors / voices / khutbah / widgets / updates
     var section by rememberSaveable { mutableStateOf("home") }
     BackHandler(enabled = section != "home") { section = "home" }
 
@@ -175,6 +181,21 @@ fun SettingsScreen(
                 )
             }
         }
+        // قسم خطبة الجمعة — تفعيل الزر في الرئيسية (alpha56)
+        "khutbah" -> SectionPage(title = "خطبة الجمعة", onBack = { section = "home" }) {
+            SectionCard {
+                KhutbahSettingsSection(
+                    enabled = khutbahEnabled,
+                    onSet = onSetKhutbahEnabled,
+                )
+            }
+        }
+        // قسم الويدجت — خمسة أشكال وتخصيص كامل (alpha56)
+        "widgets" -> SectionPage(title = "الويدجت", onBack = { section = "home" }) {
+            SectionCard {
+                WidgetSection()
+            }
+        }
         "updates" -> SectionPage(title = "التحديثات", onBack = { section = "home" }) {
             SectionCard {
                 UpdatesSection(
@@ -191,6 +212,7 @@ fun SettingsScreen(
             updateState = updateState,
             adhanPrefs = adhanPrefs,
             reciterId = reciterId,
+            khutbahEnabled = khutbahEnabled,
             onOpen = { section = it },
         )
     }
@@ -203,8 +225,10 @@ private fun SettingsHome(
     updateState: UpdateUiState,
     adhanPrefs: AdhanPrefs,
     reciterId: String,
+    khutbahEnabled: Boolean,
     onOpen: (String) -> Unit,
 ) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -244,6 +268,22 @@ private fun SettingsHome(
             onOpen = { onOpen("voices") },
         )
         SectionRow(
+            icon = NoorIcons.QuranBookmarkOutline,
+            title = "خطبة الجمعة",
+            summary = if (khutbahEnabled) {
+                "زر الخطبة ظاهر في الرئيسية يوم الجمعة — والتفعيل من هنا"
+            } else {
+                "متوقفة — زر الخطبة مخفي عن الرئيسية"
+            },
+            onOpen = { onOpen("khutbah") },
+        )
+        SectionRow(
+            icon = NoorIcons.PrayerTimes,
+            title = "الويدجت",
+            summary = "خمسة أشكال بلون التطبيق — بالمظهر والشفافية والألوان كما تحب",
+            onOpen = { onOpen("widgets") },
+        )
+        SectionRow(
             icon = NoorIcons.Palette,
             title = "ألوان التطبيق",
             summary = colorsSummary(settings),
@@ -266,6 +306,50 @@ private fun SettingsHome(
             name = "Yousef Sawan",
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
+        Spacer(Modifier.height(10.dp))
+        // زر الشكاوى والمقترحات (alpha56 — بلاغ المالك: «عايز اضيف تحت
+        // اسم المطور زر شكاوى و مقترحات و ده الايميل الخاص») — يفتح
+        // تطبيق البريد على العنوان المعتمد والعنوان جاهز مكتوباً
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+            border = BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+            ),
+            onClick = {
+                runCatching {
+                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("mailto:yousefsawan940@gmail.com")
+                        putExtra(Intent.EXTRA_SUBJECT, "شكاوى ومقترحات — نور المسلم")
+                    }
+                    context.startActivity(
+                        Intent.createChooser(intent, "شكاوى ومقترحات")
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+            },
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+            ) {
+                Icon(
+                    imageVector = NoorIcons.QuranCopy,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "شكاوى ومقترحات",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
         Spacer(Modifier.height(6.dp))
         Text(
             text = "الإصدار ${BuildConfig.VERSION_NAME}",
@@ -924,6 +1008,73 @@ private fun AccentGrid(selectedId: String, onPick: (String) -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * قسم «خطبة الجمعة» — توجيه المالك ٢٠٢٦-١١-٠٧:
+ * «عايز قسم جديد في الاعدادات خاص باعداد خطبه الجمعه و يكون في زر
+ * تفعيل الخطبه او ايقافها علشان لو المستخدم مش عايز زر خطبه الجمعه
+ * الموجود في الرئيسيه يظهر».
+ *
+ * مفتاح واحد واضح: مفعّل — الزر يظهر في مربع الهيدر يوم الجمعة
+ * (وهو نفسه هيدر وقت صلاة الجمعة مع تنبيهٍ صغير بضرورة الضغط)،
+ * ومطفأ — لا زر ولا لوحة خطبةٍ في الرئيسية.
+ */
+@Composable
+private fun KhutbahSettingsSection(
+    enabled: Boolean,
+    onSet: (Boolean) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Column {
+        Text(
+            text = "زر خطبة الجمعة يظهر في مربع الهيدر يوم الجمعة فقط، وهو " +
+                "نفسه مكان عرض وقت صلاة الجمعة — ضغطة واحدة تفتح لك الخطبة: " +
+                "تكتبها أو تختار خطبةً جاهزة أو تحمّل صوراً. من أراد إخفاء " +
+                "الزر عن الرئيسية يوقفه من هنا.",
+            style = MaterialTheme.typography.bodySmall,
+            color = scheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 14.dp),
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(scheme.primary.copy(alpha = 0.08f))
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        ) {
+            Icon(
+                imageVector = NoorIcons.QuranBookmarkOutline,
+                contentDescription = null,
+                tint = scheme.primary,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "زر خطبة الجمعة في الرئيسية",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = scheme.onSurface,
+                )
+                Text(
+                    text = if (enabled) "ظاهر يوم الجمعة فوق التاريخ على اليمين" else "مخفي — لن يظهر زر الخطبة",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = scheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Switch(
+                checked = enabled,
+                onCheckedChange = onSet,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = scheme.onPrimary,
+                    checkedTrackColor = scheme.primary,
+                ),
+            )
         }
     }
 }

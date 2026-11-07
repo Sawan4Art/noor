@@ -142,12 +142,12 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * **الأذنات مرة واحدة فقط** — توجيه المالك ٢٠٢٦-١١-٠٦ بعد alpha52:
-     * «عدم اعاده فتح قائمه اخذ الاوذنات اذا تم اخذها بالفعل مره واحده
-     * حتى بعد التحديث» — بمجرد اكتمال السلسلة أول مرة تُحفظ ذاكرة طلب
-     * (قيمة غير صفرية) فلا تُعاد السلسلة إطلاقاً: لا كل فتح ولا بعد أي
-     * تحديث جديد؛ ومن أحدّث التطبيق فوق نسخة أخذ فيها الأذنات سابقاً
-     * تُرث الذاكرة نفسها فلا يُزعج بحوار ثانٍ.
+     * **الأذنات مرة واحدة عند أول فتح + الإعادة عند الإيقاف** — توجيه
+     * المالك alpha56: «ازرار الموافقه على الاوذنات تظهر مره واحده عند
+     * اول فتح للتطبيق و اذا حدث و تم ايقاف اذن يطلب منه التطبيق اخذ
+     * الاذن مره اخرى للعمل بشكل صحيح» — بمجرد اكتمال السلسلة أول مرة
+     * تُحفظ ذاكرة الطلب فلا يعاد القائمة الكاملة، لكن لو أُوقِف إذنٌ ما
+     * (من إعدادات النظام مثلاً) أعادت السلسلة طلبَ المفقود وحده فحسب.
      */
     private fun shouldRunPermissionFlow(): Boolean {
         val asked = runCatching {
@@ -155,7 +155,28 @@ class MainActivity : ComponentActivity() {
                 SettingsRepository(this@MainActivity).permissionsAskedVersionOnce()
             }
         }.getOrDefault(0)
-        return asked == 0
+        return asked == 0 || hasMissingPermissions()
+    }
+
+    /** هل ثمة إذنٌ من أذونات السلسلة مفقودٌ الآن؟ */
+    private fun hasMissingPermissions(): Boolean {
+        val fine = Manifest.permission.ACCESS_FINE_LOCATION
+        if (ContextCompat.checkSelfPermission(this, fine) != PackageManager.PERMISSION_GRANTED) return true
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return true
+        if (Build.VERSION.SDK_INT in 31..32) {
+            val alarm = getSystemService(ALARM_SERVICE) as? AlarmManager
+            if (alarm != null && runCatching { !alarm.canScheduleExactAlarms() }.getOrDefault(false)) return true
+        }
+        if (Build.VERSION.SDK_INT >= 34) {
+            val nm = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
+            if (nm != null && runCatching { !nm.canUseFullScreenIntent() }.getOrDefault(false)) return true
+        }
+        val nm = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
+        if (nm != null && runCatching { !nm.isNotificationPolicyAccessGranted }.getOrDefault(false)) return true
+        return false
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -20,16 +20,20 @@ import java.io.File
  * والقراءة منه عبر RawQuery في HadithDao. القاعدة للقراءة فقط: لا
  * إدراج ولا تعديل من التطبيق إطلاقاً، فلا حاجة لترحيلات ولا مشغّلات مزامنة.
  *
- * **النسخة ٢ (alpha46)**: الفهرس FTS4 لا FTS5 — أندرويد لا يبني SQLite
- * بنظام FTS5 نهائياً فكان البحث بالكلمة ساقطاً على كل الأجهزة، والترقيم
- * صار الترقيم المعتمد. ولأن Room لا يعيد نسخ الأصول إلا على قاعدة غائبة
- * فحين تُفتح قاعدة نسخةٍ قديمة (user_version أقدم) تُحذف ملفاتها الثلاثة
- * ليعيد Room بناءها من الأصل الجديد — الحذف آمن لأن القاعدة قراءةٌ فقط
- * والمحفوظات تعيش في DataStore لا هنا.
+ * **النسخة ٣ (alpha56)**: الكتب السبعة الكبرى اكتملت بالترقيم المعتمد
+ * الكامل من ١ (مقدمة صحيح مسلم ١..٩٢ رجعت، وابن ماجه بدأ من ١ لا ٢٦٧،
+ * والبخاري اكتمل حتى ٧٥٦٣) — scripts/rebuild_hadiths_complete.py ثم
+ * scripts/fill_hadith_from_sunnah.py. والحذف عند النسخة الأقدم كما هو
+ * (النسخة ٢ alpha46): الفهرس FTS4 لا FTS5 — أندرويد لا يبني SQLite
+ * بنظام FTS5 نهائياً فكان البحث بالكلمة ساقطاً على كل الأجهزة. ولأن
+ * Room لا يعيد نسخ الأصول إلا على قاعدة غائبة فحين تُفتح قاعدة نسخةٍ
+ * قديمة (user_version أقدم) تُحذف ملفاتها الثلاثة ليعيد Room بناءها
+ * من الأصل الجديد — الحذف آمن لأن القاعدة قراءةٌ فقط والمحفوظات
+ * تعيش في DataStore لا هنا.
  */
 @Database(
     entities = [BookEntity::class, HadithEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class HadithDatabase : RoomDatabase() {
@@ -38,7 +42,7 @@ abstract class HadithDatabase : RoomDatabase() {
 
     companion object {
         const val NAME = "hadiths.db"
-        const val VERSION = 2
+        const val VERSION = 3
 
         @Volatile
         private var instance: HadithDatabase? = null

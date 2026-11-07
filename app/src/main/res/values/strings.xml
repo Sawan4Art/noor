@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- أوصاف الويدجتات الخمسة في قائمة اختيار النظام (alpha56) -->
+    <string name="widget_next_prayer_desc">الصلاة القادمة ووقتها والعدّاد حتى أذانها</string>
+    <string name="widget_day_grid_desc">مواقيت الصلوات الست لليوم والقادمة مميزة</string>
+    <string name="widget_dates_desc">التاريخ الهجري والميلادي والمدينة</string>
+    <string name="widget_zikr_desc">ذكر يتجدد كل يوم في ويدجت واحد</string>
+    <string name="widget_live_bar_desc">شريط رقيق بالصلاة القادمة والعدّاد الحي</string>
+</resources>

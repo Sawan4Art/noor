@@ -3,9 +3,11 @@ package com.sawan4art.noor.data.mushaf
 import android.content.Context
 import com.sawan4art.noor.domain.mushaf.QuranAudioMath
 import com.sawan4art.noor.domain.mushaf.QuranReciters
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,14 +23,20 @@ import java.util.concurrent.ConcurrentHashMap
  * «يتم تحميل اصواتهم من قبل المستخدم نفسه … مع امكانيه تحميل كل سوره
  * على حده او تحميل المصحف كامل لصوت الشيخ المحدد».
  *
- * • **التنزيل** آية آية من المصدر المفتوح (everyayah) بالتتابع الهادئ،
- *   وبملفات مؤقتة تُسمّى نهائياً بعد اكتمالها فقط — فالملف الحاضر
+ * • **التنزيل في مجال التطبيق نفسه** (إصلاح alpha56 — بلاغ المالك:
+ *   «تحميل اصوات الشيوخ لا يعمل»): كان التنزيل مرتبطاً بمجال الواجهة
+ *   فمات مع إغلاق اللوحة أو مغادرة الإعدادات؛ الآن يعيش في مجالٍ مستقل
+ *   يكمل ما بدأه حتى لو أُغلقت كل الشاشات، وبمحاولتين: everyayah أولاً
+ *   فإن فشل الآية جُرّبت نظيرتها في مكتبة islamic.network للشيوخ
+ *   الذين لهم إصدارٌ هناك.
+ * • **ملفات مؤقتة تُسمّى نهائياً بعد اكتمالها فقط** — فالملف الحاضر
  *   مضمونٌ كاملٌ لا ناقص، والتنزيل المقطوع يستأنف من حيث توقف لأن
- *   الموجود يُتخطّى أولاً. مجلدات التطبيق الخارجية الخاصة
+ *   الموجود يُتخطى أولاً. مجلدات التطبيق الخارجية الخاصة
  *   (getExternalFilesDir) فلا إذن تخزين ولا يلمسها أحد غير التطبيق.
- * • **التشغيل محلي أولاً**: ملف الشيخ الموجود بالجهاز يُشغَّل من
- *   الذاكرة بلا شبكة، والغائب يُشغَّل من الشبكة مباشرة — فالمستخدم
- *   يسمع تلاوةَ شيعه فوراً حتى قبل اكتمال التنزيل.
+ * • **التشغيل محلي فقط** (توجيه المالك alpha56: «انا عايز كل الاصوات
+ *   يجب تحميلها من قبل المستخدم»): لا بثٌّ من الشبكة إطلاقاً —
+ *   [localAyahPath] يرجع ملف الشيخ إن نزل وإلا null فيطلب المشغّل
+ *   من واجهة المصحف تأكيدَ التنزيل أولاً.
  * • **الإلغاء والمسح**: ضغطة توقف التنزيل، وضغطة تمسح السورة أو الشيخ
  *   كله، وعدّاد الملفات الحقيقي من القرص هو مصدر العرض الوحيد.
  */
@@ -57,7 +65,14 @@ object QuranAudioLibrary {
     /** التنزيلات الجارية/المنتهية — المفتاح «شيخ:سورة» وسورة ٠ للمصحف كله */
     val downloads: StateFlow<Map<String, DownloadState>> = _downloads
 
-    private val jobs = ConcurrentHashMap<String, Job>()
+    /**
+     * مجال التنزيل المستقل — حياة التطبيق لا حياة الشاشة؛ إغلاق اللوحة
+     * أو صفحة الإعدادات أو المصحف لا يقتل تنزيلاً جارياً.
+     */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** تنزيلات الجري — مفتاحها «شيخ:سورة» وواحد فقط لكل مفتاح */
+    private val running = ConcurrentHashMap<String, Deferred<Boolean>>()
 
     /** مجلد صوت القرآن للشيخ — خارجي خاص التطبيق، والقياس بالبايت دائم */
     fun reciterDir(context: Context, reciterId: String): File {
@@ -76,16 +91,13 @@ object QuranAudioLibrary {
     }
 
     /**
-     * مصدر تشغيل الآية — مسار الملف المحلي إن وُجد وإلا رابط الشبكة.
-     * يُمرَّر كما هو إلى المشغّل فمسار الملف المحلي يعمل والرابط كذلك.
+     * مسار آية الشيخ **المحمَّل على الجهاز فقط** — null إن غاب الملف
+     * (توجيه المالك alpha56: لا بثٌّ من الشبكة، كل الأصوات تحميلٌ
+     * من المستخدم) — والمشغّل يطلب تنزيلَ الغائب قبل تشغيله.
      */
-    fun ayahSource(context: Context, reciterId: String, sura: Int, ayah: Int): String {
+    fun localAyahPath(context: Context, reciterId: String, sura: Int, ayah: Int): String? {
         val local = ayahFile(context, reciterId, sura, ayah)
-        return if (local.isFile && local.length() > 0L) {
-            local.absolutePath
-        } else {
-            QuranReciters.ayahUrl(QuranReciters.byId(reciterId), sura, ayah)
-        }
+        return if (local.isFile && local.length() > 0L) local.absolutePath else null
     }
 
     /** عدد ملفات السورة الموجودة فعلاً على القرص — مصدر العرض الوحيد */
@@ -119,19 +131,36 @@ object QuranAudioLibrary {
         _downloads.value[key(reciterId, sura)]?.active == true
 
     /**
-     * تنزيل سورة واحدة — أو المصحف كاملاً بسورة صفر. كل آية موجودة
-     * تُتخطى فالاستئناف مجاني، والملف يُكتب بمؤقتٍ ثم يُسمّى نهائياً
-     * بعد اكتماله فلا يظل ناقصاً واقفاً باسمه الصحيح.
-     *
-     * @param surahCounts عدّ آيات السور من قاعدة المصحف — (سورة ← عدد)
-     * @return هل اكتمل التنزيل بلا إلغاء
+     * بدء تنزيل سورة — أو المصحف كاملاً بسورة صفر — **في مجال التطبيق**:
+     * يكمل لو أُغلقت الشاشة كلها، وإن كان هو أصلاً جارياً أُعيد نافجه
+     * نفسه فلا يتضاعف. المُنادي إن أراد انتظار الاكتمال awaits النافج.
      */
-    suspend fun download(
+    fun start(context: Context, reciterId: String, sura: Int, surahCounts: Map<Int, Int>): Deferred<Boolean> {
+        val stateKey = key(reciterId, sura)
+        val appContext = context.applicationContext
+        return synchronized(running) {
+            running[stateKey] ?: scope.async {
+                try {
+                    downloadInternal(appContext, reciterId, sura, surahCounts, stateKey)
+                } finally {
+                    running.remove(stateKey)
+                }
+            }.also { running[stateKey] = it }
+        }
+    }
+
+    /**
+     * تنزيل فعلي متتابع — كل آية موجودة تُتخطى فالاستئناف مجاني،
+     * والملف يُكتب بمؤقتٍ ثم يُسمّى نهائياً بعد اكتماله فلا يظل ناقصاً
+     * واقفاً باسمه الصحيح.
+     */
+    private suspend fun downloadInternal(
         context: Context,
         reciterId: String,
         sura: Int,
         surahCounts: Map<Int, Int>,
-    ): Boolean = coroutineScope {
+        stateKey: String,
+    ): Boolean {
         val reciter = QuranReciters.byId(reciterId)
         val dir = reciterDir(context, reciterId)
         dir.mkdirs()
@@ -139,7 +168,6 @@ object QuranAudioLibrary {
         // قائمة العمل: سورة واحدة أو ١١٤ للمصحف كامل
         val surahs = if (sura in 1..114) listOf(sura) else (1..114)
         val total = surahs.sumOf { QuranAudioMath.surahFileCount(it, surahCounts[it] ?: 0) }
-        val stateKey = key(reciterId, sura)
         var done = 0
         var cancelled = false
 
@@ -153,68 +181,76 @@ object QuranAudioLibrary {
         }
         publish(active = true)
 
-        val job = Job()
-        jobs[stateKey] = job
-        try {
-            outer@ for (s in surahs) {
-                val count = QuranAudioMath.surahFileCount(s, surahCounts[s] ?: 0)
-                for (ayah in 1..count) {
-                    if (!job.isActive || !isActive) {
-                        cancelled = true
-                        break@outer
-                    }
-                    val target = ayahFile(context, reciterId, s, ayah)
-                    if (target.isFile && target.length() > 0L) {
-                        done++
-                        publish(active = true)
-                        continue
-                    }
-                    val ok = withContext(Dispatchers.IO) {
-                        fetchAyahFile(reciter, s, ayah, target)
-                    }
-                    if (ok) {
-                        done++
-                        publish(active = true)
-                    } else {
-                        // فشل شبكة — مهلة قصيرة ثم محاولة الآية نفسها مجدداً
-                        // حتى ثلاث مرات، وبعد الفشل القاطع يتوقف التنزيل برسالة
-                        var retried = false
-                        for (attempt in 1..3) {
-                            delay(1_500L * attempt)
-                            if (!job.isActive || !isActive) {
-                                cancelled = true
-                                break@outer
-                            }
-                            if (withContext(Dispatchers.IO) { fetchAyahFile(reciter, s, ayah, target) }) {
-                                done++
-                                publish(active = true)
-                                retried = true
-                                break
-                            }
+        outer@ for (s in surahs) {
+            val count = QuranAudioMath.surahFileCount(s, surahCounts[s] ?: 0)
+            for (ayah in 1..count) {
+                // العقد مع نافج البدء — إلغاؤه يقيم `isActive` هنا إلى false
+                if (!kotlinx.coroutines.currentCoroutineContext().isActive) {
+                    cancelled = true
+                    break@outer
+                }
+                val target = ayahFile(context, reciterId, s, ayah)
+                if (target.isFile && target.length() > 0L) {
+                    done++
+                    publish(active = true)
+                    continue
+                }
+                val ok = withContext(Dispatchers.IO) {
+                    fetchAyahFile(context, reciter, s, ayah, target)
+                }
+                if (ok) {
+                    done++
+                    publish(active = true)
+                } else {
+                    // فشل شبكة — مهلة قصيرة ثم محاولة الآية نفسها مجدداً
+                    // حتى ثلاث مرات، وبعد الفشل القاطع يتوقف التنزيل برسالة
+                    var retried = false
+                    for (attempt in 1..3) {
+                        delay(1_500L * attempt)
+                        if (!kotlinx.coroutines.currentCoroutineContext().isActive) {
+                            cancelled = true
+                            break@outer
                         }
-                        if (!retried && !cancelled) {
-                            publish(active = false, error = "تعذّر الاتصال بمصدر التلاوات")
-                            return@coroutineScope false
+                        if (withContext(Dispatchers.IO) { fetchAyahFile(context, reciter, s, ayah, target) }) {
+                            done++
+                            publish(active = true)
+                            retried = true
+                            break
                         }
+                    }
+                    if (!retried && !cancelled) {
+                        publish(active = false, error = "تعذّر الاتصال بمصدر التلاوات — تحقق من الإنترنت وأعد المحاولة")
+                        return false
                     }
                 }
             }
-            publish(active = cancelled, error = if (cancelled) "" else "")
-            return@coroutineScope !cancelled
-        } finally {
-            jobs.remove(stateKey)
         }
+        publish(active = cancelled, error = if (cancelled) "" else "")
+        return !cancelled
     }
 
-    /** جلب آية واحدة — تنزيلها إلى ملف مؤقت ثم تسميتها نهائياً */
+    /**
+     * جلب آية واحدة — محاولتان: everyayah برواية الشيخ الأصلية، فإن
+     * خذلت جُرّبت نظيرتها في islamic.network (لمن له إصدار هناك) —
+     * والتنزيل إلى ملف مؤقت ثم تسميته نهائياً بعد اكتماله.
+     */
     private fun fetchAyahFile(
+        context: Context,
         reciter: QuranReciters.Reciter,
         sura: Int,
         ayah: Int,
         target: File,
-    ): Boolean = runCatching {
-        val url = URL(QuranReciters.ayahUrl(reciter, sura, ayah))
-        val conn = (url.openConnection() as HttpURLConnection).apply {
+    ): Boolean {
+        if (downloadTo(QuranReciters.ayahUrl(reciter, sura, ayah), target)) return true
+        // الاحتياط — بترقيم الآية الكلي من قاعدة المصحف نفسها
+        val global = MushafDb.globalAyah(context, sura, ayah)
+        val fallback = QuranReciters.fallbackUrl(reciter, global) ?: return false
+        return downloadTo(fallback, target)
+    }
+
+    /** تنزيل رابطٍ إلى الملف الهدف — false لأي عطلٍ أو ردٍّ غير سليم */
+    private fun downloadTo(url: String, target: File): Boolean = runCatching {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 12_000
             readTimeout = 20_000
             instanceFollowRedirects = true
@@ -241,7 +277,7 @@ object QuranAudioLibrary {
 
     /** إيقاف تنزيل جارٍ — بلا مسحٍ لما اكتمل منه */
     fun cancel(reciterId: String, sura: Int) {
-        jobs[key(reciterId, sura)]?.cancel()
+        running[key(reciterId, sura)]?.cancel()
         val current = _downloads.value[key(reciterId, sura)]
         if (current != null) {
             _downloads.value = _downloads.value + (

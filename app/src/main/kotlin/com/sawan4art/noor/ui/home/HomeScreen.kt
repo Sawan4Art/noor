@@ -106,6 +106,8 @@ fun HomeScreen(
     khutbahTitle: String,
     khutbahText: String,
     khutbahImages: List<String>,
+    /** زر خطبة الجمعة في الرئيسية مفعّل؟ — قسم «خطبة الجمعة» (alpha56) */
+    khutbahEnabled: Boolean,
     /** حفظ خطبة الجمعة المكتوبة */
     onSetKhutbah: (String, String) -> Unit,
     /** استيراد صورة إلى الخطبة */
@@ -126,9 +128,18 @@ fun HomeScreen(
     }
     val next = remember(times, now) { PrayerMath.nextPrayer(times, now) }
 
-    // زر خطبة الجمعة — لا يظهر إلا يوم الجمعة (توجيه المالك alpha54)
+    // زر خطبة الجمعة — لا يظهر إلا يوم الجمعة ومع تفعيله من الإعدادات
+    // (توجيه المالك alpha54 + قسم «خطبة الجمعة» alpha56)
     var khutbahOpen by remember { mutableStateOf(false) }
     val isFriday = today.dayOfWeek == DayOfWeek.FRIDAY
+    val khutbahVisible = isFriday && khutbahEnabled
+    // زر الخطبة هو نفسه هيدر وقت صلاة الجمعة (توجيه المالك alpha56:
+    // «زر خطبه الجمعه يكون هو نفسه هيدر عرض وقت صلاه الجمعه»)
+    val jumahTimeText = if (khutbahVisible) {
+        TimeFormat.prayerTime(times[PrayerTimeKey.DHUHR])
+    } else {
+        null
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
     Column(
@@ -156,7 +167,8 @@ fun HomeScreen(
             city = settings.city,
             locating = locating,
             onDetectLocation = onDetectLocation,
-            isFriday = isFriday,
+            isFriday = khutbahVisible,
+            jumahTimeText = jumahTimeText,
             onKhutbahClick = { khutbahOpen = true },
             modifier = Modifier
                 .fillMaxWidth()
@@ -317,8 +329,10 @@ private fun HeroCard(
     city: String,
     locating: Boolean,
     onDetectLocation: () -> Unit,
-    /** يوم الجمعة وحده — يظهر زر خطبة الجمعة (alpha54) */
+    /** يوم الجمعة ومع تفعيل الإعدادات — يظهر زر خطبة الجمعة (alpha54/56) */
     isFriday: Boolean,
+    /** وقت صلاة الجمعة — يعرضه زر الخطبة نفسه بهيدراً (alpha56) */
+    jumahTimeText: String?,
     /** فتح لوحة خطبة الجمعة */
     onKhutbahClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -382,8 +396,10 @@ private fun HeroCard(
                 )
             }
             Spacer(Modifier.height(4.dp))
-            // زر خطبة الجمعة — يوم الجمعة فقط: زرّ صغير فوق التاريخ على
-            // اليمين (توجيه المالك: «زر صغير فوق التاريخ عل اليمين»)
+            // زر خطبة الجمعة — يوم الجمعة فقط: زرّ فوق التاريخ على اليمين،
+            // وهو نفسه هيدر وقت صلاة الجمعة (توجيه المالك alpha56):
+            // داخل المربع اسم الخطبة ووقت الصلاة، وتحته تنبيه صغير
+            // يعرف المستخدم بضرورة الضغط عليه لعرض الخطبة
             if (isFriday) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -392,25 +408,43 @@ private fun HeroCard(
                 ) {
                     Surface(
                         onClick = onKhutbahClick,
-                        shape = RoundedCornerShape(50),
+                        shape = RoundedCornerShape(18.dp),
                         color = Color.White.copy(alpha = 0.12f),
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                         ) {
                             Icon(
                                 imageVector = NoorIcons.Mosque,
                                 contentDescription = "خطبة الجمعة",
                                 tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier.size(17.dp),
                             )
-                            Spacer(Modifier.width(5.dp))
-                            Text(
-                                text = "خطبة الجمعة",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = noorColors.heroContent,
-                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.Bottom) {
+                                    Text(
+                                        text = "خطبة الجمعة",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = noorColors.heroContent,
+                                    )
+                                    if (jumahTimeText != null) {
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = jumahTimeText,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.secondary,
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = "اضغط لعرض الخطبة",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = noorColors.heroMuted,
+                                )
+                            }
                         }
                     }
                 }

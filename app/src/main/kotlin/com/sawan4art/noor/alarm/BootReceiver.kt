@@ -3,6 +3,7 @@ package com.sawan4art.noor.alarm
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.sawan4art.noor.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,6 +22,8 @@ class BootReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.Default).launch {
             try {
                 AlarmScheduler.reschedule(context)
+                // الويدجتات تُصحى مع الإقلاع — المواقيت من يومٍ جديد
+                WidgetUpdater.refreshAll(context)
             } finally {
                 pending.finish()
             }

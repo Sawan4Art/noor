@@ -53,6 +53,7 @@ import com.sawan4art.noor.ui.nav.LiquidNavScaffold
 import com.sawan4art.noor.ui.nav.NoorTab
 import com.sawan4art.noor.ui.notice.NoorNoticeDialog
 import com.sawan4art.noor.ui.mushaf.MushafScreen
+import com.sawan4art.noor.ui.onboarding.WelcomeScreen
 import com.sawan4art.noor.ui.qibla.QiblaScreen
 import com.sawan4art.noor.ui.settings.SettingsScreen
 import com.sawan4art.noor.ui.tasbih.MisbahaScreen
@@ -99,6 +100,8 @@ private fun NoorRoot(viewModel: HomeViewModel) {
     var tab by rememberSaveable { mutableStateOf(NoorTab.PRAYER) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val locating by viewModel.locating.collectAsStateWithLifecycle()
+    // شاشة الترحيب — أول تشغيلٍ فقط (null = ما زال يُتحقّق)
+    val onboardingDone by viewModel.onboardingDone.collectAsStateWithLifecycle()
     // تفضيلات الأذان والإقامة — القسم الجديد في الإعدادات
     val adhanPrefs by viewModel.adhanPrefs.collectAsStateWithLifecycle()
     // نظام التحديثات — حالة واحدة تخدم حوار «ما الجديد» وبطاقة الإعدادات
@@ -174,6 +177,8 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                     onSetKhutbah = viewModel::setKhutbah,
                     onImportKhutbahImage = viewModel::importKhutbahImage,
                     onDeleteKhutbahImage = viewModel::deleteKhutbahImage,
+                    khutbahEnabled = uiState.settings.khutbahButtonEnabled,
+                    onSetKhutbahEnabled = viewModel::setKhutbahButtonEnabled,
                 )
             }
 
@@ -279,6 +284,8 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                             onSetKhutbah = viewModel::setKhutbah,
                             onImportKhutbahImage = viewModel::importKhutbahImage,
                             onDeleteKhutbahImage = viewModel::deleteKhutbahImage,
+                            khutbahEnabled = uiState.settings.khutbahButtonEnabled,
+                            onSetKhutbahEnabled = viewModel::setKhutbahButtonEnabled,
                         )
                     }
                 }
@@ -441,6 +448,10 @@ private fun NoorBody(
     onImportKhutbahImage: (android.net.Uri) -> Unit,
     /** حذف صورة من الخطبة */
     onDeleteKhutbahImage: (String) -> Unit,
+    /** زر خطبة الجمعة في الرئيسية مفعّل؟ — قسم «خطبة الجمعة» (alpha56) */
+    khutbahEnabled: Boolean,
+    /** تفعيل/إيقاف زر خطبة الجمعة */
+    onSetKhutbahEnabled: (Boolean) -> Unit,
     /** معرّف الشيخ المختار — قسم «أصوات الشيخ» في الإعدادات */
     reciterId: String,
     /** تغيير الشيخ المختار */
@@ -482,6 +493,7 @@ private fun NoorBody(
                         locating = locating,
                         onDetectLocation = onDetectLocation,
                         isDark = isDark,
+                        khutbahEnabled = khutbahEnabled,
                         khutbahTitle = khutbahTitle,
                         khutbahText = khutbahText,
                         khutbahImages = khutbahImages,
@@ -508,6 +520,8 @@ private fun NoorBody(
                         onDownloadUpdate = onDownloadUpdate,
                         reciterId = reciterId,
                         onSetReciter = onSetReciter,
+                        khutbahEnabled = khutbahEnabled,
+                        onSetKhutbahEnabled = onSetKhutbahEnabled,
                     )
                     NoorTab.QIBLA -> QiblaScreen(settings = uiState.settings)
                     NoorTab.QURAN -> MushafScreen(

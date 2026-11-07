@@ -123,6 +123,13 @@ data class NoorSettingsState(
     val khutbahText: String = "",
     /** خطبة الجمعة — أسماء ملفات الصور المرفقة (alpha54) */
     val khutbahImages: List<String> = emptyList(),
+    /**
+     * زر خطبة الجمعة في الرئيسية مفعّل؟ (alpha56) — قسم «خطبة الجمعة»
+     * في الإعدادات: من أراد إخفاء الزر عن الرئيسية يطفئه من هنا.
+     */
+    val khutbahButtonEnabled: Boolean = true,
+    /** شاشة الترحيب اكتملت؟ — تظهر أول فتحٍ فقط (alpha56) */
+    val onboardingDone: Boolean = false,
 )
 
 class SettingsRepository(private val context: Context) {
@@ -147,6 +154,9 @@ class SettingsRepository(private val context: Context) {
         val KHUTBAH_TITLE = stringPreferencesKey("khutbah_title")
         val KHUTBAH_TEXT = stringPreferencesKey("khutbah_text")
         val KHUTBAH_IMAGES = stringPreferencesKey("khutbah_images")
+        // زر خطبة الجمعة وشاشة الترحيب (alpha56)
+        val KHUTBAH_BUTTON_ENABLED = booleanPreferencesKey("khutbah_button_enabled")
+        val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check_at")
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
         val UPDATE_NOTIFIED_AT = longPreferencesKey("update_notified_at")
@@ -216,6 +226,8 @@ class SettingsRepository(private val context: Context) {
             khutbahText = p[Keys.KHUTBAH_TEXT] ?: "",
             khutbahImages = p[Keys.KHUTBAH_IMAGES]
                 ?.split(',')?.filter { it.isNotBlank() } ?: emptyList(),
+            khutbahButtonEnabled = p[Keys.KHUTBAH_BUTTON_ENABLED] ?: true,
+            onboardingDone = p[Keys.ONBOARDING_DONE] ?: false,
         )
     }
 
@@ -442,6 +454,16 @@ class SettingsRepository(private val context: Context) {
             it[Keys.KHUTBAH_IMAGES] = images.filter { name -> name.isNotBlank() }
                 .joinToString(",")
         }
+    }
+
+    /** تفعيل/إيقاف زر خطبة الجمعة في الرئيسية — قسم «خطبة الجمعة» (alpha56) */
+    suspend fun setKhutbahButtonEnabled(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.KHUTBAH_BUTTON_ENABLED] = on }
+    }
+
+    /** إتمام شاشة الترحيب — لا تعود للظهور بعد ضغطة البدء أو التخطي */
+    suspend fun setOnboardingDone(done: Boolean) {
+        context.noorDataStore.edit { it[Keys.ONBOARDING_DONE] = done }
     }
 
     suspend fun setMethod(method: CalculationMethod) {

@@ -61,6 +61,74 @@
             android:enabled="true"
             android:exported="false" />
 
+        <!--
+          ويدجتات النظام الخمسة (alpha56 — توجيه المالك: «خمس اشكال
+          مختلفه بنفس تصميم التطبيق و قابله للتخصيص والتعديل الكامل»):
+          كلٌّ شكل مستقل يستدلِيه المستخدم من قائمة ويدجتات النظام،
+          والتخصيص المشترك يُقرأ عند كل رسم من مخزن الويدجت.
+        -->
+        <receiver
+            android:name=".widget.NextPrayerWidget"
+            android:enabled="true"
+            android:exported="false"
+            android:label="@string/widget_next_prayer_desc">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_next_prayer_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.DayGridWidget"
+            android:enabled="true"
+            android:exported="false"
+            android:label="@string/widget_day_grid_desc">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_day_grid_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.DatesWidget"
+            android:enabled="true"
+            android:exported="false"
+            android:label="@string/widget_dates_desc">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_dates_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.ZikrWidget"
+            android:enabled="true"
+            android:exported="false"
+            android:label="@string/widget_zikr_desc">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_zikr_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.LiveBarWidget"
+            android:enabled="true"
+            android:exported="false"
+            android:label="@string/widget_live_bar_desc">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_live_bar_info" />
+        </receiver>
+
+
         <service
             android:name=".alarm.AlarmService"
             android:enabled="true"

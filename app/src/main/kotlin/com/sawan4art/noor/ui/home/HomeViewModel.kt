@@ -17,6 +17,7 @@ import com.sawan4art.noor.domain.location.LocationGateChecker
 import com.sawan4art.noor.domain.location.LocationSource
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
+import com.sawan4art.noor.widget.WidgetUpdater
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +45,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     /** تفضيلات الأذان والإقامة — مصدر الإعدادات الجديدة */
     val adhanPrefs: StateFlow<AdhanPrefs> = repository.adhanPrefs
         .stateIn(viewModelScope, SharingStarted.Eagerly, AdhanPrefs())
+
+    /**
+     * هل اكتملت شاشة الترحيب؟ (alpha56) — **null** حتى تُقرأ الذاكرة
+     * الحقيقية من المخزن أول مرة كي لا تومض الشاشة على من أنهى الترحيب
+     * من قبل أثناء جلب الإعدادات، وfalse تعني أول تشغيلٍ فعلي.
+     */
+    private val _onboardingDone = MutableStateFlow<Boolean?>(null)
+    val onboardingDone: StateFlow<Boolean?> = _onboardingDone
 
     /** نبضة الثانية — تعمل والشاشة مشتركة فقط وتتوقف عند الخروج */
     private val ticker: StateFlow<Long> = flow {
@@ -143,6 +152,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     /** حفظ خطبة الجمعة المكتوبة — عنوان ونص (alpha54) */
     fun setKhutbah(title: String, text: String) =
         viewModelScope.launch { repository.setKhutbah(title, text) }
+
+    /** تفعيل/إيقاف زر خطبة الجمعة في الرئيسية — قسم «خطبة الجمعة» (alpha56) */
+    fun setKhutbahButtonEnabled(on: Boolean) =
+        viewModelScope.launch { repository.setKhutbahButtonEnabled(on) }
+
+    /** إتمام شاشة الترحيب — أول تشغيل فقط (alpha56) */
+    fun setOnboardingDone(done: Boolean) =
+        viewModelScope.launch { repository.setOnboardingDone(done) }
 
     /**
      * استيراد صورة إلى خطبة الجمعة — تُنسخ داخل مجلد صور الخطبة
@@ -307,9 +324,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     }
 
     init {
+        // قراءة ذاكرة الترحيب مرةً واحدة — الأول تشغيلٍ فقط يراها
+        viewModelScope.launch {
+            _onboardingDone.value = runCatching {
+                repository.settingsOnce().onboardingDone
+            }.getOrDefault(true)
+        }
         // أول تشغيل: بناء منبهات الأذان للأيام القادمة فوراً
         viewModelScope.launch {
             runCatching { AlarmScheduler.reschedule(getApplication()) }
+        }
+        // الويدجتات تُصحى مع فتح التطبيق — تخصيصٌ ومواقيت اليوم
+        viewModelScope.launch {
+            runCatching { WidgetUpdater.refreshAll(getApplication()) }
         }
         // أي تغيير في الإعدادات المؤثرة (الموقع/الطريقة/تفضيلات الأذان)
         // يعيد الجدولة تلقائياً — الموقع من الكشف اليدوي يمر من هنا أيضاً

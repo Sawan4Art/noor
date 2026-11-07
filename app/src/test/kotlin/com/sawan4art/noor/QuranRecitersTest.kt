@@ -77,6 +77,51 @@ class QuranRecitersTest {
             QuranReciters.ayahUrl(reciter, 1, 1),
         )
     }
+
+    @Test
+    fun `مجلد بو خاطر الصحيح بعلامتين — إصلاح رابط 404`() {
+        // بلاغ المالك alpha56: «تأكد من روابط تحميل اصوات الشيوخ» —
+        // المجلد القديم Salah_… كان 404 فكان تنزيله لا يعمل أبداً
+        val bukhatir = QuranReciters.byId("bukhatir")
+        assertTrue("المجلد يبدأ Salaah بحرفين: ${bukhatir.folder}", bukhatir.folder.startsWith("Salaah_"))
+        assertEquals(
+            "https://everyayah.com/data/Salaah_AbdulRahman_Bukhatir_128kbps/001001.mp3",
+            QuranReciters.ayahUrl(bukhatir, 1, 1),
+        )
+    }
+
+    @Test
+    fun `روابط الاحتياط من مكتبة القرآن المفتوحة للشيخ صاحبها فقط`() {
+        // القطامي بلا نظيرٍ هناك — فلا رابط احتياط له
+        assertEquals(null, QuranReciters.fallbackUrl(QuranReciters.byId("qatami"), 262))
+        assertEquals(null, QuranReciters.fallbackUrl(QuranReciters.byId("dossary"), 262))
+        // العفاسي بنظيره ar.alafasy وبترقيم الآية الكلي
+        assertEquals(
+            "https://cdn.islamic.network/quran/audio/64/ar.alafasy/262.mp3",
+            QuranReciters.fallbackUrl(QuranReciters.byId("alafasy"), 262),
+        )
+        // والعفاسي يظل رابطه الأساسي من everyayah
+        assertTrue(QuranReciters.ayahUrl(QuranReciters.byId("alafasy"), 2, 255).startsWith("https://everyayah.com"))
+    }
+
+    @Test
+    fun `إصدارات الاحتياط مضبوطة للشيوخ الذين لهم نظير`() {
+        assertEquals("ar.abdulbasitmurattal", QuranReciters.byId("abdelbaset").fallbackEdition)
+        assertEquals("ar.minshawi", QuranReciters.byId("minshawi").fallbackEdition)
+        assertEquals("ar.husary", QuranReciters.byId("husary").fallbackEdition)
+        assertEquals("ar.mahermuaiqly", QuranReciters.byId("muaiqly").fallbackEdition)
+        assertEquals("ar.abdurrahmaansudais", QuranReciters.byId("sudais").fallbackEdition)
+        assertEquals("ar.hanirifai", QuranReciters.byId("rifai").fallbackEdition)
+        assertEquals("ar.saoodshuraym", QuranReciters.byId("shuraym").fallbackEdition)
+        assertEquals("ar.aymanswoaid", QuranReciters.byId("sowaid").fallbackEdition)
+        assertEquals("ar.muhammadjibreel", QuranReciters.byId("jibreel").fallbackEdition)
+        // ومن لا نظير له إصداره null
+        assertTrue(
+            listOf("mustafa_ismail", "al_banna", "tablaway", "hajjaj", "neana",
+                "qatami", "dossary", "juhany", "bukhatir", "tunaiji")
+                .all { QuranReciters.byId(it).fallbackEdition == null },
+        )
+    }
 }
 
 /** اختبارات رياضيات ملفات صوت الآيات (alpha54) */

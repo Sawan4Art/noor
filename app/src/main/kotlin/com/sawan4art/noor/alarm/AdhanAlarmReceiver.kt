@@ -84,6 +84,8 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             // جهاز يقيد الخدمة الأمامية — نرفع إشعاراً هادئاً على الأقل
             AlarmService.postSilentPrayerNotice(context, prayerName)
         }
+        // الويدجتات تتبدل مع أذان كل صلاة — القادمة الجديدة تظهر فوراً (alpha56)
+        com.sawan4art.noor.widget.WidgetUpdater.refreshAll(context)
     }
 
     companion object {

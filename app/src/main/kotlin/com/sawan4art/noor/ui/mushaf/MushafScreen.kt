@@ -47,8 +47,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -83,6 +86,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.positionChanged
@@ -302,17 +306,29 @@ fun MushafScreen(
     var rootSize by remember { mutableStateOf(IntSize.Zero) }
     var surahCount by remember { mutableStateOf(0) }
 
-    // الإيماءة الرجوع: تُغلق اللوحات أولاً ثم تلغي التحديد ثم تعود للرئيسية
-    BackHandler(enabled = chooserOpen || tafsirOpen || hifzOpen || selection != null) {
+    // طلب تنزيل سورة قبل التلاوة — الصوت من الجهاز فقط (توجيه المالك
+    // alpha56: «انا عايز كل الاصوات يجب تحميلها من قبل المستخدم»)
+    var pendingDownload by remember { mutableStateOf<PendingSurahDownload?>(null) }
+    var downloadingSura by remember { mutableStateOf<Int?>(null) }
+
+    // الإيماءة الرجوع: تُغلق اللوحات أولاً ثم تلغي التحديد ثم تفتح قائمة
+    // السور ثم تعود للرئيسية — الرجوع خطوةً خطوة (توجيه المالك alpha56:
+    // «عايز لما ارجع خطوه للوراء يتم عرض قائمه اختيار السوره مره اخرى»)
+    BackHandler(enabled = true) {
         when {
-            chooserOpen -> chooserOpen = false
+            pendingDownload != null -> pendingDownload = null
             tafsirOpen -> tafsirOpen = false
             hifzOpen -> hifzOpen = false
-            else -> {
+            selection != null || menuAt != null || playMenuOpen -> {
                 selection = null
                 menuAt = null
                 playMenuOpen = false
             }
+            chooserOpen -> {
+                chooserOpen = false
+                onBack()
+            }
+            else -> chooserOpen = true
         }
     }
 
@@ -356,20 +372,77 @@ fun MushafScreen(
         }
     }
 
-    /** تشغيل مُدى آيات متتابع بصوت الشيخ المختار — محليٌّ أولاً ثم الشبكة */
-    fun startPlaylist(sura: Int, ayahs: List<Int>, loop: Boolean = false) {
+    /** تشغيل المحمَّل على الجهاز — بلا شبكة إطلاقاً */
+    fun playLocal(sura: Int, ayahs: List<Int>, loop: Boolean) {
         scope.launch {
-            val sequence = if (loop) MushafPlaylist.hifzRepeats(ayahs, HIFZ_REPEATS) else ayahs
             val sources = withContext(Dispatchers.IO) {
-                sequence.map { ayah ->
-                    QuranAudioLibrary.ayahSource(context, reciterId, sura, ayah)
+                ayahs.mapNotNull { ayah ->
+                    QuranAudioLibrary.localAyahPath(context, reciterId, sura, ayah)
                 }
             }
             val ok = withContext(Dispatchers.IO) { MushafPlayer.play(sources, loop) }
             if (!ok) {
-                Toast.makeText(context, "التلاوة تحتاج اتصالاً بالإنترنت", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    "حمّل صوت السورة أولاً من قسم «أصوات الشيخ»",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            pendingDownload = null
+        }
+    }
+
+    /** تشغيل مُدى آيات متتابع بصوت الشيخ المختار — **من الجهاز فقط** */
+    fun startPlaylist(sura: Int, ayahs: List<Int>, loop: Boolean = false) {
+        scope.launch {
+            // الحفظ الميسر يكرر كل آية ثلاثاً — التسلسل الموسّع هو قائمة العمل
+            val sequence = if (loop) MushafPlaylist.hifzRepeats(ayahs, HIFZ_REPEATS) else ayahs
+            val missing = withContext(Dispatchers.IO) {
+                sequence.count { ayah ->
+                    QuranAudioLibrary.localAyahPath(context, reciterId, sura, ayah) == null
+                }
             }
             playMenuOpen = false
+            if (missing > 0) {
+                // السورة غير محمَّلة — تأكيد التنزيل ثم التشغيل (alpha56)
+                pendingDownload = PendingSurahDownload(
+                    sura = sura,
+                    ayahs = sequence,
+                    loop = loop,
+                    missing = missing,
+                    total = sequence.size,
+                )
+            } else {
+                playLocal(sura, sequence, loop)
+            }
+        }
+    }
+
+    /** تأكيد المستخدم — تنزيل السورة بشريطٍ دائري ثم التشغيل تلقائياً */
+    fun confirmDownloadAndPlay(request: PendingSurahDownload) {
+        if (downloadingSura != null) return
+        downloadingSura = request.sura
+        scope.launch {
+            val count = withContext(Dispatchers.IO) {
+                MushafDb.surahAyahCount(context, request.sura)
+            }.coerceAtLeast(1)
+            val ok = try {
+                QuranAudioLibrary
+                    .start(context, reciterId, request.sura, mapOf(request.sura to count))
+                    .await()
+            } catch (t: Throwable) {
+                false
+            }
+            if (ok) {
+                playLocal(request.sura, request.ayahs, request.loop)
+            } else {
+                Toast.makeText(
+                    context,
+                    "تعذّر التنزيل — تحقق من الاتصال وأعد المحاولة",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            downloadingSura = null
         }
     }
 
@@ -519,6 +592,20 @@ fun MushafScreen(
                     onDismiss = { hifzOpen = false },
                 )
             }
+        }
+
+        // لوحة تأكيد تنزيل السورة — تظهر حين يطلب القارئ تلاوة سورةٍ
+        // لم يحمّل صوتها بعد، وبعد التأكيد شريطٌ دائري بنسبة التنزيل ثم
+        // التشغيل تلقائياً (توجيه المالك alpha56)
+        pendingDownload?.let { request ->
+            SurahDownloadDialog(
+                request = request,
+                reciterId = reciterId,
+                reciterName = QuranReciters.byId(reciterId).name,
+                downloading = downloadingSura == request.sura,
+                onConfirm = { confirmDownloadAndPlay(request) },
+                onDismiss = { if (downloadingSura == null) pendingDownload = null },
+            )
         }
 
         // لوحة اختيار السورة — تنبثق عند الدخول وعلى الصفحات كالضباب الخفيف
@@ -2034,42 +2121,221 @@ private fun BottomSheet(
 }
 
 /**
+ * طلب تنزيل سورة قبل التلاوة — أُنشئ حين طُلبت تلاوة آياتٍ صوتها
+ * غير محمَّل على الجهاز، ويحمل قائمة العمل الموسّعة للحفظ الميسر.
+ */
+private data class PendingSurahDownload(
+    val sura: Int,
+    val ayahs: List<Int>,
+    val loop: Boolean,
+    val missing: Int,
+    val total: Int,
+)
+
+/**
+ * لوحة تأكيد تنزيل السورة — توجيه المالك alpha56:
+ * «لو اخترت شيخ و دخلت على المصحف لتشغيل صوت قراءه الشيخ لسوره لم
+ * يسبق لي تحميلها يطلب مني تأكيد لتحميل السوره و عند الموافقه يبدا
+ * التحميل فعلا و يظهر شريط دائري لنسبه التحميل».
+ *
+ * قبل التأكيد: اسم السورة وعدد آياتها غير المحمَّلة وزرَا تحميلٍ
+ * وإلغاء. بعد التأكيد: القرص الدائري يتقدم آيةً آية بالنسبة الحية،
+ * وباكتماله يبدأ التشغيل تلقائياً — والتنزيل نفسه يعيش في مجال
+ * التطبيق فإغلاق اللوحة لا يقطعه.
+ */
+@Composable
+private fun SurahDownloadDialog(
+    request: PendingSurahDownload,
+    reciterId: String,
+    reciterName: String,
+    downloading: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val downloads by QuranAudioLibrary.downloads.collectAsState()
+    val scheme = MaterialTheme.colorScheme
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = PanelBg,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp),
+            ) {
+                Text(
+                    text = MushafSurahs.name(request.sura),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFF2EDE0),
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "صوت الشيخ $reciterName غير محمَّل لهذه السورة",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFFB9AC93),
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(20.dp))
+
+                if (downloading) {
+                    // الشريط الدائري الحي — نسبة التنزيل آيةً آية
+                    val state = downloads["$reciterId:${request.sura}"]
+                    Box(contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            progress = { state?.fraction ?: 0f },
+                            modifier = Modifier.size(92.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = Color.White.copy(alpha = 0.12f),
+                            strokeWidth = 6.dp,
+                        )
+                        Text(
+                            text = "${MushafSurahs.arabicDigits(((state?.fraction ?: 0f) * 100).roundToInt())}٪",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFF2EDE0),
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = if (state == null) "…جارٍ البدء" else
+                            "المحمَّل ${MushafSurahs.arabicDigits(state.done)} من ${MushafSurahs.arabicDigits(state.total)} آية",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFFB9AC93),
+                    )
+                } else {
+                    Text(
+                        text = "تحميل السورة كاملة (${MushafSurahs.arabicDigits(request.missing)} آية" +
+                            if (request.total != request.missing) {
+                                " — والمحمَّل ${MushafSurahs.arabicDigits(request.total - request.missing)} آية"
+                            } else {
+                                ""
+                            } + ")",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFB9AC93),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+
+                Spacer(Modifier.height(22.dp))
+                if (!downloading) {
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                    ) {
+                        Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("تحميل وتشغيل", fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+                Text(
+                    text = if (downloading) "التنزيل يكمل حتى لو أغلقت اللوحة — إيقافه من قسم «أصوات الشيخ»" else "لاحقاً",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (downloading) FontWeight.Medium else FontWeight.Bold,
+                    color = Color(0xFFB9AC93),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable(enabled = !downloading, onClick = onDismiss)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
  * مشغّل التلاوة بقائمة آيات متتابعة — توجيه المالك: «امكانيه تحديد عده
  * ايات مع بعض لتشغيلها» — آية وراء آية حتى آخر المُدى المختار، وواحد فقط
  * في آن، ويقف مع مغادرة المصحف أو الضغطة على زر الإيقاف — وفي الحفظ
  * الميسر يدور على المُدى من جديد حتى يقف المستخدم (loop).
+ *
+ * **بلا فواصل بين الآيات** (بلاغ المالك alpha56: «عند تشغيل السوره
+ * كامله بدون تحديد يحدث تقطيع بين الايات بمقدار ضئيل و ذا شى غير
+ * مقبول بالمره»): المشغّل السابق كان يحضّر كل آية بعد سماع سكوت
+ * نهايتها فتأتي فجوة صغيرة بين الآيتين. الآن **تحضيرٌ مزدوج**:
+ * آية التالي تُحضَّر مسبقاً وتُربط بالمشغّل الحالي عبر
+ * MediaPlayer.setNextMediaPlayer فيبدأ تشغيلها النظام لحظة نهاية
+ * سابقتها مباشرة — قفزة لا تُذكر بين الآيات، وملفات الجهاز المحلية
+ * تحضيرُها فوري فلا يتخلف الإعداد عن نهاية الآية القصيرة.
  */
 private object MushafPlayer {
 
     private val _playing = MutableStateFlow(false)
     val playing: StateFlow<Boolean> = _playing
 
-    @Volatile
-    private var player: MediaPlayer? = null
-
-    /** قائمة روابط الآيات وما بقي منها */
+    /** قائمة مسارات الآيات وما تبقى — والفهرس الجاري */
     @Volatile
     private var queue: List<String> = emptyList()
     @Volatile
-    private var queueIndex = 0
+    private var playingIndex = 0
 
     /** دور الحفظ الميسر — بعد آخر آية تعود الدورة من أول المُدى */
     @Volatile
     private var loop = false
 
-    /** تشغيل قائمة روابط آيات بالتتابع — يرجع نجاح بدء الأولى */
+    private val lock = Any()
+    private var current: MediaPlayer? = null
+    private var next: MediaPlayer? = null
+    private var nextIndex = -1
+
+    /** جيل التشغيل — يبطل مستقبلات التوليد القديم بعد إيقافٍ أو تبديل */
+    @Volatile
+    private var generation = 0L
+
+    /** تشغيل قائمة مسارات آيات بالتتابع — يرجع نجاح بدء الأولى */
     fun play(urls: List<String>, loop: Boolean = false): Boolean {
-        stop()
-        if (urls.isEmpty()) return false
-        queue = urls
-        queueIndex = 0
-        this.loop = loop
-        return startCurrent()
+        synchronized(lock) {
+            stopInternal()
+            if (urls.isEmpty()) return false
+            queue = urls
+            playingIndex = 0
+            this.loop = loop
+            val gen = ++generation
+            val first = prepareLocked(0, gen) ?: run {
+                queue = emptyList()
+                return false
+            }
+            current = first
+            chainNextLocked(gen)
+            return runCatching {
+                first.start()
+                _playing.value = true
+                true
+            }.getOrDefault(false)
+        }
     }
 
-    /** تحضير الآية الحالية وتشغيلها — فشل التحضير يوقف الكل برسالة صاحبها */
-    private fun startCurrent(): Boolean = runCatching {
-        val url = queue[queueIndex]
+    fun stop() {
+        synchronized(lock) { stopInternal() }
+    }
+
+    private fun stopInternal() {
+        generation++
+        current?.let { p ->
+            runCatching { p.setNextMediaPlayer(null) }
+            runCatching { if (p.isPlaying) p.stop() }
+            runCatching { p.release() }
+        }
+        runCatching { next?.release() }
+        current = null
+        next = null
+        nextIndex = -1
+        queue = emptyList()
+        playingIndex = 0
+        loop = false
+        _playing.value = false
+    }
+
+    /** تحضير آيةٍ بالمؤشر — والملفات المحلية تحضيرها متزامن وفوري */
+    private fun prepareLocked(index: Int, gen: Long): MediaPlayer? = runCatching {
+        val path = queue.getOrNull(index) ?: return@runCatching null
         val p = MediaPlayer()
         p.setAudioAttributes(
             AudioAttributes.Builder()
@@ -2077,49 +2343,106 @@ private object MushafPlayer {
                 .setUsage(AudioAttributes.USAGE_MEDIA)
                 .build(),
         )
-        p.setDataSource(url)
-        p.setOnPreparedListener {
-            it.start()
-            _playing.value = true
+        p.setDataSource(path)
+        p.setOnCompletionListener { done -> onCompletedLocked(done, gen) }
+        p.setOnErrorListener { _, _, _ ->
+            onErrorLocked(gen)
+            true
         }
-        p.setOnCompletionListener { done ->
+        p.prepare()
+        p
+    }.getOrNull()
+
+    /** تحضير الآية التالية وربطها بالحالية — سرّ التتابع بلا فواصل */
+    private fun chainNextLocked(gen: Long) {
+        val cur = current ?: return
+        runCatching { next?.release() }
+        next = null
+        var idx = playingIndex + 1
+        if (idx >= queue.size) {
+            idx = if (loop && queue.isNotEmpty()) 0 else -1
+        }
+        if (idx < 0) return
+        val p = prepareLocked(idx, gen) ?: return
+        next = p
+        nextIndex = idx
+        runCatching { cur.setNextMediaPlayer(p) }
+    }
+
+    /** نهاية آية — الآية المحضَّرة تبدأ لحظياً ونحضّر بعدها في السرّاء */
+    private fun onCompletedLocked(done: MediaPlayer, gen: Long) {
+        synchronized(lock) {
+            if (gen != generation) {
+                runCatching { done.release() }
+                return
+            }
+            if (done !== current) {
+                // مستقبل مشغّلٍ سبق استبداله — يُهمل ويُحرَّر
+                runCatching { done.release() }
+                return
+            }
+            val ready = next
+            runCatching { done.setNextMediaPlayer(null) }
             runCatching { done.release() }
-            player = null
-            val next = queueIndex + 1
-            if (next < queue.size) {
-                queueIndex = next
-                if (!startCurrent()) _playing.value = false
-            } else if (loop && queue.isNotEmpty()) {
-                // الحفظ الميسر — الدورة تعود من أول المُدى حتى يقف المستخدم
-                queueIndex = 0
-                if (!startCurrent()) _playing.value = false
+            if (ready != null) {
+                current = ready
+                playingIndex = nextIndex
+                next = null
+                chainNextLocked(gen)
+            } else {
+                // لا تالٍ محضَّر — فشل تحضيره أو انتهى الكل: نقفز مباشرة
+                current = null
+                var idx = playingIndex + 1
+                if (idx >= queue.size) {
+                    if (loop && queue.isNotEmpty()) idx = 0 else {
+                        _playing.value = false
+                        queue = emptyList()
+                        playingIndex = 0
+                        return
+                    }
+                }
+                playingIndex = idx
+                val p = prepareLocked(idx, gen)
+                if (p != null) {
+                    current = p
+                    chainNextLocked(gen)
+                    runCatching { p.start() }
+                } else {
+                    _playing.value = false
+                    queue = emptyList()
+                    playingIndex = 0
+                }
+            }
+        }
+    }
+
+    /** خطأ مشغّل — نقفز للآية التالية إن أمكن وإلا وقفنا بأدب */
+    private fun onErrorLocked(gen: Long) {
+        synchronized(lock) {
+            if (gen != generation) return
+            current?.let { p -> runCatching { p.release() } }
+            current = null
+            var idx = playingIndex + 1
+            if (idx >= queue.size) {
+                if (loop && queue.isNotEmpty()) idx = 0 else {
+                    _playing.value = false
+                    queue = emptyList()
+                    playingIndex = 0
+                    return
+                }
+            }
+            playingIndex = idx
+            val p = prepareLocked(idx, gen)
+            if (p != null) {
+                current = p
+                chainNextLocked(gen)
+                runCatching { p.start() }
             } else {
                 _playing.value = false
                 queue = emptyList()
-                queueIndex = 0
+                playingIndex = 0
             }
         }
-        p.setOnErrorListener { _, _, _ ->
-            _playing.value = false
-            true
-        }
-        p.prepareAsync()
-        player = p
-        true
-    }.getOrDefault(false)
-
-    fun stop() {
-        player?.let { p ->
-            runCatching {
-                if (p.isPlaying) p.stop()
-                p.release()
-            }
-        }
-        player = null
-        _playing.value = false
-        queue = emptyList()
-        queueIndex = 0
-        loop = false
     }
 }
 

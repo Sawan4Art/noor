@@ -14,8 +14,8 @@ android {
         minSdk = 24
         targetSdk = 36
         // إصدارات ألفا لإعادة البناء الكوتلنية — النسخة النهائية الموحّدة تُضبط عند اكتمال المراحل
-        versionCode = 50055
-        versionName = "0.5.0-alpha55"
+        versionCode = 50056
+        versionName = "0.5.0-alpha56"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -104,4 +104,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+    // org.json الحقيقية في اختبارات الوحدة — android.jar للجهاز الافتراضي
+    // يزوّرها فيرجع JSON كله افتراضياً (درس اختبار تخصيص الويدجت alpha56)
+    testImplementation("org.json:json:20240303")
 }

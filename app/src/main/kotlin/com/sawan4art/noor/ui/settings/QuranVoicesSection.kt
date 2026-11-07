@@ -95,7 +95,7 @@ fun QuranVoicesSection(
             text = "عشرون شيخاً — العشرة المصريون ثم العشرة من غيرهم. " +
                 "اضغط على الشيخ ليصير صوتَ التلاوة في المصحف، وزر التنزيل " +
                 "يحفظ صوته في الجهاز: سورةً سورة أو المصحف كاملاً — والتلاوة " +
-                "تشغّل المحمَّل من جهازك أولاً بلا إنترنت.",
+                "من المحمَّل على جهازك فقط فحمّل السورة قبل الاستماع إليها.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 14.dp),
@@ -252,7 +252,9 @@ private fun ReciterDownloadDialog(
     val whole = downloads["${reciter.id}:0"]
 
     fun launchDownload(sura: Int) {
-        scope.launch { QuranAudioLibrary.download(context, reciter.id, sura, surahCounts) }
+        // التنزيل في مجال التطبيق نفسه (alpha56) — إغلاق اللوحة أو مغادرة
+        // الإعدادات لا يقتله، ويكمل حتى النهاية أو يُوقف من الزر
+        QuranAudioLibrary.start(context, reciter.id, sura, surahCounts)
     }
 
     Dialog(onDismissRequest = onDismiss) {

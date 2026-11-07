@@ -28,6 +28,12 @@ object QuranReciters {
         /** بلد النسب — مصر أو غيرها */
         val country: String,
         val origin: Origin,
+        /**
+         * مصدر احتياطي للتنزيل (alpha56) — إصدار الشيخ في مكتبة
+         * islamic.network إن وُجد، بترقيم الآية الكلي (١..٦٢٣٦)؛
+         * null لمن لا نظير له فالتنزيل من everyayah وحده.
+         */
+        val fallbackEdition: String? = null,
     )
 
     /** مجلد التلاوات المفتوح — مصدر الروابط والتنزيل معاً */
@@ -36,31 +42,33 @@ object QuranReciters {
     // ===== العشرة المصريون — أفاضل أئمة التلاوة في مصر =====
 
     private val EGYPTIAN = listOf(
-        Reciter("abdelbaset", "عبد الباسط عبد الصمد", "Abdul_Basit_Murattal_192kbps", "مصر", Origin.EGYPTIAN),
-        Reciter("minshawi", "محمد صديق المنشاوي", "Minshawy_Murattal_128kbps", "مصر", Origin.EGYPTIAN),
-        Reciter("husary", "محمود خليل الحصري", "Husary_128kbps", "مصر", Origin.EGYPTIAN),
+        Reciter("abdelbaset", "عبد الباسط عبد الصمد", "Abdul_Basit_Murattal_192kbps", "مصر", Origin.EGYPTIAN, "ar.abdulbasitmurattal"),
+        Reciter("minshawi", "محمد صديق المنشاوي", "Minshawy_Murattal_128kbps", "مصر", Origin.EGYPTIAN, "ar.minshawi"),
+        Reciter("husary", "محمود خليل الحصري", "Husary_128kbps", "مصر", Origin.EGYPTIAN, "ar.husary"),
         Reciter("mustafa_ismail", "مصطفى إسماعيل", "Mustafa_Ismail_48kbps", "مصر", Origin.EGYPTIAN),
         Reciter("al_banna", "محمود علي البنا", "mahmoud_ali_al_banna_32kbps", "مصر", Origin.EGYPTIAN),
         Reciter("tablaway", "محمد الطبلاوي", "Mohammad_al_Tablaway_128kbps", "مصر", Origin.EGYPTIAN),
-        Reciter("sowaid", "أيمن سويد", "Ayman_Sowaid_64kbps", "مصر", Origin.EGYPTIAN),
+        Reciter("sowaid", "أيمن سويد", "Ayman_Sowaid_64kbps", "مصر", Origin.EGYPTIAN, "ar.aymanswoaid"),
         Reciter("hajjaj", "علي الحجاج السويسي", "Ali_Hajjaj_AlSuesy_128kbps", "مصر", Origin.EGYPTIAN),
         Reciter("neana", "أحمد نائنا", "Ahmed_Neana_128kbps", "مصر", Origin.EGYPTIAN),
-        Reciter("jibreel", "محمد جبريل", "Muhammad_Jibreel_128kbps", "مصر", Origin.EGYPTIAN),
+        Reciter("jibreel", "محمد جبريل", "Muhammad_Jibreel_128kbps", "مصر", Origin.EGYPTIAN, "ar.muhammadjibreel"),
     )
 
     // ===== العشرة من غير المصريين — أفاضل القرّاء في العالم =====
 
     private val OTHER = listOf(
-        Reciter("alafasy", "مشاري راشد العفاسي", "Alafasy_128kbps", "الكويت", Origin.OTHER),
-        Reciter("sudais", "عبد الرحمن السديس", "Abdurrahmaan_As-Sudais_192kbps", "السعودية", Origin.OTHER),
-        Reciter("muaiqly", "ماهر المعيقلي", "MaherAlMuaiqly128kbps", "السعودية", Origin.OTHER),
+        Reciter("alafasy", "مشاري راشد العفاسي", "Alafasy_128kbps", "الكويت", Origin.OTHER, "ar.alafasy"),
+        Reciter("sudais", "عبد الرحمن السديس", "Abdurrahmaan_As-Sudais_192kbps", "السعودية", Origin.OTHER, "ar.abdurrahmaansudais"),
+        Reciter("muaiqly", "ماهر المعيقلي", "MaherAlMuaiqly128kbps", "السعودية", Origin.OTHER, "ar.mahermuaiqly"),
         Reciter("qatami", "ناصر القطامي", "Nasser_Alqatami_128kbps", "السعودية", Origin.OTHER),
         Reciter("dossary", "ياسر الدوسري", "Yasser_Ad-Dussary_128kbps", "السعودية", Origin.OTHER),
         Reciter("juhany", "عبد الله عواد الجهني", "Abdullaah_3awwaad_Al-Juhaynee_128kbps", "السعودية", Origin.OTHER),
-        Reciter("rifai", "هاني الرفاعي", "Hani_Rifai_192kbps", "لبنان", Origin.OTHER),
-        Reciter("bukhatir", "صلاح بو خاطر", "Salah_AbdulRahman_Bukhatir_128kbps", "الإمارات", Origin.OTHER),
+        Reciter("rifai", "هاني الرفاعي", "Hani_Rifai_192kbps", "لبنان", Origin.OTHER, "ar.hanirifai"),
+        // إصلاح alpha56: المجلد الصحيح «Salaah» بحرفين — الواسم القديم كان
+        // 404 فكان تنزيل بو خاطر لا يعمل أبداً (بلاغ المالك: الروابط)
+        Reciter("bukhatir", "صلاح بو خاطر", "Salaah_AbdulRahman_Bukhatir_128kbps", "الإمارات", Origin.OTHER),
         Reciter("tunaiji", "خليفة الطنيجي", "khalefa_al_tunaiji_64kbps", "الكويت", Origin.OTHER),
-        Reciter("shuraym", "سعود الشريم", "Saood_ash-Shuraym_128kbps", "السعودية", Origin.OTHER),
+        Reciter("shuraym", "سعود الشريم", "Saood_ash-Shuraym_128kbps", "السعودية", Origin.OTHER, "ar.saoodshuraym"),
     )
 
     /** العشرون كاملة — المصريون أولاً ثم غيرهم بترتيب القائمتين */
@@ -76,6 +84,15 @@ object QuranReciters {
     /** رابط آية واحدة للشيخ على مصدر التلاوات — «٣ سورة + ٣ آية.mp3» */
     fun ayahUrl(reciter: Reciter, sura: Int, ayah: Int): String =
         "$DATA_BASE_URL/${reciter.folder}/${QuranAudioMath.ayahFileName(sura, ayah)}"
+
+    /**
+     * رابط الاحتياط للشيخ صاحب إصدارٍ نظير — مكتبة islamic.network
+     * بترقيم الآية الكلي (١..٦٢٣٦) وهو ما تنتجه MushafDb.globalAyah.
+     */
+    const val FALLBACK_BASE_URL = "https://cdn.islamic.network/quran/audio/64"
+
+    fun fallbackUrl(reciter: Reciter, globalAyah: Int): String? =
+        reciter.fallbackEdition?.let { "$FALLBACK_BASE_URL/$it/$globalAyah.mp3" }
 
     /** عدد المصريين في القائمة — عقد المالك: عشرة مصريين بالضبط */
     const val EGYPTIAN_COUNT = 10
