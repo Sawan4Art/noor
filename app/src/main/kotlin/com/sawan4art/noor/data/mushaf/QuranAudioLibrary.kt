@@ -226,7 +226,12 @@ object QuranAudioLibrary {
                     publish(active = true)
                 } else {
                     failed++
-                    publish(active = true, error = "")
+                    // بلاغ حيّ واضح بدل صمتٍ يجمد الواجهة بلا تفسير
+                    publish(
+                        active = true,
+                        error = "تعذّر " + MushafSurahs.arabicDigits(failed) +
+                            " آية حتى الآن — التنزيل يُكمل وإعادة الضغطة تكملتها",
+                    )
                 }
             }
         }
@@ -251,6 +256,9 @@ object QuranAudioLibrary {
         ayah: Int,
         target: File,
     ): Boolean {
+        // مكتملة على القرص؟ لا تعيد تنزيلها — درس alpha58: المحاولات
+        // الأربع كانت تعيد تنزيل الآية المكتملة لأن النجاح كان يُحسب فشلاً
+        if (target.isFile && target.length() > 0L) return true
         if (downloadTo(QuranReciters.ayahUrl(reciter, sura, ayah), target)) return true
         // الاحتياط — بترقيم الآية الكلي من قاعدة المصحف نفسها
         val global = MushafDb.globalAyah(context, sura, ayah)
@@ -279,14 +287,31 @@ object QuranAudioLibrary {
             tmp.outputStream().use { output -> input.copyTo(output) }
         }
         conn.disconnect()
+        // الجذر المُصلَح (alpha58 — بلاغ المالك: «يقول جاري التحميل و
+        // الشريط لا يتقدم حتى خطوة»): الحكم على الاكتمال كان بعد rename
+        // بحساب length() للملف المنقول نفسه فطوله صفرٌ دائماً — كل آيةٍ
+        // نزلت سليمةً حُسبت فاشلةً وأُعيد تنزيلها خمس مرات وظلّ العدّاد
+        // والشريط على صفر. الآن الحكم من حجم المؤقت قبل النقل:
+        finalizeDownloadFile(tmp, target)
+    }.getOrDefault(false)
+
+    /**
+     * إنهاء تنزيلٍ ناجح: المؤقت المكتمل يُسمّى نهائياً والحكم من حجمة
+     * **قبل** النقل — دالة نقية لاختبار الوحدة (عقد alpha58: التنزيل
+     * الناجح يرجع true بلا استثناء، وقرار النجاح قبل النقل لا بعده).
+     */
+    internal fun finalizeDownloadFile(tmp: File, target: File): Boolean {
         if (tmp.length() <= 0L) {
             tmp.delete()
-            return@runCatching false
+            return false
         }
         if (target.exists()) target.delete()
-        tmp.renameTo(target)
-        tmp.length() > 0L
-    }.getOrDefault(false)
+        if (!tmp.renameTo(target)) {
+            tmp.delete()
+            return false
+        }
+        return target.isFile && target.length() > 0L
+    }
 
     /** إيقاف تنزيل جارٍ — بلا مسحٍ لما اكتمل منه */
     fun cancel(reciterId: String, sura: Int) {

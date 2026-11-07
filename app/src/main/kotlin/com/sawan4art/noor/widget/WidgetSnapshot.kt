@@ -37,22 +37,38 @@ data class WidgetSnapshot(
 
     companion object {
 
-        /** حساب اللقطة من إعدادات التطبيق — يُستدعى من ويدجتات النظام مباشرة */
+        /**
+         * حساب اللقطة من إعدادات التطبيق — يُستدعى من ويدجتات النظام مباشرة.
+         *
+         * التحصين (alpha58 — بلاغ المالك: «الويدجت تظهر في التطبيقات
+         * المصغرة لكن لا تعمل»): أي غلطةٍ غير متوقعة في أي حسابٍ ترجع
+         * لقطةً افتراضية سليمة (مواقيت القاهرة) كي لا يظهر الويدجت
+         * معطلاً ولا يُهدم تحديثه — أول المحاولة بالإعدادات الحية
+         * فالاحتياط بالافتراضية فآخر العلاج لقطةٌ لا تنفجر أبداً.
+         */
         fun compute(context: Context, now: ZonedDateTime = ZonedDateTime.now()): WidgetSnapshot {
-            val settings = runCatching {
-                kotlinx.coroutines.runBlocking { SettingsRepository(context).settingsOnce() }
-            }.getOrElse { com.sawan4art.noor.data.NoorSettingsState() }
-            val today: LocalDate = now.toLocalDate()
-            val times: PrayerTimes = runCatching {
-                PrayerMath.compute(
-                    today, settings.latitude, settings.longitude,
-                    now.zone, settings.method, settings.isHanafi,
-                )
-            }.getOrElse {
-                // فشل نادر في الحساب — مواقيت القاهرة الافتراضية كي لا يظهر ويدجت فارغاً
-                PrayerMath.compute(today, 30.0444, 31.2357, now.zone,
-                    com.sawan4art.noor.domain.prayer.CalculationMethod.EGYPT, false)
+            val primary = runCatching {
+                val settings = kotlinx.coroutines.runBlocking {
+                    SettingsRepository(context).settingsOnce()
+                }
+                computeFrom(settings, now)
             }
+            primary.getOrNull()?.let { return it }
+            return runCatching {
+                computeFrom(com.sawan4art.noor.data.NoorSettingsState(), now)
+            }.getOrElse { emptySnapshot(now) }
+        }
+
+        /** الحساب من إعداداتٍ معطاة — المكوّنات تُرمى فتُلتقط في [compute] */
+        private fun computeFrom(
+            settings: com.sawan4art.noor.data.NoorSettingsState,
+            now: ZonedDateTime,
+        ): WidgetSnapshot {
+            val today: LocalDate = now.toLocalDate()
+            val times: PrayerTimes = PrayerMath.compute(
+                today, settings.latitude, settings.longitude,
+                now.zone, settings.method, settings.isHanafi,
+            )
             val next = PrayerMath.nextPrayer(times, now)
             val rows = PrayerTimeKey.entries.map { key ->
                 val target = times[key]
@@ -74,6 +90,24 @@ data class WidgetSnapshot(
             )
         }
 
+        /** آخر العلاج — لقطةٌ شبه فارغة تركيبها سليم لا تنفجر أبداً */
+        private fun emptySnapshot(now: ZonedDateTime): WidgetSnapshot = WidgetSnapshot(
+            nextName = "",
+            nextTimeText = "",
+            remainingSeconds = 0,
+            rows = PrayerTimeKey.entries.map {
+                Row(
+                    name = PrayerMath.displayName(it, now.toLocalDate()),
+                    time = "",
+                    isNext = false,
+                    isPast = false,
+                )
+            },
+            city = "",
+            hijriDate = Hijri.HijriDate(1, 1, "محرم", 1),
+            gregorianDate = now.toLocalDate(),
+        )
+
         /**
          * الصلاة «الحالية» في الصفوف — آخر صلاةٍ انقضت أذانُها ولم تأتِ
          * القادمة (مقام فقاعة التحديد بلاغ المالك: «على الصلاه التاليه
@@ -87,3 +121,6 @@ data class WidgetSnapshot(
 /** قاعدة Chronometer التنازلي — زمن الإقلاع + المتبقي (الويدجت يعدّ حياً) */
 internal fun chronometerBase(remainingSeconds: Long, elapsedRealtime: Long): Long =
     elapsedRealtime + (remainingSeconds * 1000L).coerceAtLeast(0L)
+
+/** صيغة العدّاد الحي — عقد alpha58: تُمرَّر لـ setChronometer بمنادى started=true */
+internal const val COUNTDOWN_FORMAT = "متبقي %s حتى الأذان"

@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -523,7 +524,12 @@ internal fun KhutbahImagesRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
+                // الجذر المُصلَح (alpha58 — بلاغ المالك: «زر قسم اعداد خطبه
+                // الجمعه لا يفتح يحصل جلتش و التطبيق يخرج بمجرد الضغط»):
+                // كان verticalScroll فصفُّ الصور تُقاس بارتفاعٍ لا نهائيٍّ
+                // داخل عمود القسم القابل للتمرير عمودياً — فIllegalStateException
+                // تنفجر لحظة فتح القسم. الصفُّ أفقيٌّ بطبعه فالتمرير أفقي:
+                .horizontalScroll(rememberScrollState()),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             images.take(6).forEach { fileName ->

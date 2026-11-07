@@ -125,9 +125,12 @@ object WidgetRenderer {
         val pal = palette(customization)
         val views = RemoteViews(context.packageName, R.layout.widget_main)
 
-        // الخلفية — نرسمها بدقة معقولة ثابتة (الويدجت يمدّدها)
+        // الخلفية — دقةٌ معتدلة (١٫٥×) — درس alpha58: كانت ١٠٠٠×٧٢٠
+        // (~٢٫٧٥MB داخل باكِت RemoteViews) فوق مخزن البايندر (~١MB) ففشل
+        // التحديث وبدت الويدجت «تظهر لكن لا تعمل» (بلاغ المالك)
         val bg = widgetBackgroundBitmap(
-            widthDp * 4, heightDp * 4,
+            (widthDp * 3 / 2).coerceAtMost(500),
+            (heightDp * 3 / 2).coerceAtMost(360),
             pal.bgTop, pal.bgBottom, customization.opacityFraction, pal.accent,
         )
         views.setImageViewBitmap(R.id.widget_bg, bg)
@@ -168,11 +171,16 @@ object WidgetRenderer {
         if (customization.showCountdown) {
             views.setViewVisibility(R.id.widget_countdown, View.VISIBLE)
             views.setTextColor(R.id.widget_countdown, pal.muted)
-            views.setCharSequence(R.id.widget_countdown, "setFormat", "متبقي %s حتى الأذان")
-            views.setBoolean(R.id.widget_countdown, "setCountDown", true)
-            views.setLong(
-                R.id.widget_countdown, "setBase",
+            // الجذر المُصلَح (alpha58 — بلاغ المالك: «الويدجت تظهر في
+            // التطبيقات المصغرة لكن لا تعمل»): ضبط القاعدة وحدها لا يُحرك
+            // العدّاد — RemoteViews لا يستدعي start() أبداً فبقي العدّاد
+            // واقفاً على ٠٠:٠٠. setChronometer(…, started=true) هي التي
+            // تُشغّله، وصيغتها التنازلية من `android:countDown` في التخطيط:
+            views.setChronometer(
+                R.id.widget_countdown,
                 chronometerBase(snapshot.remainingSeconds, SystemClock.elapsedRealtime()),
+                COUNTDOWN_FORMAT,
+                true,
             )
         } else {
             views.setViewVisibility(R.id.widget_countdown, View.GONE)
@@ -279,10 +287,21 @@ object WidgetRenderer {
 class NoorWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
+        // التحصين (alpha58): أي غلطةٍ في الحساب أو الرسم لا تقتل التحديث
+        // كله — كل ويدجت تُرسم بأمانها: التخصيص الحي فإن انفجر الافتراضي
         val snapshot = WidgetSnapshot.compute(context)
         val customization = WidgetStore.customization(context)
         for (id in appWidgetIds) {
-            manager.updateAppWidget(id, WidgetRenderer.render(context, snapshot, customization))
+            val views = runCatching {
+                WidgetRenderer.render(context, snapshot, customization)
+            }.getOrElse {
+                runCatching {
+                    WidgetRenderer.render(
+                        context, WidgetSnapshot.compute(context), WidgetCustomization.DEFAULT,
+                    )
+                }.getOrNull()
+            }
+            if (views != null) manager.updateAppWidget(id, views)
         }
     }
 

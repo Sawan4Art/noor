@@ -11,14 +11,21 @@ import java.io.File
 /**
  * قاعدة مكتبة الأحاديث — Room فوق ملف SQLite جاهز في الـ Assets:
  *
- * databases/hadiths.db مولَّد آلياً بواسطة scripts/build_hadith_db.py
- * ثم scripts/renumber_hadiths.py (الترقيم المعتمد + الفهرس) ويحوي
- * ٣٨٠١٦ حديثاً من عشرة كتب بفهرس **FTS4** مُعبَّأ مسبقاً (contentless —
+ * databases/hadiths.db مولَّد آلياً بواسطة scripts/rebuild_hadiths_official.py
+ * ثم scripts/prune_hadiths_five_books.py (قصّ الكتب الخمسة) ويحوي
+ * ٣٠٠٢٥ حديثاً من **خمسة كتب** بفهرس **FTS4** مُعبَّأ مسبقاً (contentless —
  * الفهرس فقط بلا نسخة نص إضافية). Room ينسخ الملف عند أول فتح
  * (createFromAsset) ويقرأ جدوليه books وhadiths بتحقق مخططه المعتاد،
  * بينما hadiths_fts جدول افتراضي لا يعرفه Room فلا يتحقق منه ولا يمسه —
  * والقراءة منه عبر RawQuery في HadithDao. القاعدة للقراءة فقط: لا
  * إدراج ولا تعديل من التطبيق إطلاقاً، فلا حاجة لترحيلات ولا مشغّلات مزامنة.
+ *
+ * **النسخة ٥ (alpha58)**: المكتبة صارت الكتب الخمسة — بلاغ المالك:
+ * «بقولك ايي يكفي فقط اهم خمس كتب من الاحاديث بدل عشره لاكن يكونوا
+ * ترقيمهم صحيح و كاملين و بدون نقصان» — حُذف ابن ماجه وموطأ
+ * والثلاثة الفارغة تماماً (رياض الصالحين والأربعون النووية والقدسية
+ * بلا حديثٍ واحد منذ alpha56 — «اخر ٣ كتب في الاحاديث حذفت بالكامل»)
+ * والترقيم المعتمد لم يُمسّ (تحقق عدّي في prune_hadiths_five_books.py).
  *
  * **النسخة ٤ (alpha57)**: كل الكتب تبدأ من ١ بترقيمها المعتمد الحرفي —
  * بلاغ المالك: «مازال هناك كتب ناقصه … البخاري كان كاملا الان يبدا ب
@@ -37,7 +44,7 @@ import java.io.File
  */
 @Database(
     entities = [BookEntity::class, HadithEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class HadithDatabase : RoomDatabase() {
@@ -46,7 +53,7 @@ abstract class HadithDatabase : RoomDatabase() {
 
     companion object {
         const val NAME = "hadiths.db"
-        const val VERSION = 4
+        const val VERSION = 5
 
         @Volatile
         private var instance: HadithDatabase? = null
