@@ -13,8 +13,8 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
- * لقطة بيانات الويدجت — كل ما تحتاجه الأشكال الخمسة من مواقيت وتواريخ
- * وأذكار، تُحسب لحظة الرسم من إعدادات التطبيق نفسها (الموقع والطريقة
+ * لقطة بيانات الويدجت — كل ما تحتاجه الويدجت الواحدة من مواقيت
+ * وتواريخ، تُحسب لحظة الرسم من إعدادات التطبيق نفسها (الموقع والطريقة
  * والمذهب) فتطابق الشاشة الرئيسية عينها.
  */
 data class WidgetSnapshot(
@@ -28,27 +28,14 @@ data class WidgetSnapshot(
     val rows: List<Row>,
     /** اسم المدينة المحفوظ */
     val city: String,
-    /** التاريخ الهجري بصيغته العربية */
-    val hijri: String,
-    /** التاريخ الميلادي بصيغته العربية */
-    val gregorian: String,
-    /** ذكر اليوم — يدور بالأيام في ويدجت الذكر */
-    val zikr: String,
+    /** التاريخ الهجري — بصيغه ما شاء التخصيص */
+    val hijriDate: Hijri.HijriDate,
+    /** التاريخ الميلادي — بصيغه ما شاء التخصيص */
+    val gregorianDate: LocalDate,
 ) {
     data class Row(val name: String, val time: String, val isNext: Boolean, val isPast: Boolean)
 
     companion object {
-
-        /** أذكار ويدجت الذكر — دورة أيام السنة، عبارات مأثورة قصيرة */
-        val ZIKRS = listOf(
-            "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، سُبْحَانَ اللَّهِ الْعَظِيمِ",
-            "لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ",
-            "اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ",
-            "أَسْتَغْفِرُ اللَّهَ الْعَظِيمَ وَأَتُوبُ إِلَيْهِ",
-            "لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ",
-            "الْحَمْدُ لِلَّهِ حَمْدًا كَثِيرًا طَيِّبًا مُبَارَكًا فِيهِ",
-            "حَسْبِيَ اللَّهُ وَنِعْمَ الْوَكِيلُ",
-        )
 
         /** حساب اللقطة من إعدادات التطبيق — يُستدعى من ويدجتات النظام مباشرة */
         fun compute(context: Context, now: ZonedDateTime = ZonedDateTime.now()): WidgetSnapshot {
@@ -76,18 +63,24 @@ data class WidgetSnapshot(
                     isPast = target.isBefore(now) && key != next.key,
                 )
             }
-            val zikr = ZIKRS[(today.dayOfYear - 1).mod(ZIKRS.size)]
             return WidgetSnapshot(
                 nextName = next.arabicName,
                 nextTimeText = TimeFormat.prayerTime(next.target),
                 remainingSeconds = next.remainingSeconds.toLong(),
                 rows = rows,
                 city = settings.city,
-                hijri = Hijri.of(today).formatted,
-                gregorian = Hijri.gregorianArabic(today),
-                zikr = zikr,
+                hijriDate = Hijri.of(today),
+                gregorianDate = today,
             )
         }
+
+        /**
+         * الصلاة «الحالية» في الصفوف — آخر صلاةٍ انقضت أذانُها ولم تأتِ
+         * القادمة (مقام فقاعة التحديد بلاغ المالك: «على الصلاه التاليه
+         * او الحاليه او الاثنين مع بعض»).
+         */
+        fun currentRowIndex(rows: List<Row>): Int =
+            rows.indexOfLast { it.isPast }
     }
 }
 

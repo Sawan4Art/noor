@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  شكل النقطة السائلة (alpha57 — بلاغ المالك: «امكانيه اضافه شكل
+  النقطه السائله في اي مكان … مع تغيير لون كل فقاعه») — قطرةٌ بيضاء
+  تُلوَّن بـ setColorFilter من الرسّام بلون كل مقامٍ.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M24,3 C24,3 10,20.5 10,30 a14,14 0 0,0 28,0 C38,20.5 24,3 24,3 Z" />
+</vector>

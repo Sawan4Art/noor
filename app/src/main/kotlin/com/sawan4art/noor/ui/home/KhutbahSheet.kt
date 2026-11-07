@@ -60,26 +60,29 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * لوحة خطبة الجمعة — توجيه المالك ٢٠٢٦-١١-٠٦:
- * «زر ده هيكون مخصص لكتابه خطبه الجمعه فيه و عرضها و يمكن تحميل صور
- * فيه او اختيار خطب جاهزه عايزك تظيف اكبر كميه من الخطب الجاهزه في
- * الزر ده بشكل افتراضي فيه و يكونوا مرتبين».
+ * لوحتا خطبة الجمعة (alpha57 — بلاغ المالك: «زر اعدادات الخطبه الموجود
+ * في الاعدادات عايزه يشمل الخطب الجاهزه و الخطب المكتوبه او الصور
+ * المحمله و زر العرض اللي بيظهر يوم الجمعه فقط يظهر الخطبه المسبق
+ * تعديلها في اعدادت الخطبه يعني زر الخطبه الموجود في الرئيسيه ده
+ * لعرض الخطبه فقط المراد عرضها»):
  *
- * تبويبان: «خطبة اليوم» — كتابةُ الخطبة وحفظها في التطبيق مع صورها
- * المرفقة، وعرضها بصيغة القراءة الكاملة؛ و«خطب جاهزة» — أربعٌ
- * وعشرون خطبةً مرتَّبةً موثَّقةً الشواهد، تُستعار كاملةً إلى تبويب
- * الخطبة بضغطة أو يُنسخ نصُّها. والصور تُنسخ من معرض الهاتف إلى ملفات
- * التطبيق فتبقى دائماً.
+ * - **[KhutbahEditorContent]** — مركز التعديل داخل قسم «خطبة الجمعة»
+ *   في الإعدادات: تبويب «خطبة اليوم» (عنوان ونص وصور تُنسخ إلى ملفات
+ *   التطبيق فتبقى) وتبويب «خطب جاهزة» (أربعٌ وعشرون خطبةً مرتَّبة
+ *   موثَّقة الشواهد تُعتمد خطبةَ اليوم بضغطة).
+ * - **[KhutbahDisplaySheet]** — زر الرئيسية صار للعرض فقط: يعرض
+ *   الخطبة المعتمدة كما حُرِّرت في الإعدادات، بلا حقول كتابةٍ إطلاقاً.
  */
+
+/** محرر الخطبة — جسمُ القسم داخل الإعدادات بلا أغلفة اللوحة */
 @Composable
-fun KhutbahSheet(
+fun KhutbahEditorContent(
     savedTitle: String,
     savedText: String,
     savedImages: List<String>,
     onSetKhutbah: (String, String) -> Unit,
     onImportImage: (android.net.Uri) -> Unit,
     onDeleteImage: (String) -> Unit,
-    onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -97,6 +100,297 @@ fun KhutbahSheet(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri -> uri?.let(onImportImage) }
 
+    val accent = MaterialTheme.colorScheme.primary
+
+    Column(Modifier.fillMaxWidth()) {
+        // تبويب الخطبة/الجاهزة — أو زر الرجوع من تفاصيل الجاهزة
+        if (openPreset != null) {
+            SheetChip(
+                text = "رجوع إلى القائمة",
+                accent = accent,
+                filled = false,
+                modifier = Modifier,
+                onClick = { openPreset = null },
+            )
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SheetChip(
+                    text = "خطبة اليوم",
+                    filled = tab == 0,
+                    accent = accent,
+                    modifier = Modifier.weight(1f),
+                    onClick = { tab = 0 },
+                )
+                SheetChip(
+                    text = "خطب جاهزة (${MushafSurahs.arabicDigits(KhutbahLibrary.ORDERED.size)})",
+                    filled = tab == 1,
+                    accent = accent,
+                    modifier = Modifier.weight(1f),
+                    onClick = { tab = 1 },
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        when {
+            // ===== تفاصيل خطبة جاهزة =====
+            openPreset != null -> {
+                val preset = openPreset!!
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Text(
+                        text = preset.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = accent,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = KhutbahLibrary.fullText(preset),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        lineHeight = MaterialTheme.typography.bodySmall.lineHeight,
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SheetChip(
+                            text = "اعتماد كخطبة اليوم",
+                            filled = true,
+                            accent = accent,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                title = preset.title
+                                text = KhutbahLibrary.fullText(preset)
+                                onSetKhutbah(preset.title, KhutbahLibrary.fullText(preset))
+                                tab = 0
+                                openPreset = null
+                                reading = true
+                            },
+                        )
+                        SheetChip(
+                            text = "نسخ النص",
+                            filled = false,
+                            accent = accent,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                clipboard.setText(AnnotatedString(KhutbahLibrary.fullText(preset)))
+                            },
+                        )
+                    }
+                    Spacer(Modifier.height(28.dp))
+                }
+            }
+
+            // ===== الخطب الجاهزة — مرتَّبة =====
+            tab == 1 -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().height(420.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 8.dp),
+                ) {
+                    items(KhutbahLibrary.ORDERED) { khutbah ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable { openPreset = khutbah }
+                                .padding(horizontal = 10.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(accent.copy(alpha = 0.13f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = MushafSurahs.arabicDigits(khutbah.id),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = accent,
+                                )
+                            }
+                            Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                                Text(
+                                    text = khutbah.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = khutbah.body.first().take(64) + "…",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(0.5.dp)
+                                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)),
+                        )
+                    }
+                }
+            }
+
+            // ===== خطبة اليوم — عرض القراءة أو التحرير =====
+            reading -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        SheetChip(
+                            text = "رجوع للتحرير",
+                            filled = false,
+                            accent = accent,
+                            modifier = Modifier.weight(1f),
+                            onClick = { reading = false },
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    if (title.isNotBlank()) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = accent,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(10.dp))
+                    }
+                    if (savedImages.isNotEmpty()) {
+                        KhutbahImagesRow(
+                            images = savedImages,
+                            editing = false,
+                            onAdd = {},
+                            onDelete = {},
+                        )
+                        Spacer(Modifier.height(10.dp))
+                    }
+                    Text(
+                        text = text.ifBlank { "لم تُكتب خطبة اليوم بعد — عد إلى التحرير واكتبها" },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(28.dp))
+                }
+            }
+
+            // ===== التحرير: العنوان والنص والصور والحفظ =====
+            else -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        singleLine = true,
+                        placeholder = {
+                            Text(
+                                text = "عنوان الخطبة",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = accent,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            cursorColor = accent,
+                        ),
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        placeholder = {
+                            Text(
+                                text = "نص الخطبة…\n\nابدأ بالحمد والصلاة على النبي ﷺ ثم الموضوع ثم الخاتمة",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = accent,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            cursorColor = accent,
+                        ),
+                        textStyle = MaterialTheme.typography.bodySmall,
+                        minLines = 6,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    KhutbahImagesRow(
+                        images = savedImages,
+                        editing = true,
+                        onAdd = {
+                            pickImage.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                            )
+                        },
+                        onDelete = onDeleteImage,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SheetChip(
+                            text = "حفظ الخطبة",
+                            filled = true,
+                            accent = accent,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                onSetKhutbah(title, text)
+                            },
+                        )
+                        SheetChip(
+                            text = "عرض",
+                            filled = false,
+                            accent = accent,
+                            enabled = text.isNotBlank() || savedImages.isNotEmpty(),
+                            modifier = Modifier.weight(1f),
+                            onClick = { reading = true },
+                        )
+                    }
+                    Spacer(Modifier.height(20.dp))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * لوحة عرض خطبة الجمعة — زر الرئيسية (يوم الجمعة فقط) للعرض فقط:
+ * الخطبة التي حُرِّرت واعتمدت من قسم «خطبة الجمعة» في الإعدادات تُقرأ
+ * هنا كاملةً بعنوانها وصورها ونصها، بلا حقول كتابةٍ إطلاقاً.
+ */
+@Composable
+fun KhutbahDisplaySheet(
+    savedTitle: String,
+    savedText: String,
+    savedImages: List<String>,
+    onDismiss: () -> Unit,
+) {
     val accent = MaterialTheme.colorScheme.primary
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -154,291 +448,57 @@ fun KhutbahSheet(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "اكتبها أو اختر خطبةً جاهزة واعتمدها",
+                        text = "الخطبة المعتمدة من الإعدادات — للعرض فقط",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
-            // تبويب الخطبة/الجاهزة — أو زر الرجوع من تفاصيل الجاهزة
-            if (openPreset != null) {
-                SheetChip(
-                    text = "رجوع إلى القائمة",
-                    accent = accent,
-                    filled = false,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    onClick = { openPreset = null },
+            Spacer(Modifier.height(6.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+            ) {
+                if (savedTitle.isNotBlank()) {
+                    Text(
+                        text = savedTitle,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = accent,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+                if (savedImages.isNotEmpty()) {
+                    KhutbahImagesRow(
+                        images = savedImages,
+                        editing = false,
+                        onAdd = {},
+                        onDelete = {},
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+                val empty = savedTitle.isBlank() && savedText.isBlank() && savedImages.isEmpty()
+                Text(
+                    text = if (empty) {
+                        "لم تُجهَّز خطبة الجمعة بعد — جهّزها من الإعدادات ← " +
+                            "خطبة الجمعة: اكتبها أو اعتمد خطبةً جاهزة، ثم تُعرض هنا يوم الجمعة."
+                    } else {
+                        savedText.ifBlank { "الخطبة صورٌ فقط — انظر الصور أعلاه" }
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (empty) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
                 )
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    SheetChip(
-                        text = "خطبة اليوم",
-                        filled = tab == 0,
-                        accent = accent,
-                        modifier = Modifier.weight(1f),
-                        onClick = { tab = 0 },
-                    )
-                    SheetChip(
-                        text = "خطب جاهزة (${MushafSurahs.arabicDigits(KhutbahLibrary.ORDERED.size)})",
-                        filled = tab == 1,
-                        accent = accent,
-                        modifier = Modifier.weight(1f),
-                        onClick = { tab = 1 },
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            when {
-                // ===== تفاصيل خطبة جاهزة =====
-                openPreset != null -> {
-                    val preset = openPreset!!
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp),
-                    ) {
-                        Text(
-                            text = preset.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = accent,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = KhutbahLibrary.fullText(preset),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = MaterialTheme.typography.bodySmall.lineHeight,
-                        )
-                        Spacer(Modifier.height(14.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SheetChip(
-                                text = "اعتماد كخطبة اليوم",
-                                filled = true,
-                                accent = accent,
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    title = preset.title
-                                    text = KhutbahLibrary.fullText(preset)
-                                    tab = 0
-                                    openPreset = null
-                                    reading = true
-                                },
-                            )
-                            SheetChip(
-                                text = "نسخ النص",
-                                filled = false,
-                                accent = accent,
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    clipboard.setText(AnnotatedString(KhutbahLibrary.fullText(preset)))
-                                },
-                            )
-                        }
-                        Spacer(Modifier.height(28.dp))
-                    }
-                }
-
-                // ===== الخطب الجاهزة — مرتَّبة =====
-                tab == 1 -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                            start = 16.dp, end = 16.dp, bottom = 24.dp,
-                        ),
-                    ) {
-                        items(KhutbahLibrary.ORDERED) { khutbah ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .clickable { openPreset = khutbah }
-                                    .padding(horizontal = 10.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(accent.copy(alpha = 0.13f)),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        text = MushafSurahs.arabicDigits(khutbah.id),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = accent,
-                                    )
-                                }
-                                Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                                    Text(
-                                        text = khutbah.title,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    Text(
-                                        text = khutbah.body.first().take(64) + "…",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                    )
-                                }
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(0.5.dp)
-                                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)),
-                            )
-                        }
-                    }
-                }
-
-                // ===== خطبة اليوم — عرض القراءة أو التحرير =====
-                reading -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            SheetChip(
-                                text = "رجوع للتحرير",
-                                filled = false,
-                                accent = accent,
-                                modifier = Modifier.weight(1f),
-                                onClick = { reading = false },
-                            )
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        if (title.isNotBlank()) {
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = accent,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Spacer(Modifier.height(10.dp))
-                        }
-                        if (savedImages.isNotEmpty()) {
-                            KhutbahImagesRow(
-                                images = savedImages,
-                                editing = false,
-                                onAdd = {},
-                                onDelete = {},
-                            )
-                            Spacer(Modifier.height(10.dp))
-                        }
-                        Text(
-                            text = text.ifBlank { "لم تُكتب خطبة اليوم بعد — عد إلى التحرير واكتبها" },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Spacer(Modifier.height(28.dp))
-                    }
-                }
-
-                // ===== التحرير: العنوان والنص والصور والحفظ =====
-                else -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp),
-                    ) {
-                        OutlinedTextField(
-                            value = title,
-                            onValueChange = { title = it },
-                            singleLine = true,
-                            placeholder = {
-                                Text(
-                                    text = "عنوان الخطبة",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = accent,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
-                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                cursorColor = accent,
-                            ),
-                            textStyle = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = text,
-                            onValueChange = { text = it },
-                            placeholder = {
-                                Text(
-                                    text = "نص الخطبة…\n\nابدأ بالحمد والصلاة على النبي ﷺ ثم الموضوع ثم الخاتمة",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = accent,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
-                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                cursorColor = accent,
-                            ),
-                            textStyle = MaterialTheme.typography.bodySmall,
-                            minLines = 6,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        KhutbahImagesRow(
-                            images = savedImages,
-                            editing = true,
-                            onAdd = {
-                                pickImage.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                                )
-                            },
-                            onDelete = onDeleteImage,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SheetChip(
-                                text = "حفظ الخطبة",
-                                filled = true,
-                                accent = accent,
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    onSetKhutbah(title, text)
-                                },
-                            )
-                            SheetChip(
-                                text = "عرض",
-                                filled = false,
-                                accent = accent,
-                                enabled = text.isNotBlank() || savedImages.isNotEmpty(),
-                                modifier = Modifier.weight(1f),
-                                onClick = { reading = true },
-                            )
-                        }
-                        Spacer(Modifier.height(28.dp))
-                    }
-                }
+                Spacer(Modifier.height(28.dp))
             }
         }
     }
@@ -446,7 +506,7 @@ fun KhutbahSheet(
 
 /** صفّ صور الخطبة — مصغّرات من ملفات التطبيق، وإضافة/حذف في التحرير */
 @Composable
-private fun KhutbahImagesRow(
+internal fun KhutbahImagesRow(
     images: List<String>,
     editing: Boolean,
     onAdd: () -> Unit,
@@ -546,7 +606,7 @@ private fun KhutbahImagesRow(
 
 /** رقاقة زر صغيرة داخل لوحة الخطبة — بلون الثيم */
 @Composable
-private fun SheetChip(
+internal fun SheetChip(
     text: String,
     filled: Boolean,
     accent: Color,

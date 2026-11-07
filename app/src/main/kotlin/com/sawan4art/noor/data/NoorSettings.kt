@@ -187,6 +187,7 @@ class SettingsRepository(private val context: Context) {
         val CUSTOM_IQAMAH_NAME = stringPreferencesKey("custom_iqamah_name")
         // طلب الصلاحيات — آخر نسخة طُلبت عندها السلسلة كاملة
         val PERMISSIONS_ASKED_VERSION = intPreferencesKey("permissions_asked_version")
+        val PERMISSION_GATE_JSON = stringPreferencesKey("permission_gate_json")
     }
 
     /**
@@ -347,6 +348,23 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setPermissionsAskedVersion(code: Int) {
         context.noorDataStore.edit { it[Keys.PERMISSIONS_ASKED_VERSION] = code }
+    }
+
+    /**
+     * بوابة الصلاحيات (alpha57) — حالة كل إذنٍ (سُئل؟ ممنوحٌ كان؟) JSON
+     * يُقرأ عند كل فتح: فالمعطي لا يُزاح أبداً حتى بعد التحديث، والممنوح
+     * الذي فُقد يُطلب مرة، والرافض لا يُلحّ — وبلاغ المالك:
+     * «طالما الاوذنات كلها تعمل لا يطلب التطبيق الاذن مره اخرى الا اذا
+     * تم الغاء اذونات منها … ألا اذا اضفنا اذن اخر مستقبلا».
+     */
+    val permissionGateJson: Flow<String> = context.noorDataStore.data.map { p ->
+        p[Keys.PERMISSION_GATE_JSON] ?: ""
+    }
+
+    suspend fun permissionGateJsonOnce(): String = permissionGateJson.first()
+
+    suspend fun setPermissionGateJson(json: String) {
+        context.noorDataStore.edit { it[Keys.PERMISSION_GATE_JSON] = json }
     }
 
     /** حفظ صوت مخصص من الهاتف (الأذان أو الإقامة) — يُنسخ داخل مسار التطبيق */

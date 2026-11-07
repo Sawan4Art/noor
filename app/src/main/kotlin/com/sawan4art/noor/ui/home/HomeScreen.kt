@@ -108,12 +108,6 @@ fun HomeScreen(
     khutbahImages: List<String>,
     /** زر خطبة الجمعة في الرئيسية مفعّل؟ — قسم «خطبة الجمعة» (alpha56) */
     khutbahEnabled: Boolean,
-    /** حفظ خطبة الجمعة المكتوبة */
-    onSetKhutbah: (String, String) -> Unit,
-    /** استيراد صورة إلى الخطبة */
-    onImportKhutbahImage: (android.net.Uri) -> Unit,
-    /** حذف صورة من الخطبة */
-    onDeleteKhutbahImage: (String) -> Unit,
 ) {
     val zone = remember { ZoneId.systemDefault() }
     val now: ZonedDateTime = remember(state.nowMillis) {
@@ -201,13 +195,13 @@ fun HomeScreen(
 
     // لوحة خطبة الجمعة — تنبثق فوق الرئيسية من زر يوم الجمعة
     if (khutbahOpen) {
-        KhutbahSheet(
+        // alpha57 — زر الرئيسية للعرض فقط (بلاغ المالك: «زر الخطبه
+        // الموجود في الرئيسيه ده لعرض الخطبه فقط المراد عرضها»):
+        // الخطبة تُحرَّر من قسم «خطبة الجمعة» في الإعدادات وتُقرأ هنا
+        KhutbahDisplaySheet(
             savedTitle = khutbahTitle,
             savedText = khutbahText,
             savedImages = khutbahImages,
-            onSetKhutbah = onSetKhutbah,
-            onImportImage = onImportKhutbahImage,
-            onDeleteImage = onDeleteKhutbahImage,
             onDismiss = { khutbahOpen = false },
         )
     }

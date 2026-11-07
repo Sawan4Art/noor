@@ -1,6 +1,7 @@
 package com.sawan4art.noor.data.mushaf
 
 import android.content.Context
+import com.sawan4art.noor.domain.mushaf.MushafSurahs
 import com.sawan4art.noor.domain.mushaf.QuranAudioMath
 import com.sawan4art.noor.domain.mushaf.QuranReciters
 import kotlinx.coroutines.CoroutineScope
@@ -153,6 +154,12 @@ object QuranAudioLibrary {
      * تنزيل فعلي متتابع — كل آية موجودة تُتخطى فالاستئناف مجاني،
      * والملف يُكتب بمؤقتٍ ثم يُسمّى نهائياً بعد اكتماله فلا يظل ناقصاً
      * واقفاً باسمه الصحيح.
+     *
+     * **مرونة alpha57**: فشل الآية الواحدة قاطعاً (أربع محاولات) لا يُميت
+     * التنزيل كله — تُحصى الفاشلة ويُكمل الطريق إلى آخر الآيات ثم يُبلغ
+     * «اكتمل مع تعذّر N» — إعادة الضغطة تستأنف من الموجود فتحاول الفاشل
+     * وحده (بلاغ المالك: «تحميل اصوات الشيوخ مش شغال» — كان التنزيل
+     * كله يسقط على أول آيةٍ عالقة في الشبكة).
      */
     private suspend fun downloadInternal(
         context: Context,
@@ -169,6 +176,7 @@ object QuranAudioLibrary {
         val surahs = if (sura in 1..114) listOf(sura) else (1..114)
         val total = surahs.sumOf { QuranAudioMath.surahFileCount(it, surahCounts[it] ?: 0) }
         var done = 0
+        var failed = 0
         var cancelled = false
 
         fun publish(active: Boolean, error: String = "") {
@@ -195,37 +203,39 @@ object QuranAudioLibrary {
                     publish(active = true)
                     continue
                 }
-                val ok = withContext(Dispatchers.IO) {
+                var ok = withContext(Dispatchers.IO) {
                     fetchAyahFile(context, reciter, s, ayah, target)
                 }
-                if (ok) {
-                    done++
-                    publish(active = true)
-                } else {
+                if (!ok) {
                     // فشل شبكة — مهلة قصيرة ثم محاولة الآية نفسها مجدداً
-                    // حتى ثلاث مرات، وبعد الفشل القاطع يتوقف التنزيل برسالة
-                    var retried = false
-                    for (attempt in 1..3) {
+                    // حتى أربع مرات، فإن استعصت سُجّلت فاشلةً وكُمل الطريق
+                    for (attempt in 1..4) {
                         delay(1_500L * attempt)
                         if (!kotlinx.coroutines.currentCoroutineContext().isActive) {
                             cancelled = true
                             break@outer
                         }
                         if (withContext(Dispatchers.IO) { fetchAyahFile(context, reciter, s, ayah, target) }) {
-                            done++
-                            publish(active = true)
-                            retried = true
+                            ok = true
                             break
                         }
                     }
-                    if (!retried && !cancelled) {
-                        publish(active = false, error = "تعذّر الاتصال بمصدر التلاوات — تحقق من الإنترنت وأعد المحاولة")
-                        return false
-                    }
+                }
+                if (ok) {
+                    done++
+                    publish(active = true)
+                } else {
+                    failed++
+                    publish(active = true, error = "")
                 }
             }
         }
-        publish(active = cancelled, error = if (cancelled) "" else "")
+        val message = when {
+            cancelled -> ""
+            failed > 0 -> "اكتمل مع تعذّر ${MushafSurahs.arabicDigits(failed)} آية — أعد المحاولة لتكملتها، والمحمّل باقٍ بلا مس"
+            else -> ""
+        }
+        publish(active = false, error = message)
         return !cancelled
     }
 
@@ -252,8 +262,11 @@ object QuranAudioLibrary {
     private fun downloadTo(url: String, target: File): Boolean = runCatching {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 12_000
-            readTimeout = 20_000
+            // مصدر التلاوات يقوده ويطوله — صبرٌ أطول ينجّي الآيات العالقة
+            readTimeout = 30_000
             instanceFollowRedirects = true
+            // بعض المستضيفين يردّون 403 على الطلب العريّ بلا هوية
+            setRequestProperty("User-Agent", "NoorAlMuslim/0.5 (Android)")
         }
         conn.connect()
         if (conn.responseCode !in 200..299) {

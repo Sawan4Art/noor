@@ -74,6 +74,7 @@ import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.data.update.UpdateNotifier
 import com.sawan4art.noor.domain.mushaf.QuranReciters
 import com.sawan4art.noor.domain.prayer.CalculationMethod
+import com.sawan4art.noor.ui.home.KhutbahEditorContent
 import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.ui.settings.adhan.AdhanActions
 import com.sawan4art.noor.ui.settings.adhan.AdhanSection
@@ -128,6 +129,16 @@ fun SettingsScreen(
     khutbahEnabled: Boolean,
     /** تفعيل/إيقاف زر خطبة الجمعة */
     onSetKhutbahEnabled: (Boolean) -> Unit,
+    /** مركز تعديل الخطبة (alpha57) — العنوان والنص والصور المحفوظة */
+    khutbahTitle: String,
+    khutbahText: String,
+    khutbahImages: List<String>,
+    /** حفظ خطبة الجمعة المكتوبة */
+    onSetKhutbah: (String, String) -> Unit,
+    /** استيراد صورة إلى الخطبة */
+    onImportKhutbahImage: (android.net.Uri) -> Unit,
+    /** حذف صورة من الخطبة */
+    onDeleteKhutbahImage: (String) -> Unit,
 ) {
     // الروابط الداخلية: home ← location / method / adhan / colors / voices / khutbah / widgets / updates
     var section by rememberSaveable { mutableStateOf("home") }
@@ -181,12 +192,19 @@ fun SettingsScreen(
                 )
             }
         }
-        // قسم خطبة الجمعة — تفعيل الزر في الرئيسية (alpha56)
+        // قسم خطبة الجمعة — التفعيل + مركز التعديل كلّه (alpha57):
+        // الخطب الجاهزة والمكتوبة والصور من هنا، وزر الرئيسية للعرض فقط
         "khutbah" -> SectionPage(title = "خطبة الجمعة", onBack = { section = "home" }) {
             SectionCard {
                 KhutbahSettingsSection(
                     enabled = khutbahEnabled,
                     onSet = onSetKhutbahEnabled,
+                    savedTitle = khutbahTitle,
+                    savedText = khutbahText,
+                    savedImages = khutbahImages,
+                    onSetKhutbah = onSetKhutbah,
+                    onImportImage = onImportKhutbahImage,
+                    onDeleteImage = onDeleteKhutbahImage,
                 )
             }
         }
@@ -213,6 +231,7 @@ fun SettingsScreen(
             adhanPrefs = adhanPrefs,
             reciterId = reciterId,
             khutbahEnabled = khutbahEnabled,
+            khutbahReady = khutbahTitle.isNotBlank() || khutbahImages.isNotEmpty(),
             onOpen = { section = it },
         )
     }
@@ -226,6 +245,7 @@ private fun SettingsHome(
     adhanPrefs: AdhanPrefs,
     reciterId: String,
     khutbahEnabled: Boolean,
+    khutbahReady: Boolean,
     onOpen: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -270,17 +290,17 @@ private fun SettingsHome(
         SectionRow(
             icon = NoorIcons.QuranBookmarkOutline,
             title = "خطبة الجمعة",
-            summary = if (khutbahEnabled) {
-                "زر الخطبة ظاهر في الرئيسية يوم الجمعة — والتفعيل من هنا"
-            } else {
-                "متوقفة — زر الخطبة مخفي عن الرئيسية"
+            summary = when {
+                !khutbahEnabled -> "متوقفة — زر الخطبة مخفي عن الرئيسية"
+                khutbahReady -> "جاهزة — تُحرَّر من هنا وتُعرض من زر الرئيسية يوم الجمعة"
+                else -> "اكتبها أو اعتمد خطبةً جاهزة أو صوراً — والعرض من زر الرئيسية"
             },
             onOpen = { onOpen("khutbah") },
         )
         SectionRow(
             icon = NoorIcons.PrayerTimes,
             title = "الويدجت",
-            summary = "خمسة أشكال بلون التطبيق — بالمظهر والشفافية والألوان كما تحب",
+            summary = "ويدجت واحدة قابلة للتخصيص بالكامل — العناصر والألوان والشفافية والفقاعات",
             onOpen = { onOpen("widgets") },
         )
         SectionRow(
@@ -1026,14 +1046,19 @@ private fun AccentGrid(selectedId: String, onPick: (String) -> Unit) {
 private fun KhutbahSettingsSection(
     enabled: Boolean,
     onSet: (Boolean) -> Unit,
+    savedTitle: String,
+    savedText: String,
+    savedImages: List<String>,
+    onSetKhutbah: (String, String) -> Unit,
+    onImportImage: (android.net.Uri) -> Unit,
+    onDeleteImage: (String) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     Column {
         Text(
-            text = "زر خطبة الجمعة يظهر في مربع الهيدر يوم الجمعة فقط، وهو " +
-                "نفسه مكان عرض وقت صلاة الجمعة — ضغطة واحدة تفتح لك الخطبة: " +
-                "تكتبها أو تختار خطبةً جاهزة أو تحمّل صوراً. من أراد إخفاء " +
-                "الزر عن الرئيسية يوقفه من هنا.",
+            text = "هنا مركز خطبة الجمعة: تكتبها أو تعتمد خطبةً جاهزة أو " +
+                "تحمّل صوراً — ويزر الرئيسية يوم الجمعة يعرضها للقراءة فقط " +
+                "كما جهّزتها هنا. ومن أراد إخفاء الزر عن الرئيسية يوقفه.",
             style = MaterialTheme.typography.bodySmall,
             color = scheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 14.dp),
@@ -1076,5 +1101,16 @@ private fun KhutbahSettingsSection(
                 ),
             )
         }
+
+        Spacer(Modifier.height(16.dp))
+        // مركز التعديل — الخطب الجاهزة والمكتوبة والصور (alpha57)
+        KhutbahEditorContent(
+            savedTitle = savedTitle,
+            savedText = savedText,
+            savedImages = savedImages,
+            onSetKhutbah = onSetKhutbah,
+            onImportImage = onImportImage,
+            onDeleteImage = onDeleteImage,
+        )
     }
 }

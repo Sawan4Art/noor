@@ -19,6 +19,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sawan4art.noor.data.SettingsRepository
 import com.sawan4art.noor.data.update.UpdateManager
+import com.sawan4art.noor.domain.permissions.PermissionGate
 import com.sawan4art.noor.ui.NoorApp
 import com.sawan4art.noor.ui.home.HomeViewModel
 import kotlinx.coroutines.launch
@@ -29,27 +30,31 @@ class MainActivity : ComponentActivity() {
      * الأذونات تُطلب في حوارات منفصلة بالتتابع — درس v0.4.2:
      * الطلب المجمّع يجعل بعض الأجهزة تعرض حوار الموقع فقط وتُسقط الباقي صامتاً.
      *
-     * **جدولة السلسلة** (توجيه المالك ٢٠٢٦-١١-٠٦: «خلي التطبيق يطلب
-     * الاوذنات كلها بعد فتح التطبيق لاول مره» ثم بعد alpha52: «عدم
-     * اعاده فتح قائمه اخذ الاوذنات اذا تم اخذها بالفعل مره واحده حتى
-     * بعد التحديث»): السلسلة تعمل عند أول فتح فقط (ذاكرة النسخة ٠)
-     * وبمجرد اكتمالها تُحفظ ذاكرة الطلب فلا تُعاد أبداً — لا كل فتح
-     * ولا بعد أي تحديث جديد.
+     * **بوابة الصلاحيات** (alpha57 — بلاغ المالك: «في مشكله مع كل فتح
+     * للتطبيق بيطلب اذن عدم الازعاج انا عايز طالما الاوذنات كلها تعمل
+     * لا يطلب التطبيق الاذن مره اخرى الا اذا تم الغاء اذونات منها …
+     * و لو حتى حدث المستخدم التطبيق ألا اذا طبعا اضفنا اذن اخر مستقبلا»):
+     * لكل إذنٍ حالةٌ في [PermissionGate] تُخزَّن في DataStore — الممنوح
+     * لا يُزاح أبداً حتى بعد أي تحديث، وغيرُ المسأل قطّ يُطلب مرة
+     * (أول فتح أو إذنٌ جديد أضفناه مستقبلاً)، والممنوح الذي فُقد
+     * يُطلب مرةً واحدة كي يعمل التطبيق، والمرفوض بلا سابقة منح لا
+     * يُلحّ. القاعدة القديمة «ذاكرة النسخة» بلا معنى الآن.
      *
-     * السلسلة الكاملة:
+     * السلسلة الكاملة (بترتيبها المعهود):
      * 1) الموقع الدقيق + التقريبي — المواقيت والقبلة.
      * 2) الإشعارات (33+) — تنبيهات الأذان والتحديث.
      * 3) المنبهات الدقيقة (31-32) — مواعيد الأذان بالثانية؛ على 33+
      *    USE_EXACT_ALARM ممنوح تلقائياً فلا خطوة.
-     * 4) نافذة التنبيه كاملة الشاشة (34+) — انبثاق الأذان فوق القفل؛
-     *    إن عطّلها المستخدم تُطلب من صفحة النظام الخاصة بها.
-     * 5) عدم الإزعاج («امنح التطبيق اذونات عدم الازعاج») — لكتم
-     *    أصوات الهاتف كاملاً بعد الإقامة؛ صفحة النظام الخاصة به.
+     * 4) نافذة التنبيه كاملة الشاشة (34+) — انبثاق الأذان فوق القفل.
+     * 5) عدم الإزعاج — لكتم أصوات الهاتف كاملاً بعد الإقامة.
      * أما بقية الأذونات في المانيفست (الإنترنت، الاهتزاز، الاستيقاظ،
      * الإقلاع، تثبيت التحديث) فممنوحة تلقائياً بلا حوار نظام.
      */
     private val steps = ArrayDeque<() -> Unit>()
     private var permissionFlowStarted = false
+
+    /** مفاتيح السلسلة الجارية — تُحفظ حالتها عند اكتمالها */
+    private var askedKeys: List<String> = emptyList()
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -65,118 +70,116 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartActivityForResult(),
     ) { launchNextStep() }
 
-    private fun enqueueMissingRuntimePermissions() {
+    /** الوضع الحقيقي لكل إذن الآن — أساس قرار البوابة وحفظها بعدا */
+    private fun currentlyGranted(): Map<String, Boolean> {
+        val fine = Manifest.permission.ACCESS_FINE_LOCATION
+        val notifications = Manifest.permission.POST_NOTIFICATIONS
+        val nm = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
+        val alarm = getSystemService(ALARM_SERVICE) as? AlarmManager
+        return mapOf(
+            "location" to (
+                ContextCompat.checkSelfPermission(this, fine) == PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                    PackageManager.PERMISSION_GRANTED
+                ),
+            "notifications" to (
+                Build.VERSION.SDK_INT < 33 ||
+                    ContextCompat.checkSelfPermission(this, notifications) == PackageManager.PERMISSION_GRANTED
+                ),
+            "exact_alarm" to (
+                Build.VERSION.SDK_INT !in 31..32 ||
+                    (alarm != null && runCatching { alarm.canScheduleExactAlarms() }.getOrDefault(true))
+                ),
+            "full_screen" to (
+                Build.VERSION.SDK_INT < 34 ||
+                    (nm != null && runCatching { nm.canUseFullScreenIntent() }.getOrDefault(true))
+                ),
+            "dnd" to (nm != null && runCatching { nm.isNotificationPolicyAccessGranted }.getOrDefault(false)),
+        )
+    }
+
+    /** خطوة واحدة لكل مفتاحٍ من مفاتيح البوابة المقرر طلبه */
+    private fun enqueueStep(key: String) {
         val fine = Manifest.permission.ACCESS_FINE_LOCATION
         val coarse = Manifest.permission.ACCESS_COARSE_LOCATION
         val notifications = Manifest.permission.POST_NOTIFICATIONS
-
-        if (ContextCompat.checkSelfPermission(this, fine) != PackageManager.PERMISSION_GRANTED) {
-            steps.addLast { permissionLauncher.launch(arrayOf(fine, coarse)) }
-        }
-        if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(this, notifications) != PackageManager.PERMISSION_GRANTED
-        ) {
-            steps.addLast { permissionLauncher.launch(arrayOf(notifications)) }
-        }
-    }
-
-    /** المنبهات الدقيقة: شاشة النظام على 31-32 — على 33+ ممنوحة تلقائياً */
-    private fun enqueueExactAlarmStep() {
-        if (Build.VERSION.SDK_INT !in 31..32) return
-        val alarm = getSystemService(ALARM_SERVICE) as? AlarmManager ?: return
-        val canSchedule = runCatching { alarm.canScheduleExactAlarms() }.getOrDefault(true)
-        if (!canSchedule) {
-            steps.addLast {
-                runCatching {
-                    systemPageLauncher.launch(
-                        Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM),
-                    )
-                }.onFailure { launchNextStep() } // جهاز لا يعرّف الشاشة — نكمل
+        when (key) {
+            "location" -> {
+                if (ContextCompat.checkSelfPermission(this, fine) != PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(this, coarse) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    steps.addLast { permissionLauncher.launch(arrayOf(fine, coarse)) }
+                }
             }
-        }
-    }
-
-    /** نافذة كاملة الشاشة (34+): انبثاق الأذان فوق القفل — إن كانت
-     *  معطلة على 14+ تُطلب من صفحتها (الممنوحة تثبيتاً على الأقدم) */
-    private fun enqueueFullScreenStep() {
-        if (Build.VERSION.SDK_INT < 34) return
-        val nm = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager ?: return
-        val allowed = runCatching { nm.canUseFullScreenIntent() }.getOrDefault(true)
-        if (!allowed) {
-            steps.addLast {
-                runCatching {
-                    systemPageLauncher.launch(
-                        Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
-                            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName),
-                    )
-                }.onFailure { launchNextStep() }
+            "notifications" -> {
+                if (Build.VERSION.SDK_INT >= 33 &&
+                    ContextCompat.checkSelfPermission(this, notifications) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    steps.addLast { permissionLauncher.launch(arrayOf(notifications)) }
+                }
             }
-        }
-    }
-
-    /** عدم الإزعاج: كتم أصوات الهاتف كاملاً بعد الإقامة — صفحة النظام
-     *  إن لم يُمنح الإذن بعد (توجيه المالك: «امنح التطبيق اذونات عدم الازعاج») */
-    private fun enqueueDndStep() {
-        val nm = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager ?: return
-        if (!nm.isNotificationPolicyAccessGranted) {
-            steps.addLast {
-                runCatching {
-                    systemPageLauncher.launch(
-                        Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
-                    )
-                }.onFailure { launchNextStep() }
+            "exact_alarm" -> {
+                if (Build.VERSION.SDK_INT !in 31..32) return
+                steps.addLast {
+                    runCatching {
+                        systemPageLauncher.launch(
+                            Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM),
+                        )
+                    }.onFailure { launchNextStep() } // جهاز لا يعرّف الشاشة — نكمل
+                }
+            }
+            "full_screen" -> {
+                if (Build.VERSION.SDK_INT < 34) return
+                steps.addLast {
+                    runCatching {
+                        systemPageLauncher.launch(
+                            Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+                                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName),
+                        )
+                    }.onFailure { launchNextStep() }
+                }
+            }
+            "dnd" -> {
+                steps.addLast {
+                    runCatching {
+                        systemPageLauncher.launch(
+                            Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
+                        )
+                    }.onFailure { launchNextStep() }
+                }
             }
         }
     }
 
     private fun launchNextStep() {
         steps.removeFirstOrNull()?.invoke() ?: run {
-            // السلسلة اكتملت — نسخة الطلب تُحفظ فلا يعيد نفسها قبل التحديث القادم
+            // السلسلة اكتملت — حالة البوابة تُحفظ بالوضع الفعلي الآن:
+            // المعطي ممنوح، والرافض مسجّل مرفوضاً بلا سابقة منح فلا إلحاح بعده
             lifecycleScope.launch {
                 runCatching {
-                    SettingsRepository(this@MainActivity)
-                        .setPermissionsAskedVersion(BuildConfig.VERSION_CODE)
+                    val settings = SettingsRepository(this@MainActivity)
+                    val state = PermissionGate.fromJson(settings.permissionGateJsonOnce())
+                    val asked = PermissionGate.markAsked(state, askedKeys, currentlyGranted())
+                    settings.setPermissionGateJson(PermissionGate.toJson(asked))
                 }
             }
         }
     }
 
     /**
-     * **الأذنات مرة واحدة عند أول فتح + الإعادة عند الإيقاف** — توجيه
-     * المالك alpha56: «ازرار الموافقه على الاوذنات تظهر مره واحده عند
-     * اول فتح للتطبيق و اذا حدث و تم ايقاف اذن يطلب منه التطبيق اخذ
-     * الاذن مره اخرى للعمل بشكل صحيح» — بمجرد اكتمال السلسلة أول مرة
-     * تُحفظ ذاكرة الطلب فلا يعاد القائمة الكاملة، لكن لو أُوقِف إذنٌ ما
-     * (من إعدادات النظام مثلاً) أعادت السلسلة طلبَ المفقود وحده فحسب.
+     * **بوابة الصلاحيات** — تُقرأ حالة كل إذنٍ من DataStore وتُقارن
+     * بالوضع الحقيقي: يُبنى طلبٌ فقط لمن يلزمه — أولُ مرةٍ أو إذنٌ
+     * جديد أو ممنوحٌ فُقد — والباقي يمضي صامتاً ما دام يعمل.
      */
-    private fun shouldRunPermissionFlow(): Boolean {
-        val asked = runCatching {
+    private fun shouldRunPermissionFlow(): Pair<List<String>, Map<String, Boolean>>? {
+        val state = runCatching {
             kotlinx.coroutines.runBlocking {
-                SettingsRepository(this@MainActivity).permissionsAskedVersionOnce()
+                PermissionGate.fromJson(SettingsRepository(this@MainActivity).permissionGateJsonOnce())
             }
-        }.getOrDefault(0)
-        return asked == 0 || hasMissingPermissions()
-    }
-
-    /** هل ثمة إذنٌ من أذونات السلسلة مفقودٌ الآن؟ */
-    private fun hasMissingPermissions(): Boolean {
-        val fine = Manifest.permission.ACCESS_FINE_LOCATION
-        if (ContextCompat.checkSelfPermission(this, fine) != PackageManager.PERMISSION_GRANTED) return true
-        if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) return true
-        if (Build.VERSION.SDK_INT in 31..32) {
-            val alarm = getSystemService(ALARM_SERVICE) as? AlarmManager
-            if (alarm != null && runCatching { !alarm.canScheduleExactAlarms() }.getOrDefault(false)) return true
-        }
-        if (Build.VERSION.SDK_INT >= 34) {
-            val nm = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
-            if (nm != null && runCatching { !nm.canUseFullScreenIntent() }.getOrDefault(false)) return true
-        }
-        val nm = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
-        if (nm != null && runCatching { !nm.isNotificationPolicyAccessGranted }.getOrDefault(false)) return true
-        return false
+        }.getOrDefault(emptyMap())
+        val now = currentlyGranted()
+        val toAsk = PermissionGate.decide(state, now)
+        return if (toAsk.isEmpty()) null else toAsk to now
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -237,16 +240,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // الانطلاق في سلسلة الحوارات بعد أول ظهور فقط (يلزم حالة STARTED)،
-        // ولأول تشغيل أو نسخة جديدة فقط — توجيه المالك 2026-11-06
-        if (!permissionFlowStarted && shouldRunPermissionFlow()) {
-            permissionFlowStarted = true
-            steps.clear()
-            enqueueMissingRuntimePermissions()
-            enqueueExactAlarmStep()
-            enqueueFullScreenStep()
-            enqueueDndStep()
-            launchNextStep()
+        // بوابة الصلاحيات — يُبنى الطلب لمن يلزمه فقط (توجيه المالك alpha57):
+        // الممنوح يعمل فلا يُزاح، وأولُ مرةٍ أو المفقود ممنوحٌ كان يُطلب
+        if (!permissionFlowStarted) {
+            val plan = shouldRunPermissionFlow()
+            if (plan != null) {
+                permissionFlowStarted = true
+                askedKeys = plan.first
+                steps.clear()
+                for (key in plan.first) enqueueStep(key)
+                launchNextStep()
+            }
         }
     }
 }

@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.sawan4art.noor.data.mushaf.MushafDb
 import com.sawan4art.noor.data.mushaf.QuranAudioLibrary
+import com.sawan4art.noor.data.mushaf.QuranDownloadService
 import com.sawan4art.noor.domain.mushaf.MushafSurahs
 import com.sawan4art.noor.domain.mushaf.QuranReciters
 import kotlinx.coroutines.Dispatchers
@@ -252,9 +253,9 @@ private fun ReciterDownloadDialog(
     val whole = downloads["${reciter.id}:0"]
 
     fun launchDownload(sura: Int) {
-        // التنزيل في مجال التطبيق نفسه (alpha56) — إغلاق اللوحة أو مغادرة
-        // الإعدادات لا يقتله، ويكمل حتى النهاية أو يُوقف من الزر
-        QuranAudioLibrary.start(context, reciter.id, sura, surahCounts)
+        // التنزيل تحت الخدمة الأمامية (alpha57) — العملية تبقى حية ولو
+        // أُغلق التطبيق كله من الريسنتس، والإشعار الحي بنسبة التقدم معه
+        QuranDownloadService.start(context, reciter.id, sura, surahCounts)
     }
 
     Dialog(onDismissRequest = onDismiss) {

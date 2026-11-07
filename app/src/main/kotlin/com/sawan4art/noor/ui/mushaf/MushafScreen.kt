@@ -104,6 +104,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.sawan4art.noor.data.mushaf.MushafDb
 import com.sawan4art.noor.data.mushaf.QuranAudioLibrary
+import com.sawan4art.noor.data.mushaf.QuranDownloadService
 import com.sawan4art.noor.domain.mushaf.MushafAyah
 import com.sawan4art.noor.domain.mushaf.MushafGeometry
 import com.sawan4art.noor.domain.mushaf.MushafJuz
@@ -426,6 +427,11 @@ fun MushafScreen(
             val count = withContext(Dispatchers.IO) {
                 MushafDb.surahAyahCount(context, request.sura)
             }.coerceAtLeast(1)
+            // الخدمة الأمامية تُبقي العملية حية ولو أُغلق المصحف (alpha57)
+            // — والتنزيل نفسه نافجٌ واحد في المكتبة فلا يتضاعف
+            QuranDownloadService.start(
+                context, reciterId, request.sura, mapOf(request.sura to count),
+            )
             val ok = try {
                 QuranAudioLibrary
                     .start(context, reciterId, request.sura, mapOf(request.sura to count))

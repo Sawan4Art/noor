@@ -497,9 +497,6 @@ private fun NoorBody(
                         khutbahTitle = khutbahTitle,
                         khutbahText = khutbahText,
                         khutbahImages = khutbahImages,
-                        onSetKhutbah = onSetKhutbah,
-                        onImportKhutbahImage = onImportKhutbahImage,
-                        onDeleteKhutbahImage = onDeleteKhutbahImage,
                     )
                     NoorTab.TASBIH -> MisbahaScreen()
                     NoorTab.ADHKAR -> AzkarScreen(onExitTab = { onTab(NoorTab.PRAYER) })
@@ -522,6 +519,13 @@ private fun NoorBody(
                         onSetReciter = onSetReciter,
                         khutbahEnabled = khutbahEnabled,
                         onSetKhutbahEnabled = onSetKhutbahEnabled,
+                        // مركز تعديل الخطبة انتقل للإعدادات كلّه (alpha57)
+                        khutbahTitle = khutbahTitle,
+                        khutbahText = khutbahText,
+                        khutbahImages = khutbahImages,
+                        onSetKhutbah = onSetKhutbah,
+                        onImportKhutbahImage = onImportKhutbahImage,
+                        onDeleteKhutbahImage = onDeleteKhutbahImage,
                     )
                     NoorTab.QIBLA -> QiblaScreen(settings = uiState.settings)
                     NoorTab.QURAN -> MushafScreen(

@@ -13,11 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -40,15 +40,16 @@ import com.sawan4art.noor.widget.WidgetStore
 import com.sawan4art.noor.widget.WidgetUpdater
 
 /**
- * قسم «الويدجت» في الإعدادات — توجيه المالك ٢٠٢٦-١١-٠٧:
- * «قسم جديد في الاعدادات خاص بالويدجت… خمس اشكال مختلفه بنفس تصميم
- * التطبيق و هتكون الويدجت دي قابله للتخصيص والتعديل الكامل من قبل
- * المستخدم».
+ * قسم «الويدجت» في الإعدادات — alpha57 بلاغ المالك:
+ * «خليها ويدجيت واحده و قابلة للتخصيص بالكامل من الاعدادات التخصيص
+ * المتاح هو عرض او ايقاف الوقت و عرض او ايقاف مواقيت الصلاه و عرض او
+ * ايقاف المتبقي على الصلاه التاليه و عرض او ايقاف التاريخ الهجري و
+ * الميلادي بكذا صيغه و عرض او ايقاف المسبحه للتسبيح من خلال الويدجت
+ * و امكانيه جعلها شفافه و اختيار الوان الخط او الوانها و امكانيه
+ * اضافه شكل النقطه السائله في اي مكان … مع تغيير لون كل فقاعه».
  *
- * الأشكال الخمسة تُستدلى من قائمة ويدجتات النظام نفسها (المهم من هنا
- * هو التخصيص)، ومن هنا يضبط المالك: المظهر (بالثيم/فاتح/داكن)،
- * الشفافية، لون التطبيق، وعناصر العرض — وكل ضغطة تعيد رسم الويدجتات
- * المنصوبة فوراً لتعايش المعاينات الصغيرة ما تغيّر.
+ * فالقسم كله ضباطٌ حيّة: كل ضغطة تُحفظ في [WidgetStore] وتعيد رسم
+ * الويدجت المنصوبة فوراً بـ [WidgetUpdater].
  */
 @Composable
 fun WidgetSection() {
@@ -66,9 +67,9 @@ fun WidgetSection() {
 
     Column {
         Text(
-            text = "خمسة ويدجتات بلون التطبيق: تستدلي بها من قائمة ويدجتات " +
-                "الشاشة الرئيسية (اضغط مطولاً على الخلفية ← ويدجتات ← نور المسلم)، " +
-                "ومن هنا تخصّصها كما تحب وتراها تتغير فوراً.",
+            text = "ويدجت واحدة تخصّصها كما تحب: تستدلي بها من قائمة " +
+                "ويدجتات الشاشة الرئيسية (اضغط مطولاً على الخلفية ← ويدجتات ← " +
+                "نور المسلم)، وكل ضغطةٍ هنا تعيد رسمها فوراً على شاشتك.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 14.dp),
@@ -101,7 +102,7 @@ fun WidgetSection() {
             },
             onValueChangeFinished = { WidgetUpdater.refreshAll(context) },
             valueRange = 0f..100f,
-            colors = androidx.compose.material3.SliderDefaults.colors(
+            colors = SliderDefaults.colors(
                 thumbColor = MaterialTheme.colorScheme.primary,
                 activeTrackColor = MaterialTheme.colorScheme.primary,
             ),
@@ -118,21 +119,167 @@ fun WidgetSection() {
 
         Spacer(Modifier.height(16.dp))
 
-        // ===== عناصر العرض =====
-        SettingLabel("ما يظهر داخل الويدجت")
-        ToggleRow("المدينة", customization.showCity) { on ->
-            apply { it.copy(showCity = on) }
+        // ===== لون الخط =====
+        SettingLabel("لون الخط")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            ThemeChip(
+                "تلقائي",
+                customization.textColor == WidgetCustomization.COLOR_AUTO,
+            ) {
+                apply { it.copy(textColor = WidgetCustomization.COLOR_AUTO) }
+            }
+            TextColorSwatches(
+                selected = customization.textColor,
+                onSelect = { hex -> apply { it.copy(textColor = hex) } },
+            )
         }
-        ToggleRow("العدّاد التنازلي حتى الأذان", customization.showCountdown) { on ->
+
+        Spacer(Modifier.height(16.dp))
+
+        // ===== عناصر العرض (بلاغ المالك الخمسة) =====
+        SettingLabel("ما يظهر داخل الويدجت")
+        ToggleRow("الوقت الحالي", customization.showClock) { on ->
+            apply { it.copy(showClock = on) }
+        }
+        ToggleRow("مواقيت الصلوات الست", customization.showPrayerTimes) { on ->
+            apply { it.copy(showPrayerTimes = on) }
+        }
+        ToggleRow("المتبقي على الصلاة التالية", customization.showCountdown) { on ->
             apply { it.copy(showCountdown = on) }
         }
-        ToggleRow("التاريخ الهجري والميلادي", customization.showDates) { on ->
-            apply { it.copy(showDates = on) }
+        ToggleRow("التاريخ الهجري", customization.showHijri) { on ->
+            apply { it.copy(showHijri = on) }
+        }
+        ToggleRow("التاريخ الميلادي", customization.showGregorian) { on ->
+            apply { it.copy(showGregorian = on) }
+        }
+        ToggleRow("المسبحة للتسبيح من الويدجت", customization.showMisbaha) { on ->
+            apply { it.copy(showMisbaha = on) }
+        }
+        ToggleRow("المدينة", customization.showCity) { on ->
+            apply { it.copy(showCity = on) }
         }
         ToggleRow("اسم التطبيق", customization.showBrand) { on ->
             apply { it.copy(showBrand = on) }
         }
+
+        // ===== صيغ التاريخ =====
+        if (customization.showHijri || customization.showGregorian) {
+            Spacer(Modifier.height(14.dp))
+            SettingLabel("صيغ التاريخ")
+            if (customization.showHijri) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ThemeChip("١٤ رمضان ١٤٤٧ هـ", customization.hijriFormat == 0) {
+                        apply { it.copy(hijriFormat = 0) }
+                    }
+                    ThemeChip("١٤ رمضان", customization.hijriFormat == 1) {
+                        apply { it.copy(hijriFormat = 1) }
+                    }
+                    ThemeChip("١٤/٩/١٤٤٧", customization.hijriFormat == 2) {
+                        apply { it.copy(hijriFormat = 2) }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+            }
+            if (customization.showGregorian) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ThemeChip("الجمعة ٧ نوفمبر", customization.gregFormat == 0) {
+                        apply { it.copy(gregFormat = 0) }
+                    }
+                    ThemeChip("٧ نوفمبر", customization.gregFormat == 1) {
+                        apply { it.copy(gregFormat = 1) }
+                    }
+                    ThemeChip("٠٧/١١/٢٠٢٦", customization.gregFormat == 2) {
+                        apply { it.copy(gregFormat = 2) }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // ===== النقطة السائلة — كل مقامٍ بفقاعتِه ولونها =====
+        SettingLabel("النقطة السائلة")
+        ToggleRow("خلف الوقت المتبقي", customization.bubbleOnCountdown) { on ->
+            apply { it.copy(bubbleOnCountdown = on) }
+        }
+        if (customization.bubbleOnCountdown) {
+            ColorSwatchRow(
+                selected = customization.bubbleColorCountdown,
+                onSelect = { hex -> apply { it.copy(bubbleColorCountdown = hex) } },
+            )
+        }
+        ToggleRow("تحديد الصلاة القادمة", customization.bubbleOnNext) { on ->
+            apply { it.copy(bubbleOnNext = on) }
+        }
+        if (customization.bubbleOnNext) {
+            ColorSwatchRow(
+                selected = customization.bubbleColorNext,
+                onSelect = { hex -> apply { it.copy(bubbleColorNext = hex) } },
+            )
+        }
+        ToggleRow("تحديد الصلاة الحالية", customization.bubbleOnCurrent) { on ->
+            apply { it.copy(bubbleOnCurrent = on) }
+        }
+        if (customization.bubbleOnCurrent) {
+            ColorSwatchRow(
+                selected = customization.bubbleColorCurrent,
+                onSelect = { hex -> apply { it.copy(bubbleColorCurrent = hex) } },
+            )
+        }
     }
+}
+
+/** لوحة ألوان الخط — التلقائي ثم ثمانية ألوانٍ صريحة */
+private val TEXT_COLORS = listOf(
+    "#233029", "#F2EDE0", "#2FA48C", "#C98A3D",
+    "#B04A3A", "#5B6E9E", "#7A5B9E", "#4E7A4E",
+)
+
+/** اللوحات نفسها للفقاعات — بلوني الافتراضيهما في مقدمتها */
+private val BUBBLE_COLORS = listOf(
+    "#2FA48C", "#C98A3D", "#B04A3A", "#5B6E9E",
+    "#7A5B9E", "#4E7A4E", "#233029", "#F2EDE0",
+)
+
+@Composable
+private fun TextColorSwatches(selected: String, onSelect: (String) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TEXT_COLORS.forEach { hex ->
+            ColorDot(hex, selected == hex, onClick = { onSelect(hex) })
+        }
+    }
+}
+
+@Composable
+private fun ColorSwatchRow(selected: String, onSelect: (String) -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
+    ) {
+        BUBBLE_COLORS.forEach { hex ->
+            ColorDot(hex, selected == hex, onClick = { onSelect(hex) })
+        }
+    }
+}
+
+@Composable
+private fun ColorDot(hex: String, selected: Boolean, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val color = runCatching { Color(android.graphics.Color.parseColor(hex)) }
+        .getOrDefault(scheme.primary)
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(color)
+            .border(
+                width = if (selected) 2.5.dp else 1.dp,
+                color = if (selected) scheme.onSurface else scheme.outline.copy(alpha = 0.35f),
+                shape = CircleShape,
+            )
+            .clickable(onClick = onClick),
+    )
 }
 
 @Composable

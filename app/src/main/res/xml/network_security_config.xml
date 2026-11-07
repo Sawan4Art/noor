@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  إعدادات الشبكة (alpha57 — بلاغ المالك: «تحميل اصوات الشيوخ مش شغال»):
+  مصدر التلاوات everyayah على شهادة Let's Encrypt وثقتها الجذرية
+  ISRG Root X1 ليست في مخزن النظام على أندرويد ٧.٠ (الحد الأدنى
+  للتطبيق) وكانت سلسلة الثقّة الجديدة (Root YR ← ISRG Root X1)
+  تفشل فيها والمصدر كلّه غير واصل — فالجذر مرفقٌ هنا ثقةً إضافية
+  مع الثقة النظامية كي يعمل التنزيل على الأقدم والأحدث معاً.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/isrg_root_x1" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

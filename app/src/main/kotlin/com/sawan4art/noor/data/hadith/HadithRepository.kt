@@ -8,11 +8,12 @@ import com.sawan4art.noor.domain.hadith.HadithSearch
  * مستودع مكتبة الأحاديث — القراءة فقط فوق قاعدة الـ assets.
  *
  * نمطان للقراءة:
- * - **التصفح**: بلا استعلام — يُقرأ بترتيب المعرف (ترتيب الإدخال في
- *   المولّد هو ترتيب العرض نفسه: الكتاب ثم رقم الحديث) فيمشي على
- *   الصفوف بالتسلسل بلا فرز.
+ * - **التصفح**: بلا استعلام — يُرتب بـ (ترتيب الكتاب على الرفّ، رقم الحديث
+ *   المعتمد، المعرف) — درس alpha57: الترتيب بالمعرف وحده انكسر حين لحق
+ *   الحديث الناقص في ذيل الـ id فظهرت البخاري تبدأ من ٢ (بلاغ المالك)،
+ *   فالترتيب من عمر الترقيم المعتمد نفسه لا من تاريخ الإدخال.
  * - **البحث**: MATCH على فهرس FTS4 بتعبير [HadithSearch.matchExpression]
- *   مرتب بالصلة (rank) — ولأن MATCH يُكتب باسم الجدول الأصلي حتى مع
+ *   مرتب بترتيب الرفّ نفسه — ولأن MATCH يُكتب باسم الجدول الأصلي حتى مع
  *   الاسم المستعار (سلوك SQLite) فالصيغة أدناه مثبتة بفحص المولّد.
  *
  * في الحالين التقييد بكتابٍ معين اختياري عبر (? IS NULL OR bookId = ?)
@@ -24,13 +25,13 @@ class HadithRepository(context: Context) {
 
     suspend fun books(): List<BookEntity> = dao.books()
 
-    /** صفحة تصفح — [bookId] فارغ يعني كل الكتب */
+    /** صفحة تصفح — [bookId] فارغ يعني كل الكتب — مرتبة كالرفّ لا كالإدخال */
     suspend fun browse(bookId: Long?, limit: Int, offset: Int): List<HadithEntity> =
         dao.searchRaw(
             SimpleSQLiteQuery(
-                "SELECT h.* FROM hadiths h " +
+                "SELECT h.* FROM hadiths h JOIN books b ON b.id = h.bookId " +
                     "WHERE (? IS NULL OR h.bookId = ?) " +
-                    "ORDER BY h.id LIMIT ? OFFSET ?",
+                    "ORDER BY b.sortOrder, h.numberInBook, h.id LIMIT ? OFFSET ?",
                 arrayOf(bookId, bookId, limit, offset),
             ),
         )
@@ -51,16 +52,17 @@ class HadithRepository(context: Context) {
      * الفهرس **FTS4** (لا FTS5) — أندرويد لا يبني SQLite بنظام FTS5 نهائياً
      * («no such module: fts5» على أجهزة حقيقية منذ الأقدم وحتى الأحدث)،
      * فكان البحث بالكلمة يعمل في المحاكي ويسقط في الميدان. FTS4 مضمون
-     * من API 21، ولا يملك عمود rank فالترتيب بترتيب المعرف (ترتيب
-     * الكتاب ثم الأصل في الكتاب).
+     * من API 21، ولا يملك عمود rank فالترتيب بترتيب الرفّ (الكتاب ثم
+     * رقم الحديث المعتمد ثم المعرف) — درس alpha57 نفسه.
      */
     suspend fun search(expr: String, bookId: Long?, limit: Int, offset: Int): List<HadithEntity> =
         dao.searchRaw(
             SimpleSQLiteQuery(
                 "SELECT h.* FROM hadiths h " +
                     "JOIN hadiths_fts f ON f.docid = h.id " +
+                    "JOIN books b ON b.id = h.bookId " +
                     "WHERE hadiths_fts MATCH ? AND (? IS NULL OR h.bookId = ?) " +
-                    "ORDER BY h.id LIMIT ? OFFSET ?",
+                    "ORDER BY b.sortOrder, h.numberInBook, h.id LIMIT ? OFFSET ?",
                 arrayOf(expr, bookId, bookId, limit, offset),
             ),
         )

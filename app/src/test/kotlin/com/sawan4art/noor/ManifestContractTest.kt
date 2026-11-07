@@ -183,6 +183,55 @@ class ManifestContractTest {
         )
     }
 
+    /**
+     * عقد alpha57 (بلاغ المالك: «تحميل اصوات الشيوخ مش شغال»):
+     * خدمة التنزيل الأمامية بنوع dataSync وإذنها المعلن — فبلا الخدمة
+     * تموت العملية بإغلاق التطبيق وينقطع التنزيل، وبلا نوعِها المعلن
+     * ينهار الإقلاع على أندرويد ١٤+.
+     */
+    @Test
+    fun `خدمة تنزيل التلاوة أمامية بنوع مزامنة البيانات وإذنها معلن`() {
+        val service = component("service", ".data.mushaf.QuranDownloadService")
+        assertEquals("false", service.getAttribute("android:exported"))
+        assertEquals(
+            "النوع الأمامي خطأ — تنزيل التلاوة يحتاج مزامنة بيانات",
+            "dataSync",
+            service.getAttribute("android:foregroundServiceType"),
+        )
+        assertTrue(
+            "FOREGROUND_SERVICE_DATA_SYNC مفقودة — الخدمة تنهار على ٣٤+",
+            "android.permission.FOREGROUND_SERVICE_DATA_SYNC" in permissions(),
+        )
+    }
+
+    /**
+     * عقد alpha57: ويدجتٌ واحدة لا أكثر — بلاغ المالك: «خليها ويدجيت
+     * واحده و قابلة للتخصيص بالكامل» — وأي مستقبل ويدجتٍ قديمٍ باقٍ
+     * يُعدّ انحرافاً عن العقد.
+     */
+    @Test
+    fun `ويدجت واحدة لا أكثر بمستقبلها الواحد`() {
+        val receivers = manifest.getElementsByTagName("receiver").let { nodes ->
+            (0 until nodes.length).map { nodes.item(it) as Element }
+                .map { it.getAttribute("android:name") }
+                .filter { it.startsWith(".widget.") }
+        }
+        assertEquals("مستقبل ويدجت واحد فقط", listOf(".widget.NoorWidget"), receivers)
+    }
+
+    /**
+     * عقد alpha57: إعدادات الشبكة تُثبَّت على التطبيق — جذر Let's Encrypt
+     * مرفقٌ كي يعمل تنزيل التلاوة على أندرويد ٧.٠ وما بعده.
+     */
+    @Test
+    fun `إعدادات الشبكة مثبتة على التطبيق`() {
+        val app = manifest.getElementsByTagName("application").item(0) as Element
+        assertEquals(
+            "@xml/network_security_config",
+            app.getAttribute("android:networkSecurityConfig"),
+        )
+    }
+
     // ===== أصناف المكونات موجودة فعلاً في الشجرة (لا مراجع معلقة) =====
 
     @Test
