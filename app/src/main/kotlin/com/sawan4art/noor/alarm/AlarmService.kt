@@ -104,6 +104,7 @@ class AlarmService : Service() {
         muteMinutes = intent?.getIntExtra(EXTRA_MUTE_MINUTES, 10)?.coerceAtLeast(1) ?: 10
         muteCancelOnUnlock = intent?.getBooleanExtra(EXTRA_MUTE_CANCEL_ON_UNLOCK, true) ?: true
         inMuteWindow = false
+        clearPlaybackEnded()
 
         val started = runCatching {
             startInForeground(prayerName, mode)
@@ -297,9 +298,20 @@ class AlarmService : Service() {
     /**
      * نهاية الصوت — المسار الموحد لاكتمال التشغيل أو خطئه أو أمانه:
      * إن كان هذا الحدث بداية الكتم تدخل نافذة الكتم، وإلا تنتهي الخدمة.
+     *
+     * شاشة التنبيه تُغلق نفسها مع نهاية الصوت (تحديث المالك 2026-11-07:
+     * «الشاشه بتفضل موجوده و بتسخن الجهاز و بتستهلك البطاريه بشكل عنيف»):
+     * بثٌّ داخلي يصل لشاشة التنبيه فتنتهي، ويسقط سهر الشاشة والمعالج
+     * معاً — نافذة الكتم بعدها لا تحتاج سهراً فالاستعادة بمنبه مستقل.
      */
     private fun finishPlayback() {
         releasePlayer()
+        markPlaybackEnded()
+        runCatching {
+            sendBroadcast(Intent(ACTION_PLAYBACK_ENDED).setPackage(packageName))
+        }
+        wakeLock?.let { w -> runCatching { if (w.isHeld) w.release() } }
+        wakeLock = null
         if (muteStartPending && !inMuteWindow) {
             muteStartPending = false
             enterMuteWindow()
@@ -403,6 +415,21 @@ class AlarmService : Service() {
         const val MODE_IQAMAH = "iqamah"
         const val ACTION_STOP = "com.sawan4art.noor.action.ADHAAN_STOP"
         const val ACTION_RESTORE_MUTE = "com.sawan4art.noor.action.ADHAAN_RESTORE_MUTE"
+
+        /** بثٌّ داخلي: انتهى صوت الأذان/الإقامة — شاشة التنبيه تنتهي معه */
+        const val ACTION_PLAYBACK_ENDED = "com.sawan4art.noor.action.ADHAAN_PLAYBACK_ENDED"
+
+        /** هل انتهى صوت آخر حدث؟ — علم على مستوى العملية تقرأه شاشة التنبيه
+         *  إن فُتحت متأخرة بعد نهاية الصوت فتُغلق نفسها فوراً */
+        @Volatile
+        var playbackEnded: Boolean = false
+            private set
+        internal fun markPlaybackEnded() {
+            playbackEnded = true
+        }
+        internal fun clearPlaybackEnded() {
+            playbackEnded = false
+        }
 
         /** قنوات الأذان تُنشأ مبكراً أيضاً من المستقبِل قبل أي إشعار */
         fun ensureChannels(context: Context) {

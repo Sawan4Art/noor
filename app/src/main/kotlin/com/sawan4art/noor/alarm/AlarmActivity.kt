@@ -2,10 +2,14 @@ package com.sawan4art.noor.alarm
 
 import android.os.Build
 import android.os.Bundle
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,12 +45,36 @@ import com.sawan4art.noor.ui.theme.NoorTheme
  *   بلغة التطبيق وثيمه.
  * - زر «إيقاف الصوت» يوقف الخدمة كلياً (ويعيد صوت الهاتف إن كان
  *   مكتوماً) — بلا حاجة لفتح التطبيق.
+ * - **الشاشة تنتهي مع نهاية الصوت** (تحديث المالك 2026-11-07): ما دام
+ *   الأذان/الإقامة شغالين الشاشة ساهرة معلنة، وحين ينتهي الصوت تُغلق
+ *   الشاشة نفسها تلقائياً فلا تسخّن الجهاز ولا تستنزف البطارية —
+ *   والزر اليدوي قائم كالسابق لمن استعجل.
  */
 class AlarmActivity : ComponentActivity() {
+
+    /** مستقبِل نهاية الصوت من الخدمة — الشاشة تنتهي مع نهاية الأذان/الإقامة */
+    private val playbackEndedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == AlarmService.ACTION_PLAYBACK_ENDED) finish()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         applyOverLockFlags()
+        // الصوت خلص قبل ما الشاشة تفتح أصلاً (انبثاق متأخر) — لا داعي لها
+        if (AlarmService.playbackEnded) {
+            finish()
+            return
+        }
+        runCatching {
+            ContextCompat.registerReceiver(
+                this,
+                playbackEndedReceiver,
+                IntentFilter(AlarmService.ACTION_PLAYBACK_ENDED),
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+        }
         val name = intent?.getStringExtra(EXTRA_PRAYER_NAME)
         if (name == null) {
             finish()
@@ -85,6 +113,11 @@ class AlarmActivity : ComponentActivity() {
             )
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    override fun onDestroy() {
+        runCatching { unregisterReceiver(playbackEndedReceiver) }
+        super.onDestroy()
     }
 
     @Composable
