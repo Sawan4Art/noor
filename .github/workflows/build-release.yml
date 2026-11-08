@@ -61,11 +61,25 @@ jobs:
           echo "NOOR_KS_PASS=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
 
       # اختبارات الوحدة — الاختبار الذهبي يفشل البناء عند أي انحراف في المواقيت
+      # ودروب GitHub الحالي (504) قد يقطع تنزيل اعتمادية — إعادة المحاولة تنقذ
+      # فالكاش يتقدم كل محاولة
       - name: اختبارات الوحدة (الذهبية)
-        run: ./gradlew :app:testReleaseUnitTest --console=plain --stacktrace
+        run: |
+          for i in 1 2 3 4 5; do
+            if ./gradlew :app:testReleaseUnitTest --console=plain --stacktrace; then exit 0; fi
+            echo "المحاولة $i فشلت — انتظار ٣٠ ثانية قبل الإعادة…"
+            sleep 30
+          done
+          exit 1
 
       - name: بناء نسخة ألفا
-        run: ./gradlew :app:assembleAlpha --console=plain --stacktrace
+        run: |
+          for i in 1 2 3 4 5; do
+            if ./gradlew :app:assembleAlpha --console=plain --stacktrace; then exit 0; fi
+            echo "المحاولة $i فشلت — انتظار ٣٠ ثانية قبل الإعادة…"
+            sleep 30
+          done
+          exit 1
 
       # الإصدار الرسمي الموحّد عند الوسم النهائي (بلا لاحقة ألفا)
       - name: بناء نسخة release عند الوسم
