@@ -7,20 +7,27 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * اختبارات شيوخ التلاوة العشرين (alpha54) — عقد المالك: عشرة مصريين
- * وعشرة من غيرهم بينهم ناصر القطامي وياسر الدوسري، وأسماء الملفات
- * الموحدة «٣ سورة + ٣ آية».
+ * اختبارات شيوخ التلاوة — تسعة عشر (alpha60) بعد حذف مصطفى إسماعيل
+ * بتوجيه المالك «يبقى نشيل الشيخ مصطفى اسماعيل من التطبيق خالص طالما
+ * مش مكتمل اصواته» — والعقد: أسماء الملفات الموحدة «٣ سورة + ٣ آية»
+ * وخريطة إصدارات المرآة المثبّتة.
  */
 class QuranRecitersTest {
 
     @Test
-    fun `القائمة عشرون شيخا كما أمر المالك`() {
-        assertEquals(20, QuranReciters.COUNT)
-        assertEquals(20, QuranReciters.ALL.size)
+    fun `القائمة تسعة عشر شيخا بعد حذف مصطفى إسماعيل`() {
+        assertEquals(19, QuranReciters.COUNT)
+        assertEquals(19, QuranReciters.ALL.size)
+        // المحذوف لا يظهر أبداً بالمعرّف ولا بالاسم ولا بالمجلد
+        assertTrue(QuranReciters.ALL.none { it.id == "mustafa_ismail" })
+        assertTrue(QuranReciters.ALL.none { it.name.contains("مصطفى إسماعيل") })
+        assertTrue(QuranReciters.ALL.none { it.folder == "Mustafa_Ismail_48kbps" })
+        // ومعرّف النسخ القديمة المخزن يسير بأمان إلى الافتراضي
+        assertEquals("alafasy", QuranReciters.byId("mustafa_ismail").id)
     }
 
     @Test
-    fun `عشرة مصريين وعشرة من غير المصريين`() {
+    fun `تسعة مصريين وعشرة من غير المصريين`() {
         val egyptian = QuranReciters.ALL.filter { it.origin == QuranReciters.Origin.EGYPTIAN }
         val other = QuranReciters.ALL.filter { it.origin == QuranReciters.Origin.OTHER }
         assertEquals(QuranReciters.EGYPTIAN_COUNT, egyptian.size)
@@ -40,8 +47,8 @@ class QuranRecitersTest {
 
     @Test
     fun `المعرّفات والمجلدات فريدة`() {
-        assertEquals(20, QuranReciters.ALL.map { it.id }.toSet().size)
-        assertEquals(20, QuranReciters.ALL.map { it.folder }.toSet().size)
+        assertEquals(19, QuranReciters.ALL.map { it.id }.toSet().size)
+        assertEquals(19, QuranReciters.ALL.map { it.folder }.toSet().size)
         assertTrue(QuranReciters.ALL.all { it.id.isNotBlank() && it.folder.isNotBlank() })
         assertTrue(QuranReciters.ALL.all { !it.folder.contains(' ') || it.folder.contains("_") })
     }
@@ -117,7 +124,7 @@ class QuranRecitersTest {
         assertEquals("ar.muhammadjibreel", QuranReciters.byId("jibreel").fallbackEdition)
         // ومن لا نظير له إصداره null
         assertTrue(
-            listOf("mustafa_ismail", "al_banna", "tablaway", "hajjaj", "neana",
+            listOf("al_banna", "tablaway", "hajjaj", "neana",
                 "qatami", "dossary", "juhany", "bukhatir", "tunaiji")
                 .all { QuranReciters.byId(it).fallbackEdition == null },
         )
@@ -145,11 +152,15 @@ class QuranRecitersTest {
         // خارج النطاق يسير بأمان إلى حدوده
         assertEquals("Alafasy_128kbps-001.zip", QuranReciters.mirrorAssetName("Alafasy_128kbps", 0))
         assertEquals("Alafasy_128kbps-114.zip", QuranReciters.mirrorAssetName("Alafasy_128kbps", 200))
-        // والقسمة سليمة: ٧ قراءٍ لكل إصدارٍ من العشرين
-        assertEquals(7, QuranReciters.ALL.count { QuranReciters.mirrorRelease(it) == "audio-v1" })
+        // الخريطة المثبّتة بعد حذف مصطفى إسماعيل تطابق ما هو مرفوع فعلاً:
+        // ستة في v1 وسبعة في v2 وستة في v3 — والحجّاج أصوله في v2 فعلاً
+        assertEquals(6, QuranReciters.ALL.count { QuranReciters.mirrorRelease(it) == "audio-v1" })
         assertEquals(7, QuranReciters.ALL.count { QuranReciters.mirrorRelease(it) == "audio-v2" })
         assertEquals(6, QuranReciters.ALL.count { QuranReciters.mirrorRelease(it) == "audio-v3" })
-        // وكل القراء العشرين مجلداتهم بلا فراغات فأسماء الأصول روابط سليمة
+        assertEquals("audio-v1", QuranReciters.mirrorRelease(QuranReciters.byId("al_banna")))
+        assertEquals("audio-v2", QuranReciters.mirrorRelease(QuranReciters.byId("hajjaj")))
+        assertEquals("audio-v3", QuranReciters.mirrorRelease(QuranReciters.byId("dossary")))
+        // وكل الشيوخ مجلداتهم بلا فراغات فأسماء الأصول روابط سليمة
         assertTrue(QuranReciters.ALL.all { !it.folder.contains(' ') })
     }
 }

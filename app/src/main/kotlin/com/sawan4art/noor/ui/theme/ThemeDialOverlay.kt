@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
@@ -52,12 +53,20 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import com.sawan4art.noor.ui.icons.NoorIcons
 import com.sawan4art.noor.ui.nav.GooeyMath
 import com.sawan4art.noor.ui.nav.addBridgePath
 import com.sawan4art.noor.ui.nav.addLiquidBlob
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * مزلاج الشمس والقمر — طبقة فوق كل شيء (فوق طبقتي الثيم) في الرئيسية فقط:
@@ -140,6 +149,21 @@ fun ThemeDialOverlay(
     val sunPainter = rememberVectorPainter(NoorIcons.Sun)
     val moonPainter = rememberVectorPainter(NoorIcons.Moon)
 
+    // ===== عبارة «اسحب للتبديل» مع سهم جهة السحب (توجيه المالك alpha60:
+    // «عايزك تكتب عباره اسحب للتبديل مع سهم يشير لجهه السحب في داخل
+    // هيدر تبديل وضع الليلي») — تُرسم داخل الكبسولة تحت السائل فيعدي
+    // فوقها عابراً، وتخفت أثناء السحب كي لا تتزاحم مع الأيقونة المتحركة.
+    // السهم يشير جهة السحب اللازمة للتبديل: المظلم يميناً (نحو الفاتح)
+    // والفاتح يساراً (نحو المظلم) — داخلياً LTR بإحداثيات فيزيائية.
+    val textMeasurer = rememberTextMeasurer()
+    val swipeLabel = "اسحب للتبديل"
+    val swipeToRight = committedDark // المظلم → اسحب يميناً للتبديل للفاتح
+    val labelAlpha by animateFloatAsState(
+        targetValue = if (dial.dragging) 0f else 1f,
+        animationSpec = tween(durationMillis = 180),
+        label = "dialSwipeLabelAlpha",
+    )
+
     // اتجاه داخلي LTR: صندوق الإيماءة يُثبَّت TopStart الفيزيائي (أعلى اليسار)
     // مهما كان اتجاه التطبيق RTL — فالإزاحة الخام = إحداثيات مطلقة صحيحة
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -181,6 +205,65 @@ fun ThemeDialOverlay(
                     cornerRadius = CornerRadius(dial.trackHeight / 2f),
                     style = Stroke(strokePx),
                 )
+
+                // ===== ١٫٥) عبارة «اسحب للتبديل» + السهم جهة السحب =====
+                if (labelAlpha > 0.01f && dial.trackWidth > 0f) {
+                    val midX = (dial.anchorLeft + dial.anchorRight) / 2f
+                    val labelColor = scheme.onSurface.copy(alpha = 0.58f * labelAlpha)
+                    val arrowColor = scheme.onSurface.copy(alpha = 0.75f * labelAlpha)
+                    val measured = textMeasurer.measure(
+                        text = swipeLabel,
+                        style = TextStyle(
+                            fontSize = 11.sp,
+                            color = labelColor,
+                            textAlign = TextAlign.Center,
+                        ),
+                    )
+                    // نبضة جانبية رقيقة للسهم — حيّة بلا إزعاج (نحو جهة السحب)
+                    val nudge = sin(t * 2f * Math.PI.toFloat() / 1.6f) * blobR * 0.10f *
+                        (if (swipeToRight) 1f else -1f)
+                    val arrowLen = blobR * 0.62f
+                    val gap = blobR * 0.34f
+                    val arrowY = y
+                    val arrowTipX = if (swipeToRight) {
+                        midX + measured.size.width / 2f + gap + arrowLen + nudge
+                    } else {
+                        midX - measured.size.width / 2f - gap - arrowLen - nudge
+                    }
+                    val arrowTailX = arrowTipX - arrowLen * (if (swipeToRight) 1f else -1f)
+                    // النص بين المرسين — تحت السائل فيعدي فوقه أثناء السحب
+                    drawText(
+                        textLayoutResult = measured,
+                        topLeft = Offset(
+                            midX - measured.size.width / 2f,
+                            y - measured.size.height / 2f,
+                        ),
+                        alpha = labelAlpha,
+                    )
+                    // السهم: خطٌّ ورأس مثلث صغير يشير جهة السحب
+                    drawLine(
+                        color = arrowColor,
+                        start = Offset(arrowTailX, arrowY),
+                        end = Offset(arrowTipX, arrowY),
+                        strokeWidth = strokePx * 1.7f,
+                        cap = StrokeCap.Round,
+                    )
+                    val headA = blobR * 0.20f
+                    drawLine(
+                        color = arrowColor,
+                        start = Offset(arrowTipX - headA * (if (swipeToRight) 1f else -1f), arrowY - headA * 0.7f),
+                        end = Offset(arrowTipX, arrowY),
+                        strokeWidth = strokePx * 1.7f,
+                        cap = StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = arrowColor,
+                        start = Offset(arrowTipX - headA * (if (swipeToRight) 1f else -1f), arrowY + headA * 0.7f),
+                        end = Offset(arrowTipX, arrowY),
+                        strokeWidth = strokePx * 1.7f,
+                        cap = StrokeCap.Round,
+                    )
+                }
 
                 // ===== 2) السائل الحي: ذيل ينقص + رأس + جسر بلا فصل =====
                 val blobTop = lerp(moonTop, sunTop, p)

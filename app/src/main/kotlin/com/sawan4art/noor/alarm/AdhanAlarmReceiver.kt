@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.sawan4art.noor.data.SettingsRepository
+import com.sawan4art.noor.domain.adhan.AdhanMode
 import com.sawan4art.noor.domain.adhan.AdhanSoundKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -64,7 +65,9 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
         }
 
         val service = Intent(context, AlarmService::class.java)
-            .putExtra(AlarmService.EXTRA_MODE, kind)
+            // الموحّد أولاً — الاسم القادم من العَلَم بحروفٍ كبيرة فلا
+            // يسقط وضع الإقامة على الأذان (بلاغ alpha60)
+            .putExtra(AlarmService.EXTRA_MODE, AdhanMode.canonical(kind))
             .putExtra(AlarmService.EXTRA_PRAYER_NAME, prayerName)
             .putExtra(AlarmService.EXTRA_SOUND_ID, soundId)
             .putExtra(AlarmService.EXTRA_CUSTOM_PATH, customPath)

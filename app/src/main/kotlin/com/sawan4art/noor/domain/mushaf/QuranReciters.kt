@@ -1,16 +1,18 @@
 package com.sawan4art.noor.domain.mushaf
 
 /**
- * شيوخ التلاوة العشرون — توجيه المالك ٢٠٢٦-١١-٠٦:
- * «اضف عشرين مقرء يتم تحميل اصواتهم من قبل المستخدم نفسه منهم افضل
- * عشر مقرئيين مصريين و الباقي افضل عشره منهم ناصر القطامي و ياسر
- * الدوسري» — عشرة من أفاضل القرّاء المصريين وعشرة من أفاضل غيرهم،
- * وكلٌّ منهم معرّفه ومجلد صوته في مصدر التلاوات المفتوح (everyayah)
- * الذي تُنزَّل منه الآيات ملفاً ملفاً بالجهاز نفسه.
+ * شيوخ التلاوة — تسعة عشر شيخاً (alpha60): توجيه المالك «يبقى نشيل
+ * الشيخ مصطفى اسماعيل من التطبيق خالص طالما مش مكتمل اصواته» فحُذف
+ * من العشرين، وبقيت التسعة المصريين والعشرة من سواهم. وكلٌّ منهم
+ * معرّفه ومجلد صوته في مصدر التلاوات المفتوح (everyayah) الذي
+ * تُنزَّل منه الآيات ملفاً ملفاً بالجهاز نفسه.
  *
- * الترتيب: المصريون أولاً بعشرتهم المعتمدة ثم غير المصريين — والملفات
- * بصيغة «٣ أرقام للسورة + ٣ أرقام للآية» (QuranAudioMath) موحّدة عند
- * كل الشيوخ فالتنزيل والتشغيل والمسح بلا استثناءات.
+ * الترتيب: المصريون أولاً بعشرتهم (تسعةٌ الآن) ثم غير المصريين —
+ * والملفات بصيغة «٣ أرقام للسورة + ٣ أرقام للآية» (QuranAudioMath)
+ * موحّدة عند كل الشيوخ فالتنزيل والتشغيل والمسح بلا استثناءات.
+ *
+ * ومعرّف الشيخ المحذوف (mustafa_ismail) المخزَّن في نسخةٍ قديمة يسير
+ * بأمان: byId يعود به إلى الافتراضي العفاسي.
  */
 object QuranReciters {
 
@@ -39,13 +41,12 @@ object QuranReciters {
     /** مجلد التلاوات المفتوح — مصدر الروابط والتنزيل معاً */
     const val DATA_BASE_URL = "https://everyayah.com/data"
 
-    // ===== العشرة المصريون — أفاضل أئمة التلاوة في مصر =====
+    // ===== التسعة المصريون — أفاضل أئمة التلاوة في مصر =====
 
     private val EGYPTIAN = listOf(
         Reciter("abdelbaset", "عبد الباسط عبد الصمد", "Abdul_Basit_Murattal_192kbps", "مصر", Origin.EGYPTIAN, "ar.abdulbasitmurattal"),
         Reciter("minshawi", "محمد صديق المنشاوي", "Minshawy_Murattal_128kbps", "مصر", Origin.EGYPTIAN, "ar.minshawi"),
         Reciter("husary", "محمود خليل الحصري", "Husary_128kbps", "مصر", Origin.EGYPTIAN, "ar.husary"),
-        Reciter("mustafa_ismail", "مصطفى إسماعيل", "Mustafa_Ismail_48kbps", "مصر", Origin.EGYPTIAN),
         Reciter("al_banna", "محمود علي البنا", "mahmoud_ali_al_banna_32kbps", "مصر", Origin.EGYPTIAN),
         Reciter("tablaway", "محمد الطبلاوي", "Mohammad_al_Tablaway_128kbps", "مصر", Origin.EGYPTIAN),
         Reciter("sowaid", "أيمن سويد", "Ayman_Sowaid_64kbps", "مصر", Origin.EGYPTIAN, "ar.aymanswoaid"),
@@ -103,19 +104,19 @@ object QuranReciters {
      * ضغطة شبكة واحدة من هنا أولًا، فإن غاب الأصل أو تعذر فالطريق
      * القديم باقٍ بعده: everyayah آيةً آيةً ثم islamic.network.
      *
-     * جت هب يحصر الإصدار بـ ١٠٠٠ أصلٍ فالتقسيم ثلاثة إصداراتٍ — ٧
-     * قراءٍ لكل إصدارٍ (٧×١١٤=٧٩٨) بنفس ترتيب القائمة هنا.
+     * جت هب يحصر الإصدار بـ ١٠٠٠ أصلٍ فالتقسيم ثلاثة إصداراتٍ — والأصول
+     * مرفوعةٌ بأماكنها من alpha59 فخريطة الإصدار **مثبَّتة يدوياً**
+     * (alpha60: بعد حذف مصطفى إسماعيل لم يعد العدّ التلقائي بالفهارس
+     * يطابق ما هو مرفوع — فالحجّاج مثلاً أصوله في audio-v2 لا v1):
+     * ستة قراءٍ في audio-v1 وسبعة في audio-v2 وستة في audio-v3.
      */
     const val MIRROR_BASE_URL = "https://github.com/Sawan4Art/noor-audio/releases/download"
 
-    /** إصدار المرآة للقارئ — ٧ أول في audio-v1 و٧ في audio-v2 والبقية audio-v3 */
-    fun mirrorRelease(reciter: Reciter): String {
-        val index = ALL.indexOfFirst { it.id == reciter.id }
-        return when {
-            index < 7 -> "audio-v1"
-            index < 14 -> "audio-v2"
-            else -> "audio-v3"
-        }
+    /** إصدار المرآة للقارئ — خريطة مثبَّتة تطابق ما هو مرفوع فعلاً */
+    fun mirrorRelease(reciter: Reciter): String = when (reciter.id) {
+        "abdelbaset", "minshawi", "husary", "al_banna", "tablaway", "sowaid" -> "audio-v1"
+        "hajjaj", "neana", "jibreel", "alafasy", "sudais", "muaiqly", "qatami" -> "audio-v2"
+        else -> "audio-v3"
     }
 
     /** اسم أصل السورة في المرآة — «Alafasy_128kbps-002.zip» */
@@ -126,14 +127,14 @@ object QuranReciters {
     fun mirrorSurahUrl(reciter: Reciter, sura: Int): String =
         "$MIRROR_BASE_URL/${mirrorRelease(reciter)}/${mirrorAssetName(reciter.folder, sura)}"
 
-    /** عدد المصريين في القائمة — عقد المالك: عشرة مصريين بالضبط */
-    const val EGYPTIAN_COUNT = 10
+    /** عدد المصريين في القائمة — تسعة بعد حذف مصطفى إسماعيل (alpha60) */
+    const val EGYPTIAN_COUNT = 9
 
     /** عدد غير المصريين — عشرة بالضبط */
     const val OTHER_COUNT = 10
 
-    /** المجموع الكلي — عشرون كما أمر المالك */
-    const val COUNT = 20
+    /** المجموع الكلي — تسعة عشر شيخاً */
+    const val COUNT = 19
 }
 
 /**

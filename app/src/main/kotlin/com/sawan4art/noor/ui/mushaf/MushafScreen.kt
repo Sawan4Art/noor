@@ -196,8 +196,12 @@ import kotlin.math.sin
 /** المساحة المحجوزة أسفل الشاشة قبل شريط التنقل السائل (١٨+٧٦dp — alpha45) */
 private val NAV_BAR_CLEAR = 94.dp
 
-/** خلفية بطاقات المصحف — دافئة داكنة تليق فوق ورق الطبعة */
-private val PanelBg = Color(0xFF1E1814)
+/**
+ * خلفية بطاقات المصحف — من الثيم نفسه (توجيه المالك alpha60: «خلي شكل
+ * قائمه اختيار السوره في المصحف بنفس شكل و تصميم متماشي مع التطبيق
+ * و بنفس الالوان الثيم») فاللوحات تتبع الثيم الفاتح والمظلم وألوانه
+ * المختارة أينما تغيّرت.
+ */
 
 /**
  * شفافية إبراز التحديد — توجيه المالك: «بدل ما هو بنفسجي خليه بالوان
@@ -455,7 +459,7 @@ fun MushafScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(MaterialTheme.colorScheme.surface)
             .onSizeChanged { rootSize = it },
     ) {
         // مساحة القراءة — تقف قبل شريط التنقل السائل، والصفحة تتسع لكاملها.
@@ -466,7 +470,7 @@ fun MushafScreen(
             beyondViewportPageCount = 1,
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black)
+                .background(MaterialTheme.colorScheme.surface)
                 .padding(bottom = NAV_BAR_CLEAR),
         ) { index ->
             MushafPage(
@@ -741,7 +745,7 @@ private fun MushafPage(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(MaterialTheme.colorScheme.surface)
             .onSizeChanged { viewSize = it }
             // ===== القرص بإصبعين يكبّر ويصغّر حول مركز القرص، والإصبع
             // الواحد حين تكون الصفحة مكبَّرة يحرّكها — وعند ١× يبقى
@@ -900,12 +904,12 @@ private fun MushafPage(
             ) {
                 Text(
                     text = "تعذّر عرض الصفحة $page",
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
                     text = "اضغط للمحاولة من جديد",
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -1202,7 +1206,7 @@ private fun PlayOptionsCard(
                 .alpha(ap.coerceIn(0f, 1f))
                 .shadow(16.dp, RoundedCornerShape(20.dp))
                 .clip(RoundedCornerShape(20.dp))
-                .background(PanelBg.copy(alpha = 0.97f))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.97f))
                 .padding(vertical = 4.dp),
         ) {
             // الترويسة والإكس أعلى يمينها — في RTL أول العناصر يظهر يميناً
@@ -1216,14 +1220,14 @@ private fun PlayOptionsCard(
                     modifier = Modifier
                         .size(30.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.08f))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                         .clickable(onClick = onClose),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Close,
                         contentDescription = "إغلاق قائمة التلاوة",
-                        tint = Color.White.copy(alpha = 0.8f),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -1231,7 +1235,7 @@ private fun PlayOptionsCard(
                 Column {
                     Text(
                         text = "التلاوة · ${MushafSurahs.name(selection.sura)}",
-                        color = Color.White.copy(alpha = 0.55f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.labelMedium,
                     )
                     Text(
@@ -1288,13 +1292,13 @@ private fun PlayOptionRow(
         Column(modifier = Modifier.padding(start = 12.dp)) {
             Text(
                 text = title,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.bodyMedium,
             )
             if (subtitle != null) {
                 Text(
                     text = subtitle,
-                    color = Color.White.copy(alpha = 0.5f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(top = 2.dp),
                 )
@@ -1384,14 +1388,14 @@ private fun TafsirPanel(
                         if (text.isNotBlank()) {
                             Text(
                                 text = text,
-                                color = Color.White.copy(alpha = 0.72f),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(top = 8.dp),
                             )
                         }
                         Text(
                             text = tafsir,
-                            color = Color.White.copy(alpha = 0.95f),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.95f),
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(top = 6.dp),
                         )
@@ -1401,7 +1405,7 @@ private fun TafsirPanel(
                             .fillMaxWidth()
                             .padding(horizontal = 18.dp)
                             .height(0.5.dp)
-                            .background(Color.White.copy(alpha = 0.1f)),
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
                     )
                 }
             }
@@ -1502,7 +1506,7 @@ private fun HifzPanel(
         Text(
             text = "المحفوظ في هذا المُدى: ${MushafSurahs.arabicDigits(memorizedInRange)} من ${MushafSurahs.arabicDigits(ayahs.size)}" +
                 " — وضغطة على الآية تكشف نصها للاختبار",
-            color = Color.White.copy(alpha = 0.5f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp),
         )
@@ -1550,7 +1554,7 @@ private fun HifzPanel(
                                 .size(26.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if (memorized) accent else Color.White.copy(alpha = 0.09f),
+                                    if (memorized) accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f),
                                 )
                                 .combinedClickable(
                                     onClick = { onSetHifz(selection.sura, listOf(ayah), !memorized) },
@@ -1570,14 +1574,14 @@ private fun HifzPanel(
                             Text(
                                 text = "آية ${MushafSurahs.arabicDigits(ayah)}" +
                                     if (memorized) " · محفوظة" else "",
-                                color = if (memorized) accent else Color.White.copy(alpha = 0.5f),
+                                color = if (memorized) accent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                 style = MaterialTheme.typography.labelSmall,
                             )
                             if (text.isNotBlank()) {
                                 if (visible) {
                                     Text(
                                         text = text,
-                                        color = Color.White.copy(alpha = 0.95f),
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.95f),
                                         style = MaterialTheme.typography.bodyMedium,
                                         modifier = Modifier.padding(top = 4.dp),
                                     )
@@ -1586,7 +1590,7 @@ private fun HifzPanel(
                                     // المختبِر بأن هنا آية لا يحفظها إلا بذكرها
                                     Text(
                                         text = "•".repeat((text.length / 4).coerceIn(8, 64)),
-                                        color = Color.White.copy(alpha = 0.22f),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.22f),
                                         style = MaterialTheme.typography.bodyMedium,
                                         letterSpacing = 2.5.sp,
                                         modifier = Modifier.padding(top = 6.dp),
@@ -1600,7 +1604,7 @@ private fun HifzPanel(
                             .fillMaxWidth()
                             .padding(horizontal = 18.dp)
                             .height(0.5.dp)
-                            .background(Color.White.copy(alpha = 0.1f)),
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
                     )
                 }
             }
@@ -1726,7 +1730,7 @@ private fun SurahChooserPanel(
             placeholder = {
                 Text(
                     text = "ابحث بكلمة من الآية — بلا تشكيل",
-                    color = Color.White.copy(alpha = 0.4f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
             },
@@ -1735,7 +1739,7 @@ private fun SurahChooserPanel(
                     Icon(
                         imageVector = Icons.Filled.Close,
                         contentDescription = "مسح البحث",
-                        tint = Color.White.copy(alpha = 0.5f),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .size(20.dp)
                             .clickable { query = "" },
@@ -1744,9 +1748,9 @@ private fun SurahChooserPanel(
             },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                 cursorColor = MaterialTheme.colorScheme.primary,
             ),
             textStyle = MaterialTheme.typography.bodyMedium,
@@ -1762,7 +1766,7 @@ private fun SurahChooserPanel(
                 if (hits.isEmpty()) {
                     Text(
                         text = "لا آية تحمل هذه الكلمة — تأكد من كتابتها بلا تشكيل",
-                        color = Color.White.copy(alpha = 0.55f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
@@ -1776,7 +1780,7 @@ private fun SurahChooserPanel(
                         } else {
                             "النتائج: ${MushafSurahs.arabicDigits(hits.size)} آية"
                         },
-                        color = Color.White.copy(alpha = 0.45f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.padding(horizontal = 18.dp, vertical = 2.dp),
                     )
@@ -1898,7 +1902,7 @@ private fun SearchHitRow(
         }
         Text(
             text = hit.text,
-            color = Color.White.copy(alpha = 0.85f),
+            color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodySmall,
             maxLines = 2,
             modifier = Modifier.padding(top = 5.dp),
@@ -1908,7 +1912,7 @@ private fun SearchHitRow(
                 .fillMaxWidth()
                 .padding(top = 6.dp)
                 .height(0.5.dp)
-                .background(Color.White.copy(alpha = 0.1f)),
+                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         )
     }
 }
@@ -1947,13 +1951,13 @@ private fun SurahRow(
         Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
             Text(
                 text = title,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
             )
             Text(
                 text = detail,
-                color = Color.White.copy(alpha = 0.5f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.padding(top = 1.dp),
             )
@@ -1981,14 +1985,14 @@ private fun SheetHeader(
             modifier = Modifier
                 .size(30.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f))
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                 .clickable(onClick = onClose),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Filled.Close,
                 contentDescription = "إغلاق",
-                tint = Color.White.copy(alpha = 0.8f),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(16.dp),
             )
         }
@@ -2003,12 +2007,12 @@ private fun SheetHeader(
         Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
             Text(
                 text = title,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
                 text = subtitle,
-                color = Color.White.copy(alpha = 0.55f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                 style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.padding(top = 2.dp),
             )
@@ -2028,14 +2032,14 @@ private fun SheetChip(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(if (filled) accent else Color.White.copy(alpha = 0.08f))
+            .background(if (filled) accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
-            color = if (filled) MaterialTheme.colorScheme.onPrimary else Color.White.copy(alpha = 0.85f),
+            color = if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
         )
@@ -2061,7 +2065,7 @@ private fun SegmentedTab(
     ) {
         Text(
             text = text,
-            color = if (selected) accent else Color.White.copy(alpha = 0.6f),
+            color = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
         )
@@ -2109,7 +2113,7 @@ private fun BottomSheet(
                 .graphicsLayer { translationY = (1f - slide.value) * cardH }
                 .shadow(18.dp, RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
                 .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
-                .background(PanelBg)
+                .background(MaterialTheme.colorScheme.surface)
                 .clickable(enabled = false) { },
         ) {
             // مقبض السحب
@@ -2119,7 +2123,7 @@ private fun BottomSheet(
                     .padding(top = 10.dp)
                     .size(width = 44.dp, height = 4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.25f)),
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)),
             )
             content()
         }
@@ -2163,7 +2167,7 @@ private fun SurahDownloadDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = PanelBg,
+            color = MaterialTheme.colorScheme.surface,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
         ) {
             Column(
@@ -2174,13 +2178,13 @@ private fun SurahDownloadDialog(
                     text = MushafSurahs.name(request.sura),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFF2EDE0),
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = "صوت الشيخ $reciterName غير محمَّل لهذه السورة",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFFB9AC93),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(20.dp))
@@ -2193,14 +2197,14 @@ private fun SurahDownloadDialog(
                             progress = { state?.fraction ?: 0f },
                             modifier = Modifier.size(92.dp),
                             color = MaterialTheme.colorScheme.primary,
-                            trackColor = Color.White.copy(alpha = 0.12f),
+                            trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                             strokeWidth = 6.dp,
                         )
                         Text(
                             text = "${MushafSurahs.arabicDigits(((state?.fraction ?: 0f) * 100).roundToInt())}٪",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFF2EDE0),
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                     Spacer(Modifier.height(8.dp))
@@ -2208,7 +2212,7 @@ private fun SurahDownloadDialog(
                         text = if (state == null) "…جارٍ البدء" else
                             "المحمَّل ${MushafSurahs.arabicDigits(state.done)} من ${MushafSurahs.arabicDigits(state.total)} آية",
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFFB9AC93),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
                     Text(
@@ -2219,7 +2223,7 @@ private fun SurahDownloadDialog(
                                 ""
                             } + ")",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFB9AC93),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -2245,7 +2249,7 @@ private fun SurahDownloadDialog(
                     text = if (downloading) "التنزيل يكمل حتى لو أغلقت اللوحة — إيقافه من قسم «أصوات الشيخ»" else "لاحقاً",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = if (downloading) FontWeight.Medium else FontWeight.Bold,
-                    color = Color(0xFFB9AC93),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
                         .clickable(enabled = !downloading, onClick = onDismiss)

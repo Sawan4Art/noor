@@ -23,6 +23,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.sawan4art.noor.MainActivity
 import com.sawan4art.noor.R
+import com.sawan4art.noor.domain.adhan.AdhanMode
 import com.sawan4art.noor.domain.adhan.AdhanSoundKind
 import com.sawan4art.noor.domain.adhan.AdhanVoices
 import java.io.File
@@ -95,7 +96,8 @@ class AlarmService : Service() {
             endMuteWindowInternal()
         }
 
-        val mode = intent?.getStringExtra(EXTRA_MODE) ?: MODE_ADHAN
+        // الموحّد يضمن العقد الصغيري مهما وصل — «IQAMAH» كبيرةً أو صغيرةً
+        val mode = AdhanMode.canonical(intent?.getStringExtra(EXTRA_MODE))
         val prayerName = intent?.getStringExtra(EXTRA_PRAYER_NAME) ?: "الصلاة"
         val soundId = intent?.getStringExtra(EXTRA_SOUND_ID) ?: "main"
         val customPath = intent?.getStringExtra(EXTRA_CUSTOM_PATH) ?: ""
@@ -411,8 +413,9 @@ class AlarmService : Service() {
         const val EXTRA_MUTE_START = "noor_extra_alarm_mute_start"
         const val EXTRA_MUTE_MINUTES = "noor_extra_alarm_mute_minutes"
         const val EXTRA_MUTE_CANCEL_ON_UNLOCK = "noor_extra_alarm_mute_cancel_on_unlock"
-        const val MODE_ADHAN = "adhan"
-        const val MODE_IQAMAH = "iqamah"
+        // الأوضاع من الموحِّد نفسه — نقطة حقيقة واحدة للاستقبِل والخدمة والشاشة
+        const val MODE_ADHAN = AdhanMode.ADHAN
+        const val MODE_IQAMAH = AdhanMode.IQAMAH
         const val ACTION_STOP = "com.sawan4art.noor.action.ADHAAN_STOP"
         const val ACTION_RESTORE_MUTE = "com.sawan4art.noor.action.ADHAAN_RESTORE_MUTE"
 
