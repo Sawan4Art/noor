@@ -122,6 +122,26 @@ class QuranRecitersTest {
                 .all { QuranReciters.byId(it).fallbackEdition == null },
         )
     }
+
+    @Test
+    fun `مرآة جت هب رابطها أصل السورة المضغوطة — بلاغ alpha59`() {
+        // بلاغ المالك: «عايز اخلي الاصوات دي تكون موجوده على سيرفر على
+        // جت هب علشان نضمن ان التحميل يتم صح» — فالسورة أصلٌ واحد
+        assertEquals(
+            "https://github.com/Sawan4Art/noor-audio/releases/download/audio-v1/Alafasy_128kbps-002.zip",
+            QuranReciters.mirrorSurahUrl(QuranReciters.byId("alafasy"), 2),
+        )
+        assertEquals(
+            "https://github.com/Sawan4Art/noor-audio/releases/download/audio-v1/Abdul_Basit_Murattal_192kbps-114.zip",
+            QuranReciters.mirrorSurahUrl(QuranReciters.byId("abdelbaset"), 114),
+        )
+        assertEquals("Alafasy_128kbps-001.zip", QuranReciters.mirrorAssetName("Alafasy_128kbps", 1))
+        // خارج النطاق يسير بأمان إلى حدوده
+        assertEquals("Alafasy_128kbps-001.zip", QuranReciters.mirrorAssetName("Alafasy_128kbps", 0))
+        assertEquals("Alafasy_128kbps-114.zip", QuranReciters.mirrorAssetName("Alafasy_128kbps", 200))
+        // وكل القراء العشرين مجلداتهم بلا فراغات فأسماء الأصول روابط سليمة
+        assertTrue(QuranReciters.ALL.all { !it.folder.contains(' ') })
+    }
 }
 
 /** اختبارات رياضيات ملفات صوت الآيات (alpha54) */
@@ -159,5 +179,27 @@ class QuranAudioMathTest {
             QuranAudioMath.AYAH_ESTIMATED_BYTES * 7,
             QuranAudioMath.estimatedBytes(7),
         )
+    }
+
+    @Test
+    fun `مدخلات ضغط المرآة السليمة فقط تمر — عقد alpha59`() {
+        // اسم الآية المعتمد لسورتها يقبل
+        assertTrue(QuranAudioMath.validZipEntry("001001.mp3", 1))
+        assertTrue(QuranAudioMath.validZipEntry("002255.mp3", 2))
+        assertTrue(QuranAudioMath.validZipEntry("114006.mp3", 114))
+        // سورة غير المطلوبة يُرمى
+        assertTrue(!QuranAudioMath.validZipEntry("001001.mp3", 2))
+        assertTrue(!QuranAudioMath.validZipEntry("003001.mp3", 2))
+        // وكل الغريب: مسارات ومجلدات وامتدادات وأسماء فارغة
+        assertTrue(!QuranAudioMath.validZipEntry("../evil.mp3", 2))
+        assertTrue(!QuranAudioMath.validZipEntry("folder/002001.mp3", 2))
+        assertTrue(!QuranAudioMath.validZipEntry("002001.mp3.bak", 2))
+        assertTrue(!QuranAudioMath.validZipEntry("002001.mp4", 2))
+        assertTrue(!QuranAudioMath.validZipEntry("", 2))
+        assertTrue(!QuranAudioMath.validZipEntry("surah_002", 2))
+        // ورقم الآية يُستخرج من الاسم السليم وحده
+        assertEquals(255, QuranAudioMath.zipEntryAyah("002255.mp3"))
+        assertEquals(1, QuranAudioMath.zipEntryAyah("001001.mp3"))
+        assertEquals(0, QuranAudioMath.zipEntryAyah("hackers.mp3"))
     }
 }

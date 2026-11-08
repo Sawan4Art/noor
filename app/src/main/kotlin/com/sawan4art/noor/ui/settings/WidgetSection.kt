@@ -13,9 +13,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
@@ -33,20 +42,29 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sawan4art.noor.ui.theme.AccentPalette
+import com.sawan4art.noor.util.Hijri
 import com.sawan4art.noor.widget.WidgetCustomization
 import com.sawan4art.noor.widget.WidgetStore
 import com.sawan4art.noor.widget.WidgetUpdater
 
 /**
  * قسم «الويدجت» في الإعدادات — alpha57 بلاغ المالك:
- * «خليها ويدجيت واحده و قابلة للتخصيص بالكامل من الاعدادات التخصيص
- * المتاح هو عرض او ايقاف الوقت و عرض او ايقاف مواقيت الصلاه و عرض او
- * ايقاف المتبقي على الصلاه التاليه و عرض او ايقاف التاريخ الهجري و
- * الميلادي بكذا صيغه و عرض او ايقاف المسبحه للتسبيح من خلال الويدجت
- * و امكانيه جعلها شفافه و اختيار الوان الخط او الوانها و امكانيه
- * اضافه شكل النقطه السائله في اي مكان … مع تغيير لون كل فقاعه».
+ * «خليها ويدجيت واحده و قابلة للتخصيص بالكامل من الاعدادات …»
+ *
+ * وأوسع في alpha59 بلاغ المالك:
+ * - «عايز خانات لتحديد حجم الخط ولونه لكل عنصر» — فلكل عنصرٍ
+ *   صفُّه: رقاقات الحجم (صغير/عادي/كبير) ودوائر اللون (تلقائي +
+ *   ثمانية ألوان) خريطتَي [WidgetCustomization.elementSizes] و[elementColors].
+ * - «عايز صيغ اكثر للتواريخ و عند اختيار صيغه للتاريخ تفتح له قائمه
+ *   منبثقه» — فقائمتان منبثقتان بستٍّ صيغٍ لكل تقويمٍ بنموذجها الحي.
+ * - «يتم ايضا اضافه ساعه تناظريه يمكن للمستخدم الاختيار بينها و بين
+ *   الرقميه» — فرقاقتا شكل الساعة.
+ * - «مواقيت الصلاه و اسماءها تظهر بشكل صغير في الويدجت» — فالخلايا
+ *   الصغيرة عنصرٌ مستقلٌ بحجمه ولونه.
+ * - وضمُّ العناصر الباقية عند إخفاء عنصرٍ — فلا فراغات مكانه.
  *
  * فالقسم كله ضباطٌ حيّة: كل ضغطة تُحفظ في [WidgetStore] وتعيد رسم
  * الويدجت المنصوبة فوراً بـ [WidgetUpdater].
@@ -63,13 +81,18 @@ fun WidgetSection() {
         customization = next
         WidgetStore.save(context, next)
         WidgetUpdater.refreshAll(context)
+        // شكل الساعة يدير منبه الدقيقة — التناظرية تُنَبَّه والرقمية تُهدأ
+        WidgetUpdater.updateMinuteTick(context, next)
     }
 
-    Column {
+    Column(
+        Modifier.verticalScroll(rememberScrollState()),
+    ) {
         Text(
             text = "ويدجت واحدة تخصّصها كما تحب: تستدلي بها من قائمة " +
                 "ويدجتات الشاشة الرئيسية (اضغط مطولاً على الخلفية ← ويدجتات ← " +
-                "نور المسلم)، وكل ضغطةٍ هنا تعيد رسمها فوراً على شاشتك.",
+                "نور المسلم)، وكل ضغطةٍ هنا تعيد رسمها فوراً على شاشتك — " +
+                "وما تخفيه من عناصر يضمّ الباقون مكانه بأجمل توزيع.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 14.dp),
@@ -119,8 +142,8 @@ fun WidgetSection() {
 
         Spacer(Modifier.height(16.dp))
 
-        // ===== لون الخط =====
-        SettingLabel("لون الخط")
+        // ===== لون الخط العام =====
+        SettingLabel("لون الخط العام")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             ThemeChip(
                 "تلقائي",
@@ -136,8 +159,8 @@ fun WidgetSection() {
 
         Spacer(Modifier.height(16.dp))
 
-        // ===== عناصر العرض (بلاغ المالك الخمسة) =====
-        SettingLabel("ما يظهر داخل الويدجت")
+        // ===== عناصر العرض =====
+        SettingLabel("ما يظهر داخل الويدجت — والمخفي يُضمُّ ما حوله")
         ToggleRow("الوقت الحالي", customization.showClock) { on ->
             apply { it.copy(showClock = on) }
         }
@@ -163,43 +186,122 @@ fun WidgetSection() {
             apply { it.copy(showBrand = on) }
         }
 
-        // ===== صيغ التاريخ =====
-        if (customization.showHijri || customization.showGregorian) {
+        // ===== شكل الساعة — رقمية أو تناظرية (بلاغ alpha59) =====
+        if (customization.showClock) {
             Spacer(Modifier.height(14.dp))
-            SettingLabel("صيغ التاريخ")
-            if (customization.showHijri) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ThemeChip("١٤ رمضان ١٤٤٧ هـ", customization.hijriFormat == 0) {
-                        apply { it.copy(hijriFormat = 0) }
-                    }
-                    ThemeChip("١٤ رمضان", customization.hijriFormat == 1) {
-                        apply { it.copy(hijriFormat = 1) }
-                    }
-                    ThemeChip("١٤/٩/١٤٤٧", customization.hijriFormat == 2) {
-                        apply { it.copy(hijriFormat = 2) }
-                    }
+            SettingLabel("شكل الساعة")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ThemeChip(
+                    "رقمية حيّة",
+                    customization.clockStyle == WidgetCustomization.ClockStyle.DIGITAL,
+                ) {
+                    apply { it.copy(clockStyle = WidgetCustomization.ClockStyle.DIGITAL) }
                 }
-                Spacer(Modifier.height(6.dp))
-            }
-            if (customization.showGregorian) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ThemeChip("الجمعة ٧ نوفمبر", customization.gregFormat == 0) {
-                        apply { it.copy(gregFormat = 0) }
-                    }
-                    ThemeChip("٧ نوفمبر", customization.gregFormat == 1) {
-                        apply { it.copy(gregFormat = 1) }
-                    }
-                    ThemeChip("٠٧/١١/٢٠٢٦", customization.gregFormat == 2) {
-                        apply { it.copy(gregFormat = 2) }
-                    }
+                ThemeChip(
+                    "تناظرية",
+                    customization.clockStyle == WidgetCustomization.ClockStyle.ANALOG,
+                ) {
+                    apply { it.copy(clockStyle = WidgetCustomization.ClockStyle.ANALOG) }
                 }
             }
         }
 
+        // ===== صيغ التاريخ — قائمتان منبثقتان بنماذج حية (بلاغ alpha59) =====
+        if (customization.showHijri || customization.showGregorian) {
+            Spacer(Modifier.height(14.dp))
+            SettingLabel("صيغ التاريخ — تختار من القائمة المنبثقة")
+            if (customization.showHijri) {
+                val samples = remember { Hijri.hijriFormatSamples() }
+                FormatDropdown(
+                    label = "التاريخ الهجري",
+                    selected = samples.getOrElse(customization.hijriFormat) { samples.first() },
+                    samples = samples,
+                    onSelect = { i -> apply { it.copy(hijriFormat = i) } },
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+            if (customization.showGregorian) {
+                val samples = remember { Hijri.gregorianFormatSamples() }
+                FormatDropdown(
+                    label = "التاريخ الميلادي",
+                    selected = samples.getOrElse(customization.gregFormat) { samples.first() },
+                    samples = samples,
+                    onSelect = { i -> apply { it.copy(gregFormat = i) } },
+                )
+            }
+        }
+
+        // ===== حجم ولون كل عنصر (بلاغ alpha59) =====
+        Spacer(Modifier.height(16.dp))
+        SettingLabel("حجم الخط ولونه لكل عنصر")
+        ElementStyleRow(
+            title = "الوقت",
+            shown = customization.showClock,
+            size = customization.elementSizes[WidgetCustomization.ELEMENT_CLOCK],
+            color = customization.elementColors[WidgetCustomization.ELEMENT_CLOCK],
+            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_CLOCK to v)) } },
+            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_CLOCK to hex)) } },
+        )
+        ElementStyleRow(
+            title = "التاريخ الهجري",
+            shown = customization.showHijri,
+            size = customization.elementSizes[WidgetCustomization.ELEMENT_HIJRI],
+            color = customization.elementColors[WidgetCustomization.ELEMENT_HIJRI],
+            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_HIJRI to v)) } },
+            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_HIJRI to hex)) } },
+        )
+        ElementStyleRow(
+            title = "التاريخ الميلادي",
+            shown = customization.showGregorian,
+            size = customization.elementSizes[WidgetCustomization.ELEMENT_GREG],
+            color = customization.elementColors[WidgetCustomization.ELEMENT_GREG],
+            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_GREG to v)) } },
+            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_GREG to hex)) } },
+        )
+        ElementStyleRow(
+            title = "الصلاة القادمة",
+            shown = true,
+            size = customization.elementSizes[WidgetCustomization.ELEMENT_NEXT],
+            color = customization.elementColors[WidgetCustomization.ELEMENT_NEXT],
+            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_NEXT to v)) } },
+            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_NEXT to hex)) } },
+        )
+        ElementStyleRow(
+            title = "العدّاد المتبقي",
+            shown = customization.showCountdown,
+            size = customization.elementSizes[WidgetCustomization.ELEMENT_COUNTDOWN],
+            color = customization.elementColors[WidgetCustomization.ELEMENT_COUNTDOWN],
+            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_COUNTDOWN to v)) } },
+            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_COUNTDOWN to hex)) } },
+        )
+        ElementStyleRow(
+            title = "مواقيت الصلوات الصغيرة",
+            shown = customization.showPrayerTimes,
+            size = customization.elementSizes[WidgetCustomization.ELEMENT_GRID],
+            color = customization.elementColors[WidgetCustomization.ELEMENT_GRID],
+            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_GRID to v)) } },
+            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_GRID to hex)) } },
+        )
+        ElementStyleRow(
+            title = "المسبحة",
+            shown = customization.showMisbaha,
+            size = customization.elementSizes[WidgetCustomization.ELEMENT_MISBAHA],
+            color = customization.elementColors[WidgetCustomization.ELEMENT_MISBAHA],
+            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_MISBAHA to v)) } },
+            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_MISBAHA to hex)) } },
+        )
+
         Spacer(Modifier.height(16.dp))
 
         // ===== النقطة السائلة — كل مقامٍ بفقاعتِه ولونها =====
-        SettingLabel("النقطة السائلة")
+        SettingLabel("النقطة السائلة الحية")
+        Text(
+            text = "الفقاعة السائلة الآن برياضيات السائل الحي نفسه في " +
+                "التطبيق: سطحٌ متموّج ولمعةٌ زجاجية وقطرةٌ تابعة — لا نقطةٍ جامدة.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
         ToggleRow("خلف الوقت المتبقي", customization.bubbleOnCountdown) { on ->
             apply { it.copy(bubbleOnCountdown = on) }
         }
@@ -242,6 +344,13 @@ private val BUBBLE_COLORS = listOf(
     "#7A5B9E", "#4E7A4E", "#233029", "#F2EDE0",
 )
 
+/** مقامات الحجم الثلاثة — صغير/عادي/كبير بنسبها المئوية */
+private val SIZE_STEPS = listOf(
+    "صغير" to 70,
+    "عادي" to 100,
+    "كبير" to 135,
+)
+
 @Composable
 private fun TextColorSwatches(selected: String, onSelect: (String) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -263,14 +372,168 @@ private fun ColorSwatchRow(selected: String, onSelect: (String) -> Unit) {
     }
 }
 
+/**
+ * صف ضباط العنصر الواحد — اسمه ثم رقاقات الحجم الثلاث ودوائر اللون
+ * (التلقائي أولها) — وإن كان العنصر مخفياً من العرض يُرسم باهتاً
+ * كي يعرف المالك أن ضباطه محفوظة لظهره.
+ */
 @Composable
-private fun ColorDot(hex: String, selected: Boolean, onClick: () -> Unit) {
+private fun ElementStyleRow(
+    title: String,
+    shown: Boolean,
+    size: Int?,
+    color: String?,
+    onSize: (Int) -> Unit,
+    onColor: (String) -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
-    val color = runCatching { Color(android.graphics.Color.parseColor(hex)) }
-        .getOrDefault(scheme.primary)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(scheme.primary.copy(alpha = if (shown) 0.06f else 0.03f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (shown) scheme.onSurface else scheme.onSurfaceVariant.copy(alpha = 0.55f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SIZE_STEPS.forEach { (label, value) ->
+                SizeChip(
+                    label = label,
+                    selected = (size ?: 100) == value,
+                    dimmed = !shown,
+                    onClick = { onSize(value) },
+                )
+            }
+            Spacer(Modifier.width(6.dp))
+            ColorDot(
+                hex = "",
+                selected = color == null || color == "auto",
+                dimmed = !shown,
+                onClick = { onColor("auto") },
+                autoContent = true,
+            )
+            TEXT_COLORS.take(4).forEach { hex ->
+                ColorDot(hex, color == hex, dimmed = !shown, onClick = { onColor(hex) })
+            }
+        }
+        if (color != null && color != "auto" && !TEXT_COLORS.take(4).contains(color)) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "لون مخصص محفوظ — اختر من الألوان لتغييره",
+                style = MaterialTheme.typography.labelSmall,
+                color = scheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** رقاقة حجم — صغير/عادي/كبير */
+@Composable
+private fun SizeChip(label: String, selected: Boolean, dimmed: Boolean, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = if (selected) scheme.primary else scheme.surface,
+        border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.3f)),
+        onClick = onClick,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) {
+                scheme.onPrimary
+            } else {
+                scheme.onSurface.copy(alpha = if (dimmed) 0.4f else 0.8f)
+            },
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+        )
+    }
+}
+
+/**
+ * القائمة المنبثقة لصيغ التاريخ — بلاغ المالك alpha59: «عند اختيار
+ * صيغه للتاريخ تفتح له قائمه منبثقه» — القيمة الظاهرة نموذج اليوم الحي،
+ * وخيارات القائمة الستة كلٌّ بنموذجه فالاختيار بعينٍ لا بالأرقام.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FormatDropdown(
+    label: String,
+    selected: String,
+    samples: List<String>,
+    onSelect: (Int) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+    ) {
+        OutlinedTextField(
+            value = selected,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        )
+        // عضو نطاق ExposedDropdownMenuBoxScope — لا يُنادي إلا من داخلها
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            samples.forEachIndexed { index, sample ->
+                DropdownMenuItem(
+                    text = { Text(sample) },
+                    onClick = {
+                        onSelect(index)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColorDot(
+    hex: String,
+    selected: Boolean,
+    dimmed: Boolean = false,
+    onClick: () -> Unit,
+    autoContent: Boolean = false,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val color = if (autoContent) {
+        Color.Transparent
+    } else {
+        runCatching { Color(android.graphics.Color.parseColor(hex)) }
+            .getOrDefault(scheme.primary)
+    }
     Box(
         modifier = Modifier
-            .size(30.dp)
+            .size(28.dp)
             .clip(CircleShape)
             .background(color)
             .border(
@@ -279,7 +542,16 @@ private fun ColorDot(hex: String, selected: Boolean, onClick: () -> Unit) {
                 shape = CircleShape,
             )
             .clickable(onClick = onClick),
-    )
+        contentAlignment = Alignment.Center,
+    ) {
+        if (autoContent) {
+            Text(
+                text = "أ",
+                style = MaterialTheme.typography.labelSmall,
+                color = scheme.onSurface.copy(alpha = if (dimmed) 0.4f else 0.75f),
+            )
+        }
+    }
 }
 
 @Composable

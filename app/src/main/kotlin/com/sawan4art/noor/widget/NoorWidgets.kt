@@ -1,5 +1,6 @@
 package com.sawan4art.noor.widget
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -20,6 +21,7 @@ import com.sawan4art.noor.domain.mushaf.MushafSurahs
 import com.sawan4art.noor.ui.theme.AccentPalette
 import com.sawan4art.noor.util.Hijri
 import com.sawan4art.noor.util.TimeFormat
+import java.time.LocalTime
 
 /**
  * ويدجت «نور المسلم» الواحدة — alpha57 بلاغ المالك:
@@ -112,6 +114,10 @@ internal fun withAlpha(color: Int, alpha: Float): Int =
  * الرسّام الواحد — يبني RemoteViews للويدجت بأي تخصيص.
  * العدّاد الحي: Chronometer تنازلي يعدّ ثانيةً بثانية بلا تحديثٍ جديد
  * (درس v0.4: عدّاد الويدجت الحي) وقاعدته «زمن الإقلاع + المتبقي».
+ *
+ * alpha59 — بلاغ المالك: «عايز خانات لتحديد حجم الخط ولونه لكل عنصر»
+ * — فكل عنصرٍ يمرّ على [sizeOf]/[colorOf]: الحجم نسبةٌ مئويةٍ من
+ * قاعدته (الغياب = ١٠٠) واللون إما تلقائي من المظهر أو صريح.
  */
 object WidgetRenderer {
 
@@ -125,52 +131,87 @@ object WidgetRenderer {
         val pal = palette(customization)
         val views = RemoteViews(context.packageName, R.layout.widget_main)
 
-        // الخلفية — دقةٌ معتدلة (١٫٥×) — درس alpha58: كانت ١٠٠٠×٧٢٠
-        // (~٢٫٧٥MB داخل باكِت RemoteViews) فوق مخزن البايندر (~١MB) ففشل
-        // التحديث وبدت الويدجت «تظهر لكن لا تعمل» (بلاغ المالك)
-        val bg = widgetBackgroundBitmap(
-            (widthDp * 3 / 2).coerceAtMost(500),
-            (heightDp * 3 / 2).coerceAtMost(360),
-            pal.bgTop, pal.bgBottom, customization.opacityFraction, pal.accent,
-        )
-        views.setImageViewBitmap(R.id.widget_bg, bg)
+        // نسبة الحجم واللون لكل عنصر — «خانات لتحديد حجم الخط ولونه لكل عنصر»
+        fun sizeOf(key: String, base: Float): Float =
+            base * (customization.elementSizes[key] ?: 100) / 100f
+
+        fun colorOf(key: String, fallback: Int): Int =
+            customization.elementColors[key]
+                ?.let { WidgetCustomization.parseColor(it) } ?: fallback
+
+        fun style(id: Int, key: String, base: Float, fallback: Int) {
+            views.setFloat(id, "setTextSize", sizeOf(key, base))
+            views.setTextColor(id, colorOf(key, fallback))
+        }
 
         fun show(id: Int, visible: Boolean) =
             views.setViewVisibility(id, if (visible) View.VISIBLE else View.GONE)
 
-        // ===== الصف ١: العلامة والمدينة والساعة =====
+        // الخلفية — دقةٌ معتدلة — درس alpha58: مجموع بايتات الصور داخل
+        // باكِت RemoteViews لا يجاوز مخزن البايندر (~١MB) وإلا فشل
+        // التحديث وبدت الويدجت «تظهر لكن لا تعمل». ومع إضافات alpha59
+        // (فقاعات سائلة مرسومة وساعة تناظرية) صغّرنا السقف أكثر
+        // كي يبقى المجموع الكلي بكثيرٍ دون المخزن.
+        val bg = widgetBackgroundBitmap(
+            (widthDp * 3 / 2).coerceAtMost(360),
+            (heightDp * 3 / 2).coerceAtMost(260),
+            pal.bgTop, pal.bgBottom, customization.opacityFraction, pal.accent,
+        )
+        views.setImageViewBitmap(R.id.widget_bg, bg)
+
+        // ===== الصف ١: العلامة والمدينة والساعة (رقمية أو تناظرية) =====
         show(R.id.widget_brand, customization.showBrand)
         views.setTextColor(R.id.widget_brand, pal.text)
         show(R.id.widget_city, customization.showCity && snapshot.city.isNotBlank())
         views.setTextViewText(R.id.widget_city, snapshot.city)
         views.setTextColor(R.id.widget_city, pal.muted)
-        show(R.id.widget_clock, customization.showClock)
-        views.setTextColor(R.id.widget_clock, pal.text)
+        // الساعة الرقمية الحيّة — أو التناظرية المرسومة (بلاغ alpha59:
+        // «يتم ايضا اضافه ساعه تناظريه يمكن للمستخدم الاختيار بينها و
+        // بين الرقميه»)
+        val analog = customization.clockStyle == WidgetCustomization.ClockStyle.ANALOG
+        show(R.id.widget_clock, customization.showClock && !analog)
         views.setCharSequence(R.id.widget_clock, "setFormat12Hour", "h:mm a")
         views.setCharSequence(R.id.widget_clock, "setFormat24Hour", "HH:mm")
+        style(R.id.widget_clock, WidgetCustomization.ELEMENT_CLOCK, 15f, pal.text)
+        if (customization.showClock && analog) {
+            val now = LocalTime.now()
+            views.setViewVisibility(R.id.widget_clock_analog, View.VISIBLE)
+            views.setImageViewBitmap(
+                R.id.widget_clock_analog,
+                WidgetArt.analogClockBitmap(
+                    WidgetArt.ANALOG_SIZE,
+                    now.hour, now.minute,
+                    dialColor = pal.text,
+                    handColor = colorOf(WidgetCustomization.ELEMENT_CLOCK, pal.text),
+                    accentColor = pal.accent,
+                    onDialColor = pal.text,
+                ),
+            )
+        } else {
+            views.setViewVisibility(R.id.widget_clock_analog, View.GONE)
+        }
 
-        // ===== الصف ٢: التاريخان بصيغتيهما =====
+        // ===== الصف ٢: التاريخان بصيغتيهما (ست صيغٍ لكل تقويم) =====
         show(R.id.widget_date_hijri, customization.showHijri)
         views.setTextViewText(
             R.id.widget_date_hijri,
-            Hijri.formatHijri(snapshot.hijriDate, customization.hijriFormat),
+            Hijri.formatHijri(snapshot.hijriDate, customization.hijriFormat, snapshot.gregorianDate),
         )
-        views.setTextColor(R.id.widget_date_hijri, pal.text)
+        style(R.id.widget_date_hijri, WidgetCustomization.ELEMENT_HIJRI, 11f, pal.text)
         show(R.id.widget_date_greg, customization.showGregorian)
         views.setTextViewText(
             R.id.widget_date_greg,
             Hijri.formatGregorian(snapshot.gregorianDate, customization.gregFormat),
         )
-        views.setTextColor(R.id.widget_date_greg, pal.accent)
+        style(R.id.widget_date_greg, WidgetCustomization.ELEMENT_GREG, 11f, pal.accent)
 
         // ===== الصف ٣: القادمة ووقتها والعدّاد =====
         views.setTextViewText(R.id.widget_next_name, snapshot.nextName)
-        views.setTextColor(R.id.widget_next_name, pal.text)
+        style(R.id.widget_next_name, WidgetCustomization.ELEMENT_NEXT, 20f, pal.text)
         views.setTextViewText(R.id.widget_next_time, snapshot.nextTimeText)
-        views.setTextColor(R.id.widget_next_time, pal.accent)
+        style(R.id.widget_next_time, WidgetCustomization.ELEMENT_NEXT, 14f, pal.accent)
         if (customization.showCountdown) {
             views.setViewVisibility(R.id.widget_countdown, View.VISIBLE)
-            views.setTextColor(R.id.widget_countdown, pal.muted)
             // الجذر المُصلَح (alpha58 — بلاغ المالك: «الويدجت تظهر في
             // التطبيقات المصغرة لكن لا تعمل»): ضبط القاعدة وحدها لا يُحرك
             // العدّاد — RemoteViews لا يستدعي start() أبداً فبقي العدّاد
@@ -185,10 +226,12 @@ object WidgetRenderer {
         } else {
             views.setViewVisibility(R.id.widget_countdown, View.GONE)
         }
+        style(R.id.widget_countdown, WidgetCustomization.ELEMENT_COUNTDOWN, 12f, pal.muted)
         bindBubble(
             views, R.id.widget_bubble_countdown,
             customization.bubbleOnCountdown && customization.showCountdown,
             customization.bubbleColorCountdown, pal,
+            WidgetArt.COUNTDOWN_BUBBLE_W, WidgetArt.COUNTDOWN_BUBBLE_H, 0f,
         )
 
         // ===== الصف ٤: مواقيت الصلوات الست + فقاعتا القادمة والحالية =====
@@ -196,15 +239,19 @@ object WidgetRenderer {
         snapshot.rows.forEachIndexed { i, row ->
             val nameId = GRID_NAME_IDS[i]
             val timeId = GRID_TIME_IDS[i]
+            // الاسم الصغير فوق الوقت — بلاغ المالك alpha59: «مواقيت
+            // الصلاه و اسماءها تظهر بشكل صغير في الويدجت»
             views.setTextViewText(nameId, row.name)
-            views.setTextColor(nameId, if (row.isPast && i != currentIndex) pal.muted else pal.text)
+            views.setFloat(nameId, "setTextSize", sizeOf(WidgetCustomization.ELEMENT_GRID, 10f))
+            views.setTextColor(nameId, if (row.isPast && i != currentIndex) pal.muted else colorOf(WidgetCustomization.ELEMENT_GRID, pal.text))
             views.setTextViewText(timeId, row.time)
+            views.setFloat(timeId, "setTextSize", sizeOf(WidgetCustomization.ELEMENT_GRID, 10f))
             views.setTextColor(
                 timeId,
                 when {
-                    row.isNext -> pal.accent
+                    row.isNext -> colorOf(WidgetCustomization.ELEMENT_GRID, pal.accent)
                     row.isPast && i != currentIndex -> pal.muted
-                    else -> pal.text
+                    else -> colorOf(WidgetCustomization.ELEMENT_GRID, pal.text)
                 },
             )
             val bubbleId = GRID_BUBBLE_IDS[i]
@@ -218,7 +265,10 @@ object WidgetRenderer {
                 customization.bubbleOnCurrent && i == currentIndex -> customization.bubbleColorCurrent
                 else -> WidgetCustomization.DEFAULT_BUBBLE
             }
-            bindBubble(views, bubbleId, lit && customization.showPrayerTimes, bubbleColor, pal)
+            bindBubble(
+                views, bubbleId, lit && customization.showPrayerTimes, bubbleColor, pal,
+                WidgetArt.GRID_BUBBLE_W, WidgetArt.GRID_BUBBLE_H, i * 0.9f,
+            )
         }
         show(R.id.grid_row, customization.showPrayerTimes)
 
@@ -230,9 +280,9 @@ object WidgetRenderer {
                 R.id.widget_misbaha_count,
                 "المسبحة: ${MushafSurahs.arabicDigits(count)}",
             )
-            views.setTextColor(R.id.widget_misbaha_count, pal.text)
-            views.setTextColor(R.id.widget_misbaha_tap, pal.accent)
-            views.setTextColor(R.id.widget_misbaha_reset, pal.muted)
+            style(R.id.widget_misbaha_count, WidgetCustomization.ELEMENT_MISBAHA, 14f, pal.text)
+            style(R.id.widget_misbaha_tap, WidgetCustomization.ELEMENT_MISBAHA, 12f, pal.accent)
+            style(R.id.widget_misbaha_reset, WidgetCustomization.ELEMENT_MISBAHA, 11f, pal.muted)
             views.setOnClickPendingIntent(
                 R.id.widget_misbaha_tap,
                 misbahaPendingIntent(context, NoorWidget.ACTION_MISBAHA_TAP),
@@ -245,12 +295,27 @@ object WidgetRenderer {
         return views
     }
 
-    /** فقاعةٌ سائلة خلف مقامٍ — تظهر وتُلوَّن بلونها أو تختفي */
-    private fun bindBubble(views: RemoteViews, id: Int, visible: Boolean, colorRaw: String, pal: WidgetPalette) {
+    /**
+     * فقاعةٌ سائلةٌ حيّةٌ خلف مقامٍ — بلاغ المالك alpha59: «يظهر كنقطه
+     * ماء مخالفه تماماً للسائل الحي الموجود في التطبيق فهذا ما اريده و
+     * ليس مجرد نقطه» — فبدل المتّجه النقطيّ القديم تُرسم لكل مقامٍ
+     * صورةُ قطرةٍ متموجةٍ بلونها وطورٍ مختلفٍ كأنها سائلٌ التطبيق نفسه
+     * وقد وقف في مقامه.
+     */
+    private fun bindBubble(
+        views: RemoteViews,
+        id: Int,
+        visible: Boolean,
+        colorRaw: String,
+        pal: WidgetPalette,
+        widthPx: Int,
+        heightPx: Int,
+        phase: Float,
+    ) {
         if (visible) {
             val color = WidgetCustomization.parseColor(colorRaw) ?: pal.accent
             views.setViewVisibility(id, View.VISIBLE)
-            views.setInt(id, "setColorFilter", color)
+            views.setImageViewBitmap(id, WidgetArt.liquidBubbleBitmap(widthPx, heightPx, color, phase))
         } else {
             views.setViewVisibility(id, View.GONE)
         }
@@ -282,7 +347,8 @@ object WidgetRenderer {
 /**
  * الويدجت الواحدة — تحديثها يعيد الحساب والرسم من الإعدادات الحية،
  * وأزرار المسبحة فيها بثّانٍ داخليّان يزيّدان أو يصفّرون ثم يعيدان
- * الرسم فوراً.
+ * الرسم فوراً. ومع الساعة التناظرية (alpha59) بثّ نبضةٍ كل دقيقةٍ
+ * يعيد رسم العقارب ما دامت ظاهرة — ويُلغى ما إن تعود رقمية.
  */
 class NoorWidget : AppWidgetProvider() {
 
@@ -303,6 +369,8 @@ class NoorWidget : AppWidgetProvider() {
             }
             if (views != null) manager.updateAppWidget(id, views)
         }
+        // نبضة الدقيقة للساعة التناظرية فقط — الرقمية حيّةٌ وحدها
+        WidgetUpdater.updateMinuteTick(context, customization)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -310,6 +378,12 @@ class NoorWidget : AppWidgetProvider() {
         when (intent.action) {
             ACTION_MISBAHA_TAP -> WidgetStore.misbahaTap(context)
             ACTION_MISBAHA_RESET -> WidgetStore.misbahaReset(context)
+            ACTION_TICK -> {
+                // عقارب الساعة التناظرية — إعادة رسمٍ ثم دقّة الدقيقة التالية
+                WidgetUpdater.refreshAll(context)
+                WidgetUpdater.updateMinuteTick(context, WidgetStore.customization(context))
+                return
+            }
             else -> return
         }
         // ضغطة المسبحة تعيد رسم الويدجت فوراً فيعدّ العدّ أمام عين المستخدم
@@ -322,6 +396,9 @@ class NoorWidget : AppWidgetProvider() {
 
         /** بثّ داخلي: تصفير المسبحة من الويدجت */
         const val ACTION_MISBAHA_RESET = "com.sawan4art.noor.widget.MISBAHA_RESET"
+
+        /** بثّ داخلي: نبضة الدقيقة للساعة التناظرية (alpha59) */
+        const val ACTION_TICK = "com.sawan4art.noor.widget.CLOCK_TICK"
     }
 }
 
@@ -329,6 +406,7 @@ class NoorWidget : AppWidgetProvider() {
 object WidgetUpdater {
 
     private val PROVIDER = NoorWidget::class.java
+    private const val TICK_REQUEST_CODE = 2001
 
     /** تحديث ويدجت التطبيق المنصوبة — يُستدعى من التطبيق والمنبهات */
     fun refreshAll(context: Context) {
@@ -341,4 +419,37 @@ object WidgetUpdater {
             manager.updateAppWidget(ids, WidgetRenderer.render(context, snapshot, customization))
         }
     }
+
+    /**
+     * نبضة الدقيقة — عقارب الساعة التناظرية لا تتحرك وحدها في RemoteViews
+     * (بلاغ alpha59: «ساعه تناظريه») فمنبهٌ رقيقٌ كل دقيقةٍ يعيد الرسم
+     * ما دامت الساعة التناظرية مختارةً والويدجت منصوبة، ويُلغى بعودة
+     * الرقمية — فلا بطارية تُهدر إلا لعقاربٍ تُرى.
+     */
+    fun updateMinuteTick(context: Context, customization: WidgetCustomization) {
+        runCatching {
+            val manager = AppWidgetManager.getInstance(context)
+            val hasWidget = manager != null &&
+                manager.getAppWidgetIds(ComponentName(context, PROVIDER)).isNotEmpty()
+            val wanted = hasWidget && customization.showClock &&
+                customization.clockStyle == WidgetCustomization.ClockStyle.ANALOG
+            val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+                ?: return
+            val pi = tickPendingIntent(context)
+            am.cancel(pi)
+            if (wanted) {
+                // بداية الدقيقة التالية — والعقرب يقفز في موعدها
+                val nextMinute = (System.currentTimeMillis() / 60_000L + 1L) * 60_000L
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextMinute, pi)
+            }
+        }
+    }
+
+    private fun tickPendingIntent(context: Context): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            TICK_REQUEST_CODE,
+            Intent(context, PROVIDER).setAction(NoorWidget.ACTION_TICK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 }

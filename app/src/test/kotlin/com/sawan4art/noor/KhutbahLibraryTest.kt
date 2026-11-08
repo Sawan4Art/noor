@@ -73,4 +73,29 @@ class KhutbahLibraryTest {
         assertEquals(titles.size, titles.toSet().size)
         assertTrue(titles.any { it.contains("الجمعة") })
     }
+
+    @Test
+    fun `خطوة تصغير المصغر قوى اثنين حتى الحافة المطلوبة — عقد alpha59`() {
+        // صورة كاميرا ١٢ ميغابكسل (٤٠٠٠×٣٠٠٠) نحو حافة ٢١٦ — الشرط على
+        // الضلع الأطول: ٤٠٠٠→٢٠٠٠→١٠٠٠→٥٠٠→٢٥٠ (كلها ≥ ٢١٦) ثم ١٢٥ يتوقف
+        assertEquals(16, KhutbahLibrary.thumbnailSampleSize(4000, 3000, 216))
+        // وصورة ١٦ ميغابكسل (٤٦٤٠×٣٤٨٠) الخطوة نفسها
+        assertEquals(16, KhutbahLibrary.thumbnailSampleSize(4640, 3480, 216))
+        // وصورة صغيرة تنكمش خطوةً واحدة تُلائم المربع
+        assertEquals(2, KhutbahLibrary.thumbnailSampleSize(500, 400, 216))
+        // وصورة بحجم الحافة المطلوبة تبقى كما هي
+        assertEquals(1, KhutbahLibrary.thumbnailSampleSize(216, 216, 216))
+        // والخطوة دائماً قوى اثنين كما يطلب BitmapFactory
+        for (w in intArrayOf(2000, 3000, 4000, 8000)) {
+            val s = KhutbahLibrary.thumbnailSampleSize(w, w, 216)
+            assertTrue("قوى اثنين: $s", s == 1 || s % 2 == 0 && (s and (s - 1)) == 0)
+        }
+        // فك الفاشل (أبعاد صفر أو سالبة أو هدف صفر) بأمان خطوة ١
+        assertEquals(1, KhutbahLibrary.thumbnailSampleSize(0, 0, 216))
+        assertEquals(1, KhutbahLibrary.thumbnailSampleSize(-100, 300, 216))
+        assertEquals(1, KhutbahLibrary.thumbnailSampleSize(4000, 3000, 0))
+        // وحافة الاستيراد ١٦٠٠ تعطي خطوات معقولة للصور العملاقة
+        assertEquals(2, KhutbahLibrary.thumbnailSampleSize(4000, 3000, 1600))
+        assertEquals(4, KhutbahLibrary.thumbnailSampleSize(8000, 6000, 1600))
+    }
 }

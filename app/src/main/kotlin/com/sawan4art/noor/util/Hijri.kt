@@ -51,25 +51,58 @@ object Hijri {
     }
 
     /**
-     * صيغ الهجري للويدجت (alpha57 — «التاريخ الهجري و الميلادي بكذا صيغه»):
-     * ٠ كاملة «١٤ رمضان ١٤٤٧ هـ» — ١ مختصرة «١٤ رمضان» — ٢ رقمية «١٤/٩/١٤٤٧»
+     * صيغ الهجري للويدجت (alpha57: «التاريخ الهجري و الميلادي بكذا
+     * صيغه» — وأوسع في alpha59 بلاغ المالك: «عايز صيغ اكثر للتواريخ
+     * و عند اختيار صيغه للتاريخ تفتح له قائمه منبثقه»):
+     * ٠ كاملة «١٤ رمضان ١٤٤٧ هـ» — ١ مختصرة «١٤ رمضان» — ٢ رقمية
+     * «١٤/٠٩/١٤٤٧» — ٣ بلا هـ «١٤ رمضان ١٤٤٧» — ٤ بيوم الأسبوع
+     * «السبت ١٤ رمضان ١٤٤٧ هـ» (يوم الأسبوع من التاريخ الميلادي الموافق
+     * فيُمرَّر في [gregorian]) — ٥ يوم وشهر رقمياً «١٤/٠٩»
      * وكل صيغةٍ غريبةٍ تسير إلى الكاملة.
      */
-    fun formatHijri(h: HijriDate, style: Int): String = when (style) {
-        1 -> arabicDigits("${h.day} ${h.monthName}")
-        2 -> arabicDigits("%02d/%02d/%04d".format(h.day, h.month, h.year))
-        else -> arabicDigits(h.formatted)
-    }
+    fun formatHijri(h: HijriDate, style: Int, gregorian: LocalDate? = null): String =
+        when (style) {
+            1 -> arabicDigits("${h.day} ${h.monthName}")
+            2 -> arabicDigits("%02d/%02d/%04d".format(h.day, h.month, h.year))
+            3 -> arabicDigits("${h.day} ${h.monthName} ${h.year}")
+            4 -> {
+                val day = gregorian?.let { "${dayNameAr(it)} " } ?: ""
+                arabicDigits("$day${h.day} ${h.monthName} ${h.year} هـ")
+            }
+            5 -> arabicDigits("%02d/%02d".format(h.day, h.month))
+            else -> arabicDigits(h.formatted)
+        }
 
     /**
      * صيغ الميلادي للويدجت:
-     * ٠ «السبت ٧ نوفمبر ٢٠٢٦» — ١ مختصرة «٧ نوفمبر» — ٢ رقمية «٠٧/١١/٢٠٢٦»
+     * ٠ «السبت ٧ نوفمبر ٢٠٢٦» — ١ مختصرة «٧ نوفمبر» — ٢ رقمية
+     * «٠٧/١١/٢٠٢٦» — ٣ بلا يوم الأسبوع «٧ نوفمبر ٢٠٢٦» — ٤ بيوم
+     * الأسبوع بلا سنة «السبت ٧ نوفمبر» — ٥ يوم وشهر رقمياً «٠٧/١١»
      * وكل صيغةٍ غريبةٍ تسير إلى الكاملة.
      */
     fun formatGregorian(d: LocalDate, style: Int): String = when (style) {
-        1 -> gregorianArabic(d).substringBefore(d.year.toString()).trim()
+        1 -> arabicDigits(gregorianArabic(d).substringBefore(d.year.toString()).trim())
         2 -> arabicDigits(d.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
-        else -> "${dayNameAr(d)} ${gregorianArabic(d)}"
+        3 -> arabicDigits(gregorianArabic(d))
+        4 -> arabicDigits("${dayNameAr(d)} ${gregorianArabic(d).substringBefore(d.year.toString()).trim()}")
+        5 -> arabicDigits(d.format(DateTimeFormatter.ofPattern("dd/MM")))
+        else -> arabicDigits("${dayNameAr(d)} ${gregorianArabic(d)}")
+    }
+
+    /**
+     * نماذج الصيغ الست للقائمة المنبثقة في الإعدادات (بلاغ المالك:
+     * «عند اختيار صيغه للتاريخ تفتح له قائمه منبثقه») — كل صيغةٍ بنموذجها
+     * الحي من تاريخ اليوم فيختار المستخدم وهو يرى.
+     */
+    fun hijriFormatSamples(): List<String> {
+        val g = LocalDate.now()
+        val h = of(g)
+        return (0..5).map { formatHijri(h, it, g) }
+    }
+
+    fun gregorianFormatSamples(): List<String> {
+        val g = LocalDate.now()
+        return (0..5).map { formatGregorian(g, it) }
     }
 
     /** التاريخ الميلادي بصيغة عربية: ٣٠ أكتوبر ٢٠٢٦ */

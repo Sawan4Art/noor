@@ -451,4 +451,29 @@ object KhutbahLibrary {
     /** نص الخطبة الكامل — الافتتاح ثم الفقرات ثم الخاتمة */
     fun fullText(khutbah: Khutbah): String =
         (listOf(OPENING) + khutbah.body + listOf(CLOSING)).joinToString("\n\n")
+
+    /**
+     * خطوة تصغير فكّ الصورة (قوى ٢ كما يطلب BitmapFactory) حتى تقع
+     * أطول أضلاعيها قرب [targetPx] — بلاغ المالك alpha59: «زر قسم اعداد
+     * خطبه الجمعه مازال يحدث جلتش و يخرج التطبيق فجأه» — فصور الخطبة
+     * تُستورد بحجم كاميراتها الأصلي (١٢–٤٨ ميغابكسل) وكانت تُفكّ
+     * كاملةً في الذاكرة لأجل مربع ٧٢dp: انفجار ذاكرةٍ يجمد الواجهة
+     * (الجلتش) ثم يقتل العملية (الخروج). فالآن تُفكّ مصغّرةً مسبقاً
+     * بحسابٍ نقيٍّ هنا يُختبر آلياً — والشرط على **الضلع الأطول** وحده
+     * كي تنكمش صور الأفقيّ والعموديّ معاً.
+     *
+     * [width]/[height] صفرٌ أو سالب (فكّ الفشل) يعود بخطوة ١ بأمان.
+     */
+    fun thumbnailSampleSize(width: Int, height: Int, targetPx: Int): Int {
+        if (width <= 0 || height <= 0 || targetPx <= 0) return 1
+        var sample = 1
+        var w = width
+        var h = height
+        while (maxOf(w, h) / 2 >= targetPx) {
+            w /= 2
+            h /= 2
+            sample *= 2
+        }
+        return sample
+    }
 }

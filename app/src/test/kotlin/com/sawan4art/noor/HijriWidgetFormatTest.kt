@@ -7,8 +7,10 @@ import org.junit.Test
 import java.time.LocalDate
 
 /**
- * اختبارات صيغ التاريخ للويدجت (alpha57 — بلاغ المالك: «التاريخ الهجري
- * و الميلادي بكذا صيغه») — ثلاث صيغٍ لكل تقويمٍ بعربيةٍ سليمة.
+ * اختبارات صيغ التاريخ للويدجت (alpha57: «التاريخ الهجري و الميلادي
+ * بكذا صيغه» — وأوسع في alpha59 بلاغ المالك: «عايز صيغ اكثر للتواريخ
+ * و عند اختيار صيغه للتاريخ تفتح له قائمه منبثقه») — ستُّ صيغٍ لكل
+ * تقويمٍ بعربيةٍ سليمة، ونماذج القائمة المنبثقة ستةٌ لا أكثر ولا أقل.
  */
 class HijriWidgetFormatTest {
 
@@ -16,10 +18,16 @@ class HijriWidgetFormatTest {
     private val greg = LocalDate.of(2026, 11, 7)
 
     @Test
-    fun `صيغ الهجري الثلاث`() {
+    fun `صيغ الهجري الست`() {
         assertEquals("١٤ رمضان ١٤٤٧ هـ", Hijri.formatHijri(hijri, 0))
         assertEquals("١٤ رمضان", Hijri.formatHijri(hijri, 1))
         assertEquals("١٤/٠٩/١٤٤٧", Hijri.formatHijri(hijri, 2))
+        assertEquals("١٤ رمضان ١٤٤٧", Hijri.formatHijri(hijri, 3))
+        // بيوم الأسبوع من الميلادي الموافق (٧ نوفمبر ٢٠٢٦ = السبت)
+        assertEquals("السبت ١٤ رمضان ١٤٤٧ هـ", Hijri.formatHijri(hijri, 4, greg))
+        // وبغياب الميلادي يصير كاملاً بلا اسم يوم
+        assertEquals("١٤ رمضان ١٤٤٧ هـ", Hijri.formatHijri(hijri, 4))
+        assertEquals("١٤/٠٩", Hijri.formatHijri(hijri, 5))
     }
 
     @Test
@@ -29,13 +37,23 @@ class HijriWidgetFormatTest {
     }
 
     @Test
-    fun `صيغ الميلادي الثلاث تحمل اليوم والأرقام الهندية`() {
+    fun `صيغ الميلادي الست`() {
         val full = Hijri.formatGregorian(greg, 0)
-        val short = Hijri.formatGregorian(greg, 1)
-        val numeric = Hijri.formatGregorian(greg, 2)
         assertTrue("التاريخ الكامل يذكر اليوم: $full", full.startsWith("السبت"))
+        val short = Hijri.formatGregorian(greg, 1)
         assertTrue("المختصرة بلا سنة: $short", !short.contains("٢٠٢٦"))
-        assertEquals("٠٧/١١/٢٠٢٦", numeric)
+        assertEquals("٠٧/١١/٢٠٢٦", Hijri.formatGregorian(greg, 2))
+        assertEquals("٧ نوفمبر ٢٠٢٦", Hijri.formatGregorian(greg, 3))
+        assertEquals("السبت ٧ نوفمبر", Hijri.formatGregorian(greg, 4))
+        assertEquals("٠٧/١١", Hijri.formatGregorian(greg, 5))
+    }
+
+    @Test
+    fun `نماذج القائمة المنبثقة ستة لكل تقويم — عقد alpha59`() {
+        assertEquals(6, Hijri.hijriFormatSamples().size)
+        assertEquals(6, Hijri.gregorianFormatSamples().size)
+        // والنموذج الرابع للهجري يذكر يوم الأسبوع لأنه يُحسب من اليوم الحي
+        assertTrue(Hijri.hijriFormatSamples()[4].contains("هـ"))
     }
 
     @Test

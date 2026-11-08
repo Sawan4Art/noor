@@ -75,6 +75,13 @@ import java.io.File
  *   الخطبة المعتمدة كما حُرِّرت في الإعدادات، بلا حقول كتابةٍ إطلاقاً.
  */
 
+/**
+ * حافة مصغّرة الصور بالبكسل — مربع العرض ٧٢dp عند كثافة أعلى شائعة
+ * (×٣) فلا معنى لفكٍّ أكبر منه — وهي عصا الإصلاح لبلاغ الجلتش:
+ * الصور العملاقة لا تدخل الذاكرة أصلاً.
+ */
+private const val THUMBNAIL_TARGET_PX = 216
+
 /** محرر الخطبة — جسمُ القسم داخل الإعدادات بلا أغلفة اللوحة */
 @Composable
 fun KhutbahEditorContent(
@@ -537,8 +544,26 @@ internal fun KhutbahImagesRow(
                 LaunchedEffect(fileName) {
                     bmp = withContext(Dispatchers.IO) {
                         runCatching {
+                            // الجذر المُصلَح (alpha59 — بلاغ المالك: «زر
+                            // قسم اعداد خطبه الجمعه مازال يحدث جلتش و
+                            // يخرج التطبيق»): الفك الكامل لصور كاميرا
+                            // ١٢–٤٨ ميغابكسل لأجل مربع ٧٢dp كان ينفجر
+                            // في الذاكرة — فالآن فكٌّ مصغَّر مسبقاً
+                            // (خطوة قوى ٢ من حساب KhutbahLibrary النقي)
+                            // فالمربع يستهلك كيلوبايتات لا مئات
+                            // الميغابايتات.
+                            val file = File(File(context.filesDir, "khutbah_images"), fileName)
+                            val bounds = BitmapFactory.Options().apply {
+                                inJustDecodeBounds = true
+                            }
+                            BitmapFactory.decodeFile(file.absolutePath, bounds)
+                            val sample = KhutbahLibrary.thumbnailSampleSize(
+                                bounds.outWidth, bounds.outHeight,
+                                THUMBNAIL_TARGET_PX,
+                            )
                             BitmapFactory.decodeFile(
-                                File(File(context.filesDir, "khutbah_images"), fileName).absolutePath,
+                                file.absolutePath,
+                                BitmapFactory.Options().apply { inSampleSize = sample },
                             )
                         }.getOrNull()?.asImageBitmap()
                     }

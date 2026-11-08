@@ -94,6 +94,26 @@ object QuranReciters {
     fun fallbackUrl(reciter: Reciter, globalAyah: Int): String? =
         reciter.fallbackEdition?.let { "$FALLBACK_BASE_URL/$it/$globalAyah.mp3" }
 
+    /**
+     * **مرآة جت هب** — بلاغ المالك alpha59: «عايز اخلي الاصوات دي تكون
+     * موجوده على سيرفر على جت هب او على الموقع بتاع التطبيق علشان
+     * نضمن ان التحميل يتم صح». فالمرآة مستودعٌ مستقل (noor-audio) عليه
+     * إصدار audio-v1 أصوله «مجلد الشيخ-رقم السورة.zip» وبداخل كل أصلٍ
+     * آيات السورة بأسمائها المعتمدة نفسها (sssaaa.mp3) — فالتطبيق
+     * ينزّل السورة ضغطة شبكة واحدة من هنا أولًا، فإن غاب الأصل أو تعذر
+     * فالطريق القديم باقٍ بعده: everyayah آيةً آيةً ثم islamic.network.
+     */
+    const val MIRROR_BASE_URL =
+        "https://github.com/Sawan4Art/noor-audio/releases/download/audio-v1"
+
+    /** اسم أصل السورة في المرآة — «Alafasy_128kbps-002.zip» */
+    fun mirrorAssetName(folder: String, sura: Int): String =
+        "%s-%03d.zip".format(folder, sura.coerceIn(1, 114))
+
+    /** رابط سورة الشيخ المضغوطة على المرآة */
+    fun mirrorSurahUrl(reciter: Reciter, sura: Int): String =
+        "$MIRROR_BASE_URL/${mirrorAssetName(reciter.folder, sura)}"
+
     /** عدد المصريين في القائمة — عقد المالك: عشرة مصريين بالضبط */
     const val EGYPTIAN_COUNT = 10
 
@@ -120,6 +140,25 @@ object QuranAudioMath {
 
     /** اسم مجلد السورة داخل مجلد الشيخ — «surah_002» */
     fun surahDirName(sura: Int): String = "surah_%03d".format(sura.coerceIn(1, 114))
+
+    /**
+     * هل اسم مُدخلٍ في ضغط المرآة آيةً سليمةً لهذه السورة؟ — عقد
+     * alpha59: الاسم حرفيًا «٣ سورة + ٣ آية.mp3» وسورة المدخل هي
+     * السورة المطلوبة نفسها — فكل غريبٍ (مسارات «../» أو مجلدات أو
+     * امتدادات أخرى) يُرمى ولا يُستخرج أبدًا.
+     */
+    fun validZipEntry(name: String, sura: Int): Boolean {
+        val m = ENTRY_PATTERN.matchEntire(name) ?: return false
+        return (m.groupValues[1].toIntOrNull() ?: -1) == sura.coerceIn(1, 114)
+    }
+
+    /** رقم الآية من اسم مُدخلٍ سليم — للمُدخل المرفوض يعود صفر */
+    fun zipEntryAyah(name: String): Int {
+        val m = ENTRY_PATTERN.matchEntire(name) ?: return 0
+        return m.groupValues[2].toIntOrNull() ?: 0
+    }
+
+    private val ENTRY_PATTERN = Regex("^(\\d{3})(\\d{3})\\.mp3$")
 
     /**
      * عدد ملفات تنزيل السورة — عدّ آياتها كما في المصحف (الفتحة ٧

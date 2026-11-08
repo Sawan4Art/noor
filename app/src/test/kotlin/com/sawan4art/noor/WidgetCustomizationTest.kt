@@ -54,6 +54,15 @@ class WidgetCustomizationTest {
             showGregorian = false,
             gregFormat = 1,
             showMisbaha = true,
+            clockStyle = WidgetCustomization.ClockStyle.ANALOG,
+            elementSizes = mapOf(
+                WidgetCustomization.ELEMENT_CLOCK to 135,
+                WidgetCustomization.ELEMENT_GRID to 70,
+            ),
+            elementColors = mapOf(
+                WidgetCustomization.ELEMENT_HIJRI to "#5B6E9E",
+                WidgetCustomization.ELEMENT_MISBAHA to "auto",
+            ),
             bubbleOnCountdown = true,
             bubbleColorCountdown = "#5B6E9E",
             bubbleOnNext = false,
@@ -117,14 +126,43 @@ class WidgetCustomizationTest {
     }
 
     @Test
-    fun `صيغتا التاريخ محصورتان في الثلاث`() {
+    fun `صيغتا التاريخ محصورتان في الست — بلاغ alpha59`() {
         val parsed = WidgetCustomization.fromJson("""{"hijriFormat": 9, "gregFormat": -3}""")
-        assertTrue(parsed.hijriFormat in 0..2)
+        assertTrue(parsed.hijriFormat in 0..5)
         // التخزين يحصر عند الكتابة — والقراءة تسير بأمان
         val stored = WidgetCustomization.fromJson(
             WidgetCustomization(hijriFormat = 9, gregFormat = -3).toJson(),
         )
-        assertEquals(2, stored.hijriFormat)
+        assertEquals(5, stored.hijriFormat)
         assertEquals(0, stored.gregFormat)
+    }
+
+    @Test
+    fun `شكل الساعة رقمية افتراضاً والغريب يعود رقمياً`() {
+        assertEquals(WidgetCustomization.ClockStyle.DIGITAL, WidgetCustomization.DEFAULT.clockStyle)
+        val analog = WidgetCustomization.fromJson("""{"clockStyle": "ANALOG"}""")
+        assertEquals(WidgetCustomization.ClockStyle.ANALOG, analog.clockStyle)
+        val broken = WidgetCustomization.fromJson("""{"clockStyle": "SUNDIAL"}""")
+        assertEquals(WidgetCustomization.ClockStyle.DIGITAL, broken.clockStyle)
+    }
+
+    @Test
+    fun `خرائط الحجم واللون للعناصر تُقرأ بسلامة وتُقذّر الغريب`() {
+        // مفاتيح غريبة تُرمى والقيم خارج الحدود تُحصر
+        val parsed = WidgetCustomization.fromJson(
+            """{"elementSizes": {"clock": 300, "ghost": 150, "grid": 40},
+               "elementColors": {"hijri": "#5B6E9E", "ghost": "#123456"}}""",
+        )
+        assertEquals(200, parsed.elementSizes[WidgetCustomization.ELEMENT_CLOCK])
+        assertEquals(50, parsed.elementSizes[WidgetCustomization.ELEMENT_GRID])
+        assertEquals(null, parsed.elementSizes["ghost"])
+        assertEquals("#5B6E9E", parsed.elementColors[WidgetCustomization.ELEMENT_HIJRI])
+        assertEquals(null, parsed.elementColors["ghost"])
+        // وتدوير القيم السليمة يفقد شيئاً
+        val c = WidgetCustomization(
+            elementSizes = mapOf(WidgetCustomization.ELEMENT_NEXT to 135),
+            elementColors = mapOf(WidgetCustomization.ELEMENT_GRID to "#C98A3D"),
+        )
+        assertEquals(c, WidgetCustomization.fromJson(c.toJson()))
     }
 }

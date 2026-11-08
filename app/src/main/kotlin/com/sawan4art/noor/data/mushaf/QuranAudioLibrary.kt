@@ -15,9 +15,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
+import java.util.zip.ZipInputStream
 
 /**
  * مكتبة أصوات الشيوخ — توجيه المالك ٢٠٢٦-١١-٠٦:
@@ -27,9 +30,12 @@ import java.util.concurrent.ConcurrentHashMap
  * • **التنزيل في مجال التطبيق نفسه** (إصلاح alpha56 — بلاغ المالك:
  *   «تحميل اصوات الشيوخ لا يعمل»): كان التنزيل مرتبطاً بمجال الواجهة
  *   فمات مع إغلاق اللوحة أو مغادرة الإعدادات؛ الآن يعيش في مجالٍ مستقل
- *   يكمل ما بدأه حتى لو أُغلقت كل الشاشات، وبمحاولتين: everyayah أولاً
- *   فإن فشل الآية جُرّبت نظيرتها في مكتبة islamic.network للشيوخ
- *   الذين لهم إصدارٌ هناك.
+ *   يكمل ما بدأه حتى لو أُغلقت كل الشاشات.
+ * • **مرآة جت هب أولًا** (alpha59 — بلاغ المالك: «عايز اخلي الاصوات دي
+ *   تكون موجوده على سيرفر على جت هب علشان نضمن ان التحميل يتم صح»):
+ *   السورة كلها ضغطةٌ واحدة من مستودع noor-audio (إصدار audio-v1)
+ *   وتُفكّ إلى آياتها، فإن غاب الأصل أو تعذر جاء دور everyayah آيةً
+ *   آيةً ثم نظيرتها في مكتبة islamic.network لمن له إصدارٌ هناك.
  * • **ملفات مؤقتة تُسمّى نهائياً بعد اكتمالها فقط** — فالملف الحاضر
  *   مضمونٌ كاملٌ لا ناقص، والتنزيل المقطوع يستأنف من حيث توقف لأن
  *   الموجود يُتخطى أولاً. مجلدات التطبيق الخارجية الخاصة
@@ -191,6 +197,25 @@ object QuranAudioLibrary {
 
         outer@ for (s in surahs) {
             val count = QuranAudioMath.surahFileCount(s, surahCounts[s] ?: 0)
+            // (١) مرآة جت هب — بلاغ المالك alpha59: السورة كلها ضغطةً
+            // واحدة من noor-audio ثم فكٌّ إلى آياتها بأسمائها المعتمدة.
+            // وإن رجعت السورة ناقصةً (أصلٌ سبق فاقد آيةً على المصدر)
+            // أو غاب الأصل كله فالمخطّ القديم يكمل بعده آيةً آيةً.
+            val base = done
+            val viaMirror = runCatching {
+                withContext(Dispatchers.IO) {
+                    downloadSurahZip(context, reciter, s) {
+                        done = base + surahDownloadedCount(context, reciterId, s, count)
+                        publish(active = true)
+                    }
+                }
+            }.getOrDefault(false)
+            if (viaMirror) {
+                done = base + surahDownloadedCount(context, reciterId, s, count)
+                publish(active = true)
+                if (done - base >= count) continue
+            }
+            // (٢) الطريق القديم — آية آية من everyayah ثم islamic.network
             for (ayah in 1..count) {
                 // العقد مع نافج البدء — إلغاؤه يقيم `isActive` هنا إلى false
                 if (!kotlinx.coroutines.currentCoroutineContext().isActive) {
@@ -242,6 +267,51 @@ object QuranAudioLibrary {
         }
         publish(active = false, error = message)
         return !cancelled
+    }
+
+    /**
+     * تنزيل ضغط السورة من مرآة جت هب وفكّه إلى ملفات الآيات — true إن
+     * استُخرج من الأصل آيةٌ واحدة على الأقل. المدخلات الغريبة (أسماء
+     * غير معتمدة أو سورةٌ غير المطلوبة) تُرمى ولا تُكتب أبدًا، والآيات
+     * الحاضرة على القرص تُحسب ولا تُعاد.
+     */
+    private fun downloadSurahZip(
+        context: Context,
+        reciter: QuranReciters.Reciter,
+        sura: Int,
+        onExtracted: () -> Unit,
+    ): Boolean {
+        if (sura !in 1..114) return false
+        val zip = File.createTempFile("noor_surah", ".zip", context.cacheDir)
+        try {
+            if (!downloadTo(QuranReciters.mirrorSurahUrl(reciter, sura), zip)) return false
+            var extracted = 0
+            ZipInputStream(FileInputStream(zip).buffered()).use { zin ->
+                while (true) {
+                    val entry = zin.nextEntry ?: break
+                    val name = entry.name
+                    if (!entry.isDirectory && QuranAudioMath.validZipEntry(name, sura)) {
+                        val ayah = QuranAudioMath.zipEntryAyah(name)
+                        val target = ayahFile(context, reciter.id, sura, ayah)
+                        if (target.isFile && target.length() > 0L) {
+                            extracted++
+                        } else {
+                            target.parentFile?.mkdirs()
+                            val tmp = File(target.parentFile, "${target.name}.part")
+                            FileOutputStream(tmp).use { zin.copyTo(it) }
+                            if (finalizeDownloadFile(tmp, target)) {
+                                extracted++
+                                onExtracted()
+                            }
+                        }
+                    }
+                    zin.closeEntry()
+                }
+            }
+            return extracted > 0
+        } finally {
+            zip.delete()
+        }
     }
 
     /**

@@ -2,9 +2,15 @@
 <!--
   ويدجت «نور المسلم» الواحدة (alpha57 — بلاغ المالك: «خليها ويدجت
   واحده و قابلة للتخصيص بالكامل») — كل العناصر فيها بيتٌ مستقل يخفيه
-  الرسّام من الإعدادات: الساعة الحيّة، التاريخان، الصلاة القادمة
-  والعدّاد، مواقيت الصلوات الست (كلُّ خليةٍ فوق فقاعةٍ سائلة تُلوَّن
-  لتحديد القادمة والحالية)، والمسبحة.
+  الرسّام من الإعدادات: الساعة الحيّة رقميةً أو تناظرية (alpha59)،
+  التاريخان، الصلاة القادمة والعدّاد، مواقيت الصلوات الست (كلُّ خليةٍ
+  فوق فقاعةٍ سائلة تُلوَّن لتحديد القادمة والحالية)، والمسبحة.
+
+  إعادة التوزيع (alpha59 — بلاغ المالك: «عند ازاله عنصر مثل التاريخ
+  يبقى مكانه فارغ وواخد مساحه… الطبيعي يتم ضم باقي العناصر لخلق مساحه
+  افضل وتوزيع افضل»): كل الصفوف wrap_content والعمود كله
+  gravity=center_vertical — فالعنصر المخفي GONE لا يترك أثراً
+  والباقي يتمركز ويتمدد بأجمل توزيع.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -22,13 +28,13 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:gravity="center_horizontal"
+        android:gravity="center_vertical"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp">
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp">
 
-        <!-- الصف ١: العلامة والمدينة والساعة الحيّة -->
+        <!-- الصف ١: العلامة والمدينة والساعة الرقمية الحيّة -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -61,6 +67,17 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- الساعة التناظرية المرسومة (alpha59 — بلاغ المالك: «يتم ايضا
+             اضافه ساعه تناظريه يمكن للمستخدم الاختيار بينها و بين الرقميه») -->
+        <ImageView
+            android:id="@+id/widget_clock_analog"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="2dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="@null" />
+
         <!-- الصف ٢: التاريخان الهجري والميلادي -->
         <TextView
             android:id="@+id/widget_date_hijri"
@@ -81,72 +98,67 @@
             android:maxLines="1"
             android:ellipsize="end" />
 
-        <!-- الصف ٣: الصلاة القادمة ووقتها والعدّاد — العدّاد فوق فقاعته -->
-        <FrameLayout
+        <!-- الصف ٣: الصلاة القادمة ووقتها — wrap_content كي يضُمّ ما حوله
+             عند إخفائه (بلاغ alpha59: لا فراغات مكانه) -->
+        <LinearLayout
+            android:id="@+id/widget_next_row"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1">
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/widget_next_name"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:orientation="vertical"
-                android:gravity="center">
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:maxLines="1" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center">
+            <TextView
+                android:id="@+id/widget_next_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:maxLines="1" />
+        </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/widget_next_name"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="21sp"
-                        android:textStyle="bold"
-                        android:maxLines="1" />
+        <!-- العدّاد فوق فقاعته السائلة — wrap_content أيضاً -->
+        <FrameLayout
+            android:id="@+id/widget_countdown_frame"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="2dp">
 
-                    <TextView
-                        android:id="@+id/widget_next_time"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:maxLines="1" />
-                </LinearLayout>
+            <ImageView
+                android:id="@+id/widget_bubble_countdown"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitXY"
+                android:src="@drawable/widget_bubble"
+                android:contentDescription="@null" />
 
-                <FrameLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp">
-
-                    <ImageView
-                        android:id="@+id/widget_bubble_countdown"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:scaleType="fitXY"
-                        android:src="@drawable/widget_bubble"
-                        android:contentDescription="@null" />
-
-                    <Chronometer
-                        android:id="@+id/widget_countdown"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:paddingHorizontal="14dp"
-                        android:textSize="12sp"
-                        android:countDown="true" />
-                </FrameLayout>
-            </LinearLayout>
+            <Chronometer
+                android:id="@+id/widget_countdown"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="2dp"
+                android:textSize="12sp"
+                android:countDown="true" />
         </FrameLayout>
 
-        <!-- الصف ٤: مواقيت الصلوات الست — كل خليةٍ فوق فقاعتها -->
+        <!-- الصف ٤: مواقيت الصلوات الست — الاسم الصغير فوق وقته
+             (بلاغ المالك alpha59: «مواقيت الصلاه و اسماءها تظهر بشكل
+             صغير في الويدجت») وكل خليةٍ فوق فقاعتها -->
         <LinearLayout
             android:id="@+id/grid_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
             android:orientation="horizontal">
 
             <FrameLayout

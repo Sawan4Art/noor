@@ -15,9 +15,16 @@ import org.json.JSONObject
  * الحاليه او الاثنين مع بعض مع تغيير لون كل فقاعه للتميز بينهم».
  *
  * فالعقد هنا: خمسُ مفاتيحِ عرض (الوقت، المواقيت، العدّاد، التاريخان،
- * المسبحة) + صيغةُ كل تاريخٍ من ثلاث + الشفافية + لونُ الخط + لونُ
- * التطبيق + الفقاعاتُ السائلة الثلاث (الوقت المتبقي، الصلاة القادمة،
- * الحالية) كلٌّ بلونها.
+ * المسبحة) + صيغةُ كل تاريخٍ من ستٍّ + شكلُ الساعة (رقمية أو تناظرية)
+ * + الشفافية + لونُ الخط + لونُ التطبيق + الفقاعاتُ السائلة الثلاث
+ * (الوقت المتبقي، الصلاة القادمة، الحالية) كلٌّ بلونها — وفي alpha59
+ * توسّع العقد ببلاغ المالك: «عايز خانات لتحديد حجم الخط ولونه لكل
+ * عنصر» فحجمُ كل عنصرٍ ولونه خريطتان مستقلتان (غيابُ المفتاح = الوضع
+ * التلقائي)، و«عايز صيغ اكثر للتواريخ و عند اختيار صيغه للتاريخ تفتح
+ * له قائمه منبثقه» فالصيغ ستٌّ لكل تقويم، و«يتم ايضا اضافه ساعه
+ * تناظريه يمكن للمستخدم الاختيار بينها و بين الرقميه»، و«مواقيت
+ * الصلاه و اسماءها تظهر بشكل صغير في الويدجت» فالخلايا بأسِمها
+ * الصغير فوق وقتها، وضمُّ الباقين عند إزالة عنصرٍ (لا فراغات مكانه).
  *
  * يُخزَّن JSON في SharedPreferences (ويدجتات النظام تقرأ بلا دورة
  * DataStore) ويُقرأ عند كل رسم — درس v0.4 المعتمد. المفاتيح القديمة
@@ -48,14 +55,22 @@ data class WidgetCustomization(
     val showCountdown: Boolean = true,
     /** التاريخ الهجري */
     val showHijri: Boolean = true,
-    /** صيغة الهجري ٠ كاملة — ١ مختصرة — ٢ رقمية */
+    /** صيغة الهجري ٠ كاملة — ١ مختصرة — ٢ رقمية — ٣ بلا هـ — ٤ بيوم الأسبوع — ٥ يوم/شهر */
     val hijriFormat: Int = 0,
     /** التاريخ الميلادي */
     val showGregorian: Boolean = true,
-    /** صيغة الميلادي ٠ مع اليوم — ١ مختصرة — ٢ رقمية */
+    /** صيغة الميلادي ٠ كاملة — ١ مختصرة — ٢ رقمية — ٣ بلا اليوم — ٤ بيوم بلا سنة — ٥ يوم/شهر */
     val gregFormat: Int = 0,
     /** المسبحة للتسبيح من خلال الويدجت */
     val showMisbaha: Boolean = false,
+
+    // ===== شكل الساعة وضباط كل عنصر (alpha59) =====
+    /** شكل الساعة — رقمية حيّة أو تناظرية مرسومة */
+    val clockStyle: ClockStyle = ClockStyle.DIGITAL,
+    /** حجم كل عنصرٍ بالمئة — مفتاح ELEMENT_* إلى ٥٠..٢٠٠ (الغياب = ١٠٠) */
+    val elementSizes: Map<String, Int> = emptyMap(),
+    /** لون كل عنصرٍ — مفتاح ELEMENT_* إلى «auto» أو «#RRGGBB» (الغياب = لونه الافتراضي) */
+    val elementColors: Map<String, String> = emptyMap(),
 
     // ===== النقطة السائلة — كل مقامٍ بفقاعتِه ولونها =====
     /** فقاعةٌ خلف الوقت المتبقي */
@@ -75,6 +90,9 @@ data class WidgetCustomization(
     /** مظهر الويدجت — الثيم الحي أو تثبيت يدوي */
     enum class Theme { APP, LIGHT, DARK }
 
+    /** شكل الساعة في الويدجت — الرقمية TextClock الحية أو التناظرية المرسومة */
+    enum class ClockStyle { DIGITAL, ANALOG }
+
     /** ألفا الخلفية ٠..١ */
     val opacityFraction: Float get() = opacityPercent.coerceIn(0, 100) / 100f
 
@@ -89,10 +107,17 @@ data class WidgetCustomization(
         put("prayers", showPrayerTimes)
         put("countdown", showCountdown)
         put("hijri", showHijri)
-        put("hijriFormat", hijriFormat.coerceIn(0, 2))
+        put("hijriFormat", hijriFormat.coerceIn(0, 5))
         put("greg", showGregorian)
-        put("gregFormat", gregFormat.coerceIn(0, 2))
+        put("gregFormat", gregFormat.coerceIn(0, 5))
         put("misbaha", showMisbaha)
+        put("clockStyle", clockStyle.name)
+        if (elementSizes.isNotEmpty()) {
+            put("elementSizes", JSONObject().apply { elementSizes.forEach { (k, v) -> put(k, v.coerceIn(50, 200)) } })
+        }
+        if (elementColors.isNotEmpty()) {
+            put("elementColors", JSONObject().apply { elementColors.forEach { (k, v) -> put(k, v) } })
+        }
         put("bubbleCountdown", bubbleOnCountdown)
         put("bubbleColorCountdown", bubbleColorCountdown)
         put("bubbleNext", bubbleOnNext)
@@ -108,11 +133,48 @@ data class WidgetCustomization(
         /** لون الخط يتبع المظهر */
         const val COLOR_AUTO = "auto"
 
+        // ===== مفاتيح عناصر الحجم/اللون لكل عنصرٍ (alpha59) =====
+        const val ELEMENT_CLOCK = "clock"
+        const val ELEMENT_HIJRI = "hijri"
+        const val ELEMENT_GREG = "greg"
+        const val ELEMENT_NEXT = "next"
+        const val ELEMENT_COUNTDOWN = "countdown"
+        const val ELEMENT_GRID = "grid"
+        const val ELEMENT_MISBAHA = "misbaha"
+
+        /** كل مفاتيح العناصر — لطبقة الإعدادات وحلقة التطبيق */
+        val ELEMENT_KEYS = listOf(
+            ELEMENT_CLOCK, ELEMENT_HIJRI, ELEMENT_GREG, ELEMENT_NEXT,
+            ELEMENT_COUNTDOWN, ELEMENT_GRID, ELEMENT_MISBAHA,
+        )
+
         /** لون الفقاعة الافتراضي — فيروزي التطبيق الهادئ */
         const val DEFAULT_BUBBLE = "#2FA48C"
 
         /** لون بديل للفقاعة الثانية كي يتميز عن الأولى */
         const val DEFAULT_BUBBLE_ALT = "#C98A3D"
+
+        /** قراءة خريطة الحجم من JSON — الغريب يُرمى والمحصور ٥٠..٢٠٠ */
+        private fun sizesFrom(o: JSONObject): Map<String, Int> {
+            val raw = o.optJSONObject("elementSizes") ?: return emptyMap()
+            val out = mutableMapOf<String, Int>()
+            for (key in ELEMENT_KEYS) {
+                val v = raw.optInt(key, Int.MIN_VALUE)
+                if (v != Int.MIN_VALUE) out[key] = v.coerceIn(50, 200)
+            }
+            return out
+        }
+
+        /** قراءة خريطة اللون من JSON — مفاتيح العناصر وحدها */
+        private fun colorsFrom(o: JSONObject): Map<String, String> {
+            val raw = o.optJSONObject("elementColors") ?: return emptyMap()
+            val out = mutableMapOf<String, String>()
+            for (key in ELEMENT_KEYS) {
+                val v = raw.optString(key, "")
+                if (v.isNotEmpty()) out[key] = v
+            }
+            return out
+        }
 
         /** الافتراضي — قبل أي تخصيص */
         val DEFAULT = WidgetCustomization()
@@ -141,10 +203,15 @@ data class WidgetCustomization(
                         true
                     },
                     showHijri = legacyDates ?: o.optBoolean("hijri", true),
-                    hijriFormat = o.optInt("hijriFormat", 0).coerceIn(0, 2),
+                    hijriFormat = o.optInt("hijriFormat", 0).coerceIn(0, 5),
                     showGregorian = legacyDates ?: o.optBoolean("greg", true),
-                    gregFormat = o.optInt("gregFormat", 0).coerceIn(0, 2),
+                    gregFormat = o.optInt("gregFormat", 0).coerceIn(0, 5),
                     showMisbaha = o.optBoolean("misbaha", false),
+                    clockStyle = runCatching {
+                        ClockStyle.valueOf(o.optString("clockStyle", ClockStyle.DIGITAL.name))
+                    }.getOrDefault(ClockStyle.DIGITAL),
+                    elementSizes = sizesFrom(o),
+                    elementColors = colorsFrom(o),
                     bubbleOnCountdown = o.optBoolean("bubbleCountdown", false),
                     bubbleColorCountdown = o.optString("bubbleColorCountdown", DEFAULT_BUBBLE),
                     bubbleOnNext = o.optBoolean("bubbleNext", true),
