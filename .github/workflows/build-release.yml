@@ -37,6 +37,21 @@ jobs:
         with:
           packages: 'platforms;android-36 build-tools;36.0.0 platform-tools'
 
+      # درس alpha59: توزيعة غرادل تُنزَّل من services.gradle.org وقد
+      # ترد 504 — فتجهيزٌ بإعادة المحاولة قبل أي خطوة بناء
+      - name: تجهيز غرادل بإعادة المحاولة
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if ./gradlew --version >/dev/null 2>&1; then
+              echo "غرادل جاهز (المحاولة $i)"
+              exit 0
+            fi
+            echo "المحاولة $i — مصدر التوزيعة مشغول، انتظار ٢٥ ثانية…"
+            sleep 25
+          done
+          echo "تعذّر تجهيز غرادل بعد المحاولات كلها"
+          exit 1
+
       - name: استرجاع مفتاح التوقيع من الأسرار
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $HOME/noor-release.keystore
