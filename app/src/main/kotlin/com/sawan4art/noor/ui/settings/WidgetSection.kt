@@ -14,10 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -85,9 +83,8 @@ fun WidgetSection() {
         WidgetUpdater.updateMinuteTick(context, next)
     }
 
-    Column(
-        Modifier.verticalScroll(rememberScrollState()),
-    ) {
+    // بلا تمريرٍ خاص — صفحة القسم نفسها تتمرّر فلا تمريرٌ مزدوج
+    Column {
         Text(
             text = "ويدجت واحدة تخصّصها كما تحب: تستدلي بها من قائمة " +
                 "ويدجتات الشاشة الرئيسية (اضغط مطولاً على الخلفية ← ويدجتات ← " +
