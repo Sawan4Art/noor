@@ -97,22 +97,34 @@ object QuranReciters {
     /**
      * **مرآة جت هب** — بلاغ المالك alpha59: «عايز اخلي الاصوات دي تكون
      * موجوده على سيرفر على جت هب او على الموقع بتاع التطبيق علشان
-     * نضمن ان التحميل يتم صح». فالمرآة مستودعٌ مستقل (noor-audio) عليه
-     * إصدار audio-v1 أصوله «مجلد الشيخ-رقم السورة.zip» وبداخل كل أصلٍ
-     * آيات السورة بأسمائها المعتمدة نفسها (sssaaa.mp3) — فالتطبيق
-     * ينزّل السورة ضغطة شبكة واحدة من هنا أولًا، فإن غاب الأصل أو تعذر
-     * فالطريق القديم باقٍ بعده: everyayah آيةً آيةً ثم islamic.network.
+     * نضمن ان التحميل يتم صح». فالمرآة مستودعٌ مستقل (noor-audio)
+     * أصوله «مجلد الشيخ-رقم السورة.zip» وبداخل كل أصلٍ آيات السورة
+     * بأسمائها المعتمدة نفسها (sssaaa.mp3) — فالتطبيق ينزّل السورة
+     * ضغطة شبكة واحدة من هنا أولًا، فإن غاب الأصل أو تعذر فالطريق
+     * القديم باقٍ بعده: everyayah آيةً آيةً ثم islamic.network.
+     *
+     * جت هب يحصر الإصدار بـ ١٠٠٠ أصلٍ فالتقسيم ثلاثة إصداراتٍ — ٧
+     * قراءٍ لكل إصدارٍ (٧×١١٤=٧٩٨) بنفس ترتيب القائمة هنا.
      */
-    const val MIRROR_BASE_URL =
-        "https://github.com/Sawan4Art/noor-audio/releases/download/audio-v1"
+    const val MIRROR_BASE_URL = "https://github.com/Sawan4Art/noor-audio/releases/download"
+
+    /** إصدار المرآة للقارئ — ٧ أول في audio-v1 و٧ في audio-v2 والبقية audio-v3 */
+    fun mirrorRelease(reciter: Reciter): String {
+        val index = ALL.indexOfFirst { it.id == reciter.id }
+        return when {
+            index < 7 -> "audio-v1"
+            index < 14 -> "audio-v2"
+            else -> "audio-v3"
+        }
+    }
 
     /** اسم أصل السورة في المرآة — «Alafasy_128kbps-002.zip» */
     fun mirrorAssetName(folder: String, sura: Int): String =
         "%s-%03d.zip".format(folder, sura.coerceIn(1, 114))
 
-    /** رابط سورة الشيخ المضغوطة على المرآة */
+    /** رابط سورة الشيخ المضغوطة على المرآة — في إصداره الثابت */
     fun mirrorSurahUrl(reciter: Reciter, sura: Int): String =
-        "$MIRROR_BASE_URL/${mirrorAssetName(reciter.folder, sura)}"
+        "$MIRROR_BASE_URL/${mirrorRelease(reciter)}/${mirrorAssetName(reciter.folder, sura)}"
 
     /** عدد المصريين في القائمة — عقد المالك: عشرة مصريين بالضبط */
     const val EGYPTIAN_COUNT = 10

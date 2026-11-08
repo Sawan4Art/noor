@@ -124,21 +124,31 @@ class QuranRecitersTest {
     }
 
     @Test
-    fun `مرآة جت هب رابطها أصل السورة المضغوطة — بلاغ alpha59`() {
+    fun `مرآة جت هب رابطها أصل السورة المضغوطة في إصداره — بلاغ alpha59`() {
         // بلاغ المالك: «عايز اخلي الاصوات دي تكون موجوده على سيرفر على
         // جت هب علشان نضمن ان التحميل يتم صح» — فالسورة أصلٌ واحد
         assertEquals(
-            "https://github.com/Sawan4Art/noor-audio/releases/download/audio-v1/Alafasy_128kbps-002.zip",
-            QuranReciters.mirrorSurahUrl(QuranReciters.byId("alafasy"), 2),
+            "https://github.com/Sawan4Art/noor-audio/releases/download/audio-v1/Abdul_Basit_Murattal_192kbps-002.zip",
+            QuranReciters.mirrorSurahUrl(QuranReciters.byId("abdelbaset"), 2),
         )
+        // جت هب يحصر ١٠٠٠ أصلٍ للإصدار — فالعفاسي (العاشر) في audio-v2
         assertEquals(
-            "https://github.com/Sawan4Art/noor-audio/releases/download/audio-v1/Abdul_Basit_Murattal_192kbps-114.zip",
-            QuranReciters.mirrorSurahUrl(QuranReciters.byId("abdelbaset"), 114),
+            "https://github.com/Sawan4Art/noor-audio/releases/download/audio-v2/Alafasy_128kbps-001.zip",
+            QuranReciters.mirrorSurahUrl(QuranReciters.byId("alafasy"), 1),
+        )
+        // والشريم الأخير في audio-v3
+        assertEquals(
+            "https://github.com/Sawan4Art/noor-audio/releases/download/audio-v3/Saood_ash-Shuraym_128kbps-114.zip",
+            QuranReciters.mirrorSurahUrl(QuranReciters.byId("shuraym"), 114),
         )
         assertEquals("Alafasy_128kbps-001.zip", QuranReciters.mirrorAssetName("Alafasy_128kbps", 1))
         // خارج النطاق يسير بأمان إلى حدوده
         assertEquals("Alafasy_128kbps-001.zip", QuranReciters.mirrorAssetName("Alafasy_128kbps", 0))
         assertEquals("Alafasy_128kbps-114.zip", QuranReciters.mirrorAssetName("Alafasy_128kbps", 200))
+        // والقسمة سليمة: ٧ قراءٍ لكل إصدارٍ من العشرين
+        assertEquals(7, QuranReciters.ALL.count { QuranReciters.mirrorRelease(it) == "audio-v1" })
+        assertEquals(7, QuranReciters.ALL.count { QuranReciters.mirrorRelease(it) == "audio-v2" })
+        assertEquals(6, QuranReciters.ALL.count { QuranReciters.mirrorRelease(it) == "audio-v3" })
         // وكل القراء العشرين مجلداتهم بلا فراغات فأسماء الأصول روابط سليمة
         assertTrue(QuranReciters.ALL.all { !it.folder.contains(' ') })
     }
