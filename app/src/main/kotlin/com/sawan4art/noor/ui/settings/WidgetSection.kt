@@ -163,7 +163,7 @@ fun WidgetSection() {
         ToggleRow("الوقت الحالي", customization.showClock) { on ->
             apply { it.copy(showClock = on) }
         }
-        ToggleRow("مواقيت الصلوات الست", customization.showPrayerTimes) { on ->
+        ToggleRow("مواقيت الصلوات الخمس — بلا الشروق", customization.showPrayerTimes) { on ->
             apply { it.copy(showPrayerTimes = on) }
         }
         ToggleRow("المتبقي على الصلاة التالية", customization.showCountdown) { on ->
@@ -174,9 +174,6 @@ fun WidgetSection() {
         }
         ToggleRow("التاريخ الميلادي", customization.showGregorian) { on ->
             apply { it.copy(showGregorian = on) }
-        }
-        ToggleRow("المسبحة للتسبيح من الويدجت", customization.showMisbaha) { on ->
-            apply { it.copy(showMisbaha = on) }
         }
         ToggleRow("المدينة", customization.showCity) { on ->
             apply { it.copy(showCity = on) }
@@ -235,42 +232,19 @@ fun WidgetSection() {
 
         Spacer(Modifier.height(16.dp))
 
-        // ===== النقطة السائلة — كل مقامٍ بفقاعتِه ولونها =====
-        SettingLabel("النقطة السائلة الحية")
+        // ===== الإطار الدائري — بديل النقطة السائلة (alpha62) =====
+        SettingLabel("الإطار الدائري")
         Text(
-            text = "الفقاعة السائلة الآن برياضيات السائل الحي نفسه في " +
-                "التطبيق: سطحٌ متموّج ولمعةٌ زجاجية وقطرةٌ تابعة — لا نقطةٍ جامدة.",
+            text = "إطارٌ بحوافٍ دائريةٍ حول الويدجت بلونٍ تختاره — وضغطةٌ " +
+                "على الويدجت نفسها على شاشتك تُبدّل لونه دورةً في الألوان.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp),
         )
-        ToggleRow("خلف الوقت المتبقي", customization.bubbleOnCountdown) { on ->
-            apply { it.copy(bubbleOnCountdown = on) }
-        }
-        if (customization.bubbleOnCountdown) {
-            ColorPanelChipInline(
-                selected = customization.bubbleColorCountdown,
-                onSelect = { hex -> apply { it.copy(bubbleColorCountdown = hex) } },
-            )
-        }
-        ToggleRow("تحديد الصلاة القادمة", customization.bubbleOnNext) { on ->
-            apply { it.copy(bubbleOnNext = on) }
-        }
-        if (customization.bubbleOnNext) {
-            ColorPanelChipInline(
-                selected = customization.bubbleColorNext,
-                onSelect = { hex -> apply { it.copy(bubbleColorNext = hex) } },
-            )
-        }
-        ToggleRow("تحديد الصلاة الحالية", customization.bubbleOnCurrent) { on ->
-            apply { it.copy(bubbleOnCurrent = on) }
-        }
-        if (customization.bubbleOnCurrent) {
-            ColorPanelChipInline(
-                selected = customization.bubbleColorCurrent,
-                onSelect = { hex -> apply { it.copy(bubbleColorCurrent = hex) } },
-            )
-        }
+        ColorPanelChipInline(
+            selected = customization.frameColor,
+            onSelect = { hex -> apply { it.copy(frameColor = hex) } },
+        )
     }
 }
 

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  عنصر مواقيت الصلوات الست (alpha61) — الاسم الصغير فوق الوقت
-  وكل خليةٍ فوق فقاعتها السائلة — نفس بنية alpha59 سليمة.
+  عنصر مواقيت الصلوات الخمس (alpha62 — بلاغ المالك: «ازل توقيت الشروق
+  من الويدجت تماماً») — الاسم الصغير فوق الوقت، وبلا فقاعاتٍ سائلة
+  («الغي السائل الحي من الويدجت») فخلايا هادئة نظيفة.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/grid_row"
@@ -9,117 +10,28 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal">
 
-    <FrameLayout
-        android:layout_width="0dp"
-        android:layout_weight="1"
-        android:layout_height="wrap_content">
+    <LinearLayout style="@style/WidgetPrayerCell">
+        <TextView android:id="@+id/widget_pname_0" style="@style/WidgetPrayerName" />
+        <TextView android:id="@+id/widget_ptime_0" style="@style/WidgetPrayerTime" />
+    </LinearLayout>
 
-        <ImageView
-            android:id="@+id/widget_bubble_p0"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitXY"
-            android:src="@drawable/widget_bubble"
-            android:contentDescription="@null" />
+    <LinearLayout style="@style/WidgetPrayerCell">
+        <TextView android:id="@+id/widget_pname_1" style="@style/WidgetPrayerName" />
+        <TextView android:id="@+id/widget_ptime_1" style="@style/WidgetPrayerTime" />
+    </LinearLayout>
 
-        <LinearLayout style="@style/WidgetPrayerCell">
-            <TextView android:id="@+id/widget_pname_0" style="@style/WidgetPrayerName" />
-            <TextView android:id="@+id/widget_ptime_0" style="@style/WidgetPrayerTime" />
-        </LinearLayout>
-    </FrameLayout>
+    <LinearLayout style="@style/WidgetPrayerCell">
+        <TextView android:id="@+id/widget_pname_2" style="@style/WidgetPrayerName" />
+        <TextView android:id="@+id/widget_ptime_2" style="@style/WidgetPrayerTime" />
+    </LinearLayout>
 
-    <FrameLayout
-        android:layout_width="0dp"
-        android:layout_weight="1"
-        android:layout_height="wrap_content">
+    <LinearLayout style="@style/WidgetPrayerCell">
+        <TextView android:id="@+id/widget_pname_3" style="@style/WidgetPrayerName" />
+        <TextView android:id="@+id/widget_ptime_3" style="@style/WidgetPrayerTime" />
+    </LinearLayout>
 
-        <ImageView
-            android:id="@+id/widget_bubble_p1"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitXY"
-            android:src="@drawable/widget_bubble"
-            android:contentDescription="@null" />
-
-        <LinearLayout style="@style/WidgetPrayerCell">
-            <TextView android:id="@+id/widget_pname_1" style="@style/WidgetPrayerName" />
-            <TextView android:id="@+id/widget_ptime_1" style="@style/WidgetPrayerTime" />
-        </LinearLayout>
-    </FrameLayout>
-
-    <FrameLayout
-        android:layout_width="0dp"
-        android:layout_weight="1"
-        android:layout_height="wrap_content">
-
-        <ImageView
-            android:id="@+id/widget_bubble_p2"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitXY"
-            android:src="@drawable/widget_bubble"
-            android:contentDescription="@null" />
-
-        <LinearLayout style="@style/WidgetPrayerCell">
-            <TextView android:id="@+id/widget_pname_2" style="@style/WidgetPrayerName" />
-            <TextView android:id="@+id/widget_ptime_2" style="@style/WidgetPrayerTime" />
-        </LinearLayout>
-    </FrameLayout>
-
-    <FrameLayout
-        android:layout_width="0dp"
-        android:layout_weight="1"
-        android:layout_height="wrap_content">
-
-        <ImageView
-            android:id="@+id/widget_bubble_p3"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitXY"
-            android:src="@drawable/widget_bubble"
-            android:contentDescription="@null" />
-
-        <LinearLayout style="@style/WidgetPrayerCell">
-            <TextView android:id="@+id/widget_pname_3" style="@style/WidgetPrayerName" />
-            <TextView android:id="@+id/widget_ptime_3" style="@style/WidgetPrayerTime" />
-        </LinearLayout>
-    </FrameLayout>
-
-    <FrameLayout
-        android:layout_width="0dp"
-        android:layout_weight="1"
-        android:layout_height="wrap_content">
-
-        <ImageView
-            android:id="@+id/widget_bubble_p4"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitXY"
-            android:src="@drawable/widget_bubble"
-            android:contentDescription="@null" />
-
-        <LinearLayout style="@style/WidgetPrayerCell">
-            <TextView android:id="@+id/widget_pname_4" style="@style/WidgetPrayerName" />
-            <TextView android:id="@+id/widget_ptime_4" style="@style/WidgetPrayerTime" />
-        </LinearLayout>
-    </FrameLayout>
-
-    <FrameLayout
-        android:layout_width="0dp"
-        android:layout_weight="1"
-        android:layout_height="wrap_content">
-
-        <ImageView
-            android:id="@+id/widget_bubble_p5"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitXY"
-            android:src="@drawable/widget_bubble"
-            android:contentDescription="@null" />
-
-        <LinearLayout style="@style/WidgetPrayerCell">
-            <TextView android:id="@+id/widget_pname_5" style="@style/WidgetPrayerName" />
-            <TextView android:id="@+id/widget_ptime_5" style="@style/WidgetPrayerTime" />
-        </LinearLayout>
-    </FrameLayout>
+    <LinearLayout style="@style/WidgetPrayerCell">
+        <TextView android:id="@+id/widget_pname_4" style="@style/WidgetPrayerName" />
+        <TextView android:id="@+id/widget_ptime_4" style="@style/WidgetPrayerTime" />
+    </LinearLayout>
 </LinearLayout>

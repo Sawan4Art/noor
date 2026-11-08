@@ -22,17 +22,14 @@ class WidgetCustomizationTest {
         assertEquals(85, c.opacityPercent)
         assertEquals(WidgetCustomization.Theme.APP, c.theme)
         assertEquals("emerald", c.accentId)
-        // عناصر العرض الخمسة
+        // عناصر العرض
         assertTrue(c.showClock)
         assertTrue(c.showPrayerTimes)
         assertTrue(c.showCountdown)
         assertTrue(c.showHijri)
         assertTrue(c.showGregorian)
-        // المسبحة صامتة افتراضاً والفقاعات كما وردت في اللوحة
-        assertFalse(c.showMisbaha)
-        assertFalse(c.bubbleOnCountdown)
-        assertTrue(c.bubbleOnNext)
-        assertFalse(c.bubbleOnCurrent)
+        // alpha62: المسبحة والفقاعات انتهتا والإطار يتبع المظهر افتراضاً
+        assertEquals(WidgetCustomization.COLOR_AUTO, c.frameColor)
         // لون الخط يتبع المظهر
         assertEquals(WidgetCustomization.COLOR_AUTO, c.textColor)
     }
@@ -53,7 +50,6 @@ class WidgetCustomizationTest {
             hijriFormat = 2,
             showGregorian = false,
             gregFormat = 1,
-            showMisbaha = true,
             clockStyle = WidgetCustomization.ClockStyle.ANALOG,
             elementSizes = mapOf(
                 WidgetCustomization.ELEMENT_CLOCK to 135,
@@ -61,16 +57,43 @@ class WidgetCustomizationTest {
             ),
             elementColors = mapOf(
                 WidgetCustomization.ELEMENT_HIJRI to "#5B6E9E",
-                WidgetCustomization.ELEMENT_MISBAHA to "auto",
+                WidgetCustomization.ELEMENT_GREG to "auto",
             ),
-            bubbleOnCountdown = true,
-            bubbleColorCountdown = "#5B6E9E",
-            bubbleOnNext = false,
-            bubbleOnCurrent = true,
-            bubbleColorCurrent = "#B04A3A",
+            frameColor = "#5B6E9E",
         )
         val parsed = WidgetCustomization.fromJson(c.toJson())
         assertEquals(c, parsed)
+    }
+
+    @Test
+    fun `مفاتيح المسبحة والفقاعات القديمة تُرمى والإطار يُقرأ — alpha62`() {
+        // JSON من نسخة alpha61 بمفاتيحها المنتهية: لا انكسار ولا عودة
+        val old = WidgetCustomization.fromJson(
+            """{"misbaha": true, "bubbleNext": true, "bubbleColorNext": "#5B6E9E",
+               "bubbleCountdown": true, "bubbleCurrent": true, "frameColor": "#B04A3A"}""",
+        )
+        assertTrue(old.elementOrder.none { it == "misbaha" })
+        assertEquals("#B04A3A", old.frameColor)
+        // ولون إطارٍ فاسد يعود تلقائياً
+        val broken = WidgetCustomization.fromJson("""{"frameColor": "أحمر"}""")
+        assertEquals(WidgetCustomization.COLOR_AUTO, broken.frameColor)
+    }
+
+    @Test
+    fun `دورة لون الإطار — الضغطة تُقدّم خطوةً والغريب يدخل من أولها`() {
+        val cycle = WidgetCustomization.FRAME_CYCLE
+        assertEquals(
+            cycle[1],
+            WidgetCustomization.nextFrameColor(WidgetCustomization.COLOR_AUTO),
+        )
+        // آخر القائمة يعود إلى أولها
+        assertEquals(cycle.first(), WidgetCustomization.nextFrameColor(cycle.last()))
+        // والغريب يبدأ الدورة
+        assertEquals(cycle.first(), WidgetCustomization.nextFrameColor("غير موجود"))
+        // والدورة محكمة: كل خطوةٍ ضمن القائمة
+        var current = WidgetCustomization.COLOR_AUTO
+        repeat(cycle.size) { current = WidgetCustomization.nextFrameColor(current) }
+        assertEquals(WidgetCustomization.COLOR_AUTO, current)
     }
 
     @Test

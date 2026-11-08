@@ -80,14 +80,17 @@ internal fun palette(c: WidgetCustomization): WidgetPalette {
     return base
 }
 
-/** خلفية الويدجت — تدرّج دائري الأطراف بشفافية التخصيص وحدّ لون التطبيق */
+/** خلفية الويدجت — تدرّج دائري الأطراف بشفافية التخصيص وإطارٌ دائريٌ
+ *  بلون التخصيص (alpha62: «استبدله باطار حوافه دائريه قابل للضغط
+ *  عليها لتغيير لونه») — الإطار مرسومٌ في الخلفية نفسها كي لا يزيد
+ *  بايتان في باكِت البايندر (درس alpha58). */
 internal fun widgetBackgroundBitmap(
     width: Int,
     height: Int,
     top: Int,
     bottom: Int,
     alpha: Float,
-    accent: Int,
+    frameColor: Int,
 ): Bitmap {
     val w = width.coerceIn(1, 2048)
     val h = height.coerceIn(1, 2048)
@@ -96,7 +99,7 @@ internal fun widgetBackgroundBitmap(
         intArrayOf(top, bottom),
     ).apply {
         cornerRadius = 28f * w / 250f
-        setStroke((2f * w / 250f).toInt().coerceAtLeast(1), withAlpha(accent, 0.35f))
+        setStroke((3f * w / 250f).toInt().coerceAtLeast(1), withAlpha(frameColor, 0.85f))
     }
     drawable.alpha = (alpha.coerceIn(0f, 1f) * 255).toInt()
     val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
@@ -153,13 +156,21 @@ object WidgetRenderer {
 
         // الخلفية — دقةٌ معتدلة — درس alpha58: مجموع بايتات الصور داخل
         // باكِت RemoteViews لا يجاوز مخزن البايندر (~١MB) وإلا فشل
-        // التحديث وبدت الويدجت «تظهر لكن لا تعمل».
+        // التحديث وبدت الويدجت «تظهر لكن لا تعمل». والإطار الدائري
+        // (alpha62) مرسومٌ في هذه الخلفية نفسها بلون التخصيص.
+        val frameResolved = WidgetCustomization.parseColor(customization.frameColor)
+            ?: pal.accent
         val bg = widgetBackgroundBitmap(
             (widthDp * 3 / 2).coerceAtMost(360),
             (heightDp * 3 / 2).coerceAtMost(260),
-            pal.bgTop, pal.bgBottom, customization.opacityFraction, pal.accent,
+            pal.bgTop, pal.bgBottom, customization.opacityFraction, frameResolved,
         )
         views.setImageViewBitmap(R.id.widget_bg, bg)
+        // الويدجت كلها زرُّ تبديل لون الإطار — «قابل للضغط عليها لتغيير لونه»
+        views.setOnClickPendingIntent(
+            R.id.widget_root,
+            framePendingIntent(context),
+        )
 
         val analog = customization.clockStyle == WidgetCustomization.ClockStyle.ANALOG
         var slot = 0
@@ -275,12 +286,6 @@ object WidgetRenderer {
                     )
                     child.setFloat(R.id.widget_countdown, "setTextSize", sizeOf(key, 12f))
                     child.setTextColor(R.id.widget_countdown, colorOf(key, pal.muted))
-                    bindBubble(
-                        child, R.id.widget_bubble_countdown,
-                        customization.bubbleOnCountdown,
-                        customization.bubbleColorCountdown, pal,
-                        WidgetArt.COUNTDOWN_BUBBLE_W, WidgetArt.COUNTDOWN_BUBBLE_H, 0f,
-                    )
                 }
 
                 WidgetCustomization.ELEMENT_GRID -> addElement(
@@ -308,47 +313,7 @@ object WidgetRenderer {
                                 else -> colorOf(key, pal.text)
                             },
                         )
-                        val bubbleId = GRID_BUBBLE_IDS[i]
-                        val lit = when {
-                            customization.bubbleOnNext && row.isNext -> true
-                            customization.bubbleOnCurrent && i == currentIndex -> true
-                            else -> false
-                        }
-                        val bubbleColor = when {
-                            customization.bubbleOnNext && row.isNext -> customization.bubbleColorNext
-                            customization.bubbleOnCurrent && i == currentIndex -> customization.bubbleColorCurrent
-                            else -> WidgetCustomization.DEFAULT_BUBBLE
-                        }
-                        bindBubble(
-                            child, bubbleId, lit, bubbleColor, pal,
-                            WidgetArt.GRID_BUBBLE_W, WidgetArt.GRID_BUBBLE_H, i * 0.9f,
-                        )
                     }
-                }
-
-                WidgetCustomization.ELEMENT_MISBAHA -> addElement(
-                    key,
-                    visible = customization.showMisbaha,
-                ) { child ->
-                    val count = WidgetStore.misbahaCount(context)
-                    child.setTextViewText(
-                        R.id.widget_misbaha_count,
-                        "المسبحة: ${MushafSurahs.arabicDigits(count)}",
-                    )
-                    child.setFloat(R.id.widget_misbaha_count, "setTextSize", sizeOf(key, 14f))
-                    child.setTextColor(R.id.widget_misbaha_count, colorOf(key, pal.text))
-                    child.setFloat(R.id.widget_misbaha_tap, "setTextSize", sizeOf(key, 12f))
-                    child.setTextColor(R.id.widget_misbaha_tap, colorOf(key, pal.accent))
-                    child.setFloat(R.id.widget_misbaha_reset, "setTextSize", sizeOf(key, 11f))
-                    child.setTextColor(R.id.widget_misbaha_reset, colorOf(key, pal.muted))
-                    child.setOnClickPendingIntent(
-                        R.id.widget_misbaha_tap,
-                        misbahaPendingIntent(context, NoorWidget.ACTION_MISBAHA_TAP),
-                    )
-                    child.setOnClickPendingIntent(
-                        R.id.widget_misbaha_reset,
-                        misbahaPendingIntent(context, NoorWidget.ACTION_MISBAHA_RESET),
-                    )
                 }
             }
         }
@@ -364,64 +329,36 @@ object WidgetRenderer {
         WidgetCustomization.ELEMENT_NEXT -> R.layout.widget_el_next
         WidgetCustomization.ELEMENT_COUNTDOWN -> R.layout.widget_el_countdown
         WidgetCustomization.ELEMENT_GRID -> R.layout.widget_el_grid
-        WidgetCustomization.ELEMENT_MISBAHA -> R.layout.widget_el_misbaha
         else -> R.layout.widget_el_header
     }
 
-    /**
-     * فقاعةٌ سائلةٌ حيّةٌ خلف مقامٍ — بلاغ المالك alpha59: «يظهر كنقطه
-     * ماء مخالفه تماماً للسائل الحي الموجود في التطبيق فهذا ما اريده و
-     * ليس مجرد نقطه» — فبدل المتّجه النقطيّ القديم تُرسم لكل مقامٍ
-     * صورةُ قطرةٍ متموجةٍ بلونها وطورٍ مختلفٍ كأنها سائلٌ التطبيق نفسه
-     * وقد وقف في مقامه.
-     */
-    private fun bindBubble(
-        views: RemoteViews,
-        id: Int,
-        visible: Boolean,
-        colorRaw: String,
-        pal: WidgetPalette,
-        widthPx: Int,
-        heightPx: Int,
-        phase: Float,
-    ) {
-        if (visible) {
-            val color = WidgetCustomization.parseColor(colorRaw) ?: pal.accent
-            views.setViewVisibility(id, View.VISIBLE)
-            views.setImageViewBitmap(id, WidgetArt.liquidBubbleBitmap(widthPx, heightPx, color, phase))
-        } else {
-            views.setViewVisibility(id, View.GONE)
-        }
-    }
-
-    private fun misbahaPendingIntent(context: Context, action: String): PendingIntent =
+    /** نية ضغطة الويدجت — تبديل لون الإطار الدائري (alpha62) */
+    private fun framePendingIntent(context: Context): PendingIntent =
         PendingIntent.getBroadcast(
             context,
-            if (action == NoorWidget.ACTION_MISBAHA_TAP) 1 else 2,
-            Intent(context, NoorWidget::class.java).setAction(action),
+            3,
+            Intent(context, NoorWidget::class.java).setAction(NoorWidget.ACTION_FRAME_TAP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-    /** معرفات صفوف المواقيت — أسماء وأوقات الصلوات الست بالترتيب */
+    /** معرفات صفوف المواقيت — أسماء وأوقات الصلوات الخمس بالترتيب */
     internal val GRID_NAME_IDS = intArrayOf(
         R.id.widget_pname_0, R.id.widget_pname_1, R.id.widget_pname_2,
-        R.id.widget_pname_3, R.id.widget_pname_4, R.id.widget_pname_5,
+        R.id.widget_pname_3, R.id.widget_pname_4,
     )
     internal val GRID_TIME_IDS = intArrayOf(
         R.id.widget_ptime_0, R.id.widget_ptime_1, R.id.widget_ptime_2,
-        R.id.widget_ptime_3, R.id.widget_ptime_4, R.id.widget_ptime_5,
-    )
-    internal val GRID_BUBBLE_IDS = intArrayOf(
-        R.id.widget_bubble_p0, R.id.widget_bubble_p1, R.id.widget_bubble_p2,
-        R.id.widget_bubble_p3, R.id.widget_bubble_p4, R.id.widget_bubble_p5,
+        R.id.widget_ptime_3, R.id.widget_ptime_4,
     )
 }
 
 /**
  * الويدجت الواحدة — تحديثها يعيد الحساب والرسم من الإعدادات الحية،
- * وأزرار المسبحة فيها بثّانٍ داخليّان يزيّدان أو يصفّرون ثم يعيدان
- * الرسم فوراً. ومع الساعة التناظرية (alpha59) بثّ نبضةٍ كل دقيقةٍ
- * يعيد رسم العقارب ما دامت ظاهرة — ويُلغى ما إن تعود رقمية.
+ * وضغطةٌ عليها تُبدّل لون الإطار الدائري ثم تعيد الرسم فوراً
+ * (alpha62). ومع الساعة التناظرية (alpha59) بثّ نبضةٍ كل دقيقةٍ
+ * يعيد رسم العقارب ما دامت ظاهرةً — ويُلغى ما إن تعود رقمية —
+ * ونبضةٌ يوم منتصف الليل تعيد الأسماء والتواريخ كي يعود الظهر
+ * ليلةَ الجمعة «الجمعة» بلا انتظار فتح التطبيق.
  */
 class NoorWidget : AppWidgetProvider() {
 
@@ -442,36 +379,44 @@ class NoorWidget : AppWidgetProvider() {
             }
             if (views != null) manager.updateAppWidget(id, views)
         }
-        // نبضة الدقيقة للساعة التناظرية فقط — الرقمية حيّةٌ وحدها
+        // نبضتا الحياة: دقيقة العقارب ومنتصف الليل (الأسماء والتواريخ)
         WidgetUpdater.updateMinuteTick(context, customization)
+        WidgetUpdater.updateDayTick(context)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
-            ACTION_MISBAHA_TAP -> WidgetStore.misbahaTap(context)
-            ACTION_MISBAHA_RESET -> WidgetStore.misbahaReset(context)
+            // ضغطة الويدجت — تبديل لون الإطار الدائري في الدورة (alpha62)
+            ACTION_FRAME_TAP -> WidgetStore.cycleFrameColor(context)
             ACTION_TICK -> {
                 // عقارب الساعة التناظرية — إعادة رسمٍ ثم دقّة الدقيقة التالية
                 WidgetUpdater.refreshAll(context)
                 WidgetUpdater.updateMinuteTick(context, WidgetStore.customization(context))
                 return
             }
+            ACTION_DAY_TICK -> {
+                // انتقل اليوم — الأسماء (الظهر يوم الجمعة) والتاريخان يُعاد حسابهم
+                WidgetUpdater.refreshAll(context)
+                WidgetUpdater.updateMinuteTick(context, WidgetStore.customization(context))
+                WidgetUpdater.updateDayTick(context)
+                return
+            }
             else -> return
         }
-        // ضغطة المسبحة تعيد رسم الويدجت فوراً فيعدّ العدّ أمام عين المستخدم
+        // تبديل الإطار يعيد رسم الويدجت فوراً فيرى المستخدم اللون الجديد
         WidgetUpdater.refreshAll(context)
     }
 
     companion object {
-        /** بثّ داخلي: ضغطة تسبيح من الويدجت */
-        const val ACTION_MISBAHA_TAP = "com.sawan4art.noor.widget.MISBAHA_TAP"
-
-        /** بثّ داخلي: تصفير المسبحة من الويدجت */
-        const val ACTION_MISBAHA_RESET = "com.sawan4art.noor.widget.MISBAHA_RESET"
+        /** بثّ داخلي: ضغطة الويدجت — تبديل لون الإطار الدائري (alpha62) */
+        const val ACTION_FRAME_TAP = "com.sawan4art.noor.widget.FRAME_TAP"
 
         /** بثّ داخلي: نبضة الدقيقة للساعة التناظرية (alpha59) */
         const val ACTION_TICK = "com.sawan4art.noor.widget.CLOCK_TICK"
+
+        /** بثّ داخلي: نبضة منتصف الليل — تاريخٌ جديد وأسماء يومٍ جديد (alpha62) */
+        const val ACTION_DAY_TICK = "com.sawan4art.noor.widget.DAY_TICK"
     }
 }
 
@@ -480,6 +425,7 @@ object WidgetUpdater {
 
     private val PROVIDER = NoorWidget::class.java
     private const val TICK_REQUEST_CODE = 2001
+    private const val DAY_REQUEST_CODE = 2002
 
     /** تحديث ويدجت التطبيق المنصوبة — يُستدعى من التطبيق والمنبهات */
     fun refreshAll(context: Context) {
@@ -523,6 +469,41 @@ object WidgetUpdater {
             context,
             TICK_REQUEST_CODE,
             Intent(context, PROVIDER).setAction(NoorWidget.ACTION_TICK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    /**
+     * نبضة منتصف الليل (alpha62) — بلاغ المالك: «تأكد ان يوم الجمعه
+     * يتغير اسم صلاه الظهر الى الجمعه في الويدجت» — أسمُّ الصلوات
+     * والتاريخان يُحسبان لحظة الرسم، لكن الويدجت لا تُرسم وحدها
+     * عند انتقال اليوم؛ فمنبهٌ رقيقٌ عند أول الدقيقة من اليوم الجديد
+     * يعيد الرسم فيتبدل «الظهر» ليلة الجمعة «الجمعة» والهجري
+     * والميلادي يومُهم الجديد — ويُعاد جدولُه كل ليلة.
+     */
+    fun updateDayTick(context: Context) {
+        runCatching {
+            val manager = AppWidgetManager.getInstance(context)
+            val hasWidget = manager != null &&
+                manager.getAppWidgetIds(ComponentName(context, PROVIDER)).isNotEmpty()
+            if (!hasWidget) return
+            val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+                ?: return
+            val pi = dayPendingIntent(context)
+            am.cancel(pi)
+            val nextMidnight = java.time.LocalDate.now()
+                .plusDays(1L)
+                .atStartOfDay(java.time.ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextMidnight, pi)
+        }
+    }
+
+    private fun dayPendingIntent(context: Context): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            DAY_REQUEST_CODE,
+            Intent(context, PROVIDER).setAction(NoorWidget.ACTION_DAY_TICK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 }

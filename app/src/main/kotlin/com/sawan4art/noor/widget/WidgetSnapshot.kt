@@ -24,7 +24,7 @@ data class WidgetSnapshot(
     val nextTimeText: String,
     /** ثوانِ الباقية حتى أذانها */
     val remainingSeconds: Long,
-    /** أوقات اليوم الستة — (الاسم، النص، هل هي القادمة، هل انقضت) */
+    /** أوقات اليوم الخمسة — بلا الشروق (alpha62) — (الاسم، النص، هل هي القادمة، هل انقضت) */
     val rows: List<Row>,
     /** اسم المدينة المحفوظ */
     val city: String,
@@ -70,32 +70,47 @@ data class WidgetSnapshot(
                 now.zone, settings.method, settings.isHanafi,
             )
             val next = PrayerMath.nextPrayer(times, now)
-            val rows = PrayerTimeKey.entries.map { key ->
-                val target = times[key]
-                Row(
-                    name = PrayerMath.displayName(key, today),
-                    time = TimeFormat.prayerTime(target),
-                    isNext = key == next.key,
-                    isPast = target.isBefore(now) && key != next.key,
-                )
-            }
+            // alpha62 — بلاغ المالك: «ازل توقيت الشروق من الويدجت تماماً»
+            // فالخلايا خمسٌ: الفجر والظهر والعصر والمغرب والعشاء — والظهر
+            // يوم الجمعة باسمها «الجمعة» من displayName نفسها.
             return WidgetSnapshot(
                 nextName = next.arabicName,
                 nextTimeText = TimeFormat.prayerTime(next.target),
                 remainingSeconds = next.remainingSeconds.toLong(),
-                rows = rows,
+                rows = rows(times, now),
                 city = settings.city,
                 hijriDate = Hijri.of(today),
                 gregorianDate = today,
             )
         }
 
+        /**
+         * صفوف مواقيت الويدجت من حسابٍ معطى — دالةٌ نقية تُختبر آلياً:
+         * خمسُ صلواتٍ بلا الشروق، وأسمُّ الظهر يوم الجمعة «الجمعة».
+         */
+        internal fun rows(times: PrayerTimes, now: ZonedDateTime): List<Row> {
+            val nextKey = PrayerMath.nextPrayer(times, now).key
+            return PRAYER_KEYS.map { key ->
+                val target = times[key]
+                Row(
+                    name = PrayerMath.displayName(key, now.toLocalDate()),
+                    time = TimeFormat.prayerTime(target),
+                    isNext = key == nextKey,
+                    isPast = target.isBefore(now) && key != nextKey,
+                )
+            }
+        }
+
+        /** مفاتيح الصلوات الخمس الظاهرة في الويدجت — الشروق مستثناة */
+        internal val PRAYER_KEYS: List<PrayerTimeKey> =
+            PrayerTimeKey.entries.filter { it != PrayerTimeKey.SUNRISE }
+
         /** آخر العلاج — لقطةٌ شبه فارغة تركيبها سليم لا تنفجر أبداً */
         private fun emptySnapshot(now: ZonedDateTime): WidgetSnapshot = WidgetSnapshot(
             nextName = "",
             nextTimeText = "",
             remainingSeconds = 0,
-            rows = PrayerTimeKey.entries.map {
+            rows = PRAYER_KEYS.map {
                 Row(
                     name = PrayerMath.displayName(it, now.toLocalDate()),
                     time = "",

@@ -43,9 +43,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -96,6 +96,19 @@ internal fun WidgetInteractiveEditor(
     val dragOffsets = remember { mutableStateMapOf<String, Float>() }
     val itemHeights = remember { mutableStateMapOf<String, Int>() }
 
+    // شكل الويدجت كاملاً في المعاينة — بلاغ المالك alpha62: «شاشه
+    // معاينه و تعديل الويدجت في التطبيق لا تعرض كامل شكل الويدجت»
+    // فالمحتوى إذا زاد عن الإطار كان يُقص؛ والآن يُقاس ارتفاعُ المحتوى
+    // الحقيقي ويُصغَّر كلُّه بنسبةٍ واحدةٍ (graphicsLayer) فيظهر شكل
+    // الويدجت كاملاً دائماً مهما تعددت العناصر وكبُرت أحجامها.
+    var containerH by remember { mutableStateOf(0) }
+    var contentH by remember { mutableStateOf(0) }
+    val fitScale = if (containerH > 0 && contentH > containerH) {
+        containerH.toFloat() / contentH
+    } else {
+        1f
+    }
+
     // العناصر الظاهرة فقط — بترتيبها الحالي، وهي التي تُسحب وتُرتب
     val visibleKeys = customization.elementOrder.filter { isVisibleIn(customization, it) }
 
@@ -120,10 +133,11 @@ internal fun WidgetInteractiveEditor(
     Column {
         SettingLabel("شكل الويدجت الآن — محرر تفاعلي حيّ")
         Text(
-            text = "معاينةٌ مطابقةٌ للويدجت على شاشتك: اسحب أي عنصرٍ بضغطةٍ " +
-                "مطوّلةٍ لتحريكه وترتيبه، واضغط عليه تُفتح لوحته المنبثقة " +
-                "(الحجم واللون والظهور)، وافتح لوحة العنصر ثم اجمع إصبعين " +
-                "على المعاينة للزوم تكبيراً وتصغيراً.",
+            text = "معاينةٌ مطابقةٌ للويدجت على شاشتك وتُظهر شكلها كاملاً: " +
+                "اسحب أي عنصرٍ بضغطةٍ مطوّلةٍ لتحريكه وترتيبه، واضغط عليه " +
+                "تُفتح لوحته المنبثقة (الحجم واللون والظهور)، وافتح لوحة " +
+                "العنصر ثم اجمع إصبعين على المعاينة للزوم تكبيراً وتصغيراً " +
+                "— وضغطةٌ على الويدجت المنصوبة نفسها تُبدّل لون إطارها الدائري.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 10.dp),
@@ -142,9 +156,14 @@ internal fun WidgetInteractiveEditor(
                         ),
                     ),
                 )
+                // الإطار الدائري في المعاينة بلونه الحقيقي من التخصيص —
+                // وهو نفسه في الويدجت المنصوبة (alpha62)
                 .border(
-                    width = 1.dp,
-                    color = Color(pal.accent).copy(alpha = 0.5f),
+                    width = 2.dp,
+                    color = Color(
+                        WidgetCustomization.parseColor(customization.frameColor)
+                            ?: pal.accent,
+                    ).copy(alpha = 0.85f),
                     shape = RoundedCornerShape(22.dp),
                 )
                 // الزوم باليد — إصبعان على المعاينة يكبّران العنصر المفتوح
@@ -167,12 +186,24 @@ internal fun WidgetInteractiveEditor(
                     }
                 },
         ) {
+            // المستقبِل المتاح بعد الحواشي — هو سقفُ المحتوى
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .onSizeChanged { containerH = it.height },
                 verticalArrangement = Arrangement.Center,
             ) {
+                // والمحتوى نفسه — يُقاس ارتفاعُه الحقيقي ويُصغَّر بنسبةٍ
+                // واحدةٍ إن زاد عن السقف فيظهر الشكل كاملاً بلا قصٍّ
+                Box(
+                    modifier = Modifier
+                        .onSizeChanged { contentH = it.height }
+                        .graphicsLayer {
+                            scaleX = fitScale
+                            scaleY = fitScale
+                        },
+                ) {
                 visibleKeys.forEachIndexed { index, key ->
                     val offset = dragOffsets[key] ?: 0f
                     Box(
@@ -234,6 +265,7 @@ internal fun WidgetInteractiveEditor(
                             pal = pal,
                         )
                     }
+                }
                 }
             }
         }
@@ -298,7 +330,6 @@ internal fun elementTitle(key: String?): String = when (key) {
     WidgetCustomization.ELEMENT_NEXT -> "الصلاة القادمة"
     WidgetCustomization.ELEMENT_COUNTDOWN -> "العدّاد المتبقي"
     WidgetCustomization.ELEMENT_GRID -> "مواقيت الصلوات"
-    WidgetCustomization.ELEMENT_MISBAHA -> "المسبحة"
     null -> "لا شيء — اضغط عنصراً في المعاينة"
     else -> key
 }
@@ -312,7 +343,6 @@ internal fun isVisibleIn(customization: WidgetCustomization, key: String): Boole
     WidgetCustomization.ELEMENT_NEXT -> true
     WidgetCustomization.ELEMENT_COUNTDOWN -> customization.showCountdown
     WidgetCustomization.ELEMENT_GRID -> customization.showPrayerTimes
-    WidgetCustomization.ELEMENT_MISBAHA -> customization.showMisbaha
     else -> false
 }
 
@@ -449,22 +479,6 @@ private fun WidgetElementPreview(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            if (customization.bubbleOnCountdown) {
-                val bubble = remember(customization.bubbleColorCountdown, pal) {
-                    WidgetArt.liquidBubbleBitmap(
-                        WidgetArt.COUNTDOWN_BUBBLE_W, WidgetArt.COUNTDOWN_BUBBLE_H,
-                        WidgetCustomization.parseColor(customization.bubbleColorCountdown)
-                            ?: pal.accent,
-                        0f,
-                    )
-                }
-                Image(
-                    bitmap = bubble.asImageBitmap(),
-                    contentDescription = null,
-                    modifier = Modifier.matchParentSize(),
-                    contentScale = ContentScale.FillBounds,
-                )
-            }
             Text(
                 text = "متبقي ${remainingPreview(snapshot.remainingSeconds)} حتى الأذان",
                 fontSize = sizeOf(key, 12f).sp,
@@ -481,27 +495,6 @@ private fun WidgetElementPreview(
                         .weight(1f),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (customization.bubbleOnNext && row.isNext ||
-                        customization.bubbleOnCurrent && i == currentIndex
-                    ) {
-                        val bubbleColor = when {
-                            customization.bubbleOnNext && row.isNext -> customization.bubbleColorNext
-                            else -> customization.bubbleColorCurrent
-                        }
-                        val bubble = remember(bubbleColor, i) {
-                            WidgetArt.liquidBubbleBitmap(
-                                WidgetArt.GRID_BUBBLE_W, WidgetArt.GRID_BUBBLE_H,
-                                WidgetCustomization.parseColor(bubbleColor) ?: pal.accent,
-                                i * 0.9f,
-                            )
-                        }
-                        Image(
-                            bitmap = bubble.asImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier.matchParentSize(),
-                            contentScale = ContentScale.FillBounds,
-                        )
-                    }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = row.name,
@@ -526,31 +519,6 @@ private fun WidgetElementPreview(
                     }
                 }
             }
-        }
-
-        WidgetCustomization.ELEMENT_MISBAHA -> Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = "المسبحة: ${com.sawan4art.noor.domain.mushaf.MushafSurahs.arabicDigits(0)}",
-                fontSize = sizeOf(key, 14f).sp,
-                fontWeight = FontWeight.Bold,
-                color = colorOf(key, pal.text),
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = "سبِّح",
-                fontSize = sizeOf(key, 12f).sp,
-                fontWeight = FontWeight.Bold,
-                color = colorOf(key, pal.accent),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = "تصفير",
-                fontSize = sizeOf(key, 11f).sp,
-                color = colorOf(key, pal.muted),
-            )
         }
     }
 }
@@ -671,8 +639,6 @@ private fun ElementPanelDialog(
                                     onUpdate(customization.copy(showCountdown = on))
                                 WidgetCustomization.ELEMENT_GRID ->
                                     onUpdate(customization.copy(showPrayerTimes = on))
-                                WidgetCustomization.ELEMENT_MISBAHA ->
-                                    onUpdate(customization.copy(showMisbaha = on))
                             }
                         }
                     }

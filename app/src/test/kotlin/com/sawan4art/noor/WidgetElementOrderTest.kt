@@ -37,7 +37,9 @@ class WidgetElementOrderTest {
         assertTrue(normalized.all { it in WidgetCustomization.ELEMENT_KEYS })
         // ٢) الترتيب المختار أولٌ ثم الغائب بترتيبه الافتراضي
         assertEquals("clock", normalized.first())
-        assertEquals("misbaha", normalized[1])
+        // alpha62: مفتاح المسبحة انتهى — «الغى المسبحه في الويدجت» —
+        // فيُرمى كأي مفتاحٍ غريبٍ ولا يُلحق بالقائمة
+        assertTrue("misbaha" !in normalized)
         // ٣) الكل حاضر في النهاية
         assertEquals(WidgetCustomization.ELEMENT_KEYS.toSet(), normalized.toSet())
     }
@@ -46,7 +48,7 @@ class WidgetElementOrderTest {
     fun `جولة JSON تحفظ الترتيب والحجم واللون`() {
         val c = WidgetCustomization.DEFAULT.copy(
             elementOrder = WidgetCustomization.normalizeOrder(
-                listOf("countdown", "clock", "next", "grid", "hijri", "greg", "header", "misbaha"),
+                listOf("countdown", "clock", "next", "grid", "hijri", "greg", "header"),
             ),
             elementSizes = mapOf(
                 WidgetCustomization.ELEMENT_CLOCK to 250,

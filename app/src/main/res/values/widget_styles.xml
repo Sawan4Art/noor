@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- أنماط خلايا مواقيت الويدجت الواحدة (alpha57) -->
+<!-- أنماط خلايا مواقيت الويدجت الواحدة (alpha57؛ alpha62: خمس خلايا
+     متساوية بلا فقاعاتٍ — خليةٌ واحدة بلا غلافٍ فوقها) -->
 <resources>
     <style name="WidgetPrayerCell">
-        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_weight">1</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:orientation">vertical</item>
         <item name="android:gravity">center</item>

@@ -40,18 +40,17 @@ class WidgetAnalogClockTest {
     }
 
     @Test
-    fun `المفاتيح والعناصر الثمانية لعناصر الحجم واللون — عقد alpha61`() {
-        // alpha61 أضاف مفتاح الترويسة (الاسم والمدينة) بعد أن كانت سبعة
-        assertEquals(8, WidgetCustomization.ELEMENT_KEYS.size)
-        assertEquals(8, WidgetCustomization.ELEMENT_KEYS.toSet().size)
+    fun `المفاتيح والعناصر السبعة لعناصر الحجم واللون — عقد alpha62`() {
+        // alpha62 حذف المسبحة — «الغى المسبحه في الويدجت» — فصارت سبعة
+        assertEquals(7, WidgetCustomization.ELEMENT_KEYS.size)
+        assertEquals(7, WidgetCustomization.ELEMENT_KEYS.toSet().size)
         assertEquals(WidgetCustomization.ELEMENT_KEYS.size, WidgetCustomization.DEFAULT_ORDER.size)
+        assertTrue("misbaha" !in WidgetCustomization.ELEMENT_KEYS)
     }
 
     @Test
     fun `مقامات الرسم محصورة`() {
-        // أبعاد الفقاعات والميناء ثابتة وصغيرة عمداً — درس alpha58 البايندر
-        assertTrue(WidgetArt.COUNTDOWN_BUBBLE_W <= 220)
-        assertTrue(WidgetArt.GRID_BUBBLE_W <= 110)
+        // ميناء الميناء ثابت وصغير عمداً — درس alpha58 البايندر
         assertTrue(WidgetArt.ANALOG_SIZE <= 130)
     }
 }

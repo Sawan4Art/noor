@@ -22,6 +22,7 @@ import com.sawan4art.noor.domain.location.LocationGateChecker
 import com.sawan4art.noor.domain.location.LocationSource
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
+import com.sawan4art.noor.util.CrashLog
 import com.sawan4art.noor.widget.WidgetUpdater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -205,6 +206,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
                 }
                 val current = uiState.value.settings.khutbahImages
                 repository.setKhutbahImages(current + outFile.name)
+            }.onFailure {
+                // التحصين (alpha62): أي عطلٍ في الاستيراد يُسجَّل في دفتر
+                // الأعطال كي يرويه «تقرير آخر عطل» بدل موتٍ صامت
+                CrashLog.note("خطبة: فشل استيراد صورة", it)
             }
         }
     }
@@ -247,6 +252,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
                 repository.setKhutbahImages(
                     uiState.value.settings.khutbahImages - fileName,
                 )
+            }.onFailure {
+                CrashLog.note("خطبة: فشل حذف صورة", it)
             }
         }
     }

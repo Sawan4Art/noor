@@ -4,11 +4,14 @@
   واحده و قابلة للتخصيص بالكامل») — من alpha61 صارت العناصر تُبنى
   وقت الرسم: هذا الملف حاضنةٌ خلفيةٌ وعُلبةُ صفٍّ فارغة (widget_stack)
   يضيف إليها الرسّام عناصر الويدجت بأشكالها المستقلة
-  (widget_el_header/clock/hijri/greg/next/countdown/grid/misbaha)
+  (widget_el_header/clock/hijri/greg/next/countdown/grid)
   بترتيب المستخدم المختار من المحرر التفاعلي — «قابل لتحريك كل
   العناصر» — فالترتيب حرٌّ والمخفي لا يُضاف أصلاً فلا فراغ مكانه.
+  والجذر (widget_root) ضغطةُ تبديل لون الإطار الدائري (alpha62) —
+  «قابل للضغط عليها لتغيير لونه» — والإطار مرسومٌ في الخلفية نفسها.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="8dp">

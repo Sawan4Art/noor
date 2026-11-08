@@ -14,10 +14,14 @@ import org.json.JSONObject
  * اي مكان مثل الوقت المتبقي او التحديد بها على الصلاه التاليه او
  * الحاليه او الاثنين مع بعض مع تغيير لون كل فقاعه للتميز بينهم».
  *
- * فالعقد هنا: خمسُ مفاتيحِ عرض (الوقت، المواقيت، العدّاد، التاريخان،
- * المسبحة) + صيغةُ كل تاريخٍ من ستٍّ + شكلُ الساعة (رقمية أو تناظرية)
- * + الشفافية + لونُ الخط + لونُ التطبيق + الفقاعاتُ السائلة الثلاث
- * (الوقت المتبقي، الصلاة القادمة، الحالية) كلٌّ بلونها — وفي alpha59
+ * فالعقد هنا: مفاتيحِ عرض (الوقت، المواقيت، العدّاد، التاريخان) +
+ * صيغةُ كل تاريخٍ من ستٍّ + شكلُ الساعة (رقمية أو تناظرية) +
+ * الشفافية + لونُ الخط + لونُ التطبيق — وفي alpha62 بتوجيه المالك:
+ * «الغى المسبحه في الويدجت و اكتفي بباقي العناصر و ايضا الغي السائل
+ * الحي من الويدجت و استبدله باطار حوافه دائريه قابل للضغط عليها
+ * لتغيير لونه» — فالمسبحة والفقاعات السائلة الثلاث محذوفةٌ من العقد
+ * كليةً، ومكانها **لون الإطار الدائري** [frameColor] الذي يتبدل
+ * بضغطةٍ على الويدجت نفسها عبر [FRAME_CYCLE] — وفي alpha59
  * توسّع العقد ببلاغ المالك: «عايز خانات لتحديد حجم الخط ولونه لكل
  * عنصر» فحجمُ كل عنصرٍ ولونه خريطتان مستقلتان (غيابُ المفتاح = الوضع
  * التلقائي)، و«عايز صيغ اكثر للتواريخ و عند اختيار صيغه للتاريخ تفتح
@@ -49,7 +53,7 @@ data class WidgetCustomization(
     // ===== عناصر العرض الخمسة (بلاغ المالك) =====
     /** الوقت الحالي — ساعة حيّة */
     val showClock: Boolean = true,
-    /** مواقيت الصلاة الست */
+    /** مواقيت الصلوات الخمس — بلا الشروق (alpha62: «ازل توقيت الشروق من الويدجت تماماً») */
     val showPrayerTimes: Boolean = true,
     /** المتبقي على الصلاة التالية */
     val showCountdown: Boolean = true,
@@ -61,8 +65,6 @@ data class WidgetCustomization(
     val showGregorian: Boolean = true,
     /** صيغة الميلادي ٠ كاملة — ١ مختصرة — ٢ رقمية — ٣ بلا اليوم — ٤ بيوم بلا سنة — ٥ يوم/شهر */
     val gregFormat: Int = 0,
-    /** المسبحة للتسبيح من خلال الويدجت */
-    val showMisbaha: Boolean = false,
 
     // ===== شكل الساعة وضباط كل عنصر (alpha59) =====
     /** شكل الساعة — رقمية حيّة أو تناظرية مرسومة */
@@ -79,19 +81,15 @@ data class WidgetCustomization(
      */
     val elementOrder: List<String> = DEFAULT_ORDER,
 
-    // ===== النقطة السائلة — كل مقامٍ بفقاعتِه ولونها =====
-    /** فقاعةٌ خلف الوقت المتبقي */
-    val bubbleOnCountdown: Boolean = false,
-    /** لون فقاعة الوقت المتبقي */
-    val bubbleColorCountdown: String = DEFAULT_BUBBLE,
-    /** فقاعةٌ تُحدّد الصلاة القادمة في المواقيت */
-    val bubbleOnNext: Boolean = true,
-    /** لون فقاعة القادمة */
-    val bubbleColorNext: String = DEFAULT_BUBBLE,
-    /** فقاعةٌ تُحدّد الصلاة الحالية في المواقيت */
-    val bubbleOnCurrent: Boolean = false,
-    /** لون فقاعة الحالية */
-    val bubbleColorCurrent: String = DEFAULT_BUBBLE_ALT,
+    // ===== الإطار الدائري — بديل النقطة السائلة (alpha62) =====
+    /**
+     * لون الإطار الدائري حول الويدجت — «تلقائي» يتبع لون التطبيق،
+     * وضغطةٌ على الويدجت نفسها تُبدّل اللون دورةً في [FRAME_CYCLE]
+     * (بلاغ المالك: «استبدله باطار حوافه دائريه قابل للضغط عليها
+     * لتغيير لونه»). ومفاتيح الفقاعات القديمة «bubble*» في JSON
+     * تُرمى بأمان فلا تعود.
+     */
+    val frameColor: String = COLOR_AUTO,
 ) {
 
     /** مظهر الويدجت — الثيم الحي أو تثبيت يدوي */
@@ -117,7 +115,6 @@ data class WidgetCustomization(
         put("hijriFormat", hijriFormat.coerceIn(0, 5))
         put("greg", showGregorian)
         put("gregFormat", gregFormat.coerceIn(0, 5))
-        put("misbaha", showMisbaha)
         put("clockStyle", clockStyle.name)
         if (elementSizes.isNotEmpty()) {
             put("elementSizes", JSONObject().apply { elementSizes.forEach { (k, v) -> put(k, v.coerceIn(50, 250)) } })
@@ -128,12 +125,7 @@ data class WidgetCustomization(
         if (elementOrder != DEFAULT_ORDER) {
             put("elementOrder", org.json.JSONArray(elementOrder))
         }
-        put("bubbleCountdown", bubbleOnCountdown)
-        put("bubbleColorCountdown", bubbleColorCountdown)
-        put("bubbleNext", bubbleOnNext)
-        put("bubbleColorNext", bubbleColorNext)
-        put("bubbleCurrent", bubbleOnCurrent)
-        put("bubbleColorCurrent", bubbleColorCurrent)
+        put("frameColor", frameColor)
     }.toString()
 
     companion object {
@@ -151,18 +143,18 @@ data class WidgetCustomization(
         const val ELEMENT_NEXT = "next"
         const val ELEMENT_COUNTDOWN = "countdown"
         const val ELEMENT_GRID = "grid"
-        const val ELEMENT_MISBAHA = "misbaha"
 
-        /** كل مفاتيح العناصر — لطبقة الإعدادات وحلقة التطبيق */
+        /** كل مفاتيح العناصر — لطبقة الإعدادات وحلقة التطبيق
+         *  (alpha62: مفتاح المسبحة انتهى — «الغى المسبحه في الويدجت») */
         val ELEMENT_KEYS = listOf(
             ELEMENT_HEADER, ELEMENT_CLOCK, ELEMENT_HIJRI, ELEMENT_GREG, ELEMENT_NEXT,
-            ELEMENT_COUNTDOWN, ELEMENT_GRID, ELEMENT_MISBAHA,
+            ELEMENT_COUNTDOWN, ELEMENT_GRID,
         )
 
         /** الترتيب الافتراضي للعناصر من أعلى لأسفل — كما كان العمود دوماً */
         val DEFAULT_ORDER = listOf(
             ELEMENT_HEADER, ELEMENT_CLOCK, ELEMENT_HIJRI, ELEMENT_GREG,
-            ELEMENT_NEXT, ELEMENT_COUNTDOWN, ELEMENT_GRID, ELEMENT_MISBAHA,
+            ELEMENT_NEXT, ELEMENT_COUNTDOWN, ELEMENT_GRID,
         )
 
         /**
@@ -181,11 +173,26 @@ data class WidgetCustomization(
             return seen.toList()
         }
 
-        /** لون الفقاعة الافتراضي — فيروزي التطبيق الهادئ */
-        const val DEFAULT_BUBBLE = "#2FA48C"
+        /**
+         * دورة ألوان الإطار الدائري (alpha62) — ضغطة الويدجت تُقدّم
+         * خطوةً في هذه القائمة: «قابل للضغط عليها لتغيير لونه» —
+         * أولها التلقائي ثم ألوان لوحة الويدجت الثمانية المعتمدة.
+         */
+        val FRAME_CYCLE = listOf(
+            COLOR_AUTO, "#2FA48C", "#C98A3D", "#B04A3A", "#5B6E9E",
+            "#7A5B9E", "#4E7A4E", "#233029", "#F2EDE0",
+        )
 
-        /** لون بديل للفقاعة الثانية كي يتميز عن الأولى */
-        const val DEFAULT_BUBBLE_ALT = "#C98A3D"
+        /**
+         * لون الإطار التالي في الدورة — دالةٌ نقية تُختبر: الحاضر
+         * يُقدَّم خطوةً، وآخر القائمة يعود إلى أولها، والغريب يدخل
+         * الدورة من أولها.
+         */
+        fun nextFrameColor(current: String): String {
+            val index = FRAME_CYCLE.indexOf(current)
+            return if (index < 0) FRAME_CYCLE.first()
+            else FRAME_CYCLE[(index + 1) % FRAME_CYCLE.size]
+        }
 
         /** قراءة خريطة الحجم من JSON — الغريب يُرمى والمحصور ٥٠..٢٥٠ */
         private fun sizesFrom(o: JSONObject): Map<String, Int> {
@@ -239,7 +246,6 @@ data class WidgetCustomization(
                     hijriFormat = o.optInt("hijriFormat", 0).coerceIn(0, 5),
                     showGregorian = legacyDates ?: o.optBoolean("greg", true),
                     gregFormat = o.optInt("gregFormat", 0).coerceIn(0, 5),
-                    showMisbaha = o.optBoolean("misbaha", false),
                     clockStyle = runCatching {
                         ClockStyle.valueOf(o.optString("clockStyle", ClockStyle.DIGITAL.name))
                     }.getOrDefault(ClockStyle.DIGITAL),
@@ -253,12 +259,11 @@ data class WidgetCustomization(
                             }
                         },
                     ),
-                    bubbleOnCountdown = o.optBoolean("bubbleCountdown", false),
-                    bubbleColorCountdown = o.optString("bubbleColorCountdown", DEFAULT_BUBBLE),
-                    bubbleOnNext = o.optBoolean("bubbleNext", true),
-                    bubbleColorNext = o.optString("bubbleColorNext", DEFAULT_BUBBLE),
-                    bubbleOnCurrent = o.optBoolean("bubbleCurrent", false),
-                    bubbleColorCurrent = o.optString("bubbleColorCurrent", DEFAULT_BUBBLE_ALT),
+                    // alpha62: مفاتيح misbaha و bubble* القديمة تُرمى بصمت
+                    frameColor = runCatching {
+                        val raw = o.optString("frameColor", COLOR_AUTO)
+                        if (raw == COLOR_AUTO || parseColor(raw) != null) raw else COLOR_AUTO
+                    }.getOrDefault(COLOR_AUTO),
                 )
             }.getOrDefault(DEFAULT)
         }

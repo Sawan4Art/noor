@@ -1,20 +1,17 @@
 package com.sawan4art.noor.widget
 
 import android.content.Context
-import android.content.SharedPreferences
 
 /**
  * مخزن الويدجت — درس v0.4 المعتمد: الإعدادات JSON في
  * SharedPreferences كي تقرأها ويدجتات النظام عند كل رسمٍ بلا دورة
  * DataStore، والتطبيق يكتبها عند كل تغيير من قسم «الويدجت».
  *
- * وعدّاد المسبحة داخل الويدجت (alpha57) في التخزين نفسه — ضغطة
- * التسبيح في الويدجت تزيد به فوراً بلا دورة DataStore كي يعمل
- * المستقبِل أسرعَ ما يمكن.
+ * ولون الإطار الدائري (alpha62 — «قابل للضغط عليها لتغيير لونه»)
+ * يُدار من هنا: ضغطة الويدجت تُقدّم خطوةً في دورة الألوان وتحفظ
+ * فوراً بلا دورة DataStore كي يعود الرسم بأسرع ما يمكن.
  */
 object WidgetStore {
-
-    private const val MISBAHA_KEY = "widget_misbaha_count"
 
     /** قراءة التخصيص الحالي — الفاسد أو الغائب يسير للافتراضي */
     fun customization(context: Context): WidgetCustomization {
@@ -32,21 +29,14 @@ object WidgetStore {
             .apply()
     }
 
-    private fun prefs(context: Context): SharedPreferences =
-        context.getSharedPreferences(WidgetCustomization.PREFS_NAME, Context.MODE_PRIVATE)
-
-    /** عدد تسبيحات الويدجت الحالي */
-    fun misbahaCount(context: Context): Int = prefs(context).getInt(MISBAHA_KEY, 0)
-
-    /** ضغطة تسبيح — يزيد العدّ ويُرجع الجديد */
-    fun misbahaTap(context: Context): Int {
-        val next = misbahaCount(context) + 1
-        prefs(context).edit().putInt(MISBAHA_KEY, next).apply()
+    /**
+     * ضغطة الويدجت — لون الإطار التالي في [WidgetCustomization.FRAME_CYCLE]
+     * يُحفظ فيُعاد اللون الجديد للرسم الفوري.
+     */
+    fun cycleFrameColor(context: Context): String {
+        val current = customization(context)
+        val next = WidgetCustomization.nextFrameColor(current.frameColor)
+        save(context, current.copy(frameColor = next))
         return next
-    }
-
-    /** تصفير المسبحة */
-    fun misbahaReset(context: Context) {
-        prefs(context).edit().putInt(MISBAHA_KEY, 0).apply()
     }
 }

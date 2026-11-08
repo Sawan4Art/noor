@@ -31,7 +31,60 @@ object CrashLog {
     /** أقصى طولٍ للسجل بالبايت — نُبقي ذيله الأحدث فقط */
     private const val MAX_BYTES = 64 * 1024
 
+    /** أقصى طولٍ لأثر فتات الطريق — آخر خطواتٍ قبل العطل */
+    private const val MAX_BREADCRUMBS = 12
+
     private var appContext: Context? = null
+
+    /**
+     * فتات الطريق (alpha62) — آخر خطوات المستخدم قبل العطل، وعندها
+     * يعرف «تقرير آخر عطل» أين كان التطبيق لا الغلط فقط: أعطالُ
+     * «جلتش ثم يغلق» التي تموت بلا أثرٍ (قتل الذاكرة) تُروى بآخر
+     * خطوةٍ وصل إليها المستخدم.
+     */
+    private val trail = ArrayDeque<String>()
+
+    /** خطوةٌ في فتات الطريق — آخر [MAX_BREADCRUMBS] خطوةٍ هي التي تُروى */
+    fun breadcrumb(step: String) {
+        synchronized(trail) {
+            val stamp = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
+            trail.addLast("$stamp $step")
+            while (trail.size > MAX_BREADCRUMBS) trail.removeFirst()
+        }
+    }
+
+    /** فتات الطريق الحالي — أسطرٌ جاهزة للسجل */
+    private fun trailText(): String = synchronized(trail) {
+        if (trail.isEmpty()) "" else trail.joinToString("\n", prefix = "الخطوات:\n") + "\n"
+    }
+
+    /**
+     * عطلٌ غير قاتل — استثناءٌ التُقط وحولناه بأمانٍ لكنه دليلٌ على
+     * خللٍ ينبغي رؤيته في التقرير نفسه بلا انتظار انهيارٍ كامل.
+     */
+    fun note(tag: String, throwable: Throwable? = null) {
+        breadcrumb(if (throwable != null) "$tag ← ${throwable.javaClass.simpleName}: ${throwable.message}" else tag)
+        val context = appContext ?: return
+        val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+        val stack = throwable?.let {
+            StringWriter().also { w -> it.printStackTrace(PrintWriter(w)) }
+                .toString()
+                .lines()
+                .takeLast(12)
+                .joinToString("\n")
+        } ?: ""
+        val entry = buildString {
+            append("==== NON-FATAL $stamp ====")
+            append('\n')
+            append(tag)
+            append('\n')
+            if (stack.isNotEmpty()) {
+                append(stack)
+                append('\n')
+            }
+        }
+        runCatching { append(entry) }
+    }
 
     /** تُنادى مرة واحدة من [com.sawan4art.noor.NoorApplication.onCreate] */
     fun install(context: Context) {
@@ -101,12 +154,26 @@ object CrashLog {
             append(": ")
             append(throwable.message ?: "")
             append('\n')
+            append(trailText())
             append(stack)
             append('\n')
         }
         val f = file(context)
         runCatching {
             // تقليمٌ بسيط: لو كبر الملف احتفظنا بالذيل الأحدث فقط
+            if (f.length() > MAX_BYTES) {
+                val tail = f.readText().takeLast(MAX_BYTES / 2)
+                f.writeText(tail)
+            }
+            f.appendText(entry)
+        }
+    }
+
+    /** إلحاق نصٍّ بذيل السجل — والقصُّ إن طال */
+    private fun append(entry: String) {
+        val context = appContext ?: return
+        val f = file(context)
+        runCatching {
             if (f.length() > MAX_BYTES) {
                 val tail = f.readText().takeLast(MAX_BYTES / 2)
                 f.writeText(tail)

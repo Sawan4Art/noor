@@ -68,6 +68,11 @@ object QuranAudioLibrary {
         val active: Boolean = true,
         /** رسالة خطأ أخيرة — فارغة تعني سلامة */
         val error: String = "",
+        /**
+         * طورٌ جارٍ يُعرض بجوار العدّاد (alpha62) — مثل «جارٍ تنزيل ضغط
+         * السورة — ٤٥٪» كي لا يبدو الشريط ساكناً أثناء نزول الأصل الكبير.
+         */
+        val phase: String = "",
     ) {
         val fraction: Float get() = if (total <= 0) 0f else (done.toFloat() / total).coerceIn(0f, 1f)
     }
@@ -194,11 +199,12 @@ object QuranAudioLibrary {
         var failed = 0
         var cancelled = false
 
-        fun publish(active: Boolean, error: String = "") {
+        fun publish(active: Boolean, error: String = "", phase: String = "") {
             _downloads.value = _downloads.value + (
                 stateKey to DownloadState(
                     reciterId = reciterId, sura = sura,
                     done = done.get(), total = total, active = active, error = error,
+                    phase = phase,
                 )
                 )
         }
@@ -216,7 +222,17 @@ object QuranAudioLibrary {
                 val base = done.get()
                 val ok = runCatching {
                     withContext(Dispatchers.IO) {
-                        downloadSurahZip(context, reciter, s) {
+                        downloadSurahZip(
+                            context, reciter, s,
+                            // سرعة alpha62: نسبة نزول الضغطة نفسها تُرى حيّة
+                            onZipPct = { pct ->
+                                publish(
+                                    active = true,
+                                    phase = "جارٍ تنزيل ضغط السورة — " +
+                                        MushafSurahs.arabicDigits(pct) + "٪",
+                                )
+                            },
+                        ) {
                             done.set(base + surahDownloadedCount(context, reciterId, s, count))
                             publish(active = true)
                         }
@@ -232,7 +248,10 @@ object QuranAudioLibrary {
                 }
                 if (mirrorAttempt == 1) delay(1_200L)
             }
-            if (viaMirror) continue
+            if (viaMirror) {
+                publish(active = true)
+                continue
+            }
 
             // (٢) الطريق القديم — آية آية من everyayah ثم islamic.network
             // **بتوازٍ أربعة** (سرعة alpha61): كل آيةٍ عاملةٌ مستقلة،
@@ -299,12 +318,18 @@ object QuranAudioLibrary {
         context: Context,
         reciter: QuranReciters.Reciter,
         sura: Int,
+        onZipPct: (Int) -> Unit = {},
         onExtracted: () -> Unit,
     ): Boolean {
         if (sura !in 1..114) return false
         val zip = File.createTempFile("noor_surah", ".zip", context.cacheDir)
         try {
-            if (!downloadTo(QuranReciters.mirrorSurahUrl(reciter, sura), zip)) return false
+            // سرعة alpha62 — ناقل الضغعات: تنزيلٌ متوازٍ بالتقطيع
+            // (أربعة اتصالات) باستئنافٍ حقيقي لكل قطعةٍ ومتابعة التحويلات
+            // يدوياً — بدل اتصالٍ واحدٍ يموت في مهلته ويبدأ من الصفر.
+            if (!SurahZipFetch.fetch(QuranReciters.mirrorSurahUrl(reciter, sura), zip, onZipPct)) {
+                return false
+            }
             var extracted = 0
             ZipInputStream(FileInputStream(zip).buffered()).use { zin ->
                 while (true) {

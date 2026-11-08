@@ -370,6 +370,14 @@ private fun ReciterDownloadDialog(
                         )
                     }
                 }
+                if (whole?.phase?.isNotEmpty() == true && whole?.active == true) {
+                    Text(
+                        text = whole.phase,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accent,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
                 if (whole?.error?.isNotEmpty() == true) {
                     Text(
                         text = whole.error,
@@ -432,7 +440,12 @@ private fun ReciterDownloadDialog(
                                 Text(
                                     text = when {
                                         state?.active == true ->
-                                            "جارٍ: ${MushafSurahs.arabicDigits(state.done)}/${MushafSurahs.arabicDigits(state.total)}"
+                                            if (state.phase.isNotEmpty()) {
+                                                state.phase
+                                            } else {
+                                                "جارٍ: ${MushafSurahs.arabicDigits(state.done)}/" +
+                                                    MushafSurahs.arabicDigits(state.total)
+                                            }
                                         complete -> "محمَّلة كاملة ✓"
                                         downloaded > 0 -> "ناقصة: ${MushafSurahs.arabicDigits(downloaded)}/${MushafSurahs.arabicDigits(count)}"
                                         else -> "${MushafSurahs.arabicDigits(count)} آية"
