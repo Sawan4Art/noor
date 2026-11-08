@@ -46,31 +46,58 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             return
         }
 
-        // أذان أو إقامة — الصوت المختار وإعدادات الكتم لحظة الدقّ
+        // أذان أو إقامة أو تنبيه — الصوت المختار وإعدادات الكتم لحظة الدقّ
         val prefs = runCatching {
             kotlinx.coroutines.runBlocking { SettingsRepository(context).adhanPrefsOnce() }
         }.getOrNull()
 
         val isIqamah = kind == "IQAMAH"
+        val isReminder = kind == "REMINDER"
         val prayerName = intent.getStringExtra(EXTRA_NAME) ?: "الصلاة"
+        val prayerKey = runCatching {
+            com.sawan4art.noor.domain.prayer.PrayerTimeKey.valueOf(
+                intent.getStringExtra(EXTRA_PRAYER_KEY) ?: "",
+            )
+        }.getOrNull()
+
+        // صوت الصلاة الفعلي — من خريطة «لكل صلاة» إن كانت مفعّلة (alpha61)
+        // وإلا صوت الكل، والغريب منها يسقط بأمانٍ إلى المدمج الافتراضي.
+        val mode = when {
+            isReminder -> com.sawan4art.noor.domain.adhan.AdhanMode.REMINDER
+            isIqamah -> com.sawan4art.noor.domain.adhan.AdhanMode.IQAMAH
+            else -> com.sawan4art.noor.domain.adhan.AdhanMode.ADHAN
+        }
         val soundId = when {
             prefs == null -> "main"
-            isIqamah -> prefs.iqamahVoice
-            else -> prefs.adhanVoice
+            isReminder -> prayerKey?.let { prefs.adhanVoiceFor(it) } ?: prefs.adhanVoice
+            isIqamah -> prayerKey?.let { prefs.iqamahVoiceFor(it) } ?: prefs.iqamahVoice
+            else -> prayerKey?.let { prefs.adhanVoiceFor(it) } ?: prefs.adhanVoice
         }
         val customPath = when {
             prefs == null -> ""
-            isIqamah -> prefs.customIqamahPath
-            else -> prefs.customAdhanPath
+            isReminder -> prayerKey?.let { prefs.adhanCustomPathFor(it) } ?: ""
+            isIqamah -> prayerKey?.let { prefs.iqamahCustomPathFor(it) } ?: prefs.customIqamahPath
+            else -> prayerKey?.let { prefs.adhanCustomPathFor(it) } ?: prefs.customAdhanPath
         }
+        // نصّ التنبيه من القاعدة الحية لحظة الدقّ — وإن غابت القاعدة
+        // (عطل أو مسحٌ بين الجدولة والدقّ) نصٌّ عامٌّ لا يخيب
+        val reminderNote = if (isReminder) {
+            val rule = prayerKey?.let { prefs?.reminderFor(it) }
+            if (rule != null) {
+                com.sawan4art.noor.domain.adhan.PrayerReminder.note(prayerName, rule)
+            } else {
+                "تنبيه: صلاة $prayerName قريبة"
+            }
+        } else ""
 
         val service = Intent(context, AlarmService::class.java)
             // الموحّد أولاً — الاسم القادم من العَلَم بحروفٍ كبيرة فلا
             // يسقط وضع الإقامة على الأذان (بلاغ alpha60)
-            .putExtra(AlarmService.EXTRA_MODE, AdhanMode.canonical(kind))
+            .putExtra(AlarmService.EXTRA_MODE, com.sawan4art.noor.domain.adhan.AdhanMode.canonical(mode))
             .putExtra(AlarmService.EXTRA_PRAYER_NAME, prayerName)
             .putExtra(AlarmService.EXTRA_SOUND_ID, soundId)
             .putExtra(AlarmService.EXTRA_CUSTOM_PATH, customPath)
+            .putExtra(AlarmService.EXTRA_NOTE, reminderNote)
             .putExtra(AlarmService.EXTRA_MUTE_START, intent.getBooleanExtra(EXTRA_MUTE_START, false))
             .putExtra(AlarmService.EXTRA_MUTE_MINUTES, prefs?.muteMinutes ?: 10)
             .putExtra(
@@ -94,6 +121,8 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
     companion object {
         const val EXTRA_KIND = "noor_extra_adhan_kind"
         const val EXTRA_NAME = "noor_extra_adhan_name"
+        /** مفتاح الصلاة (FAJR/DHUHR…) — لصوتها الخاص قبل/بعد alpha61 */
+        const val EXTRA_PRAYER_KEY = "noor_extra_adhan_prayer_key"
         const val EXTRA_IQAMAH_AT = "noor_extra_adhan_iqamah_at"
         const val EXTRA_MUTE_START = "noor_extra_adhan_mute_start"
         const val ACTION_REFRESH = "REFRESH"

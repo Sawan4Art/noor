@@ -40,9 +40,11 @@ class WidgetAnalogClockTest {
     }
 
     @Test
-    fun `المفاتيح والعناصر السبعة لعناصر الحجم واللون — عقد alpha59`() {
-        assertEquals(7, WidgetCustomization.ELEMENT_KEYS.size)
-        assertEquals(7, WidgetCustomization.ELEMENT_KEYS.toSet().size)
+    fun `المفاتيح والعناصر الثمانية لعناصر الحجم واللون — عقد alpha61`() {
+        // alpha61 أضاف مفتاح الترويسة (الاسم والمدينة) بعد أن كانت سبعة
+        assertEquals(8, WidgetCustomization.ELEMENT_KEYS.size)
+        assertEquals(8, WidgetCustomization.ELEMENT_KEYS.toSet().size)
+        assertEquals(WidgetCustomization.ELEMENT_KEYS.size, WidgetCustomization.DEFAULT_ORDER.size)
     }
 
     @Test

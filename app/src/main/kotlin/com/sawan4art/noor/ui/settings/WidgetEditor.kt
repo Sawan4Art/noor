@@ -1,0 +1,975 @@
+package com.sawan4art.noor.ui.settings
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.sawan4art.noor.widget.WidgetArt
+import com.sawan4art.noor.widget.WidgetCustomization
+import com.sawan4art.noor.widget.WidgetPalette
+import com.sawan4art.noor.widget.WidgetSnapshot
+import com.sawan4art.noor.widget.palette
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
+
+/**
+ * المحرر التفاعلي للويدجت (alpha61) — بلاغ المالك: «انا عايز ظبط اماكن
+ * عناصر الويدجت يكون تفاعلي بمعنى عايز شكل الويدجت يظهر في اعدادت
+ * الويدجت داخل التطبيق و يكون قابل لتحريك كل العناصر و تكبيرها من
+ * خلال الزوم باليد لتكبير بعض العناصر او تصغيرها بشكل احترافي و
+ * عايز كمان لوحه الالوان الخاصه بالويدجت تكون منبثقه».
+ *
+ * فالمحرر هنا ثلاث عقد معاً على معاينةٍ حيّةٍ تطابق الويدجت المنصوبة:
+ * 1. **التحريك بالسحب**: ضغطةٌ مطوّلةٌ على أي عنصرٍ ثم سحبٌ لأعلى
+ *    أو لأسفل يعيد ترتيب العناصر لحظةً بلحظة (وترتيبُ الويدجت نفسها
+ *    من [WidgetCustomization.elementOrder] فيُعاد رسمها فوراً).
+ * 2. **الزوم باليد**: اضغط عنصراً لفتح لوحته المنبثقة ثم اجمع إصبعين
+ *    على المعاينة — القرص يكبّر العنصر المفتوح لوحته أو يصغّره (٥٠..٢٥٠٪).
+ * 3. **اللوحة المنبثقة**: ضغطة العنصر تفتح لوحته: منزلق الحجم ولوحة
+ *    الألوان (التلقائي + ثمانية ألوان) ومفتاح الظهور وأزرار الترتيب
+ *    والاسترجاع — كلها في حوارٍ منبثقٍ واحد.
+ */
+@Composable
+internal fun WidgetInteractiveEditor(
+    customization: WidgetCustomization,
+    onUpdate: (WidgetCustomization) -> Unit,
+) {
+    val context = LocalContext.current
+    val snapshot = remember { WidgetSnapshot.compute(context) }
+    val pal = remember(customization.theme, customization.accentId, customization.textColor) {
+        palette(customization)
+    }
+
+    var panelKey by remember { mutableStateOf<String?>(null) }
+    var draggingKey by remember { mutableStateOf<String?>(null) }
+    val dragOffsets = remember { mutableStateMapOf<String, Float>() }
+    val itemHeights = remember { mutableStateMapOf<String, Int>() }
+
+    // العناصر الظاهرة فقط — بترتيبها الحالي، وهي التي تُسحب وتُرتب
+    val visibleKeys = customization.elementOrder.filter { isVisibleIn(customization, it) }
+
+    fun move(fromIndex: Int, toIndex: Int) {
+        if (fromIndex == toIndex || fromIndex !in visibleKeys.indices ||
+            toIndex !in visibleKeys.indices
+        ) {
+            return
+        }
+        val display = visibleKeys.toMutableList()
+        val item = display.removeAt(fromIndex)
+        display.add(toIndex, item)
+        // الترتيب الكامل = دورة على الترتيب القديم: الظاهر يأخذ ترتيبه
+        // الجديد بالتسلسل، والمخفي يبقى في مكانه النسبي
+        var d = 0
+        val full = customization.elementOrder.map { key ->
+            if (isVisibleIn(customization, key)) display.getOrNull(d++).orEmpty() else key
+        }.filter { it.isNotBlank() }
+        onUpdate(customization.copy(elementOrder = WidgetCustomization.normalizeOrder(full)))
+    }
+
+    Column {
+        SettingLabel("شكل الويدجت الآن — محرر تفاعلي حيّ")
+        Text(
+            text = "معاينةٌ مطابقةٌ للويدجت على شاشتك: اسحب أي عنصرٍ بضغطةٍ " +
+                "مطوّلةٍ لتحريكه وترتيبه، واضغط عليه تُفتح لوحته المنبثقة " +
+                "(الحجم واللون والظهور)، وافتح لوحة العنصر ثم اجمع إصبعين " +
+                "على المعاينة للزوم تكبيراً وتصغيراً.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 10.dp),
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(250f / 180f)
+                .clip(RoundedCornerShape(22.dp))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color(pal.bgTop).copy(alpha = customization.opacityFraction),
+                            Color(pal.bgBottom).copy(alpha = customization.opacityFraction),
+                        ),
+                    ),
+                )
+                .border(
+                    width = 1.dp,
+                    color = Color(pal.accent).copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(22.dp),
+                )
+                // الزوم باليد — إصبعان على المعاينة يكبّران العنصر المفتوح
+                // لوحته ويصغّرانه (بلاغ المالك: «تكبيرها من خلال الزوم
+                // باليد لتكبير بعض العناصر او تصغيرها بشكل احترافي»)
+                .pointerInput(panelKey, customization) {
+                    detectTransformGestures { _, _, zoom, _ ->
+                        val key = panelKey ?: return@detectTransformGestures
+                        if (zoom != 1f) {
+                            val current = customization.elementSizes[key] ?: 100
+                            val next = (current * zoom).roundToInt().coerceIn(50, 250)
+                            if (next != current) {
+                                onUpdate(
+                                    customization.copy(
+                                        elementSizes = customization.elementSizes + (key to next),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                visibleKeys.forEachIndexed { index, key ->
+                    val offset = dragOffsets[key] ?: 0f
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .offsetY(offset.roundToInt())
+                            .onSizeChanged { itemHeights[key] = it.height }
+                            .let { m ->
+                                m.pointerInput(key, visibleKeys) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = { draggingKey = key },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            val current = dragOffsets[key] ?: 0f
+                                            val next = current + amount.y
+                                            val h = (itemHeights[key] ?: 40) * 0.55f
+                                            val idx = visibleKeys.indexOf(key)
+                                            when {
+                                                next > h && idx < visibleKeys.size - 1 -> {
+                                                    move(idx, idx + 1)
+                                                    dragOffsets[key] = 0f
+                                                }
+                                                next < -h && idx > 0 -> {
+                                                    move(idx, idx - 1)
+                                                    dragOffsets[key] = 0f
+                                                }
+                                                else -> dragOffsets[key] = next
+                                            }
+                                        },
+                                        onDragEnd = {
+                                            draggingKey = null
+                                            dragOffsets.clear()
+                                        },
+                                        onDragCancel = {
+                                            draggingKey = null
+                                            dragOffsets.clear()
+                                        },
+                                    )
+                                }
+                            }
+                            .clip(RoundedCornerShape(8.dp))
+                            .then(
+                                if (panelKey == key || draggingKey == key) {
+                                    Modifier.border(
+                                        width = 1.dp,
+                                        color = Color(pal.accent).copy(alpha = 0.8f),
+                                        shape = RoundedCornerShape(8.dp),
+                                    )
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .clickable { panelKey = key },
+                    ) {
+                        WidgetElementPreview(
+                            key = key,
+                            customization = customization,
+                            snapshot = snapshot,
+                            pal = pal,
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(6.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = "عنصرٌ مفتوحٌ للوحة: ${elementTitle(panelKey)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            TextButtonReset {
+                onUpdate(
+                    WidgetCustomization.DEFAULT.copy(
+                        theme = customization.theme,
+                        opacityPercent = customization.opacityPercent,
+                        accentId = customization.accentId,
+                        textColor = customization.textColor,
+                    ),
+                )
+            }
+        }
+    }
+
+    if (panelKey != null) {
+        ElementPanelDialog(
+            key = panelKey!!,
+            customization = customization,
+            onUpdate = onUpdate,
+            onDismiss = { panelKey = null },
+        )
+    }
+}
+
+/** زر استرجاع الترتيب الافتراضي كله */
+@Composable
+private fun TextButtonReset(onClick: () -> Unit) {
+    Text(
+        text = "استرجاع الترتيب الافتراضي",
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(6.dp),
+    )
+}
+
+private fun Modifier.offsetY(y: Int): Modifier = this.offset { IntOffset(0, y) }
+
+/** عنوان العنصر — للعرض في سطر الحالة */
+internal fun elementTitle(key: String?): String = when (key) {
+    WidgetCustomization.ELEMENT_HEADER -> "الترويسة (الاسم والمدينة)"
+    WidgetCustomization.ELEMENT_CLOCK -> "الوقت"
+    WidgetCustomization.ELEMENT_HIJRI -> "التاريخ الهجري"
+    WidgetCustomization.ELEMENT_GREG -> "التاريخ الميلادي"
+    WidgetCustomization.ELEMENT_NEXT -> "الصلاة القادمة"
+    WidgetCustomization.ELEMENT_COUNTDOWN -> "العدّاد المتبقي"
+    WidgetCustomization.ELEMENT_GRID -> "مواقيت الصلوات"
+    WidgetCustomization.ELEMENT_MISBAHA -> "المسبحة"
+    null -> "لا شيء — اضغط عنصراً في المعاينة"
+    else -> key
+}
+
+/** هل العنصر ظاهرٌ بالتخصيص الحالي؟ — نفس عقد الرسّام */
+internal fun isVisibleIn(customization: WidgetCustomization, key: String): Boolean = when (key) {
+    WidgetCustomization.ELEMENT_HEADER -> customization.showBrand || customization.showCity
+    WidgetCustomization.ELEMENT_CLOCK -> customization.showClock
+    WidgetCustomization.ELEMENT_HIJRI -> customization.showHijri
+    WidgetCustomization.ELEMENT_GREG -> customization.showGregorian
+    WidgetCustomization.ELEMENT_NEXT -> true
+    WidgetCustomization.ELEMENT_COUNTDOWN -> customization.showCountdown
+    WidgetCustomization.ELEMENT_GRID -> customization.showPrayerTimes
+    WidgetCustomization.ELEMENT_MISBAHA -> customization.showMisbaha
+    else -> false
+}
+
+/**
+ * معاينة العنصر الواحد — نفس محتوى الويدجت الفعلي بنفس أحجامه وألوانه
+ * (sizeOf/colorOf مثل الرسّام) كي تكون المعاينة مطابقةً لا شبيهة.
+ */
+@Composable
+private fun WidgetElementPreview(
+    key: String,
+    customization: WidgetCustomization,
+    snapshot: WidgetSnapshot,
+    pal: WidgetPalette,
+) {
+    fun sizeOf(key: String, base: Float): Float =
+        base * (customization.elementSizes[key] ?: 100) / 100f
+
+    fun colorOf(key: String, fallback: Int): Color =
+        customization.elementColors[key]
+            ?.let { WidgetCustomization.parseColor(it) }
+            ?.let { Color(it) } ?: Color(fallback)
+
+    // الساعة الحيّة في المعاينة — تنبض كل عشر ثوانٍ كي تُرى حيّة
+    val now: LocalTime by produceState(LocalTime.now()) {
+        while (true) {
+            value = LocalTime.now()
+            kotlinx.coroutines.delay(10_000L)
+        }
+    }
+
+    when (key) {
+        WidgetCustomization.ELEMENT_HEADER -> Row(verticalAlignment = Alignment.CenterVertically) {
+            if (customization.showBrand) {
+                Text(
+                    text = "نور المسلم",
+                    fontSize = sizeOf(key, 11f).sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colorOf(key, pal.text),
+                )
+            }
+            if (customization.showBrand && customization.showCity && snapshot.city.isNotBlank()) {
+                Spacer(Modifier.width(8.dp))
+            }
+            if (customization.showCity && snapshot.city.isNotBlank()) {
+                Text(
+                    text = snapshot.city,
+                    fontSize = sizeOf(key, 10f).sp,
+                    color = colorOf(key, pal.muted),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        WidgetCustomization.ELEMENT_CLOCK -> Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (customization.clockStyle == WidgetCustomization.ClockStyle.DIGITAL) {
+                Text(
+                    text = now.format(DateTimeFormatter.ofPattern("h:mm a")),
+                    fontSize = sizeOf(key, 15f).sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colorOf(key, pal.text),
+                )
+            } else {
+                val scale = (customization.elementSizes[key] ?: 100) / 100f
+                val bmp = remember(customization.elementSizes[key], pal) {
+                    WidgetArt.analogClockBitmap(
+                        (WidgetArt.ANALOG_SIZE * scale).toInt().coerceIn(48, 240),
+                        now.hour, now.minute,
+                        dialColor = pal.text,
+                        handColor = colorOf(key, pal.text).toArgb(),
+                        accentColor = pal.accent,
+                        onDialColor = pal.text,
+                    )
+                }
+                Image(
+                    bitmap = bmp.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.size(((WidgetArt.ANALOG_SIZE * scale)).dp.coerceAtMost(240.dp)),
+                )
+            }
+        }
+
+        WidgetCustomization.ELEMENT_HIJRI -> Text(
+            text = com.sawan4art.noor.util.Hijri.formatHijri(
+                snapshot.hijriDate, customization.hijriFormat, snapshot.gregorianDate,
+            ),
+            fontSize = sizeOf(key, 11f).sp,
+            color = colorOf(key, pal.text),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        WidgetCustomization.ELEMENT_GREG -> Text(
+            text = com.sawan4art.noor.util.Hijri.formatGregorian(
+                snapshot.gregorianDate, customization.gregFormat,
+            ),
+            fontSize = sizeOf(key, 11f).sp,
+            color = colorOf(key, pal.accent),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        WidgetCustomization.ELEMENT_NEXT -> Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = snapshot.nextName,
+                fontSize = sizeOf(key, 20f).sp,
+                fontWeight = FontWeight.Bold,
+                color = colorOf(key, pal.text),
+                maxLines = 1,
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = snapshot.nextTimeText,
+                fontSize = sizeOf(key, 14f).sp,
+                fontWeight = FontWeight.Bold,
+                color = colorOf(key, pal.accent),
+                maxLines = 1,
+            )
+        }
+
+        WidgetCustomization.ELEMENT_COUNTDOWN -> Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (customization.bubbleOnCountdown) {
+                val bubble = remember(customization.bubbleColorCountdown, pal) {
+                    WidgetArt.liquidBubbleBitmap(
+                        WidgetArt.COUNTDOWN_BUBBLE_W, WidgetArt.COUNTDOWN_BUBBLE_H,
+                        WidgetCustomization.parseColor(customization.bubbleColorCountdown)
+                            ?: pal.accent,
+                        0f,
+                    )
+                }
+                Image(
+                    bitmap = bubble.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.FillBounds,
+                )
+            }
+            Text(
+                text = "متبقي ${remainingPreview(snapshot.remainingSeconds)} حتى الأذان",
+                fontSize = sizeOf(key, 12f).sp,
+                color = colorOf(key, pal.muted),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
+            )
+        }
+
+        WidgetCustomization.ELEMENT_GRID -> Row(modifier = Modifier.fillMaxWidth()) {
+            val currentIndex = WidgetSnapshot.currentRowIndex(snapshot.rows)
+            snapshot.rows.forEachIndexed { i, row ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (customization.bubbleOnNext && row.isNext ||
+                        customization.bubbleOnCurrent && i == currentIndex
+                    ) {
+                        val bubbleColor = when {
+                            customization.bubbleOnNext && row.isNext -> customization.bubbleColorNext
+                            else -> customization.bubbleColorCurrent
+                        }
+                        val bubble = remember(bubbleColor, i) {
+                            WidgetArt.liquidBubbleBitmap(
+                                WidgetArt.GRID_BUBBLE_W, WidgetArt.GRID_BUBBLE_H,
+                                WidgetCustomization.parseColor(bubbleColor) ?: pal.accent,
+                                i * 0.9f,
+                            )
+                        }
+                        Image(
+                            bitmap = bubble.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier.matchParentSize(),
+                            contentScale = ContentScale.FillBounds,
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = row.name,
+                            fontSize = sizeOf(key, 10f).sp,
+                            color = if (row.isPast && i != currentIndex) {
+                                Color(pal.muted)
+                            } else {
+                                colorOf(key, pal.text)
+                            },
+                            maxLines = 1,
+                        )
+                        Text(
+                            text = row.time,
+                            fontSize = sizeOf(key, 10f).sp,
+                            color = when {
+                                row.isNext -> colorOf(key, pal.accent)
+                                row.isPast && i != currentIndex -> Color(pal.muted)
+                                else -> colorOf(key, pal.text)
+                            },
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+
+        WidgetCustomization.ELEMENT_MISBAHA -> Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = "المسبحة: ${com.sawan4art.noor.domain.mushaf.MushafSurahs.arabicDigits(0)}",
+                fontSize = sizeOf(key, 14f).sp,
+                fontWeight = FontWeight.Bold,
+                color = colorOf(key, pal.text),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "سبِّح",
+                fontSize = sizeOf(key, 12f).sp,
+                fontWeight = FontWeight.Bold,
+                color = colorOf(key, pal.accent),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = "تصفير",
+                fontSize = sizeOf(key, 11f).sp,
+                color = colorOf(key, pal.muted),
+            )
+        }
+    }
+}
+
+/** نص المتبقي في المعاينة — ساعة:دقيقة كما يعدّ الويدجت */
+private fun remainingPreview(seconds: Long): String {
+    val total = seconds.coerceAtLeast(0)
+    val h = total / 3600
+    val m = (total % 3600) / 60
+    val s = total % 60
+    return if (h > 0) "%d:%02d".format(h, m) else "%02d:%02d".format(m, s)
+}
+
+/**
+ * لوحة العنصر المنبثقة — منزلق الحجم (زومٌ يدويٌّ أيضاً من هنا) ولوحة
+ * الألوان ومفتاح الظهور وأزرار الترتيب والاسترجاع — كلها حوارٌ واحد
+ * بنفس لغة التطبيق (بلاغ المالك: «لوحه الالوان الخاصه بالويدجت تكون
+ * منبثقه»).
+ */
+@Composable
+private fun ElementPanelDialog(
+    key: String,
+    customization: WidgetCustomization,
+    onUpdate: (WidgetCustomization) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val size = customization.elementSizes[key] ?: 100
+    val color = customization.elementColors[key] ?: WidgetCustomization.COLOR_AUTO
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = scheme.surface,
+        title = {
+            Text(
+                text = elementTitle(key),
+                fontWeight = FontWeight.Bold,
+                color = scheme.onSurface,
+            )
+        },
+        text = {
+            Column {
+                // ===== الحجم (الزوم) =====
+                Text(
+                    text = "حجم العنصر — ${MisbahaArabic(size)}٪",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = scheme.onSurface,
+                )
+                Slider(
+                    value = size.toFloat(),
+                    onValueChange = { value ->
+                        val next = value.roundToInt().coerceIn(50, 250)
+                        onUpdate(
+                            customization.copy(
+                                elementSizes = customization.elementSizes + (key to next),
+                            ),
+                        )
+                    },
+                    valueRange = 50f..250f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = scheme.primary,
+                        activeTrackColor = scheme.primary,
+                    ),
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                // ===== اللوحة المنبثقة للألوان =====
+                Text(
+                    text = "لون العنصر",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = scheme.onSurface,
+                )
+                Spacer(Modifier.height(6.dp))
+                ColorPanelChipInline(
+                    selected = color,
+                    onSelect = { hex ->
+                        onUpdate(
+                            customization.copy(
+                                elementColors = customization.elementColors + (key to hex),
+                            ),
+                        )
+                    },
+                )
+
+                // ===== الظهور =====
+                if (key != WidgetCustomization.ELEMENT_NEXT) {
+                    Spacer(Modifier.height(12.dp))
+                    if (key == WidgetCustomization.ELEMENT_HEADER) {
+                        PanelToggle(
+                            title = "اسم التطبيق",
+                            checked = customization.showBrand,
+                        ) { on ->
+                            onUpdate(customization.copy(showBrand = on))
+                        }
+                        PanelToggle(
+                            title = "المدينة",
+                            checked = customization.showCity,
+                        ) { on ->
+                            onUpdate(customization.copy(showCity = on))
+                        }
+                    } else {
+                        val visible = isVisibleIn(customization, key)
+                        PanelToggle(
+                            title = "ظاهر في الويدجت",
+                            checked = visible,
+                        ) { on ->
+                            when (key) {
+                                WidgetCustomization.ELEMENT_CLOCK ->
+                                    onUpdate(customization.copy(showClock = on))
+                                WidgetCustomization.ELEMENT_HIJRI ->
+                                    onUpdate(customization.copy(showHijri = on))
+                                WidgetCustomization.ELEMENT_GREG ->
+                                    onUpdate(customization.copy(showGregorian = on))
+                                WidgetCustomization.ELEMENT_COUNTDOWN ->
+                                    onUpdate(customization.copy(showCountdown = on))
+                                WidgetCustomization.ELEMENT_GRID ->
+                                    onUpdate(customization.copy(showPrayerTimes = on))
+                                WidgetCustomization.ELEMENT_MISBAHA ->
+                                    onUpdate(customization.copy(showMisbaha = on))
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "الترتيب والاسترجاع",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = scheme.onSurface,
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PanelChip("أعلى") {
+                        val visible = customization.elementOrder.filter {
+                            isVisibleIn(customization, it)
+                        }
+                        val idx = visible.indexOf(key)
+                        if (idx > 0) {
+                            val display = visible.toMutableList()
+                            val item = display.removeAt(idx)
+                            display.add(0, item)
+                            var d = 0
+                            val full = customization.elementOrder.map { k ->
+                                if (isVisibleIn(customization, k)) {
+                                    display.getOrNull(d++).orEmpty()
+                                } else {
+                                    k
+                                }
+                            }.filter { it.isNotBlank() }
+                            onUpdate(
+                                customization.copy(
+                                    elementOrder = WidgetCustomization.normalizeOrder(full),
+                                ),
+                            )
+                        }
+                    }
+                    PanelChip("أسفل") {
+                        val visible = customization.elementOrder.filter {
+                            isVisibleIn(customization, it)
+                        }
+                        val idx = visible.indexOf(key)
+                        if (idx in visible.indices && idx < visible.size - 1) {
+                            val display = visible.toMutableList()
+                            val item = display.removeAt(idx)
+                            display.add(idx + 1, item)
+                            var d = 0
+                            val full = customization.elementOrder.map { k ->
+                                if (isVisibleIn(customization, k)) {
+                                    display.getOrNull(d++).orEmpty()
+                                } else {
+                                    k
+                                }
+                            }.filter { it.isNotBlank() }
+                            onUpdate(
+                                customization.copy(
+                                    elementOrder = WidgetCustomization.normalizeOrder(full),
+                                ),
+                            )
+                        }
+                    }
+                    PanelChip("استرجاع ضباطه") {
+                        onUpdate(
+                            customization.copy(
+                                elementSizes = customization.elementSizes - key,
+                                elementColors = customization.elementColors - key,
+                            ),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("تم", color = scheme.primary, fontWeight = FontWeight.Bold)
+            }
+        },
+    )
+}
+
+/** رقم عربي صغير لعرض النسبة */
+private fun MisbahaArabic(n: Int): String =
+    com.sawan4art.noor.domain.mushaf.MushafSurahs.arabicDigits(n)
+
+@Composable
+private fun PanelToggle(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = title,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun PanelChip(text: String, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(scheme.primary.copy(alpha = 0.10f))
+            .border(
+                width = 1.dp,
+                color = scheme.primary.copy(alpha = 0.35f),
+                shape = RoundedCornerShape(12.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = scheme.primary,
+        )
+    }
+}
+
+/**
+ * لوحة الألوان المنبثقة — رقاقةٌ تفتح حواراً بألوان التطبيق الثمانية
+ * والتلقائي — بلاغ المالك: «عايز كمان لوحه الالوان الخاصه بالويدجت
+ * تكون منبثقه». تُستعمل للون الخط العام ولون كل عنصرٍ ولون الفقاعات.
+ */
+@Composable
+internal fun ColorPanelChipInline(
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(scheme.surfaceVariant.copy(alpha = 0.25f))
+            .border(
+                width = 1.dp,
+                color = scheme.outline.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(14.dp),
+            )
+            .clickable { open = true }
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        // عيّنة اللون الحالي
+        val current = if (selected == WidgetCustomization.COLOR_AUTO) {
+            null
+        } else {
+            runCatching { Color(android.graphics.Color.parseColor(selected)) }.getOrNull()
+        }
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(current ?: scheme.surface)
+                .border(
+                    width = 1.dp,
+                    color = scheme.outline.copy(alpha = 0.5f),
+                    shape = CircleShape,
+                ),
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = if (selected == WidgetCustomization.COLOR_AUTO) {
+                "تلقائي — يتبع المظهر"
+            } else {
+                "لون صريح محفوظ"
+            },
+            fontSize = 13.sp,
+            color = scheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = "اختيار…",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = scheme.primary,
+        )
+    }
+
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            containerColor = scheme.surface,
+            title = {
+                Text("اختر اللون", fontWeight = FontWeight.Bold, color = scheme.onSurface)
+            },
+            text = {
+                Column {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(scheme.surface)
+                                .border(
+                                    width = if (selected == WidgetCustomization.COLOR_AUTO) {
+                                        2.5.dp
+                                    } else {
+                                        1.dp
+                                    },
+                                    color = if (selected == WidgetCustomization.COLOR_AUTO) {
+                                        scheme.primary
+                                    } else {
+                                        scheme.outline.copy(alpha = 0.4f)
+                                    },
+                                    shape = CircleShape,
+                                )
+                                .clickable {
+                                    onSelect(WidgetCustomization.COLOR_AUTO)
+                                    open = false
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "أ",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = scheme.onSurface.copy(alpha = 0.75f),
+                            )
+                        }
+                        Text(
+                            text = "تلقائي — يتبع المظهر",
+                            fontSize = 13.sp,
+                            color = scheme.onSurface,
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    WIDGET_COLOR_PANEL.forEach { hex ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable {
+                                    onSelect(hex)
+                                    open = false
+                                }
+                                .padding(vertical = 6.dp, horizontal = 4.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        runCatching {
+                                            Color(android.graphics.Color.parseColor(hex))
+                                        }.getOrDefault(scheme.primary),
+                                    )
+                                    .border(
+                                        width = if (selected == hex) 2.5.dp else 1.dp,
+                                        color = if (selected == hex) {
+                                            scheme.primary
+                                        } else {
+                                            scheme.outline.copy(alpha = 0.35f)
+                                        },
+                                        shape = CircleShape,
+                                    ),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = hex.uppercase(),
+                                fontSize = 12.sp,
+                                color = scheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { open = false }) {
+                    Text("إلغاء", color = scheme.onSurfaceVariant)
+                }
+            },
+        )
+    }
+}
+
+/** ألوان لوحة الويدجت المنبثقة — نفس ألوان الخط الثمانية المعتمدة */
+private val WIDGET_COLOR_PANEL = listOf(
+    "#233029", "#F2EDE0", "#2FA48C", "#C98A3D",
+    "#B04A3A", "#5B6E9E", "#7A5B9E", "#4E7A4E",
+)

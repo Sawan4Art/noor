@@ -67,10 +67,17 @@ data class WidgetCustomization(
     // ===== شكل الساعة وضباط كل عنصر (alpha59) =====
     /** شكل الساعة — رقمية حيّة أو تناظرية مرسومة */
     val clockStyle: ClockStyle = ClockStyle.DIGITAL,
-    /** حجم كل عنصرٍ بالمئة — مفتاح ELEMENT_* إلى ٥٠..٢٠٠ (الغياب = ١٠٠) */
+    /** حجم كل عنصرٍ بالمئة — مفتاح ELEMENT_* إلى ٥٠..٢٥٠ (الغياب = ١٠٠) */
     val elementSizes: Map<String, Int> = emptyMap(),
     /** لون كل عنصرٍ — مفتاح ELEMENT_* إلى «auto» أو «#RRGGBB» (الغياب = لونه الافتراضي) */
     val elementColors: Map<String, String> = emptyMap(),
+    /**
+     * ترتيب العناصر من أعلى لأسفل (alpha61 — بلاغ المالك: «عايز شكل
+     * الويدجت يظهر في اعدادت الويدجت داخل التطبيق و يكون قابل لتحريك
+     * كل العناصر») — قائمةٌ بمفاتيح ELEMENT_* بترتيبها المختار، والمفاتيح
+     * الغائبة تلحق بترتيبها الافتراضي والمفاتيح الغريبة تُرمى.
+     */
+    val elementOrder: List<String> = DEFAULT_ORDER,
 
     // ===== النقطة السائلة — كل مقامٍ بفقاعتِه ولونها =====
     /** فقاعةٌ خلف الوقت المتبقي */
@@ -113,10 +120,13 @@ data class WidgetCustomization(
         put("misbaha", showMisbaha)
         put("clockStyle", clockStyle.name)
         if (elementSizes.isNotEmpty()) {
-            put("elementSizes", JSONObject().apply { elementSizes.forEach { (k, v) -> put(k, v.coerceIn(50, 200)) } })
+            put("elementSizes", JSONObject().apply { elementSizes.forEach { (k, v) -> put(k, v.coerceIn(50, 250)) } })
         }
         if (elementColors.isNotEmpty()) {
             put("elementColors", JSONObject().apply { elementColors.forEach { (k, v) -> put(k, v) } })
+        }
+        if (elementOrder != DEFAULT_ORDER) {
+            put("elementOrder", org.json.JSONArray(elementOrder))
         }
         put("bubbleCountdown", bubbleOnCountdown)
         put("bubbleColorCountdown", bubbleColorCountdown)
@@ -134,6 +144,7 @@ data class WidgetCustomization(
         const val COLOR_AUTO = "auto"
 
         // ===== مفاتيح عناصر الحجم/اللون لكل عنصرٍ (alpha59) =====
+        const val ELEMENT_HEADER = "header"
         const val ELEMENT_CLOCK = "clock"
         const val ELEMENT_HIJRI = "hijri"
         const val ELEMENT_GREG = "greg"
@@ -144,9 +155,31 @@ data class WidgetCustomization(
 
         /** كل مفاتيح العناصر — لطبقة الإعدادات وحلقة التطبيق */
         val ELEMENT_KEYS = listOf(
-            ELEMENT_CLOCK, ELEMENT_HIJRI, ELEMENT_GREG, ELEMENT_NEXT,
+            ELEMENT_HEADER, ELEMENT_CLOCK, ELEMENT_HIJRI, ELEMENT_GREG, ELEMENT_NEXT,
             ELEMENT_COUNTDOWN, ELEMENT_GRID, ELEMENT_MISBAHA,
         )
+
+        /** الترتيب الافتراضي للعناصر من أعلى لأسفل — كما كان العمود دوماً */
+        val DEFAULT_ORDER = listOf(
+            ELEMENT_HEADER, ELEMENT_CLOCK, ELEMENT_HIJRI, ELEMENT_GREG,
+            ELEMENT_NEXT, ELEMENT_COUNTDOWN, ELEMENT_GRID, ELEMENT_MISBAHA,
+        )
+
+        /**
+         * تطبيع ترتيب: الغريب يُرمى والمكرر يُختزل والغائب يُلحق بترتيبه
+         * الافتراضي — دالة نقية تُختبر آلياً وتضمن أن الترتيب دائماً
+         * تبديلاً كاملاً لمفاتيح العناصر المعروفة لا أكثر ولا أقل.
+         */
+        fun normalizeOrder(order: List<String>): List<String> {
+            val seen = LinkedHashSet<String>()
+            for (key in order) {
+                if (key in ELEMENT_KEYS) seen.add(key)
+            }
+            for (key in DEFAULT_ORDER) {
+                if (key !in seen) seen.add(key)
+            }
+            return seen.toList()
+        }
 
         /** لون الفقاعة الافتراضي — فيروزي التطبيق الهادئ */
         const val DEFAULT_BUBBLE = "#2FA48C"
@@ -154,13 +187,13 @@ data class WidgetCustomization(
         /** لون بديل للفقاعة الثانية كي يتميز عن الأولى */
         const val DEFAULT_BUBBLE_ALT = "#C98A3D"
 
-        /** قراءة خريطة الحجم من JSON — الغريب يُرمى والمحصور ٥٠..٢٠٠ */
+        /** قراءة خريطة الحجم من JSON — الغريب يُرمى والمحصور ٥٠..٢٥٠ */
         private fun sizesFrom(o: JSONObject): Map<String, Int> {
             val raw = o.optJSONObject("elementSizes") ?: return emptyMap()
             val out = mutableMapOf<String, Int>()
             for (key in ELEMENT_KEYS) {
                 val v = raw.optInt(key, Int.MIN_VALUE)
-                if (v != Int.MIN_VALUE) out[key] = v.coerceIn(50, 200)
+                if (v != Int.MIN_VALUE) out[key] = v.coerceIn(50, 250)
             }
             return out
         }
@@ -212,6 +245,14 @@ data class WidgetCustomization(
                     }.getOrDefault(ClockStyle.DIGITAL),
                     elementSizes = sizesFrom(o),
                     elementColors = colorsFrom(o),
+                    elementOrder = normalizeOrder(
+                        buildList {
+                            val arr = o.optJSONArray("elementOrder")
+                            if (arr != null) {
+                                for (i in 0 until arr.length()) add(arr.optString(i, ""))
+                            }
+                        },
+                    ),
                     bubbleOnCountdown = o.optBoolean("bubbleCountdown", false),
                     bubbleColorCountdown = o.optString("bubbleColorCountdown", DEFAULT_BUBBLE),
                     bubbleOnNext = o.optBoolean("bubbleNext", true),

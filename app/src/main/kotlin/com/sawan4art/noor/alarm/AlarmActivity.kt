@@ -81,6 +81,7 @@ class AlarmActivity : ComponentActivity() {
             return
         }
         val mode = intent?.getStringExtra(EXTRA_PRAYER_MODE) ?: AlarmService.MODE_ADHAN
+        val note = intent?.getStringExtra(EXTRA_NOTE) ?: ""
 
         setContent {
             NoorTheme(themeMode = ThemeMode.SYSTEM) {
@@ -88,6 +89,8 @@ class AlarmActivity : ComponentActivity() {
                     AlarmAlertContent(
                         prayerName = name,
                         isIqamah = mode == AlarmService.MODE_IQAMAH,
+                        isReminder = mode == AlarmService.MODE_REMINDER,
+                        note = note,
                         onStop = {
                             runCatching {
                                 startService(
@@ -124,6 +127,8 @@ class AlarmActivity : ComponentActivity() {
     private fun AlarmAlertContent(
         prayerName: String,
         isIqamah: Boolean,
+        isReminder: Boolean,
+        note: String,
         onStop: () -> Unit,
     ) {
         val scheme = MaterialTheme.colorScheme
@@ -144,22 +149,34 @@ class AlarmActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
+                // وضع التنبيه (alpha61): نصّ القاعدة الحية («تنبيه قبل أذان
+                // الفجر بـ ١٠ دقيقة») — ووضعا الأذان والإقامة كما كانا
                 Text(
-                    text = if (isIqamah) "قد قامت الصلاة" else "حان الآن وقت",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = scheme.onSurfaceVariant,
+                    text = when {
+                        isReminder -> note.ifBlank { "تنبيه" }
+                        isIqamah -> "قد قامت الصلاة"
+                        else -> "حان الآن وقت"
+                    },
+                    fontSize = if (isReminder) 22.sp else 20.sp,
+                    fontWeight = if (isReminder) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isReminder) scheme.primary else scheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    text = prayerName,
-                    fontSize = 44.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = scheme.primary,
-                )
+                if (!isReminder) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = prayerName,
+                        fontSize = 44.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = scheme.primary,
+                    )
+                }
                 Spacer(Modifier.height(14.dp))
                 Text(
-                    text = "«أَقِمِ الصَّلَاةَ لِدُلُوكِ الشَّمْسِ»",
+                    text = if (isReminder) {
+                        "«وَأَقِمِ الصَّلَاةَ إِنَّ الصَّلَاةَ تَنْهَىٰ عَنِ الْفَحْشَاءِ وَالْمُنكَرِ»"
+                    } else {
+                        "«أَقِمِ الصَّلَاةَ لِدُلُوكِ الشَّمْسِ»"
+                    },
                     fontSize = 15.sp,
                     color = scheme.onSurfaceVariant,
                 )
@@ -187,5 +204,8 @@ class AlarmActivity : ComponentActivity() {
 
         /** إكسترا نوع التنبيه: أذان أم إقامة */
         const val EXTRA_PRAYER_MODE: String = "noor_extra_alarm_prayer_mode"
+
+        /** إكسترا نصّ التنبيه الجاهز (alpha61 — وضع التنبيه قبل/بعد الأذان) */
+        const val EXTRA_NOTE: String = "noor_extra_alarm_note"
     }
 }

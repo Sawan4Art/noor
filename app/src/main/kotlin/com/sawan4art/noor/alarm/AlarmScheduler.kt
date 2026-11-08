@@ -9,6 +9,7 @@ import com.sawan4art.noor.data.SettingsRepository
 import com.sawan4art.noor.domain.adhan.AdhanEventKind
 import com.sawan4art.noor.domain.adhan.AdhanPlan
 import com.sawan4art.noor.domain.adhan.AdhanPlanSettings
+import com.sawan4art.noor.domain.adhan.PrayerReminder
 import com.sawan4art.noor.domain.prayer.PrayerMath
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 import java.time.LocalDate
@@ -68,6 +69,8 @@ object AlarmScheduler {
         )
 
         // مواقيت اليوم + الغد + بعده — ثلاثة أيام تكفي حتى لو لم يُفتح التطبيق
+        // ومعها التنبيهات قبل/بعد أذان كل صلاة (alpha61) — منبهاتٌ دقيقة
+        // كالأذان نفسه ولو الجهاز نائم.
         val events = buildList {
             for (dayOffset in 0..2L) {
                 val date: LocalDate = now.toLocalDate().plusDays(dayOffset)
@@ -90,6 +93,19 @@ object AlarmScheduler {
                             settings = plan,
                         ),
                     )
+                    // التنبيه قبل/بعد الأذان — من تفضيلات لحظة الجدولة
+                    prefs.reminderFor(key)?.let { rule ->
+                        PrayerReminder.eventAt(t, rule)?.let { at ->
+                            add(
+                                com.sawan4art.noor.domain.adhan.AdhanEvent(
+                                    kind = com.sawan4art.noor.domain.adhan.AdhanEventKind.REMINDER,
+                                    at = at,
+                                    prayerKey = key,
+                                    name = PrayerMath.displayName(key, date),
+                                ),
+                            )
+                        }
+                    }
                 }
             }
         }.sortedBy { it.at.toInstant().toEpochMilli() }
@@ -151,6 +167,7 @@ object AlarmScheduler {
             intent
                 .putExtra(AdhanAlarmReceiver.EXTRA_KIND, event.kind.name)
                 .putExtra(AdhanAlarmReceiver.EXTRA_NAME, event.name)
+                .putExtra(AdhanAlarmReceiver.EXTRA_PRAYER_KEY, event.prayerKey?.name ?: "")
                 .putExtra(AdhanAlarmReceiver.EXTRA_IQAMAH_AT, event.iqamahAt?.toInstant()?.toEpochMilli() ?: 0L)
                 .putExtra(AdhanAlarmReceiver.EXTRA_MUTE_START, event.startsMute)
         }

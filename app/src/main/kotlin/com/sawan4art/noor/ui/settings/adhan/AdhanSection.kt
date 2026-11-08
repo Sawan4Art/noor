@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -52,6 +54,7 @@ import com.sawan4art.noor.data.AdhanPrefs
 import com.sawan4art.noor.domain.adhan.AdhanGaps
 import com.sawan4art.noor.domain.adhan.AdhanSoundKind
 import com.sawan4art.noor.domain.adhan.AdhanVoices
+import com.sawan4art.noor.domain.adhan.PrayerReminder
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
 
 /**
@@ -90,6 +93,21 @@ interface AdhanActions {
     fun setMuteMinutes(minutes: Int)
 
     fun setMuteCancelOnUnlock(on: Boolean)
+
+    /** صوت لكل صلاة على حدة أو للكل (alpha61 — بلاغ المالك) */
+    fun setPerPrayerVoices(on: Boolean)
+
+    /** صوت أذان صلاة بعينها (alpha61) */
+    fun setPrayerAdhanVoice(key: PrayerTimeKey, voiceId: String)
+
+    /** صوت إقامة صلاة بعينها (alpha61) */
+    fun setPrayerIqamahVoice(key: PrayerTimeKey, voiceId: String)
+
+    /** المفتاح الرئيسي للتنبيه قبل/بعد الأذان (alpha61) */
+    fun setReminderEnabled(on: Boolean)
+
+    /** قاعدة تنبيه صلاة بعينها — null يلغيها (alpha61) */
+    fun setPrayerReminder(key: PrayerTimeKey, rule: PrayerReminder.Rule?)
 
     fun importCustomSound(kind: AdhanSoundKind, uri: Uri)
 
@@ -183,6 +201,32 @@ fun AdhanSection(
                     togglePreview(AdhanSoundKind.ADHAN, adhan.adhanVoice, customPath)
                 },
             )
+
+            // ===== صوت لكل صلاة على حدة أو للكل (alpha61) =====
+            Spacer(Modifier.height(12.dp))
+            ToggleRow(
+                title = "صوت لكل صلاة على حدة",
+                subtitle = if (adhan.perPrayerVoices) {
+                    "لكل صلاة أذانها الخاص — اختر صوت كل صلاة من قائمتها"
+                } else {
+                    "مطفأ — صوت الأذان أعلاه يعمل لكل الصلوات الخمس"
+                },
+                checked = adhan.perPrayerVoices,
+                onToggle = { actions.setPerPrayerVoices(it) },
+            )
+            if (adhan.perPrayerVoices) {
+                Spacer(Modifier.height(6.dp))
+                for (key in PRAYER_KEYS) {
+                    val selected = adhan.perPrayerAdhanVoices[key.name] ?: adhan.adhanVoice
+                    VoiceMenuRow(
+                        label = prayerLabel(key),
+                        kind = AdhanSoundKind.ADHAN,
+                        selectedId = selected,
+                        customName = adhan.customAdhanName,
+                        onSelect = { id -> actions.setPrayerAdhanVoice(key, id) },
+                    )
+                }
+            }
         }
 
         SectionBlock(title = "الإقامة") {
@@ -264,6 +308,28 @@ fun AdhanSection(
                         togglePreview(AdhanSoundKind.IQAMAH, adhan.iqamahVoice, customPath)
                     },
                 )
+
+                // صوت الإقامة لكل صلاة — بنفس عقد صوت الأذان (alpha61)
+                if (adhan.perPrayerVoices) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = "صوت الإقامة لكل صلاة على حدة",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    for (key in PRAYER_KEYS) {
+                        val selected = adhan.perPrayerIqamahVoices[key.name] ?: adhan.iqamahVoice
+                        VoiceMenuRow(
+                            label = prayerLabel(key),
+                            kind = AdhanSoundKind.IQAMAH,
+                            selectedId = selected,
+                            customName = adhan.customIqamahName,
+                            onSelect = { id -> actions.setPrayerIqamahVoice(key, id) },
+                        )
+                    }
+                }
             }
         }
 
@@ -292,6 +358,33 @@ fun AdhanSection(
                     minutes = adhan.fridayIqamahGapMinutes,
                     onCommit = { actions.setFridayIqamahGapMinutes(it) },
                 )
+            }
+        }
+
+        SectionBlock(title = "التنبيه قبل أو بعد الأذان") {
+            // alpha61 — بلاغ المالك: «عايز اضيف في الاعادات زر جديد خاص
+            // بالتنبيه قبل او بعد اذان اي صلاه ده يكون عباره عن منبه
+            // يتم تفعيله قبل او بعد الصلاه بوقت محدد لكل صلاه»
+            ToggleRow(
+                title = "تنبيه قبل أو بعد أذان الصلوات",
+                subtitle = if (adhan.reminderEnabled) {
+                    "منبهٌ لكل صلاة بقاعدتها: قبل الأذان أو بعده بالدقائق المحددة — يعمل ولو الجهاز نائم"
+                } else {
+                    "مطفأ — فعّله واختر لكل صلاة تنبيهها من قاعدتها"
+                },
+                checked = adhan.reminderEnabled,
+                onToggle = { actions.setReminderEnabled(it) },
+            )
+            if (adhan.reminderEnabled) {
+                Spacer(Modifier.height(6.dp))
+                for (key in PRAYER_KEYS) {
+                    val rule = adhan.reminders[key.name]
+                    ReminderRow(
+                        prayerLabel = prayerLabel(key),
+                        rule = rule,
+                        onSetRule = { actions.setPrayerReminder(key, it) },
+                    )
+                }
             }
         }
 
@@ -637,5 +730,201 @@ internal fun PreviewButton(
             fontWeight = FontWeight.Bold,
             color = scheme.primary,
         )
+    }
+}
+
+/* ==================== صوت لكل صلاة + التنبيه (alpha61) ==================== */
+
+/** الصلوات الخمس ذات الأذان — الشروق ليس منها */
+private val PRAYER_KEYS = listOf(
+    PrayerTimeKey.FAJR,
+    PrayerTimeKey.DHUHR,
+    PrayerTimeKey.ASR,
+    PrayerTimeKey.MAGHRIB,
+    PrayerTimeKey.ISHA,
+)
+
+/** اسم الصلاة كما يظهر في الصفوف */
+private fun prayerLabel(key: PrayerTimeKey): String = when (key) {
+    PrayerTimeKey.FAJR -> "الفجر"
+    PrayerTimeKey.DHUHR -> "الظهر"
+    PrayerTimeKey.ASR -> "العصر"
+    PrayerTimeKey.MAGHRIB -> "المغرب"
+    PrayerTimeKey.ISHA -> "العشاء"
+    PrayerTimeKey.SUNRISE -> "الشروق"
+}
+
+/**
+ * صف صوت صلاة واحدة — يفتح قائمة منبثقة بالأصوات المتاحة:
+ * الأصوات المدمجة الثلاثة للنوع + صوت من الهاتف + نغمة الإشعارات.
+ * ومعرّف غريب محفوظٍ من نسخةٍ قديمة يظهر «غير متاح» ولا ينفجر.
+ */
+@Composable
+internal fun VoiceMenuRow(
+    label: String,
+    kind: AdhanSoundKind,
+    selectedId: String,
+    customName: String,
+    onSelect: (String) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    var open by remember { mutableStateOf(false) }
+    val builtin = if (kind == AdhanSoundKind.ADHAN) AdhanVoices.ADHAN else AdhanVoices.IQAMAH
+
+    fun displayOf(id: String): String = when (id) {
+        AdhanVoices.CUSTOM_ID -> if (customName.isNotEmpty()) "صوت من هاتفي: $customName" else "صوت من هاتفي"
+        AdhanVoices.NOTIFICATION_ID -> "نغمة إشعارات الهاتف"
+        else -> builtin.firstOrNull { it.id == id }?.name ?: "غير متاح"
+    }
+
+    Box {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 3.dp)
+                .background(scheme.surfaceVariant.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                .clickable { open = true }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = scheme.onSurface,
+                modifier = Modifier.width(64.dp),
+            )
+            Text(
+                text = displayOf(selectedId),
+                fontSize = 12.sp,
+                color = scheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "تغيير",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = scheme.primary,
+            )
+        }
+        androidx.compose.material3.DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+        ) {
+            for (voice in builtin) {
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(voice.name, fontSize = 13.sp) },
+                    onClick = {
+                        open = false
+                        onSelect(voice.id)
+                    },
+                )
+            }
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(displayOf(AdhanVoices.CUSTOM_ID), fontSize = 13.sp) },
+                onClick = {
+                    open = false
+                    onSelect(AdhanVoices.CUSTOM_ID)
+                },
+            )
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(displayOf(AdhanVoices.NOTIFICATION_ID), fontSize = 13.sp) },
+                onClick = {
+                    open = false
+                    onSelect(AdhanVoices.NOTIFICATION_ID)
+                },
+            )
+        }
+    }
+}
+
+/**
+ * صف قاعدة تنبيه صلاة واحدة — رقاقات الوضع (مطفأ/قبل/بعد) وخانة
+ * الدقائق تظهر للقاعدة المفعّلة فقط، وتُحفظ فوراً كفواصل الأذان.
+ */
+@Composable
+internal fun ReminderRow(
+    prayerLabel: String,
+    rule: PrayerReminder.Rule?,
+    onSetRule: (PrayerReminder.Rule?) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .background(scheme.surfaceVariant.copy(alpha = 0.18f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        Text(
+            text = "صلاة $prayerLabel",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = scheme.onSurface,
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val modes = listOf(
+                Triple("مطفأ", PrayerReminder.Mode.OFF, rule == null),
+                Triple("قبل الأذان", PrayerReminder.Mode.BEFORE, rule?.mode == PrayerReminder.Mode.BEFORE),
+                Triple("بعد الأذان", PrayerReminder.Mode.AFTER, rule?.mode == PrayerReminder.Mode.AFTER),
+            )
+            for ((text, mode, active) in modes) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (active) scheme.primary else scheme.surface,
+                        )
+                        .border(
+                            BorderStroke(
+                                1.dp,
+                                if (active) scheme.primary else scheme.outline.copy(alpha = 0.35f),
+                            ),
+                            RoundedCornerShape(12.dp),
+                        )
+                        .clickable {
+                            onSetRule(
+                                when (mode) {
+                                    PrayerReminder.Mode.OFF -> null
+                                    PrayerReminder.Mode.BEFORE ->
+                                        PrayerReminder.Rule(
+                                            PrayerReminder.Mode.BEFORE,
+                                            PrayerReminder.clampMinutes(rule?.minutes ?: 10),
+                                        )
+                                    PrayerReminder.Mode.AFTER ->
+                                        PrayerReminder.Rule(
+                                            PrayerReminder.Mode.AFTER,
+                                            PrayerReminder.clampMinutes(rule?.minutes ?: 10),
+                                        )
+                                },
+                            )
+                        }
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                ) {
+                    Text(
+                        text = text,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (active) scheme.onPrimary else scheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        if (rule != null && rule.mode != PrayerReminder.Mode.OFF) {
+            Spacer(Modifier.height(8.dp))
+            GapInputRow(
+                label = if (rule.mode == PrayerReminder.Mode.BEFORE) {
+                    "قبل الأذان بكم دقيقة؟ (١..١٢٠)"
+                } else {
+                    "بعد الأذان بكم دقيقة؟ (١..١٢٠)"
+                },
+                minutes = rule.minutes,
+                onCommit = { onSetRule(rule.copy(minutes = PrayerReminder.clampMinutes(it))) },
+            )
+        }
     }
 }

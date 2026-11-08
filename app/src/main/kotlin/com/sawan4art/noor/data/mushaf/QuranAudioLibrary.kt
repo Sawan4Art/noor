@@ -13,6 +13,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
@@ -48,6 +50,9 @@ import java.util.zip.ZipInputStream
  *   كله، وعدّاد الملفات الحقيقي من القرص هو مصدر العرض الوحيد.
  */
 object QuranAudioLibrary {
+
+    /** عمال تنزيل الآيات المتوازي — أربعة تعمل معاً (سرعة alpha61) */
+    internal const val PARALLEL_AYAH_WORKERS = 4
 
     /** حالة تنزيل واحد (شيخ × سورة) أو المصحف كاملاً */
     data class DownloadState(
@@ -157,15 +162,19 @@ object QuranAudioLibrary {
     }
 
     /**
-     * تنزيل فعلي متتابع — كل آية موجودة تُتخطى فالاستئناف مجاني،
-     * والملف يُكتب بمؤقتٍ ثم يُسمّى نهائياً بعد اكتماله فلا يظل ناقصاً
-     * واقفاً باسمه الصحيح.
+     * تنزيل فعلي — كل آية موجودة تُتخطى فالاستئناف مجاني، والملف يُكتب
+     * بمؤقتٍ ثم يُسمّى نهائياً بعد اكتماله فلا يظل ناقصاً واقفاً باسمه
+     * الصحيح.
      *
-     * **مرونة alpha57**: فشل الآية الواحدة قاطعاً (أربع محاولات) لا يُميت
-     * التنزيل كله — تُحصى الفاشلة ويُكمل الطريق إلى آخر الآيات ثم يُبلغ
-     * «اكتمل مع تعذّر N» — إعادة الضغطة تستأنف من الموجود فتحاول الفاشل
-     * وحده (بلاغ المالك: «تحميل اصوات الشيوخ مش شغال» — كان التنزيل
-     * كله يسقط على أول آيةٍ عالقة في الشبكة).
+     * **مرونة alpha57**: فشل الآية الواحدة قاطعاً لا يُميت التنزيل كله
+     * — تُحصى الفاشلة ويُكمل الطريق إلى آخر الآيات ثم يُبلغ «اكتمل مع
+     * تعذّر N» — إعادة الضغطة تستأنف من الموجود فتحاول الفاشل وحده.
+     *
+     * **سرعة alpha61** (بلاغ المالك: «بعضها يعمل و البعض الاخر لا يعمل
+     * و الذي يعمل بطيء في التحميل ايضا»): الطريق الآية-آية كان متتابعاً
+     * آيةً تنتظر أختها — فصار أربع آياتٍ تعمل في وقتٍ واحدٍ فيكمل
+     * السور الكبيرة في رُبع الزمن، وضغطُ المرآة الذي يفشل يُعاد محاولةٌ
+     * ثانية قبل الهبوط إلى الطريق القديم.
      */
     private suspend fun downloadInternal(
         context: Context,
@@ -181,7 +190,7 @@ object QuranAudioLibrary {
         // قائمة العمل: سورة واحدة أو ١١٤ للمصحف كامل
         val surahs = if (sura in 1..114) listOf(sura) else (1..114)
         val total = surahs.sumOf { QuranAudioMath.surahFileCount(it, surahCounts[it] ?: 0) }
-        var done = 0
+        val done = java.util.concurrent.atomic.AtomicInteger(0)
         var failed = 0
         var cancelled = false
 
@@ -189,7 +198,7 @@ object QuranAudioLibrary {
             _downloads.value = _downloads.value + (
                 stateKey to DownloadState(
                     reciterId = reciterId, sura = sura,
-                    done = done, total = total, active = active, error = error,
+                    done = done.get(), total = total, active = active, error = error,
                 )
                 )
         }
@@ -197,68 +206,79 @@ object QuranAudioLibrary {
 
         outer@ for (s in surahs) {
             val count = QuranAudioMath.surahFileCount(s, surahCounts[s] ?: 0)
-            // (١) مرآة جت هب — بلاغ المالك alpha59: السورة كلها ضغطةً
-            // واحدة من noor-audio ثم فكٌّ إلى آياتها بأسمائها المعتمدة.
-            // وإن رجعت السورة ناقصةً (أصلٌ سبق فاقد آيةً على المصدر)
-            // أو غاب الأصل كله فالمخطّ القديم يكمل بعده آيةً آيةً.
-            val base = done
-            val viaMirror = runCatching {
-                withContext(Dispatchers.IO) {
-                    downloadSurahZip(context, reciter, s) {
-                        done = base + surahDownloadedCount(context, reciterId, s, count)
-                        publish(active = true)
-                    }
-                }
-            }.getOrDefault(false)
-            if (viaMirror) {
-                done = base + surahDownloadedCount(context, reciterId, s, count)
-                publish(active = true)
-                if (done - base >= count) continue
-            }
-            // (٢) الطريق القديم — آية آية من everyayah ثم islamic.network
-            for (ayah in 1..count) {
-                // العقد مع نافج البدء — إلغاؤه يقيم `isActive` هنا إلى false
-                if (!kotlinx.coroutines.currentCoroutineContext().isActive) {
-                    cancelled = true
-                    break@outer
-                }
-                val target = ayahFile(context, reciterId, s, ayah)
-                if (target.isFile && target.length() > 0L) {
-                    done++
-                    publish(active = true)
-                    continue
-                }
-                var ok = withContext(Dispatchers.IO) {
-                    fetchAyahFile(context, reciter, s, ayah, target)
-                }
-                if (!ok) {
-                    // فشل شبكة — مهلة قصيرة ثم محاولة الآية نفسها مجدداً
-                    // حتى أربع مرات، فإن استعصت سُجّلت فاشلةً وكُمل الطريق
-                    for (attempt in 1..4) {
-                        delay(1_500L * attempt)
-                        if (!kotlinx.coroutines.currentCoroutineContext().isActive) {
-                            cancelled = true
-                            break@outer
-                        }
-                        if (withContext(Dispatchers.IO) { fetchAyahFile(context, reciter, s, ayah, target) }) {
-                            ok = true
-                            break
+            // (١) مرآة جت هب — السورة كلها ضغطةً واحدة من noor-audio ثم
+            // فكٌّ إلى آياتها بأسمائها المعتمدة. محاولتان (سرعة alpha61):
+            // انقطاعُ الشبكة في المحاولة الأولى لا يهبط بالطريق البطيء
+            // فوراً. وإن رجعت السورة ناقصةً أو غاب الأصل فالمخطّ القديم
+            // يكمل بعده آيةً آيةً.
+            var viaMirror = false
+            for (mirrorAttempt in 1..2) {
+                val base = done.get()
+                val ok = runCatching {
+                    withContext(Dispatchers.IO) {
+                        downloadSurahZip(context, reciter, s) {
+                            done.set(base + surahDownloadedCount(context, reciterId, s, count))
+                            publish(active = true)
                         }
                     }
-                }
+                }.getOrDefault(false)
                 if (ok) {
-                    done++
+                    done.set(base + surahDownloadedCount(context, reciterId, s, count))
                     publish(active = true)
-                } else {
-                    failed++
-                    // بلاغ حيّ واضح بدل صمتٍ يجمد الواجهة بلا تفسير
-                    publish(
-                        active = true,
-                        error = "تعذّر " + MushafSurahs.arabicDigits(failed) +
-                            " آية حتى الآن — التنزيل يُكمل وإعادة الضغطة تكملتها",
-                    )
+                    if (done.get() - base >= count) {
+                        viaMirror = true
+                        break
+                    }
+                }
+                if (mirrorAttempt == 1) delay(1_200L)
+            }
+            if (viaMirror) continue
+
+            // (٢) الطريق القديم — آية آية من everyayah ثم islamic.network
+            // **بتوازٍ أربعة** (سرعة alpha61): كل آيةٍ عاملةٌ مستقلة،
+            // والموجودة على القرص تُتخطى، والفاشلة تُعاد حتى ثلاثٍ ثم
+            // تُحصى ولا تُميت البقية. إلغاء النافج يوقف كل العمال.
+            val missing = (1..count).filter { ayah ->
+                val f = ayahFile(context, reciterId, s, ayah)
+                !(f.isFile && f.length() > 0L)
+            }
+            val failedHere = java.util.concurrent.atomic.AtomicInteger(0)
+            kotlinx.coroutines.coroutineScope {
+                val semaphore = kotlinx.coroutines.sync.Semaphore(PARALLEL_AYAH_WORKERS)
+                for (ayah in missing) {
+                    launch {
+                        semaphore.withPermit {
+                            if (!kotlinx.coroutines.currentCoroutineContext().isActive) return@withPermit
+                            val target = ayahFile(context, reciterId, s, ayah)
+                            var ok = withContext(Dispatchers.IO) {
+                                fetchAyahFile(context, reciter, s, ayah, target)
+                            }
+                            for (attempt in 1..2) {
+                                if (ok) break
+                                if (!kotlinx.coroutines.currentCoroutineContext().isActive) return@withPermit
+                                delay(1_500L * attempt)
+                                ok = withContext(Dispatchers.IO) {
+                                    fetchAyahFile(context, reciter, s, ayah, target)
+                                }
+                            }
+                            if (ok) {
+                                done.incrementAndGet()
+                                publish(active = true)
+                            } else {
+                                failedHere.incrementAndGet()
+                                publish(
+                                    active = true,
+                                    error = "تعذّر " + MushafSurahs.arabicDigits(failedHere.get()) +
+                                        " آية حتى الآن — التنزيل يُكمل وإعادة الضغطة تكملتها",
+                                )
+                            }
+                        }
+                    }
                 }
             }
+            cancelled = cancelled || !kotlinx.coroutines.currentCoroutineContext().isActive
+            if (cancelled) break@outer
+            failed += failedHere.get()
         }
         val message = when {
             cancelled -> ""

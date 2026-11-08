@@ -95,6 +95,16 @@ fun WidgetSection() {
             modifier = Modifier.padding(bottom = 14.dp),
         )
 
+        // ===== المحرر التفاعلي (alpha61) — المعاينة الحية والسحب والزوم
+        // واللوحة المنبثقة في واحدٍ — توجيه المالك: «عايز شكل الويدجت
+        // يظهر في اعدادت الويدجت داخل التطبيق و يكون قابل لتحريك كل
+        // العناصر و تكبيرها من خلال الزوم باليد … و لوحه الالوان تكون منبثقه»
+        WidgetInteractiveEditor(
+            customization = customization,
+            onUpdate = { next -> apply { next } },
+        )
+
+        Spacer(Modifier.height(16.dp))
         // ===== المظهر =====
         SettingLabel("المظهر")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -139,20 +149,12 @@ fun WidgetSection() {
 
         Spacer(Modifier.height(16.dp))
 
-        // ===== لون الخط العام =====
+        // ===== لون الخط العام — لوحة منبثقة (alpha61) =====
         SettingLabel("لون الخط العام")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            ThemeChip(
-                "تلقائي",
-                customization.textColor == WidgetCustomization.COLOR_AUTO,
-            ) {
-                apply { it.copy(textColor = WidgetCustomization.COLOR_AUTO) }
-            }
-            TextColorSwatches(
-                selected = customization.textColor,
-                onSelect = { hex -> apply { it.copy(textColor = hex) } },
-            )
-        }
+        ColorPanelChipInline(
+            selected = customization.textColor,
+            onSelect = { hex -> apply { it.copy(textColor = hex) } },
+        )
 
         Spacer(Modifier.height(16.dp))
 
@@ -228,65 +230,8 @@ fun WidgetSection() {
             }
         }
 
-        // ===== حجم ولون كل عنصر (بلاغ alpha59) =====
-        Spacer(Modifier.height(16.dp))
-        SettingLabel("حجم الخط ولونه لكل عنصر")
-        ElementStyleRow(
-            title = "الوقت",
-            shown = customization.showClock,
-            size = customization.elementSizes[WidgetCustomization.ELEMENT_CLOCK],
-            color = customization.elementColors[WidgetCustomization.ELEMENT_CLOCK],
-            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_CLOCK to v)) } },
-            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_CLOCK to hex)) } },
-        )
-        ElementStyleRow(
-            title = "التاريخ الهجري",
-            shown = customization.showHijri,
-            size = customization.elementSizes[WidgetCustomization.ELEMENT_HIJRI],
-            color = customization.elementColors[WidgetCustomization.ELEMENT_HIJRI],
-            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_HIJRI to v)) } },
-            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_HIJRI to hex)) } },
-        )
-        ElementStyleRow(
-            title = "التاريخ الميلادي",
-            shown = customization.showGregorian,
-            size = customization.elementSizes[WidgetCustomization.ELEMENT_GREG],
-            color = customization.elementColors[WidgetCustomization.ELEMENT_GREG],
-            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_GREG to v)) } },
-            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_GREG to hex)) } },
-        )
-        ElementStyleRow(
-            title = "الصلاة القادمة",
-            shown = true,
-            size = customization.elementSizes[WidgetCustomization.ELEMENT_NEXT],
-            color = customization.elementColors[WidgetCustomization.ELEMENT_NEXT],
-            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_NEXT to v)) } },
-            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_NEXT to hex)) } },
-        )
-        ElementStyleRow(
-            title = "العدّاد المتبقي",
-            shown = customization.showCountdown,
-            size = customization.elementSizes[WidgetCustomization.ELEMENT_COUNTDOWN],
-            color = customization.elementColors[WidgetCustomization.ELEMENT_COUNTDOWN],
-            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_COUNTDOWN to v)) } },
-            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_COUNTDOWN to hex)) } },
-        )
-        ElementStyleRow(
-            title = "مواقيت الصلوات الصغيرة",
-            shown = customization.showPrayerTimes,
-            size = customization.elementSizes[WidgetCustomization.ELEMENT_GRID],
-            color = customization.elementColors[WidgetCustomization.ELEMENT_GRID],
-            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_GRID to v)) } },
-            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_GRID to hex)) } },
-        )
-        ElementStyleRow(
-            title = "المسبحة",
-            shown = customization.showMisbaha,
-            size = customization.elementSizes[WidgetCustomization.ELEMENT_MISBAHA],
-            color = customization.elementColors[WidgetCustomization.ELEMENT_MISBAHA],
-            onSize = { v -> apply { it.copy(elementSizes = it.elementSizes + (WidgetCustomization.ELEMENT_MISBAHA to v)) } },
-            onColor = { hex -> apply { it.copy(elementColors = it.elementColors + (WidgetCustomization.ELEMENT_MISBAHA to hex)) } },
-        )
+        // ضباط كل عنصرٍ (الحجم واللون والترتيب) صارت في المحرر التفاعلي أعلاه
+        // ولوحاته المنبثقة — بلا صفوفٍ مكرّرة (alpha61)
 
         Spacer(Modifier.height(16.dp))
 
@@ -303,7 +248,7 @@ fun WidgetSection() {
             apply { it.copy(bubbleOnCountdown = on) }
         }
         if (customization.bubbleOnCountdown) {
-            ColorSwatchRow(
+            ColorPanelChipInline(
                 selected = customization.bubbleColorCountdown,
                 onSelect = { hex -> apply { it.copy(bubbleColorCountdown = hex) } },
             )
@@ -312,7 +257,7 @@ fun WidgetSection() {
             apply { it.copy(bubbleOnNext = on) }
         }
         if (customization.bubbleOnNext) {
-            ColorSwatchRow(
+            ColorPanelChipInline(
                 selected = customization.bubbleColorNext,
                 onSelect = { hex -> apply { it.copy(bubbleColorNext = hex) } },
             )
@@ -321,143 +266,11 @@ fun WidgetSection() {
             apply { it.copy(bubbleOnCurrent = on) }
         }
         if (customization.bubbleOnCurrent) {
-            ColorSwatchRow(
+            ColorPanelChipInline(
                 selected = customization.bubbleColorCurrent,
                 onSelect = { hex -> apply { it.copy(bubbleColorCurrent = hex) } },
             )
         }
-    }
-}
-
-/** لوحة ألوان الخط — التلقائي ثم ثمانية ألوانٍ صريحة */
-private val TEXT_COLORS = listOf(
-    "#233029", "#F2EDE0", "#2FA48C", "#C98A3D",
-    "#B04A3A", "#5B6E9E", "#7A5B9E", "#4E7A4E",
-)
-
-/** اللوحات نفسها للفقاعات — بلوني الافتراضيهما في مقدمتها */
-private val BUBBLE_COLORS = listOf(
-    "#2FA48C", "#C98A3D", "#B04A3A", "#5B6E9E",
-    "#7A5B9E", "#4E7A4E", "#233029", "#F2EDE0",
-)
-
-/** مقامات الحجم الثلاثة — صغير/عادي/كبير بنسبها المئوية */
-private val SIZE_STEPS = listOf(
-    "صغير" to 70,
-    "عادي" to 100,
-    "كبير" to 135,
-)
-
-@Composable
-private fun TextColorSwatches(selected: String, onSelect: (String) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TEXT_COLORS.forEach { hex ->
-            ColorDot(hex, selected == hex, onClick = { onSelect(hex) })
-        }
-    }
-}
-
-@Composable
-private fun ColorSwatchRow(selected: String, onSelect: (String) -> Unit) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
-    ) {
-        BUBBLE_COLORS.forEach { hex ->
-            ColorDot(hex, selected == hex, onClick = { onSelect(hex) })
-        }
-    }
-}
-
-/**
- * صف ضباط العنصر الواحد — اسمه ثم رقاقات الحجم الثلاث ودوائر اللون
- * (التلقائي أولها) — وإن كان العنصر مخفياً من العرض يُرسم باهتاً
- * كي يعرف المالك أن ضباطه محفوظة لظهره.
- */
-@Composable
-private fun ElementStyleRow(
-    title: String,
-    shown: Boolean,
-    size: Int?,
-    color: String?,
-    onSize: (Int) -> Unit,
-    onColor: (String) -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(scheme.primary.copy(alpha = if (shown) 0.06f else 0.03f))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (shown) scheme.onSurface else scheme.onSurfaceVariant.copy(alpha = 0.55f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SIZE_STEPS.forEach { (label, value) ->
-                SizeChip(
-                    label = label,
-                    selected = (size ?: 100) == value,
-                    dimmed = !shown,
-                    onClick = { onSize(value) },
-                )
-            }
-            Spacer(Modifier.width(6.dp))
-            ColorDot(
-                hex = "",
-                selected = color == null || color == "auto",
-                dimmed = !shown,
-                onClick = { onColor("auto") },
-                autoContent = true,
-            )
-            TEXT_COLORS.take(4).forEach { hex ->
-                ColorDot(hex, color == hex, dimmed = !shown, onClick = { onColor(hex) })
-            }
-        }
-        if (color != null && color != "auto" && !TEXT_COLORS.take(4).contains(color)) {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "لون مخصص محفوظ — اختر من الألوان لتغييره",
-                style = MaterialTheme.typography.labelSmall,
-                color = scheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-/** رقاقة حجم — صغير/عادي/كبير */
-@Composable
-private fun SizeChip(label: String, selected: Boolean, dimmed: Boolean, onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = if (selected) scheme.primary else scheme.surface,
-        border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.3f)),
-        onClick = onClick,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) {
-                scheme.onPrimary
-            } else {
-                scheme.onSurface.copy(alpha = if (dimmed) 0.4f else 0.8f)
-            },
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-        )
     }
 }
 
@@ -552,7 +365,7 @@ private fun ColorDot(
 }
 
 @Composable
-private fun SettingLabel(text: String) {
+internal fun SettingLabel(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleSmall,

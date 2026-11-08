@@ -36,7 +36,7 @@ data class AdhanPlanSettings(
 }
 
 /** نوع حدث الأذان */
-enum class AdhanEventKind { ADHAN, IQAMAH }
+enum class AdhanEventKind { ADHAN, IQAMAH, REMINDER }
 
 /**
  * وضع الصوت وعقده النصي — درس alpha60 (بلاغ المالك: «صوت الاقامه لا
@@ -53,9 +53,18 @@ object AdhanMode {
 
     const val IQAMAH = "iqamah"
 
+    /**
+     * وضع التنبيه قبل/بعد الأذان (alpha61) — ثالث الأوضاع: يشغل صوتاً
+     * بنصّ تنبيهٍ لا نصّ أذان («قلب الصلاة قريب» لا «حان وقت الصلاة»).
+     */
+    const val REMINDER = "reminder"
+
     /** أي نصٍّ غريبٍ أو فارغٍ أو بحروفٍ كبيرةٍ يعود وضعاً متعارفاً عليه */
-    fun canonical(raw: String?): String =
-        if (raw != null && raw.equals(IQAMAH, ignoreCase = true)) IQAMAH else ADHAN
+    fun canonical(raw: String?): String = when {
+        raw != null && raw.equals(IQAMAH, ignoreCase = true) -> IQAMAH
+        raw != null && raw.equals(REMINDER, ignoreCase = true) -> REMINDER
+        else -> ADHAN
+    }
 }
 
 /**

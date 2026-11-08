@@ -50,6 +50,9 @@ class AlarmService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var safetyStop: Runnable? = null
 
+    /** نصّ التنبيه الجاهز للوضع REMINDER — فارغٌ لباقي الأوضاع */
+    private var note = ""
+
     /** إعدادات نافذة الكتم للحبة الحالية — تُملأ من نية الحدث */
     private var muteStartPending = false
     private var muteMinutes = 10
@@ -101,6 +104,8 @@ class AlarmService : Service() {
         val prayerName = intent?.getStringExtra(EXTRA_PRAYER_NAME) ?: "الصلاة"
         val soundId = intent?.getStringExtra(EXTRA_SOUND_ID) ?: "main"
         val customPath = intent?.getStringExtra(EXTRA_CUSTOM_PATH) ?: ""
+        // نصّ التنبيه الجاهز (alpha61 — وضع التنبيه قبل/بعد الأذان)
+        note = intent?.getStringExtra(EXTRA_NOTE) ?: ""
 
         muteStartPending = intent?.getBooleanExtra(EXTRA_MUTE_START, false) == true
         muteMinutes = intent?.getIntExtra(EXTRA_MUTE_MINUTES, 10)?.coerceAtLeast(1) ?: 10
@@ -168,7 +173,8 @@ class AlarmService : Service() {
             2,
             Intent(this, AlarmActivity::class.java)
                 .putExtra(AlarmActivity.EXTRA_PRAYER_NAME, prayerName)
-                .putExtra(AlarmActivity.EXTRA_PRAYER_MODE, mode),
+                .putExtra(AlarmActivity.EXTRA_PRAYER_MODE, mode)
+                .putExtra(AlarmActivity.EXTRA_NOTE, note),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val openAppPi = PendingIntent.getActivity(
@@ -178,8 +184,16 @@ class AlarmService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val title = if (mode == MODE_IQAMAH) "قد قامت الصلاة — $prayerName" else "حان الآن وقت $prayerName"
-        val text = if (mode == MODE_IQAMAH) "حان وقت الإقامة — تقبل الله طاعتكم" else "التطبيق يؤذن الآن — تقبل الله طاعتكم"
+        val title = when (mode) {
+            MODE_IQAMAH -> "قد قامت الصلاة — $prayerName"
+            MODE_REMINDER -> note.ifBlank { "تنبيه — $prayerName" }
+            else -> "حان الآن وقت $prayerName"
+        }
+        val text = when (mode) {
+            MODE_IQAMAH -> "حان وقت الإقامة — تقبل الله طاعتكم"
+            MODE_REMINDER -> "منبه نور المسلم — إيقاف الصوت من الشاشة أو الزر"
+            else -> "التطبيق يؤذن الآن — تقبل الله طاعتكم"
+        }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_update)
@@ -410,12 +424,16 @@ class AlarmService : Service() {
         const val EXTRA_PRAYER_NAME = "noor_extra_alarm_prayer_name"
         const val EXTRA_SOUND_ID = "noor_extra_alarm_sound_id"
         const val EXTRA_CUSTOM_PATH = "noor_extra_alarm_custom_path"
+        /** نصّ التنبيه الجاهز — وضع REMINDER يعرضه في الشاشة والإشعار */
+        const val EXTRA_NOTE = "noor_extra_alarm_note"
         const val EXTRA_MUTE_START = "noor_extra_alarm_mute_start"
         const val EXTRA_MUTE_MINUTES = "noor_extra_alarm_mute_minutes"
         const val EXTRA_MUTE_CANCEL_ON_UNLOCK = "noor_extra_alarm_mute_cancel_on_unlock"
         // الأوضاع من الموحِّد نفسه — نقطة حقيقة واحدة للاستقبِل والخدمة والشاشة
         const val MODE_ADHAN = AdhanMode.ADHAN
         const val MODE_IQAMAH = AdhanMode.IQAMAH
+        /** وضع التنبيه قبل/بعد الأذان (alpha61) — صوتٌ بنصّ تنبيهٍ لا أذان */
+        const val MODE_REMINDER = AdhanMode.REMINDER
         const val ACTION_STOP = "com.sawan4art.noor.action.ADHAAN_STOP"
         const val ACTION_RESTORE_MUTE = "com.sawan4art.noor.action.ADHAAN_RESTORE_MUTE"
 

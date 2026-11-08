@@ -12,6 +12,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sawan4art.noor.domain.adhan.AdhanGaps
+import com.sawan4art.noor.domain.adhan.PrayerReminder
+import com.sawan4art.noor.domain.adhan.PrayerVoiceMaps
 import com.sawan4art.noor.domain.mushaf.MushafPages
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
@@ -62,6 +64,24 @@ data class AdhanPrefs(
     val customAdhanName: String = "",
     val customIqamahPath: String = "",
     val customIqamahName: String = "",
+    /**
+     * صوت لكل صلاة على حدة (alpha61 — بلاغ المالك: «عايز ظبط اصوات
+     * الاذان و الاقامه يكون اما لكل صلاه على حده او لكل الصلوات») —
+     * مطفأً افتراضياً: صوتٌ واحد للصلوات كلها. ومفعلاً: صوتُ كل صلاة
+     * من خريطتها وإن غاب مفتاحها عاد لصوت الكل.
+     */
+    val perPrayerVoices: Boolean = false,
+    /** صوت أذان كل صلاة — مفتاح PrayerTimeKey.name إلى معرّف الصوت */
+    val perPrayerAdhanVoices: Map<String, String> = emptyMap(),
+    /** صوت إقامة كل صلاة — مفتاح PrayerTimeKey.name إلى معرّف الصوت */
+    val perPrayerIqamahVoices: Map<String, String> = emptyMap(),
+    /**
+     * التنبيه قبل/بعد أذان أي صلاة (alpha61) — مفعّلٌ من مفتاحٍ رئيسي،
+     * وكل صلاة قاعدتها من [reminders] (فارغة = لا تنبيه لأحد).
+     */
+    val reminderEnabled: Boolean = false,
+    /** قواعد التنبيه — مفتاح PrayerTimeKey.name إلى قاعدتها */
+    val reminders: Map<String, PrayerReminder.Rule> = emptyMap(),
 ) {
     /** فاصل الأذان←الإقامة الخاص بصلاة معينة — استهلاك خطّة الأذان */
     fun gapFor(key: PrayerTimeKey): Int = when (key) {
@@ -71,6 +91,35 @@ data class AdhanPrefs(
         PrayerTimeKey.MAGHRIB -> gapMaghribMinutes
         PrayerTimeKey.ISHA -> gapIshaMinutes
         PrayerTimeKey.SUNRISE -> 0 // الشروق ليست صلاة ولا أذان فيها
+    }
+
+    /**
+     * صوت الأذان الفعلي لصلاة معينة — الخريطة الخاصة إن كان الوضع
+     * «لكل صلاة» وإن غاب مفتاحها فصوت الكل (سقوطٌ آمن دائماً).
+     */
+    fun adhanVoiceFor(key: PrayerTimeKey): String {
+        if (!perPrayerVoices) return adhanVoice
+        return perPrayerAdhanVoices[key.name] ?: adhanVoice
+    }
+
+    /** صوت الإقامة الفعلي لصلاة معينة — بنفس عقد صوت الأذان */
+    fun iqamahVoiceFor(key: PrayerTimeKey): String {
+        if (!perPrayerVoices) return iqamahVoice
+        return perPrayerIqamahVoices[key.name] ?: iqamahVoice
+    }
+
+    /** مسار الصوت المخصص الفعلي لأذان صلاة معينة — للـ «custom» فقط */
+    fun adhanCustomPathFor(key: PrayerTimeKey): String =
+        if (adhanVoiceFor(key) == "custom") customAdhanPath else ""
+
+    /** مسار الصوت المخصص الفعلي لإقامة صلاة معينة — للـ «custom» فقط */
+    fun iqamahCustomPathFor(key: PrayerTimeKey): String =
+        if (iqamahVoiceFor(key) == "custom") customIqamahPath else ""
+
+    /** قاعدة التنبيه الفعلية لصلاة معينة — لا شيء إلا مع المفتاح الرئيسي */
+    fun reminderFor(key: PrayerTimeKey): PrayerReminder.Rule? {
+        if (!reminderEnabled) return null
+        return reminders[key.name]
     }
 }
 
@@ -185,6 +234,12 @@ class SettingsRepository(private val context: Context) {
         val CUSTOM_ADHAN_NAME = stringPreferencesKey("custom_adhan_name")
         val CUSTOM_IQAMAH_PATH = stringPreferencesKey("custom_iqamah_path")
         val CUSTOM_IQAMAH_NAME = stringPreferencesKey("custom_iqamah_name")
+        // صوت لكل صلاة على حدة + التنبيه قبل/بعد الأذان (alpha61)
+        val PER_PRAYER_VOICES = booleanPreferencesKey("adhan_per_prayer_voices")
+        val PER_PRAYER_ADHAN = stringPreferencesKey("adhan_per_prayer_adhan")
+        val PER_PRAYER_IQAMAH = stringPreferencesKey("adhan_per_prayer_iqamah")
+        val REMINDER_ENABLED = booleanPreferencesKey("adhan_reminder_enabled")
+        val PRAYER_REMINDERS = stringPreferencesKey("adhan_prayer_reminders")
         // طلب الصلاحيات — آخر نسخة طُلبت عندها السلسلة كاملة
         val PERMISSIONS_ASKED_VERSION = intPreferencesKey("permissions_asked_version")
         val PERMISSION_GATE_JSON = stringPreferencesKey("permission_gate_json")
@@ -263,6 +318,11 @@ class SettingsRepository(private val context: Context) {
             customAdhanName = p[Keys.CUSTOM_ADHAN_NAME] ?: "",
             customIqamahPath = p[Keys.CUSTOM_IQAMAH_PATH] ?: "",
             customIqamahName = p[Keys.CUSTOM_IQAMAH_NAME] ?: "",
+            perPrayerVoices = p[Keys.PER_PRAYER_VOICES] ?: false,
+            perPrayerAdhanVoices = PrayerVoiceMaps.parse(p[Keys.PER_PRAYER_ADHAN]),
+            perPrayerIqamahVoices = PrayerVoiceMaps.parse(p[Keys.PER_PRAYER_IQAMAH]),
+            reminderEnabled = p[Keys.REMINDER_ENABLED] ?: false,
+            reminders = PrayerReminder.parseRules(p[Keys.PRAYER_REMINDERS]),
         )
     }
 
@@ -332,6 +392,50 @@ class SettingsRepository(private val context: Context) {
     /** إلغاء الكتم عند فتح قفل الشاشة — اختيار جانبي مع تفعيل الكتم */
     suspend fun setMuteCancelOnUnlock(on: Boolean) {
         context.noorDataStore.edit { it[Keys.MUTE_CANCEL_ON_UNLOCK] = on }
+    }
+
+    /**
+     * صوت لكل صلاة على حدة أو للكل (alpha61) — الإطفاء يُبقي الخريطتين
+     * محفوظتين كي يعود التفعيل بما اختاره المستخدم من قبل.
+     */
+    suspend fun setPerPrayerVoices(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.PER_PRAYER_VOICES] = on }
+    }
+
+    /** صوت أذان صلاة بعينها — معرفٌ فارغ يمسح اختيارها فيعود لصوت الكل */
+    suspend fun setPrayerAdhanVoice(key: PrayerTimeKey, voiceId: String) {
+        context.noorDataStore.edit {
+            val map = PrayerVoiceMaps.parse(it[Keys.PER_PRAYER_ADHAN]).toMutableMap()
+            if (voiceId.isBlank()) map.remove(key.name) else map[key.name] = voiceId
+            it[Keys.PER_PRAYER_ADHAN] = PrayerVoiceMaps.format(map)
+        }
+    }
+
+    /** صوت إقامة صلاة بعينها — بنفس عقد صوت الأذان */
+    suspend fun setPrayerIqamahVoice(key: PrayerTimeKey, voiceId: String) {
+        context.noorDataStore.edit {
+            val map = PrayerVoiceMaps.parse(it[Keys.PER_PRAYER_IQAMAH]).toMutableMap()
+            if (voiceId.isBlank()) map.remove(key.name) else map[key.name] = voiceId
+            it[Keys.PER_PRAYER_IQAMAH] = PrayerVoiceMaps.format(map)
+        }
+    }
+
+    /** المفتاح الرئيسي للتنبيه قبل/بعد الأذان — إطفاؤه يلغي كل المنبهات */
+    suspend fun setReminderEnabled(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.REMINDER_ENABLED] = on }
+    }
+
+    /** قاعدة تنبيه صلاة بعينها — null يعني بلا تنبيهٍ لها */
+    suspend fun setPrayerReminder(key: PrayerTimeKey, rule: PrayerReminder.Rule?) {
+        context.noorDataStore.edit {
+            val map = PrayerReminder.parseRules(it[Keys.PRAYER_REMINDERS]).toMutableMap()
+            if (rule == null || rule.mode == PrayerReminder.Mode.OFF) {
+                map.remove(key.name)
+            } else {
+                map[key.name] = rule.copy(minutes = PrayerReminder.clampMinutes(rule.minutes))
+            }
+            it[Keys.PRAYER_REMINDERS] = PrayerReminder.formatRules(map)
+        }
     }
 
     /**

@@ -148,12 +148,12 @@ class WidgetCustomizationTest {
 
     @Test
     fun `خرائط الحجم واللون للعناصر تُقرأ بسلامة وتُقذّر الغريب`() {
-        // مفاتيح غريبة تُرمى والقيم خارج الحدود تُحصر
+        // مفاتيح غريبة تُرمى والقيم خارج الحدود تُحصر (alpha61: ٥٠..٢٥٠)
         val parsed = WidgetCustomization.fromJson(
             """{"elementSizes": {"clock": 300, "ghost": 150, "grid": 40},
                "elementColors": {"hijri": "#5B6E9E", "ghost": "#123456"}}""",
         )
-        assertEquals(200, parsed.elementSizes[WidgetCustomization.ELEMENT_CLOCK])
+        assertEquals(250, parsed.elementSizes[WidgetCustomization.ELEMENT_CLOCK])
         assertEquals(50, parsed.elementSizes[WidgetCustomization.ELEMENT_GRID])
         assertEquals(null, parsed.elementSizes["ghost"])
         assertEquals("#5B6E9E", parsed.elementColors[WidgetCustomization.ELEMENT_HIJRI])

@@ -233,7 +233,7 @@ fun KhutbahEditorContent(
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Text(
-                                    text = khutbah.body.first().take(64) + "…",
+                                    text = (khutbah.body.firstOrNull() ?: "").take(64) + "…",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
@@ -552,6 +552,10 @@ internal fun KhutbahImagesRow(
                             // (خطوة قوى ٢ من حساب KhutbahLibrary النقي)
                             // فالمربع يستهلك كيلوبايتات لا مئات
                             // الميغابايتات.
+                            // وتحصين alpha61: RGB_565 يقصّ ذاكرة
+                            // المصغّر للنصف، وAny فشلٍ (تالف/نفاد ذاكرة)
+                            // يرجع null فيظهر المربع الفارغ ولا يُهدم
+                            // التركيب أبداً.
                             val file = File(File(context.filesDir, "khutbah_images"), fileName)
                             val bounds = BitmapFactory.Options().apply {
                                 inJustDecodeBounds = true
@@ -563,7 +567,10 @@ internal fun KhutbahImagesRow(
                             )
                             BitmapFactory.decodeFile(
                                 file.absolutePath,
-                                BitmapFactory.Options().apply { inSampleSize = sample },
+                                BitmapFactory.Options().apply {
+                                    inSampleSize = sample
+                                    inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+                                },
                             )
                         }.getOrNull()?.asImageBitmap()
                     }

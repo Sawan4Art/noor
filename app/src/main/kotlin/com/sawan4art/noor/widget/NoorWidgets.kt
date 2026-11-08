@@ -40,7 +40,7 @@ import java.time.LocalTime
  */
 
 /** ألوان الرسم — من التخصيص: مظهرٌ ولونُ خطٍّ ومَيُ أُبرز */
-private data class WidgetPalette(
+internal data class WidgetPalette(
     val bgTop: Int,
     val bgBottom: Int,
     val text: Int,
@@ -48,7 +48,7 @@ private data class WidgetPalette(
     val accent: Int,
 )
 
-private fun palette(c: WidgetCustomization): WidgetPalette {
+internal fun palette(c: WidgetCustomization): WidgetPalette {
     val accent = AccentPalette.byId(c.accentId)
     val explicitText = WidgetCustomization.parseColor(c.textColor)
     val base = when (c.theme) {
@@ -118,6 +118,15 @@ internal fun withAlpha(color: Int, alpha: Float): Int =
  * alpha59 — بلاغ المالك: «عايز خانات لتحديد حجم الخط ولونه لكل عنصر»
  * — فكل عنصرٍ يمرّ على [sizeOf]/[colorOf]: الحجم نسبةٌ مئويةٍ من
  * قاعدته (الغياب = ١٠٠) واللون إما تلقائي من المظهر أو صريح.
+ *
+ * **alpha61 — المحرر التفاعلي** (بلاغ المالك: «عايز شكل الويدجت يظهر
+ * في اعدادت الويدجت داخل التطبيق و يكون قابل لتحريك كل العناصر و
+ * تكبيرها من خلال الزوم باليد… و لوحه الالوان تكون منبثقه»): كل عنصرٍ
+ * صار RemoteViews مستقلاً (widget_el_*) يُضاف إلى عُلبة widget_stack
+ * **بترتيب المستخدم** [WidgetCustomization.elementOrder] — فالتحريك
+ * ترتيبٌ حيّ في المحرر، والحجم زومٌ باليد، واللون لوحةٌ منبثقة —
+ * والمخفي لا يُضاف أصلاً فلا فراغ مكانه. وأي غلطةٍ في عنصرٍ واحدٍ
+ * لا تقتل البقية: كل عنصرٍ يُبنى بأمانه (درس alpha58).
  */
 object WidgetRenderer {
 
@@ -139,19 +148,12 @@ object WidgetRenderer {
             customization.elementColors[key]
                 ?.let { WidgetCustomization.parseColor(it) } ?: fallback
 
-        fun style(id: Int, key: String, base: Float, fallback: Int) {
-            views.setFloat(id, "setTextSize", sizeOf(key, base))
-            views.setTextColor(id, colorOf(key, fallback))
-        }
-
-        fun show(id: Int, visible: Boolean) =
-            views.setViewVisibility(id, if (visible) View.VISIBLE else View.GONE)
+        fun show(child: RemoteViews, id: Int, visible: Boolean) =
+            child.setViewVisibility(id, if (visible) View.VISIBLE else View.GONE)
 
         // الخلفية — دقةٌ معتدلة — درس alpha58: مجموع بايتات الصور داخل
         // باكِت RemoteViews لا يجاوز مخزن البايندر (~١MB) وإلا فشل
-        // التحديث وبدت الويدجت «تظهر لكن لا تعمل». ومع إضافات alpha59
-        // (فقاعات سائلة مرسومة وساعة تناظرية) صغّرنا السقف أكثر
-        // كي يبقى المجموع الكلي بكثيرٍ دون المخزن.
+        // التحديث وبدت الويدجت «تظهر لكن لا تعمل».
         val bg = widgetBackgroundBitmap(
             (widthDp * 3 / 2).coerceAtMost(360),
             (heightDp * 3 / 2).coerceAtMost(260),
@@ -159,140 +161,211 @@ object WidgetRenderer {
         )
         views.setImageViewBitmap(R.id.widget_bg, bg)
 
-        // ===== الصف ١: العلامة والمدينة والساعة (رقمية أو تناظرية) =====
-        show(R.id.widget_brand, customization.showBrand)
-        views.setTextColor(R.id.widget_brand, pal.text)
-        show(R.id.widget_city, customization.showCity && snapshot.city.isNotBlank())
-        views.setTextViewText(R.id.widget_city, snapshot.city)
-        views.setTextColor(R.id.widget_city, pal.muted)
-        // الساعة الرقمية الحيّة — أو التناظرية المرسومة (بلاغ alpha59:
-        // «يتم ايضا اضافه ساعه تناظريه يمكن للمستخدم الاختيار بينها و
-        // بين الرقميه»)
         val analog = customization.clockStyle == WidgetCustomization.ClockStyle.ANALOG
-        show(R.id.widget_clock, customization.showClock && !analog)
-        views.setCharSequence(R.id.widget_clock, "setFormat12Hour", "h:mm a")
-        views.setCharSequence(R.id.widget_clock, "setFormat24Hour", "HH:mm")
-        style(R.id.widget_clock, WidgetCustomization.ELEMENT_CLOCK, 15f, pal.text)
-        if (customization.showClock && analog) {
-            val now = LocalTime.now()
-            views.setViewVisibility(R.id.widget_clock_analog, View.VISIBLE)
-            views.setImageViewBitmap(
-                R.id.widget_clock_analog,
-                WidgetArt.analogClockBitmap(
-                    WidgetArt.ANALOG_SIZE,
-                    now.hour, now.minute,
-                    dialColor = pal.text,
-                    handColor = colorOf(WidgetCustomization.ELEMENT_CLOCK, pal.text),
-                    accentColor = pal.accent,
-                    onDialColor = pal.text,
-                ),
-            )
-        } else {
-            views.setViewVisibility(R.id.widget_clock_analog, View.GONE)
-        }
+        var slot = 0
 
-        // ===== الصف ٢: التاريخان بصيغتيهما (ست صيغٍ لكل تقويم) =====
-        show(R.id.widget_date_hijri, customization.showHijri)
-        views.setTextViewText(
-            R.id.widget_date_hijri,
-            Hijri.formatHijri(snapshot.hijriDate, customization.hijriFormat, snapshot.gregorianDate),
-        )
-        style(R.id.widget_date_hijri, WidgetCustomization.ELEMENT_HIJRI, 11f, pal.text)
-        show(R.id.widget_date_greg, customization.showGregorian)
-        views.setTextViewText(
-            R.id.widget_date_greg,
-            Hijri.formatGregorian(snapshot.gregorianDate, customization.gregFormat),
-        )
-        style(R.id.widget_date_greg, WidgetCustomization.ELEMENT_GREG, 11f, pal.accent)
-
-        // ===== الصف ٣: القادمة ووقتها والعدّاد =====
-        views.setTextViewText(R.id.widget_next_name, snapshot.nextName)
-        style(R.id.widget_next_name, WidgetCustomization.ELEMENT_NEXT, 20f, pal.text)
-        views.setTextViewText(R.id.widget_next_time, snapshot.nextTimeText)
-        style(R.id.widget_next_time, WidgetCustomization.ELEMENT_NEXT, 14f, pal.accent)
-        if (customization.showCountdown) {
-            views.setViewVisibility(R.id.widget_countdown, View.VISIBLE)
-            // الجذر المُصلَح (alpha58 — بلاغ المالك: «الويدجت تظهر في
-            // التطبيقات المصغرة لكن لا تعمل»): ضبط القاعدة وحدها لا يُحرك
-            // العدّاد — RemoteViews لا يستدعي start() أبداً فبقي العدّاد
-            // واقفاً على ٠٠:٠٠. setChronometer(…, started=true) هي التي
-            // تُشغّله، وصيغتها التنازلية من `android:countDown` في التخطيط:
-            views.setChronometer(
-                R.id.widget_countdown,
-                chronometerBase(snapshot.remainingSeconds, SystemClock.elapsedRealtime()),
-                COUNTDOWN_FORMAT,
-                true,
-            )
-        } else {
-            views.setViewVisibility(R.id.widget_countdown, View.GONE)
-        }
-        style(R.id.widget_countdown, WidgetCustomization.ELEMENT_COUNTDOWN, 12f, pal.muted)
-        bindBubble(
-            views, R.id.widget_bubble_countdown,
-            customization.bubbleOnCountdown && customization.showCountdown,
-            customization.bubbleColorCountdown, pal,
-            WidgetArt.COUNTDOWN_BUBBLE_W, WidgetArt.COUNTDOWN_BUBBLE_H, 0f,
-        )
-
-        // ===== الصف ٤: مواقيت الصلوات الست + فقاعتا القادمة والحالية =====
-        val currentIndex = WidgetSnapshot.currentRowIndex(snapshot.rows)
-        snapshot.rows.forEachIndexed { i, row ->
-            val nameId = GRID_NAME_IDS[i]
-            val timeId = GRID_TIME_IDS[i]
-            // الاسم الصغير فوق الوقت — بلاغ المالك alpha59: «مواقيت
-            // الصلاه و اسماءها تظهر بشكل صغير في الويدجت»
-            views.setTextViewText(nameId, row.name)
-            views.setFloat(nameId, "setTextSize", sizeOf(WidgetCustomization.ELEMENT_GRID, 10f))
-            views.setTextColor(nameId, if (row.isPast && i != currentIndex) pal.muted else colorOf(WidgetCustomization.ELEMENT_GRID, pal.text))
-            views.setTextViewText(timeId, row.time)
-            views.setFloat(timeId, "setTextSize", sizeOf(WidgetCustomization.ELEMENT_GRID, 10f))
-            views.setTextColor(
-                timeId,
-                when {
-                    row.isNext -> colorOf(WidgetCustomization.ELEMENT_GRID, pal.accent)
-                    row.isPast && i != currentIndex -> pal.muted
-                    else -> colorOf(WidgetCustomization.ELEMENT_GRID, pal.text)
-                },
-            )
-            val bubbleId = GRID_BUBBLE_IDS[i]
-            val lit = when {
-                customization.bubbleOnNext && row.isNext -> true
-                customization.bubbleOnCurrent && i == currentIndex -> true
-                else -> false
+        /** إضافة عنصرٍ إلى العمود بترتيب المستخدم — المخفي لا يُضاف أصلاً */
+        fun addElement(key: String, visible: Boolean, build: (RemoteViews) -> Unit) {
+            if (!visible) return
+            val child = runCatching {
+                RemoteViews(context.packageName, elementLayout(key)).also(build)
+            }.getOrNull() ?: return
+            runCatching {
+                // الإضافة بالتتابع تكفي: addView يلحق بآخر العمود
+                // فترتيب الاستدعاء هو الترتيب المختار
+                views.addView(R.id.widget_stack, child)
+                slot++
             }
-            val bubbleColor = when {
-                customization.bubbleOnNext && row.isNext -> customization.bubbleColorNext
-                customization.bubbleOnCurrent && i == currentIndex -> customization.bubbleColorCurrent
-                else -> WidgetCustomization.DEFAULT_BUBBLE
-            }
-            bindBubble(
-                views, bubbleId, lit && customization.showPrayerTimes, bubbleColor, pal,
-                WidgetArt.GRID_BUBBLE_W, WidgetArt.GRID_BUBBLE_H, i * 0.9f,
-            )
         }
-        show(R.id.grid_row, customization.showPrayerTimes)
 
-        // ===== الصف ٥: المسبحة =====
-        show(R.id.widget_misbaha_row, customization.showMisbaha)
-        if (customization.showMisbaha) {
-            val count = WidgetStore.misbahaCount(context)
-            views.setTextViewText(
-                R.id.widget_misbaha_count,
-                "المسبحة: ${MushafSurahs.arabicDigits(count)}",
-            )
-            style(R.id.widget_misbaha_count, WidgetCustomization.ELEMENT_MISBAHA, 14f, pal.text)
-            style(R.id.widget_misbaha_tap, WidgetCustomization.ELEMENT_MISBAHA, 12f, pal.accent)
-            style(R.id.widget_misbaha_reset, WidgetCustomization.ELEMENT_MISBAHA, 11f, pal.muted)
-            views.setOnClickPendingIntent(
-                R.id.widget_misbaha_tap,
-                misbahaPendingIntent(context, NoorWidget.ACTION_MISBAHA_TAP),
-            )
-            views.setOnClickPendingIntent(
-                R.id.widget_misbaha_reset,
-                misbahaPendingIntent(context, NoorWidget.ACTION_MISBAHA_RESET),
-            )
+        for (key in WidgetCustomization.normalizeOrder(customization.elementOrder)) {
+            when (key) {
+                WidgetCustomization.ELEMENT_HEADER -> addElement(
+                    key,
+                    visible = customization.showBrand || (customization.showCity && snapshot.city.isNotBlank()),
+                ) { child ->
+                    show(child, R.id.widget_brand, customization.showBrand)
+                    child.setTextColor(R.id.widget_brand, colorOf(key, pal.text))
+                    child.setFloat(R.id.widget_brand, "setTextSize", sizeOf(key, 11f))
+                    val cityVisible = customization.showCity && snapshot.city.isNotBlank()
+                    show(child, R.id.widget_city, cityVisible)
+                    if (cityVisible) {
+                        child.setTextViewText(R.id.widget_city, snapshot.city)
+                        child.setTextColor(R.id.widget_city, colorOf(key, pal.muted))
+                        child.setFloat(R.id.widget_city, "setTextSize", sizeOf(key, 10f))
+                    }
+                }
+
+                WidgetCustomization.ELEMENT_CLOCK -> addElement(
+                    key,
+                    visible = customization.showClock,
+                ) { child ->
+                    show(child, R.id.widget_clock, !analog)
+                    child.setCharSequence(R.id.widget_clock, "setFormat12Hour", "h:mm a")
+                    child.setCharSequence(R.id.widget_clock, "setFormat24Hour", "HH:mm")
+                    child.setFloat(R.id.widget_clock, "setTextSize", sizeOf(key, 15f))
+                    child.setTextColor(R.id.widget_clock, colorOf(key, pal.text))
+                    if (analog) {
+                        // الميناء بحجم الزوم نفسه — wrap_content يقيسه لصورته
+                        val scale = (customization.elementSizes[key] ?: 100) / 100f
+                        child.setViewVisibility(R.id.widget_clock_analog, View.VISIBLE)
+                        child.setImageViewBitmap(
+                            R.id.widget_clock_analog,
+                            WidgetArt.analogClockBitmap(
+                                (WidgetArt.ANALOG_SIZE * scale).toInt().coerceIn(48, 240),
+                                LocalTime.now().hour, LocalTime.now().minute,
+                                dialColor = pal.text,
+                                handColor = colorOf(key, pal.text),
+                                accentColor = pal.accent,
+                                onDialColor = pal.text,
+                            ),
+                        )
+                    } else {
+                        child.setViewVisibility(R.id.widget_clock_analog, View.GONE)
+                    }
+                }
+
+                WidgetCustomization.ELEMENT_HIJRI -> addElement(
+                    key,
+                    visible = customization.showHijri,
+                ) { child ->
+                    child.setTextViewText(
+                        R.id.widget_date_hijri,
+                        Hijri.formatHijri(snapshot.hijriDate, customization.hijriFormat, snapshot.gregorianDate),
+                    )
+                    child.setFloat(R.id.widget_date_hijri, "setTextSize", sizeOf(key, 11f))
+                    child.setTextColor(R.id.widget_date_hijri, colorOf(key, pal.text))
+                }
+
+                WidgetCustomization.ELEMENT_GREG -> addElement(
+                    key,
+                    visible = customization.showGregorian,
+                ) { child ->
+                    child.setTextViewText(
+                        R.id.widget_date_greg,
+                        Hijri.formatGregorian(snapshot.gregorianDate, customization.gregFormat),
+                    )
+                    child.setFloat(R.id.widget_date_greg, "setTextSize", sizeOf(key, 11f))
+                    child.setTextColor(R.id.widget_date_greg, colorOf(key, pal.accent))
+                }
+
+                WidgetCustomization.ELEMENT_NEXT -> addElement(
+                    key,
+                    visible = true,
+                ) { child ->
+                    child.setTextViewText(R.id.widget_next_name, snapshot.nextName)
+                    child.setFloat(R.id.widget_next_name, "setTextSize", sizeOf(key, 20f))
+                    child.setTextColor(R.id.widget_next_name, colorOf(key, pal.text))
+                    child.setTextViewText(R.id.widget_next_time, snapshot.nextTimeText)
+                    child.setFloat(R.id.widget_next_time, "setTextSize", sizeOf(key, 14f))
+                    child.setTextColor(R.id.widget_next_time, colorOf(key, pal.accent))
+                }
+
+                WidgetCustomization.ELEMENT_COUNTDOWN -> addElement(
+                    key,
+                    visible = customization.showCountdown,
+                ) { child ->
+                    // الجذر المُصلَح (alpha58): setChronometer(…, started=true)
+                    // هي التي تُشغّل العدّاد — وصيغته التنازلية من التخطيط
+                    child.setChronometer(
+                        R.id.widget_countdown,
+                        chronometerBase(snapshot.remainingSeconds, SystemClock.elapsedRealtime()),
+                        COUNTDOWN_FORMAT,
+                        true,
+                    )
+                    child.setFloat(R.id.widget_countdown, "setTextSize", sizeOf(key, 12f))
+                    child.setTextColor(R.id.widget_countdown, colorOf(key, pal.muted))
+                    bindBubble(
+                        child, R.id.widget_bubble_countdown,
+                        customization.bubbleOnCountdown,
+                        customization.bubbleColorCountdown, pal,
+                        WidgetArt.COUNTDOWN_BUBBLE_W, WidgetArt.COUNTDOWN_BUBBLE_H, 0f,
+                    )
+                }
+
+                WidgetCustomization.ELEMENT_GRID -> addElement(
+                    key,
+                    visible = customization.showPrayerTimes,
+                ) { child ->
+                    val currentIndex = WidgetSnapshot.currentRowIndex(snapshot.rows)
+                    snapshot.rows.forEachIndexed { i, row ->
+                        val nameId = GRID_NAME_IDS[i]
+                        val timeId = GRID_TIME_IDS[i]
+                        // الاسم الصغير فوق الوقت — بلاغ المالك alpha59
+                        child.setTextViewText(nameId, row.name)
+                        child.setFloat(nameId, "setTextSize", sizeOf(key, 10f))
+                        child.setTextColor(
+                            nameId,
+                            if (row.isPast && i != currentIndex) pal.muted else colorOf(key, pal.text),
+                        )
+                        child.setTextViewText(timeId, row.time)
+                        child.setFloat(timeId, "setTextSize", sizeOf(key, 10f))
+                        child.setTextColor(
+                            timeId,
+                            when {
+                                row.isNext -> colorOf(key, pal.accent)
+                                row.isPast && i != currentIndex -> pal.muted
+                                else -> colorOf(key, pal.text)
+                            },
+                        )
+                        val bubbleId = GRID_BUBBLE_IDS[i]
+                        val lit = when {
+                            customization.bubbleOnNext && row.isNext -> true
+                            customization.bubbleOnCurrent && i == currentIndex -> true
+                            else -> false
+                        }
+                        val bubbleColor = when {
+                            customization.bubbleOnNext && row.isNext -> customization.bubbleColorNext
+                            customization.bubbleOnCurrent && i == currentIndex -> customization.bubbleColorCurrent
+                            else -> WidgetCustomization.DEFAULT_BUBBLE
+                        }
+                        bindBubble(
+                            child, bubbleId, lit, bubbleColor, pal,
+                            WidgetArt.GRID_BUBBLE_W, WidgetArt.GRID_BUBBLE_H, i * 0.9f,
+                        )
+                    }
+                }
+
+                WidgetCustomization.ELEMENT_MISBAHA -> addElement(
+                    key,
+                    visible = customization.showMisbaha,
+                ) { child ->
+                    val count = WidgetStore.misbahaCount(context)
+                    child.setTextViewText(
+                        R.id.widget_misbaha_count,
+                        "المسبحة: ${MushafSurahs.arabicDigits(count)}",
+                    )
+                    child.setFloat(R.id.widget_misbaha_count, "setTextSize", sizeOf(key, 14f))
+                    child.setTextColor(R.id.widget_misbaha_count, colorOf(key, pal.text))
+                    child.setFloat(R.id.widget_misbaha_tap, "setTextSize", sizeOf(key, 12f))
+                    child.setTextColor(R.id.widget_misbaha_tap, colorOf(key, pal.accent))
+                    child.setFloat(R.id.widget_misbaha_reset, "setTextSize", sizeOf(key, 11f))
+                    child.setTextColor(R.id.widget_misbaha_reset, colorOf(key, pal.muted))
+                    child.setOnClickPendingIntent(
+                        R.id.widget_misbaha_tap,
+                        misbahaPendingIntent(context, NoorWidget.ACTION_MISBAHA_TAP),
+                    )
+                    child.setOnClickPendingIntent(
+                        R.id.widget_misbaha_reset,
+                        misbahaPendingIntent(context, NoorWidget.ACTION_MISBAHA_RESET),
+                    )
+                }
+            }
         }
         return views
+    }
+
+    /** تخطيط عنصر الويدجت بمفتاحه — والغريب يعود للترويسة بأمان */
+    internal fun elementLayout(key: String): Int = when (key) {
+        WidgetCustomization.ELEMENT_HEADER -> R.layout.widget_el_header
+        WidgetCustomization.ELEMENT_CLOCK -> R.layout.widget_el_clock
+        WidgetCustomization.ELEMENT_HIJRI -> R.layout.widget_el_hijri
+        WidgetCustomization.ELEMENT_GREG -> R.layout.widget_el_greg
+        WidgetCustomization.ELEMENT_NEXT -> R.layout.widget_el_next
+        WidgetCustomization.ELEMENT_COUNTDOWN -> R.layout.widget_el_countdown
+        WidgetCustomization.ELEMENT_GRID -> R.layout.widget_el_grid
+        WidgetCustomization.ELEMENT_MISBAHA -> R.layout.widget_el_misbaha
+        else -> R.layout.widget_el_header
     }
 
     /**

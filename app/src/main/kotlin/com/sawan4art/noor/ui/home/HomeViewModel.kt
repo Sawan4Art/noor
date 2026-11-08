@@ -14,6 +14,7 @@ import com.sawan4art.noor.data.NoorSettingsState
 import com.sawan4art.noor.data.SettingsRepository
 import com.sawan4art.noor.data.ThemeMode
 import com.sawan4art.noor.domain.adhan.AdhanSoundKind
+import com.sawan4art.noor.domain.adhan.PrayerReminder
 import com.sawan4art.noor.domain.khutbah.KhutbahLibrary
 import com.sawan4art.noor.domain.location.CityGeocoder
 import com.sawan4art.noor.domain.location.LocationGate
@@ -300,6 +301,31 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
 
     override fun setMuteCancelOnUnlock(on: Boolean) {
         viewModelScope.launch { repository.setMuteCancelOnUnlock(on) }
+    }
+
+    /** صوت لكل صلاة على حدة أو للكل (alpha61) */
+    override fun setPerPrayerVoices(on: Boolean) {
+        viewModelScope.launch { repository.setPerPrayerVoices(on) }
+    }
+
+    /** صوت أذان صلاة بعينها (alpha61) */
+    override fun setPrayerAdhanVoice(key: PrayerTimeKey, voiceId: String) {
+        viewModelScope.launch { repository.setPrayerAdhanVoice(key, voiceId) }
+    }
+
+    /** صوت إقامة صلاة بعينها (alpha61) */
+    override fun setPrayerIqamahVoice(key: PrayerTimeKey, voiceId: String) {
+        viewModelScope.launch { repository.setPrayerIqamahVoice(key, voiceId) }
+    }
+
+    /** المفتاح الرئيسي للتنبيه قبل/بعد الأذان (alpha61) */
+    override fun setReminderEnabled(on: Boolean) {
+        viewModelScope.launch { repository.setReminderEnabled(on) }
+    }
+
+    /** قاعدة تنبيه صلاة بعينها — null يلغيها (alpha61) */
+    override fun setPrayerReminder(key: PrayerTimeKey, rule: PrayerReminder.Rule?) {
+        viewModelScope.launch { repository.setPrayerReminder(key, rule) }
     }
 
     /** استيراد صوت مخصص من الهاتف — يُنسخ داخل مسار التطبيق ليبقى دائماً */
