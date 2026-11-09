@@ -10,8 +10,21 @@ object TimeFormat {
     private val PRAYER_TIME_FORMAT: DateTimeFormatter =
         DateTimeFormatter.ofPattern("h:mm a", Locale("ar", "EG"))
 
-    /** ٤:٣٩ م — أرقام هندية وص/م مثل النسخة السابقة */
-    fun prayerTime(t: ZonedDateTime): String = t.format(PRAYER_TIME_FORMAT)
+    /**
+     * ٤:٣٩ م — أرقام هندية وص/م مثل النسخة السابقة.
+     *
+     * **تقريب العرض لأعلى الدقيقة** (alpha63 — بلاغ المالك: «تأكد من
+     * المواقيت الصحيحه لان فيها تقديم»): الحساب الفلكي دقيقٌ بالثانية
+     * (٤:٤٥:٥٢ مثلًا) وكانت الشاشة تقتطع الثواني فتظهر ٤:٤٥ —
+     * **أبكر** من أذانٍ يقرع ٤:٤٥:٥٢ فعين المستخدم تحسبها تقديماً.
+     * العرض الآن يقرّب لأعلى الدقيقة (٤:٤٦) — قاعدة الجداول المعتمدة:
+     * العرض المتأخّر أسلم من العرض المقدَّم — بينما المنبهات والعدّاد
+     * يقرعان على اللحظة الفلكية الصحيحة نفسها.
+     */
+    fun prayerTime(t: ZonedDateTime): String =
+        t.plusSeconds(if (t.second == 0 && t.nano == 0) 0L else 60L - t.second)
+            .truncatedTo(java.time.temporal.ChronoUnit.MINUTES)
+            .format(PRAYER_TIME_FORMAT)
 
     /** ٠٣:٢٤:١٥ — أرقام هندية للعدّاد التنازلي */
     fun remainingArabic(seconds: Int): String =

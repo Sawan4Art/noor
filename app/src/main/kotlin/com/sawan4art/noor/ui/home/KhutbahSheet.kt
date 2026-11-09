@@ -216,11 +216,15 @@ fun KhutbahEditorContent(
                     onClick = { view = KhutbahView.MENU },
                 )
                 Spacer(Modifier.height(10.dp))
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                ) {
+                // **جذر جلتش الشاشات الثلاث** (alpha63 — بلاغ المالك: «عند
+                // اختيار خطبه او كتابه خطبه او الضغط على زر عرض يحصل جلتش
+                // و يتوقف التطبيق عن العمل»): كلٌّ من هذه الشاشات الثلاث كان
+                // يركّب عموداً بخاصية verticalScroll **داخل** صفحة القسم
+                // التي تتمرّر أصلاً — والقابل للتمرير الداخلي يُقاس بارتفاع
+                // لا نهائيٍّ من محتوى التمرير الخارجي فينفجر لحظة التركيب
+                // (نفس جذر alpha58). الصفحة تتمرّر عننا — فحُذفت الخاصية
+                // المتداخلة من الشاشات الثلاث كلها.
+                Column(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = title,
                         onValueChange = { title = it },
@@ -322,11 +326,7 @@ fun KhutbahEditorContent(
                         onClick = { openPreset = null },
                     )
                     Spacer(Modifier.height(10.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState()),
-                    ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = preset.title,
                             style = MaterialTheme.typography.titleMedium,
@@ -447,11 +447,7 @@ fun KhutbahEditorContent(
                     onClick = { view = KhutbahView.MENU },
                 )
                 Spacer(Modifier.height(6.dp))
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     if (title.isNotBlank()) {
                         Text(
                             text = title,

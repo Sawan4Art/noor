@@ -1,10 +1,12 @@
 package com.sawan4art.noor
 
 import android.app.Application
+import com.sawan4art.noor.data.mushaf.QuranAudioLibrary
 import com.sawan4art.noor.data.update.UpdateManager
 import com.sawan4art.noor.data.update.UpdateNotifier
 import com.sawan4art.noor.data.update.UpdateWorker
 import com.sawan4art.noor.util.CrashLog
+import kotlinx.coroutines.launch
 
 /**
  * منصة التطبيق — تهيئة قناة إشعارات التحديث وجدولة الفاحص الدوري
@@ -28,5 +30,12 @@ class NoorApplication : Application() {
         UpdateManager.init(this)
         UpdateNotifier.ensureChannel(this)
         UpdateWorker.schedule(this)
+        // الطابور الدائم لأصوات الشيوخ (alpha63) — لو ماتت العملية وسط
+        // تنزيلٍ (إغلاق من الريسنتس أو إعادة تشغيل الجهاز) كان التنزيل
+        // يموت صامتاً فيبدو «بعض الأصوات لا تُنزَّل»؛ الآن كل إدخالٍ في
+        // الطابور يُستأنف وحده من إقلاع التطبيق من حيث توقف
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            runCatching { QuranAudioLibrary.resumePending(this@NoorApplication) }
+        }
     }
 }

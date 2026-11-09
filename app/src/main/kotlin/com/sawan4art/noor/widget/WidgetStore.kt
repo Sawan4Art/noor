@@ -7,9 +7,10 @@ import android.content.Context
  * SharedPreferences كي تقرأها ويدجتات النظام عند كل رسمٍ بلا دورة
  * DataStore، والتطبيق يكتبها عند كل تغيير من قسم «الويدجت».
  *
- * ولون الإطار الدائري (alpha62 — «قابل للضغط عليها لتغيير لونه»)
- * يُدار من هنا: ضغطة الويدجت تُقدّم خطوةً في دورة الألوان وتحفظ
- * فوراً بلا دورة DataStore كي يعود الرسم بأسرع ما يمكن.
+ * ولون الإطار (alpha63) يُختار من لوحة قسم الويدجت — تلقائي أو
+ * لونٌ صريح أو بلا إطارٍ خالصاً — وضغطة الويدجت على الشاشة تفتح
+ * قسم إعداداتها داخل التطبيق بدل التبديل بدورةٍ (كانت تعيد الرسم
+ * فتكشف عقد addView القديم قبل إصلاحه).
  */
 object WidgetStore {
 
@@ -27,16 +28,5 @@ object WidgetStore {
             .edit()
             .putString(WidgetCustomization.PREFS_KEY, customization.toJson())
             .apply()
-    }
-
-    /**
-     * ضغطة الويدجت — لون الإطار التالي في [WidgetCustomization.FRAME_CYCLE]
-     * يُحفظ فيُعاد اللون الجديد للرسم الفوري.
-     */
-    fun cycleFrameColor(context: Context): String {
-        val current = customization(context)
-        val next = WidgetCustomization.nextFrameColor(current.frameColor)
-        save(context, current.copy(frameColor = next))
-        return next
     }
 }

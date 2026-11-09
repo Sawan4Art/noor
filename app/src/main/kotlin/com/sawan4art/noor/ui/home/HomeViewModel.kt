@@ -66,11 +66,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     private val _onboardingDone = MutableStateFlow<Boolean?>(null)
     val onboardingDone: StateFlow<Boolean?> = _onboardingDone
 
-    /** نبضة الثانية — تعمل والشاشة مشتركة فقط وتتوقف عند الخروج */
+    /**
+     * نبضة الثانية — تعمل والشاشة مشتركة فقط وتتوقف عند الخروج.
+     *
+     * **مزامنة الثواني مع ساعة الهاتف** (alpha63 — بلاغ المالك: «عايز
+     * الثواني تتبع ثواني الهاتف يعني عايز التطبيق يقرا الوقت المظبوط
+     * في الهاتف علشان ميحصلش بخبطه في الوقت زي التقديم او التاخير»):
+     * النبضة كانت تأخيراً ساكناً `delay(1000)` فتقع أينما وقعت بين
+     * الثانية وأولها فتبدو عدّادة الشاشة مقدّمةً أو متأخرةً عن عقارب
+     * الهاتف. النبضة الآن تُصفَّر على **حدّ الثانية التالي لساعة
+     * الجهاز نفسها** (`now - now % 1000 + 1000`) فتنبض العدّادات مع
+     * ثواني الهاتف نبضاً واحداً بلا أي انحرافٍ تراكمي — والباقي يُحسب
+     * دوماً من [System.currentTimeMillis] لا من عَدٍّ محليٍّ ينحرف.
+     */
     private val ticker: StateFlow<Long> = flow {
         while (true) {
-            emit(System.currentTimeMillis())
-            kotlinx.coroutines.delay(1_000)
+            val now = System.currentTimeMillis()
+            emit(now)
+            val toNextSecond = 1000L - (now % 1000L)
+            kotlinx.coroutines.delay(toNextSecond)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), System.currentTimeMillis())
 
@@ -115,19 +129,39 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
         _locating.value = true
         viewModelScope.launch {
             try {
+                CrashLog.breadcrumb("الموقع: البوابات مفتوحة — بدء القراءة")
                 val coords = locationSource.currentLocation()
                 if (coords != null) {
-                    val geo = geocoder.reverseGeocode(coords.first, coords.second)
+                    CrashLog.breadcrumb("الموقع: إحداثيات وصلت — جلب الاسم")
+                    // التحصين الكامل (alpha63 — بلاغ المالك: «عند الضغط على
+                    // زر الموقع لتحديد الموقع يحصل جلتش و يغلق التطبيق
+                    // فجاه»): الجذر أن المقاطعة كانت try/finally بلا catch
+                    // فأي استثناءٍ من جلب الاسم أو الحفظ كان يُقتل به
+                    // العملية. كل الشاكلة الآن محصّنة: فشلٌ يُسجَّل في دفتر
+                    // الأعطال ويُعرض رسالةً بدل الإغلاق.
+                    val geo = runCatching {
+                        geocoder.reverseGeocode(coords.first, coords.second)
+                    }.onFailure {
+                        CrashLog.note("الموقع: فشل جلب اسم المكان", it)
+                    }.getOrElse { CityGeocoder.CityResult() }
                     // توجيه المالك alpha20: «اسم القرية أو العزبة أو الكفر أولاً
                     // ثم اسم المدينة التابعة لها» — السطر = قرية، مدينة، محافظة
                     val city = CityGeocoder.buildLocationLabel(
                         geo.village, geo.city, geo.region, geo.country,
                     )
-                    repository.setLocation(city, coords.first, coords.second)
+                    runCatching {
+                        repository.setLocation(city, coords.first, coords.second)
+                    }.onFailure {
+                        CrashLog.note("الموقع: فشل حفظ الموقع", it)
+                    }
                 } else {
                     // البوابات مفتوحة والقراءة فشلت (مهلة الموقع انقضت) — رسالة عامة
                     _locationGate.value = LocationGate.READING_FAILED
                 }
+            } catch (t: Throwable) {
+                // أي غلطةٍ غير متوقعة لا تغلق التطبيق — رسالةٌ وسجلٌّ
+                CrashLog.note("الموقع: عطل غير متوقع في مسار التحديد", t)
+                _locationGate.value = LocationGate.READING_FAILED
             } finally {
                 _locating.value = false
             }

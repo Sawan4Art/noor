@@ -19,10 +19,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculateCentroid
-import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -88,8 +84,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -484,6 +478,13 @@ fun MushafScreen(
                     playMenuOpen = false
                     menuAt = null
                 },
+                onClearSelection = {
+                    // الضغطة المطوّلة الثانية على آيةٍ من المُدى تمسحه
+                    // كلياً (alpha63) — والمنغّلة تختفي معه
+                    selection = null
+                    menuAt = null
+                    playMenuOpen = false
+                },
                 onDragExtendAyah = { ayah ->
                     // السحب على الأسطر يمدّ المُدى حيّاً — تحديد آيات مع بعضها
                     selection = selection?.let { MushafSelectionOps.extend(it, ayah) }
@@ -688,6 +689,8 @@ private fun MushafPage(
     selectionColor: Color,
     /** بداية تحديد جديد بالضغط المطوّل — بلا منغّلة بعد */
     onLongPressAyah: (MushafAyah) -> Unit,
+    /** **مسح التحديد بضغطةٍ مطوّلةٍ ثانيةٍ على آيةٍ من المُدى** (alpha63) */
+    onClearSelection: () -> Unit,
     /** سحب الأسطر يمدّ المُدى حيّاً آيةً وراء آية */
     onDragExtendAyah: (MushafAyah) -> Unit,
     /** نهاية سحب التحديد — موضع ظهور المنغّلة */
@@ -747,70 +750,9 @@ private fun MushafPage(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
             .onSizeChanged { viewSize = it }
-            // ===== القرص بإصبعين يكبّر ويصغّر حول مركز القرص، والإصبع
-            // الواحد حين تكون الصفحة مكبَّرة يحرّكها — وعند ١× يبقى
-            // السحب الأفقي حراً لقلب الصفحات (توجيه المالك: زوم) =====
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
-                    var pinching = false
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val pressed = event.changes.filter { it.pressed }
-                        if (pressed.size >= 2) {
-                            pinching = true
-                            break
-                        }
-                        if (pressed.isEmpty()) return@awaitEachGesture
-                        // إصبع واحد والصفحة مكبَّرة — تحريك الصفحة
-                        // (قلب الصفحات موقوف أصلاً عند التكبير)
-                        if (zoom.zoomed) {
-                            val w = viewSize.width.toFloat()
-                            val h = viewSize.height.toFloat()
-                            if (w > 0f && h > 0f) {
-                                val delta = pressed.first().positionChange()
-                                if (delta != Offset.Zero) {
-                                    val (ox, oy) = MushafZoomMath.pannedOffset(
-                                        zoom.offX, zoom.offY, delta.x, delta.y,
-                                        zoom.scale, w, h,
-                                    )
-                                    zoom.set(zoom.scale, ox, oy)
-                                    event.changes.forEach { change ->
-                                        if (change.positionChanged()) change.consume()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (pinching) {
-                        do {
-                            val ev = awaitPointerEvent()
-                            val ps = ev.changes.filter { it.pressed }
-                            if (ps.size >= 2) {
-                                val w = viewSize.width.toFloat()
-                                val h = viewSize.height.toFloat()
-                                if (w > 0f && h > 0f) {
-                                    val change = ev.calculateZoom()
-                                    if (change != 1f) {
-                                        val after = MushafZoomMath.clampScale(zoom.scale, change)
-                                        val centroid = ev.calculateCentroid()
-                                        val (ox, oy) = MushafZoomMath.pinchedOffset(
-                                            zoom.scale, after, zoom.offX, zoom.offY,
-                                            centroid.x, centroid.y, w, h,
-                                        )
-                                        zoom.set(after, ox, oy)
-                                        ev.changes.forEach { c ->
-                                            if (c.positionChanged()) c.consume()
-                                        }
-                                    }
-                                }
-                            }
-                        } while (ev.changes.any { it.pressed })
-                        // العودة إلى ١× تصفّر الإزاحة — عودة نظيفة لقلب الصفحات
-                        if (!MushafZoomMath.isZoomed(zoom.scale)) zoom.reset()
-                    }
-                }
-            }
+            // الزوم بالقرص أُلغي من أصله (alpha63 — بلاغ المالك: «امنع
+            // التكبير و التصغير في صفحات المصحف») — الصفحة تُعرض دوماً
+            // بحجمها الكامل ولا إيماءة تكبيرٍ تستقبلها أصلاً.
             // ===== الضغط المطوّل ثم السحب — تحديد آيات متتابعة بإيماءة
             // واحدة: «عايز يبقى في امكانيه تحديد عده ايات مع بعضها» =====
             .pointerInput(page, bitmap, segments, viewSize) {
@@ -822,8 +764,18 @@ private fun MushafPage(
                         val segs = segments ?: return@detectDragGesturesAfterLongPress
                         val t = transform ?: return@detectDragGesturesAfterLongPress
                         val (gx, gy) = glyphAt(t, pos, zoom, viewSize)
-                        MushafSelectionOps.hit(segs, gx, gy)?.let {
-                            onLongPressAyah(it)
+                        MushafSelectionOps.hit(segs, gx, gy)?.let { ayah ->
+                            // **الضغطة المطوّلة الثانية على آيةٍ من المُدى
+                            // تمسح التحديد** (alpha63 — بلاغ المالك: «عند
+                            // تحديد ايه لا يتم مسح التحديد الاول الا اذا
+                            // خرج المستخدم من المصحف ثم رجع انا عايز
+                            // التحديد يزال عند الضغط المطول عليه مره
+                            // اخرى») — بلا سحبٍ بعدها كي لا يعود التحديد
+                            if (MushafSelectionOps.contains(selection, ayah)) {
+                                onClearSelection()
+                                return@detectDragGesturesAfterLongPress
+                            }
+                            onLongPressAyah(ayah)
                             lastPos = pos
                             dragging = true
                         }
@@ -850,17 +802,7 @@ private fun MushafPage(
             // بين ١× و٢٫٥× حول نقطة الضغطة =====
             .pointerInput(page, bitmap, segments, viewSize, selection != null) {
                 detectTapGestures(
-                    onDoubleTap = { pos ->
-                        val w = viewSize.width.toFloat()
-                        val h = viewSize.height.toFloat()
-                        if (w > 0f && h > 0f) {
-                            val (s, target) = MushafZoomMath.doubleTapped(
-                                zoom.scale, zoom.offX, zoom.offY, pos.x, pos.y, w, h,
-                            )
-                            zoom.set(s, target.first, target.second)
-                        }
-                    },
-                    // الضغطة التالية تمدّ المُدى حتى الآية الجديدة (٥٠ ← ٥٥)
+                    // النقرة على آيةٍ تمدّ المُدى حتى الآية الجديدة (٥٠ ← ٥٥)
                     onTap = { pos ->
                         if (selection != null) {
                             val segs = segments ?: return@detectTapGestures
@@ -1653,19 +1595,36 @@ private fun SurahChooserPanel(
     // تبويب القائمة: سور أو أجزاء
     var tab by remember { mutableIntStateOf(0) }
 
-    // البحث بكلمة واحدة — كل النصوص تُقرأ مرة عند أول بحث فالباقي فوري
+    // البحث — كلمة آيةٍ باسم السورة بعدة كلماتٍ أو قفزة آيةٍ «مريم ٥٠»
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<MushafSearch.Hit>?>(null) }
     var searching by remember { mutableStateOf(false) }
+    // السور المطابقة لاسم البحث (alpha63) — وقفزة الآية «مريم ٥٠»
+    var surahMatches by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var surahJump by remember { mutableStateOf<Pair<Int, Int>?>(null) } // (سورة، آية)
     LaunchedEffect(query) {
         val q = query.trim()
         if (q.isEmpty()) {
             results = null
             searching = false
+            surahMatches = emptyList()
+            surahJump = null
             return@LaunchedEffect
         }
-        delay(180)
         searching = true
+        // أولاً: قفزة «اسم سورة + رقم آية» — بلاغ المالك alpha63
+        val jump = MushafSearch.extractSurahJump(q)
+        val names = (1..114).map { it to MushafSurahs.name(it) }
+        val matched = MushafSearch.matchingSurahs(q, names)
+        var jumpResolved: Pair<Int, Int>? = null
+        if (jump != null) {
+            val target = matched.firstOrNull()
+                ?: MushafSearch.matchingSurahs(jump.suraNameQuery, names).firstOrNull()
+            if (target != null) jumpResolved = target to jump.ayah
+        }
+        surahMatches = matched
+        surahJump = jumpResolved
+        // ثم بحث نصّ الآيات كما هو — كلمة واحدة بلا تشكيل
         val hits = withContext(Dispatchers.IO) {
             MushafSearch.search(q, MushafDb.allAyahs(context))
         }
@@ -1693,7 +1652,7 @@ private fun SurahChooserPanel(
             icon = NoorIcons.Mushaf,
             accent = MaterialTheme.colorScheme.primary,
             title = "المصحف",
-            subtitle = "اختر سورة أو جزءاً أو ابحث بكلمة من الآية",
+            subtitle = "اختر سورة أو جزءاً أو ابحث باسمها أو «مريم ٥٠»",
             onClose = onDismiss,
         )
 
@@ -1729,7 +1688,7 @@ private fun SurahChooserPanel(
             singleLine = true,
             placeholder = {
                 Text(
-                    text = "ابحث بكلمة من الآية — بلا تشكيل",
+                    text = "ابحث: اسم سورة، أو كلمة من الآية، أو «مريم ٥٠»",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -1759,13 +1718,18 @@ private fun SurahChooserPanel(
                 .padding(horizontal = 14.dp, vertical = 8.dp),
         )
 
-        // نتائج البحث تعلو القائمتين متى وُجدت كلمة مبحوثة
+        // نتائج البحث تعلو القائمتين: قفزة الآية «مريم ٥٠» ثم السور
+        // المطابقة بالاسم ثم آيات الكلمة (alpha63 — بلاغ المالك: «اجعل
+        // البحث … يدعم البحث باسم السوره و عده كلمات او كلمه واحده و
+        // يدعم البحث برقم الايه … مثلا مريم ٥٠ فتأتي له الايه رقم ٥٠ من
+        // سوره مريم و هكذا»)
         when {
-            results != null -> {
-                val hits = results!!
-                if (hits.isEmpty()) {
+            results != null || surahMatches.isNotEmpty() -> {
+                val hits = results ?: emptyList()
+                if (hits.isEmpty() && surahMatches.isEmpty()) {
                     Text(
-                        text = "لا آية تحمل هذه الكلمة — تأكد من كتابتها بلا تشكيل",
+                        text = "لا نتائج — جرّب اسم سورة، أو كلمة من الآية " +
+                            "بلا تشكيل، أو «اسم السورة ورقم الآية» مثل: مريم ٥٠",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center,
@@ -1774,23 +1738,118 @@ private fun SurahChooserPanel(
                             .padding(vertical = 20.dp),
                     )
                 } else {
-                    Text(
-                        text = if (hits.size >= 200) {
-                            "أول ٢٠٠ نتيجة — حدد بحثك بكلمة أدق"
-                        } else {
-                            "النتائج: ${MushafSurahs.arabicDigits(hits.size)} آية"
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 2.dp),
-                    )
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 4.dp),
                     ) {
-                        items(hits) { hit ->
-                            SearchHitRow(hit = hit, accent = MaterialTheme.colorScheme.primary) {
-                                jumpToHit(hit)
+                        // ===== بطاقة قفزة الآية — الآية ٥٠ من سورة مريم =====
+                        val jump = surahJump
+                        if (jump != null) {
+                            val (jumpSura, jumpAyah) = jump
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp)
+                                    .clickable {
+                                        scope.launch {
+                                            val page = withContext(Dispatchers.IO) {
+                                                MushafDb.pageOfAyah(context, jumpSura, jumpAyah)
+                                            }
+                                            onJump(page)
+                                        }
+                                    },
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            text = MushafSurahs.arabicDigits(jumpAyah),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            text = "سورة ${MushafSurahs.name(jumpSura)} — الآية " +
+                                                MushafSurahs.arabicDigits(jumpAyah),
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            text = "اضغط لفتح صفحة الآية",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
+
+                        // ===== السور المطابقة بالاسم — كلمةً أو عدة كلمات =====
+                        if (surahMatches.isNotEmpty()) {
+                            Text(
+                                text = "السور المطابقة",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 2.dp),
+                            )
+                        }
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
+                        ) {
+                            items(surahMatches) { sura ->
+                                SurahRow(
+                                    sura = sura,
+                                    title = MushafSurahs.name(sura),
+                                    detail = "سورة رقم ${MushafSurahs.arabicDigits(sura)}",
+                                    accent = MaterialTheme.colorScheme.primary,
+                                    onClick = {
+                                        // الصفحة غير المحمّلة بعد — أولها من السورة
+                                        val start = startPages?.get(sura)
+                                        if (start != null) onJump(start)
+                                    },
+                                )
+                            }
+                            if (hits.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        text = if (hits.size >= 200) {
+                                            "أول ٢٠٠ نتيجة — حدد بحثك بكلمة أدق"
+                                        } else {
+                                            "آيات تحمل الكلمة: ${MushafSurahs.arabicDigits(hits.size)}"
+                                        },
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                                    )
+                                }
+                            }
+                            items(hits) { hit ->
+                                SearchHitRow(hit = hit, accent = MaterialTheme.colorScheme.primary) {
+                                    jumpToHit(hit)
+                                }
                             }
                         }
                     }

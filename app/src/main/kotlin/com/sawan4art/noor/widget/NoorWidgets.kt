@@ -80,17 +80,18 @@ internal fun palette(c: WidgetCustomization): WidgetPalette {
     return base
 }
 
-/** خلفية الويدجت — تدرّج دائري الأطراف بشفافية التخصيص وإطارٌ دائريٌ
- *  بلون التخصيص (alpha62: «استبدله باطار حوافه دائريه قابل للضغط
- *  عليها لتغيير لونه») — الإطار مرسومٌ في الخلفية نفسها كي لا يزيد
- *  بايتان في باكِت البايندر (درس alpha58). */
+/** خلفية الويدجت — تدرّج بحوافٍ **حادة** بشفافية التخصيص وإطارٌ بلون
+ *  التخصيص أو بلا إطارٍ خالصاً (alpha63: «عايز اخلي حواف الويدجت حاده
+ *  و عايز اخلي اطار الويدجت يكون بالوان مختاره او بدون») — الإطار
+ *  مرسومٌ في الخلفية نفسها كي لا يزيد بايتان في باكِت البايندر
+ *  (درس alpha58)، و[frameColor] صفرٌ يعني بلا إطار. */
 internal fun widgetBackgroundBitmap(
     width: Int,
     height: Int,
     top: Int,
     bottom: Int,
     alpha: Float,
-    frameColor: Int,
+    frameColor: Int?,
 ): Bitmap {
     val w = width.coerceIn(1, 2048)
     val h = height.coerceIn(1, 2048)
@@ -98,8 +99,11 @@ internal fun widgetBackgroundBitmap(
         GradientDrawable.Orientation.TOP_BOTTOM,
         intArrayOf(top, bottom),
     ).apply {
-        cornerRadius = 28f * w / 250f
-        setStroke((3f * w / 250f).toInt().coerceAtLeast(1), withAlpha(frameColor, 0.85f))
+        // الحواف حادة بلا دائرية — بلاغ المالك alpha63
+        cornerRadius = 0f
+        if (frameColor != null) {
+            setStroke((3f * w / 250f).toInt().coerceAtLeast(1), withAlpha(frameColor, 0.85f))
+        }
     }
     drawable.alpha = (alpha.coerceIn(0f, 1f) * 255).toInt()
     val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
@@ -143,6 +147,14 @@ object WidgetRenderer {
         val pal = palette(customization)
         val views = RemoteViews(context.packageName, R.layout.widget_main)
 
+        // **جذر تكرار العناصر** (alpha63 — بلاغ المالك: «بعد ما بحط الويدجت
+        // في الشاشه لو ضغط عليه الويدجت بيكرر نفسه بشكل غريب» — والصورة
+        // تُري المحتوى أربع مراتٍ فوق بعض): التخطيط نفسه يُعاد تطبيقه على
+        // العرض الحي في كل تحديثٍ فتنعقد أفعال addView فوق أبناءٍ موجودين
+        // فيتضاعف العمود. تفريغ العُلبة قبل البناء يُنهي التكرار من جذره
+        // — كل تحديثٍ عمودٌ نظيفٌ من أوله لا فوق قديمٍ له.
+        views.removeAllViews(R.id.widget_stack)
+
         // نسبة الحجم واللون لكل عنصر — «خانات لتحديد حجم الخط ولونه لكل عنصر»
         fun sizeOf(key: String, base: Float): Float =
             base * (customization.elementSizes[key] ?: 100) / 100f
@@ -158,18 +170,24 @@ object WidgetRenderer {
         // باكِت RemoteViews لا يجاوز مخزن البايندر (~١MB) وإلا فشل
         // التحديث وبدت الويدجت «تظهر لكن لا تعمل». والإطار الدائري
         // (alpha62) مرسومٌ في هذه الخلفية نفسها بلون التخصيص.
-        val frameResolved = WidgetCustomization.parseColor(customization.frameColor)
-            ?: pal.accent
+        // الإطار بلونٍ مختارٍ أو بلا إطارٍ خالصاً (alpha63) — والتلقائي
+        // يتبع لون التطبيق كما كان
+        val frameResolved = if (customization.frameColor == WidgetCustomization.FRAME_NONE) {
+            null
+        } else {
+            WidgetCustomization.parseColor(customization.frameColor) ?: pal.accent
+        }
         val bg = widgetBackgroundBitmap(
             (widthDp * 3 / 2).coerceAtMost(360),
             (heightDp * 3 / 2).coerceAtMost(260),
             pal.bgTop, pal.bgBottom, customization.opacityFraction, frameResolved,
         )
         views.setImageViewBitmap(R.id.widget_bg, bg)
-        // الويدجت كلها زرُّ تبديل لون الإطار — «قابل للضغط عليها لتغيير لونه»
+        // ضغطة الويدجت تفتح إعداداتها داخل التطبيق (alpha63) — بلاغ
+        // المالك: «عايز لما اضغط عليه يفتح اعادات الويدجت داخل التطبيق»
         views.setOnClickPendingIntent(
             R.id.widget_root,
-            framePendingIntent(context),
+            settingsPendingIntent(context),
         )
 
         val analog = customization.clockStyle == WidgetCustomization.ClockStyle.ANALOG
@@ -218,12 +236,13 @@ object WidgetRenderer {
                     child.setTextColor(R.id.widget_clock, colorOf(key, pal.text))
                     if (analog) {
                         // الميناء بحجم الزوم نفسه — wrap_content يقيسه لصورته
+                        // (alpha63: الساعة التناظرية أكبر — ١٥٠ أساساً)
                         val scale = (customization.elementSizes[key] ?: 100) / 100f
                         child.setViewVisibility(R.id.widget_clock_analog, View.VISIBLE)
                         child.setImageViewBitmap(
                             R.id.widget_clock_analog,
                             WidgetArt.analogClockBitmap(
-                                (WidgetArt.ANALOG_SIZE * scale).toInt().coerceIn(48, 240),
+                                (WidgetArt.ANALOG_SIZE * scale).toInt().coerceIn(64, 260),
                                 LocalTime.now().hour, LocalTime.now().minute,
                                 dialColor = pal.text,
                                 handColor = colorOf(key, pal.text),
@@ -332,14 +351,24 @@ object WidgetRenderer {
         else -> R.layout.widget_el_header
     }
 
-    /** نية ضغطة الويدجت — تبديل لون الإطار الدائري (alpha62) */
-    private fun framePendingIntent(context: Context): PendingIntent =
-        PendingIntent.getBroadcast(
+    /**
+     * نية ضغطة الويدجت — فتح قسم «الويدجت» في إعدادات التطبيق
+     * (alpha63 — بلاغ المالك: «عايز لما اضغط عليه يفتح اعادات
+     * الويدجت داخل التطبيق») بدل تبديل لون الإطار الذي كان يعيد
+     * الرسم فيكرّر العناصر قبل إصلاح الجذر.
+     */
+    private fun settingsPendingIntent(context: Context): PendingIntent {
+        val intent = Intent(context, com.sawan4art.noor.MainActivity::class.java).apply {
+            action = NoorWidget.ACTION_OPEN_WIDGET_SETTINGS
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        return PendingIntent.getActivity(
             context,
             3,
-            Intent(context, NoorWidget::class.java).setAction(NoorWidget.ACTION_FRAME_TAP),
+            intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+    }
 
     /** معرفات صفوف المواقيت — أسماء وأوقات الصلوات الخمس بالترتيب */
     internal val GRID_NAME_IDS = intArrayOf(
@@ -354,11 +383,11 @@ object WidgetRenderer {
 
 /**
  * الويدجت الواحدة — تحديثها يعيد الحساب والرسم من الإعدادات الحية،
- * وضغطةٌ عليها تُبدّل لون الإطار الدائري ثم تعيد الرسم فوراً
- * (alpha62). ومع الساعة التناظرية (alpha59) بثّ نبضةٍ كل دقيقةٍ
- * يعيد رسم العقارب ما دامت ظاهرةً — ويُلغى ما إن تعود رقمية —
- * ونبضةٌ يوم منتصف الليل تعيد الأسماء والتواريخ كي يعود الظهر
- * ليلةَ الجمعة «الجمعة» بلا انتظار فتح التطبيق.
+ * وضغطةٌ عليها تفتح قسم إعداداتها داخل التطبيق (alpha63). ومع
+ * الساعة التناظرية (alpha59) بثّ نبضةٍ كل دقيقةٍ يعيد رسم العقارب
+ * ما دامت ظاهرةً — ويُلغى ما إن تعود رقمية — ونبضةٌ يوم منتصف
+ * الليل تعيد الأسماء والتواريخ كي يعود الظهر ليلةَ الجمعة
+ * «الجمعة» بلا انتظار فتح التطبيق.
  */
 class NoorWidget : AppWidgetProvider() {
 
@@ -387,8 +416,6 @@ class NoorWidget : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
-            // ضغطة الويدجت — تبديل لون الإطار الدائري في الدورة (alpha62)
-            ACTION_FRAME_TAP -> WidgetStore.cycleFrameColor(context)
             ACTION_TICK -> {
                 // عقارب الساعة التناظرية — إعادة رسمٍ ثم دقّة الدقيقة التالية
                 WidgetUpdater.refreshAll(context)
@@ -404,13 +431,12 @@ class NoorWidget : AppWidgetProvider() {
             }
             else -> return
         }
-        // تبديل الإطار يعيد رسم الويدجت فوراً فيرى المستخدم اللون الجديد
-        WidgetUpdater.refreshAll(context)
+        // نبضة الدقيقة أعادت الرسم — لا شيء بعدها
     }
 
     companion object {
-        /** بثّ داخلي: ضغطة الويدجت — تبديل لون الإطار الدائري (alpha62) */
-        const val ACTION_FRAME_TAP = "com.sawan4art.noor.widget.FRAME_TAP"
+        /** نية فتح قسم إعدادات الويدجت من ضغطة الويدجت على الشاشة (alpha63) */
+        const val ACTION_OPEN_WIDGET_SETTINGS = "com.sawan4art.noor.widget.OPEN_SETTINGS"
 
         /** بثّ داخلي: نبضة الدقيقة للساعة التناظرية (alpha59) */
         const val ACTION_TICK = "com.sawan4art.noor.widget.CLOCK_TICK"

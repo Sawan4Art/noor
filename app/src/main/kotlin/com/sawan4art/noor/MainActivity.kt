@@ -187,9 +187,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         applyImmersiveNav()
         handleUpdateIntent(intent)
+        openWidgetSettings.value =
+            intent?.action == com.sawan4art.noor.widget.NoorWidget.ACTION_OPEN_WIDGET_SETTINGS
         setContent {
             val viewModel: HomeViewModel = viewModel()
-            NoorApp(viewModel)
+            NoorApp(viewModel, openWidgetSettings)
         }
     }
 
@@ -228,7 +230,14 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         // الإشعار يفتح التطبيق وهو حي — نفس المسار: فحص فوري فيفتح «ما الجديد»
         handleUpdateIntent(intent)
+        // ضغطة الويدجت والنشاط حي — نفس المسار: فتح قسم إعدادات الويدجت (alpha63)
+        if (intent.action == com.sawan4art.noor.widget.NoorWidget.ACTION_OPEN_WIDGET_SETTINGS) {
+            openWidgetSettings.value = true
+        }
     }
+
+    /** ضغطة الويدجت على الشاشة تفتح قسم إعداداتها داخل التطبيق (alpha63) */
+    private val openWidgetSettings = androidx.compose.runtime.mutableStateOf(false)
 
     /** ضغط إشعار التحديث → إلغاء أي استبعاد + فحص فوري بلا سقف زمني
      *  فيظهر ملخص ما الجديد دائماً بضغطة الإشعار (alpha37) */

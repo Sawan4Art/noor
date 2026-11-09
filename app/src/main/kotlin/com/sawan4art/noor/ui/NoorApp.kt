@@ -80,7 +80,11 @@ private val AppDirection = LayoutDirection.Rtl
 private const val APP_FONT_SCALE = 1.4f
 
 @Composable
-fun NoorApp(viewModel: HomeViewModel) {
+fun NoorApp(
+    viewModel: HomeViewModel,
+    /** ضغطة الويدجت على الشاشة تفتح قسم إعداداتها داخل التطبيق (alpha63) */
+    openWidgetSettings: androidx.compose.runtime.MutableState<Boolean>? = null,
+) {
     // **ثبات مقاس الخط** (alpha39 — بلاغ المالك: «في مشكله عند تكبير حجم
     // العرض والخط من اعدادات الهاتف يتم ازاله بعض الايقونات انا عايز
     // التطبيق ميتاثرش بحجم الخط في اعداد الهاتف»): مقياس خط النظام
@@ -91,13 +95,25 @@ fun NoorApp(viewModel: HomeViewModel) {
     val system = LocalDensity.current
     val fixed = Density(density = system.density, fontScale = APP_FONT_SCALE)
     CompositionLocalProvider(LocalDensity provides fixed) {
-        NoorRoot(viewModel)
+        NoorRoot(viewModel, openWidgetSettings)
     }
 }
 
 @Composable
-private fun NoorRoot(viewModel: HomeViewModel) {
+private fun NoorRoot(
+    viewModel: HomeViewModel,
+    openWidgetSettings: androidx.compose.runtime.MutableState<Boolean>? = null,
+) {
     var tab by rememberSaveable { mutableStateOf(NoorTab.PRAYER) }
+    // قسم الإعدادات المطلوب فتحه مباشرة — ضغطة الويدجت تفتح قسمها (alpha63)
+    var settingsSectionHint by remember { mutableStateOf("home") }
+    androidx.compose.runtime.LaunchedEffect(openWidgetSettings?.value == true) {
+        if (openWidgetSettings?.value == true) {
+            tab = NoorTab.SETTINGS
+            settingsSectionHint = "widgets"
+            openWidgetSettings.value = false
+        }
+    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val locating by viewModel.locating.collectAsStateWithLifecycle()
     // شاشة الترحيب — أول تشغيلٍ فقط (null = ما زال يُتحقّق)
@@ -148,6 +164,7 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                 NoorBody(
                     tab = tab,
                     onTab = { tab = it },
+                    settingsSectionHint = settingsSectionHint,
                     uiState = uiState,
                     locating = locating,
                     isDark = darkTheme,
@@ -251,6 +268,7 @@ private fun NoorRoot(viewModel: HomeViewModel) {
                         NoorBody(
                             tab = tab,
                             onTab = { tab = it },
+                            settingsSectionHint = settingsSectionHint,
                             uiState = uiState,
                             locating = locating,
                             // نسخة المعاينة تتلقى الثيم **المثبّت** لا هدف المعاينة
@@ -420,6 +438,8 @@ private fun updateInfo(state: UpdateUiState): com.sawan4art.noor.data.update.Upd
 private fun NoorBody(
     tab: NoorTab,
     onTab: (NoorTab) -> Unit,
+    /** ضغطة الويدجت تفتح قسم الويدجت مباشرة داخل الإعدادات (alpha63) */
+    settingsSectionHint: String,
     uiState: HomeViewModel.HomeUiState,
     locating: Boolean,
     /** الثيم المثبّت الحالي — ينزل للرئيسية كي تدور جمل التذكير مع قلبه */
@@ -503,6 +523,7 @@ private fun NoorBody(
                     NoorTab.HADITH -> HadithScreen()
                     NoorTab.SETTINGS -> SettingsScreen(
                         settings = uiState.settings,
+                        initialSection = settingsSectionHint,
                         locating = locating,
                         onDetectLocation = onDetectLocation,
                         onSetMethod = onSetMethod,

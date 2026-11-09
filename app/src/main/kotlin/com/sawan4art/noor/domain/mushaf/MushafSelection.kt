@@ -199,6 +199,17 @@ object MushafSelectionOps {
     /** أول آية في التحديد — للعلامة المرجعية والتلاوة */
     fun firstOf(selection: MushafSelection): MushafAyah =
         MushafAyah(selection.sura, min(selection.from, selection.to))
+
+    /**
+     * هل الآية داخل المُدى المحدَّد؟ — لمسح التحديد بضغطةٍ مطوّلةٍ
+     * ثانيةٍ على آيةٍ من المُدى (alpha63 — بلاغ المالك: «انا عايز
+     * التحديد يزال عند الضغط المطول عليه مره اخرى»).
+     */
+    fun contains(selection: MushafSelection?, ayah: MushafAyah): Boolean {
+        if (selection == null) return false
+        if (selection.sura != ayah.sura) return false
+        return ayah.ayah in selection.ayahs
+    }
 }
 
 /**

@@ -82,7 +82,6 @@ import com.sawan4art.noor.ui.settings.adhan.AdhanSection
 import com.sawan4art.noor.ui.theme.AccentPalette
 import com.sawan4art.noor.ui.theme.LiquidDeveloperBadge
 import com.sawan4art.noor.ui.theme.NoorPageTitle
-import com.sawan4art.noor.util.CrashLog
 import java.util.Locale
 
 /**
@@ -109,6 +108,8 @@ import java.util.Locale
 @Composable
 fun SettingsScreen(
     settings: NoorSettingsState,
+    /** القسم المطلوب فتحه مباشرة — ضغطة الويدجت تفتح قسمها (alpha63) */
+    initialSection: String = "home",
     locating: Boolean,
     onDetectLocation: () -> Unit,
     onSetMethod: (CalculationMethod) -> Unit,
@@ -143,7 +144,8 @@ fun SettingsScreen(
     onDeleteKhutbahImage: (String) -> Unit,
 ) {
     // الروابط الداخلية: home ← location / method / adhan / colors / voices / khutbah / widgets / updates
-    var section by rememberSaveable { mutableStateOf("home") }
+    // وinitialSection يفتح قسماً مباشرةً — ضغطة الويدجت تفتح قسمها (alpha63)
+    var section by rememberSaveable(initialSection) { mutableStateOf(initialSection) }
     BackHandler(enabled = section != "home") { section = "home" }
 
     when (section) {
@@ -168,8 +170,8 @@ fun SettingsScreen(
                 AsrSection(settings = settings, onSetHanafi = onSetHanafi)
             }
         }
-        // صفحة الأذان والإقامة — القسم الجديد: الأصوات والفواصل والجمعة والكتم
-        "adhan" -> SectionPage(title = "الأذان والإقامة", onBack = { section = "home" }) {
+        // صفحة الأذان والصوت — القسم الجديد: الأصوات والفواصل والجمعة والكتم
+        "adhan" -> SectionPage(title = "الأذان والصوت", onBack = { section = "home" }) {
             SectionCard {
                 AdhanSection(adhan = adhanPrefs, actions = adhanActions)
             }
@@ -279,7 +281,7 @@ private fun SettingsHome(
         )
         SectionRow(
             icon = NoorIcons.Mosque,
-            title = "الأذان والإقامة",
+            title = "الأذان والصوت",
             summary = adhanSummary(adhanPrefs),
             onOpen = { onOpen("adhan") },
         )
@@ -374,48 +376,9 @@ private fun SettingsHome(
         }
         Spacer(Modifier.height(10.dp))
 
-        // ===== تقرير آخر عطل (alpha61) — يظهر بوجود سجلٍّ فقط =====
-        // بلاغ «جلتش ثم يغلق التطبيق» أعادَنا مراتٍ بلا أثرٍ للسبب؛
-        // زر واحد يشارك السجل بالبريد فنرى الجذر الحقيقي من أول بلاغ.
-        if (remember { CrashLog.hasReport(context) }) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
-                border = BorderStroke(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.35f),
-                ),
-                onClick = {
-                    runCatching {
-                        context.startActivity(
-                            CrashLog.shareIntent(context)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    }
-                },
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "تقرير آخر عطل — أرسله للمطور",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-        }
+        // زر «تقرير آخر عطل» محذوف (alpha63 — بلاغ المالك: «ازل زر
+        // اخر عطل») — دفتر الأعطال باقٍ يكتب أثر أي انهيارٍ خلفياً
+        // بلا زرٍ في الواجهة.
 
         Spacer(Modifier.height(6.dp))
         Text(

@@ -58,7 +58,7 @@ class WidgetElementOrderTest {
         )
         val back = WidgetCustomization.fromJson(c.toJson())
         assertEquals(c.elementOrder, back.elementOrder)
-        assertEquals(250, back.elementSizes[WidgetCustomization.ELEMENT_CLOCK])
+        assertEquals(200, back.elementSizes[WidgetCustomization.ELEMENT_CLOCK])
         assertEquals(50, back.elementSizes[WidgetCustomization.ELEMENT_GRID])
         assertEquals("#123456", back.elementColors[WidgetCustomization.ELEMENT_NEXT])
     }

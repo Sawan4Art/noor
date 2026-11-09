@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
@@ -147,7 +148,9 @@ internal fun WidgetInteractiveEditor(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(250f / 180f)
-                .clip(RoundedCornerShape(22.dp))
+                // الحواف حادة كالويدجت نفسها (alpha63) — والإطار بلونه
+                // الحقيقي من التخصيص أو بلا إطارٍ خالصاً
+                .clip(RectangleShape)
                 .background(
                     Brush.verticalGradient(
                         listOf(
@@ -156,25 +159,33 @@ internal fun WidgetInteractiveEditor(
                         ),
                     ),
                 )
-                // الإطار الدائري في المعاينة بلونه الحقيقي من التخصيص —
-                // وهو نفسه في الويدجت المنصوبة (alpha62)
-                .border(
-                    width = 2.dp,
-                    color = Color(
-                        WidgetCustomization.parseColor(customization.frameColor)
-                            ?: pal.accent,
-                    ).copy(alpha = 0.85f),
-                    shape = RoundedCornerShape(22.dp),
+                .then(
+                    if (customization.frameColor == WidgetCustomization.FRAME_NONE) {
+                        Modifier
+                    } else {
+                        Modifier.border(
+                            width = 2.dp,
+                            color = Color(
+                                WidgetCustomization.parseColor(customization.frameColor)
+                                    ?: pal.accent,
+                            ).copy(alpha = 0.85f),
+                            shape = RectangleShape,
+                        )
+                    },
                 )
                 // الزوم باليد — إصبعان على المعاينة يكبّران العنصر المفتوح
-                // لوحته ويصغّرانه (بلاغ المالك: «تكبيرها من خلال الزوم
-                // باليد لتكبير بعض العناصر او تصغيرها بشكل احترافي»)
+                // لوحته ويصغّرانه — **داخل حدود عنصره** (alpha63: «يعني
+                // مثلا اوقات الصلاه اذا كبرت على اعلى مستوى تكبير فيستم
+                // قص بعض الحروف» فسقف الخلايا الخمس ١٦٠٪)
                 .pointerInput(panelKey, customization) {
                     detectTransformGestures { _, _, zoom, _ ->
                         val key = panelKey ?: return@detectTransformGestures
                         if (zoom != 1f) {
                             val current = customization.elementSizes[key] ?: 100
-                            val next = (current * zoom).roundToInt().coerceIn(50, 250)
+                            val next = WidgetCustomization.clampSize(
+                                key,
+                                (current * zoom).roundToInt(),
+                            )
                             if (next != current) {
                                 onUpdate(
                                     customization.copy(
@@ -413,7 +424,7 @@ private fun WidgetElementPreview(
                 val scale = (customization.elementSizes[key] ?: 100) / 100f
                 val bmp = remember(customization.elementSizes[key], pal) {
                     WidgetArt.analogClockBitmap(
-                        (WidgetArt.ANALOG_SIZE * scale).toInt().coerceIn(48, 240),
+                        (WidgetArt.ANALOG_SIZE * scale).toInt().coerceIn(64, 260),
                         now.hour, now.minute,
                         dialColor = pal.text,
                         handColor = colorOf(key, pal.text).toArgb(),
@@ -424,7 +435,7 @@ private fun WidgetElementPreview(
                 Image(
                     bitmap = bmp.asImageBitmap(),
                     contentDescription = null,
-                    modifier = Modifier.size(((WidgetArt.ANALOG_SIZE * scale)).dp.coerceAtMost(240.dp)),
+                    modifier = Modifier.size(((WidgetArt.ANALOG_SIZE * scale)).dp.coerceAtMost(170.dp)),
                 )
             }
         }
@@ -561,9 +572,13 @@ private fun ElementPanelDialog(
         },
         text = {
             Column {
-                // ===== الحجم (الزوم) =====
+                // ===== الحجم (الزوم) — داخل حدود العنصر نفسه (alpha63):
+                // «يعني مثلا اوقات الصلاه اذا كبرت على اعلى مستوى تكبير
+                // فيستم قص بعض الحروف» فسقف مواقيت الصلوات ١٦٠٪
+                val bounds = remember(key) { WidgetCustomization.boundsOf(key) }
                 Text(
-                    text = "حجم العنصر — ${MisbahaArabic(size)}٪",
+                    text = "حجم العنصر — ${MisbahaArabic(size)}٪ " +
+                        "(من ${MisbahaArabic(bounds.first)} إلى ${MisbahaArabic(bounds.last)})",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = scheme.onSurface,
@@ -571,14 +586,14 @@ private fun ElementPanelDialog(
                 Slider(
                     value = size.toFloat(),
                     onValueChange = { value ->
-                        val next = value.roundToInt().coerceIn(50, 250)
+                        val next = WidgetCustomization.clampSize(key, value.roundToInt())
                         onUpdate(
                             customization.copy(
                                 elementSizes = customization.elementSizes + (key to next),
                             ),
                         )
                     },
-                    valueRange = 50f..250f,
+                    valueRange = bounds.first.toFloat()..bounds.last.toFloat(),
                     colors = SliderDefaults.colors(
                         thumbColor = scheme.primary,
                         activeTrackColor = scheme.primary,
@@ -774,11 +789,13 @@ private fun PanelChip(text: String, onClick: () -> Unit) {
 /**
  * لوحة الألوان المنبثقة — رقاقةٌ تفتح حواراً بألوان التطبيق الثمانية
  * والتلقائي — بلاغ المالك: «عايز كمان لوحه الالوان الخاصه بالويدجت
- * تكون منبثقه». تُستعمل للون الخط العام ولون كل عنصرٍ ولون الفقاعات.
+ * تكون منبثقه». تُستعمل للون الخط العام ولون كل عنصرٍ ولون الإطار —
+ * و[allowNone] يضيف خيار «بلا إطار» للإطار وحده (alpha63: «او بدون»).
  */
 @Composable
 internal fun ColorPanelChipInline(
     selected: String,
+    allowNone: Boolean = false,
     onSelect: (String) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -816,10 +833,10 @@ internal fun ColorPanelChipInline(
         )
         Spacer(Modifier.width(10.dp))
         Text(
-            text = if (selected == WidgetCustomization.COLOR_AUTO) {
-                "تلقائي — يتبع المظهر"
-            } else {
-                "لون صريح محفوظ"
+            text = when {
+                selected == WidgetCustomization.COLOR_AUTO -> "تلقائي — يتبع المظهر"
+                selected == WidgetCustomization.FRAME_NONE -> "بلا إطار"
+                else -> "لون صريح محفوظ"
             },
             fontSize = 13.sp,
             color = scheme.primary,
@@ -882,6 +899,55 @@ internal fun ColorPanelChipInline(
                             fontSize = 13.sp,
                             color = scheme.onSurface,
                         )
+                    }
+                    // بلا إطار — للإطار وحده (alpha63: «بالوان مختاره او بدون»)
+                    if (allowNone) {
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable {
+                                    onSelect(WidgetCustomization.FRAME_NONE)
+                                    open = false
+                                }
+                                .padding(vertical = 4.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(scheme.surface)
+                                    .border(
+                                        width = if (selected == WidgetCustomization.FRAME_NONE) {
+                                            2.5.dp
+                                        } else {
+                                            1.dp
+                                        },
+                                        color = if (selected == WidgetCustomization.FRAME_NONE) {
+                                            scheme.primary
+                                        } else {
+                                            scheme.outline.copy(alpha = 0.4f)
+                                        },
+                                        shape = CircleShape,
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = "✕",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = scheme.onSurface.copy(alpha = 0.6f),
+                                )
+                            }
+                            Text(
+                                text = "بلا إطار — حوافٌ حادةٌ نظيفة",
+                                fontSize = 13.sp,
+                                color = scheme.onSurface,
+                            )
+                        }
                     }
                     Spacer(Modifier.height(12.dp))
                     WIDGET_COLOR_PANEL.forEach { hex ->

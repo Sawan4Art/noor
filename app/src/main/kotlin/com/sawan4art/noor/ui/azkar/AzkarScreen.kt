@@ -100,6 +100,7 @@ fun AzkarScreen(
             onBack = { route = "index" },
         )
         route == "names" -> AllahNamesScreen(onBack = { route = "index" })
+        route == "ruqya" -> RuqyahScreen(onBack = { route = "index" })
         route != "index" -> {
             // alpha45: الأقسام المضافة من المستخدم تُفتح كسائر الأقسام —
             // والقسم الافتراضي المحذوف يعود به للفهرس تلقائياً
@@ -116,6 +117,7 @@ fun AzkarScreen(
                     state = state,
                     onOpenPraise = { route = "praise" },
                     onOpenNames = { route = "names" },
+                    onOpenRuqya = { route = "ruqya" },
                     onOpenGroup = { id -> route = id },
                     onAddGroup = { viewModel.addCustomGroup(it) },
                     onDeleteGroup = { viewModel.deleteGroup(it) },
@@ -133,6 +135,7 @@ fun AzkarScreen(
             state = state,
             onOpenPraise = { route = "praise" },
             onOpenNames = { route = "names" },
+            onOpenRuqya = { route = "ruqya" },
             onOpenGroup = { id -> route = id },
             onAddGroup = { viewModel.addCustomGroup(it) },
             onDeleteGroup = { viewModel.deleteGroup(it) },
@@ -176,6 +179,8 @@ private fun AzkarHome(
     state: AzkarState,
     onOpenPraise: () -> Unit,
     onOpenNames: () -> Unit,
+    /** بطاقة الرقية الشرعية تحت الصلاة على النبي (alpha63) */
+    onOpenRuqya: () -> Unit,
     onOpenGroup: (String) -> Unit,
     onAddGroup: (String) -> Unit,
     onDeleteGroup: (String) -> Unit,
@@ -366,6 +371,62 @@ private fun AzkarHome(
                                 fontWeight = FontWeight.Bold,
                                 color = scheme.primary,
                             )
+                        }
+                    }
+                }
+            }
+
+            // ===== بطاقة الرقية الشرعية — تحت بطاقة الصلاة على النبي بنفس
+            // شكلها بالضبط (alpha63 بلاغ المالك: «عايز زر اضافي شبيه بزري
+            // الصلاة على النبي و اسماء الله الحسنى تحت زر الصلاه علي النبي
+            // يكون خاص بالرقيه الشرعيه المعتمده و الصحيحه») =====
+            item(span = { GridItemSpan(2) }) {
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenRuqya),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .background(
+                                brush = Brush.linearGradient(
+                                    listOf(scheme.primaryContainer, scheme.secondaryContainer),
+                                ),
+                            )
+                            .padding(18.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        color = scheme.surface.copy(alpha = 0.45f),
+                                        shape = RoundedCornerShape(14.dp),
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    NoorIcons.Drop,
+                                    contentDescription = null,
+                                    tint = scheme.primary,
+                                    modifier = Modifier.size(26.dp),
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = "الرقية الشرعية",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = scheme.onPrimaryContainer,
+                                )
+                                Text(
+                                    text = "الرقية المعتمدة بالكتاب والسنة — بشرطها ومصادرها",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = scheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                )
+                            }
                         }
                     }
                 }

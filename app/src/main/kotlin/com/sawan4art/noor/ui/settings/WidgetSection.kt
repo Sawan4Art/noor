@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -30,6 +32,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sawan4art.noor.ui.theme.AccentPalette
 import com.sawan4art.noor.util.Hijri
 import com.sawan4art.noor.widget.WidgetCustomization
@@ -73,6 +77,13 @@ fun WidgetSection() {
     var customization by remember {
         mutableStateOf(WidgetStore.customization(context))
     }
+    // معاينة المُحرر بحجمٍ أكبر — حوارٌ يملأ الشاشة (alpha63 — بلاغ
+    // المالك: «عايزك تكبر شاشه معاينه الويدجت»)
+    var bigPreview by remember { mutableStateOf(false) }
+    // زر الحفظ — بلاغ المالك alpha63: «عايز زر حفظ في اعادادات
+    // الويدجت علشان احفظ التعديل في يظهر في نفس الوقت على الويدجت
+    // الموجوده في الشاشه» — ولمسة حفظٍ حديثة تُطمئن صاحبها
+    var savedFlash by remember { mutableStateOf(false) }
 
     fun apply(update: (WidgetCustomization) -> WidgetCustomization) {
         val next = update(customization)
@@ -83,13 +94,21 @@ fun WidgetSection() {
         WidgetUpdater.updateMinuteTick(context, next)
     }
 
+    fun saveNow() {
+        WidgetStore.save(context, customization)
+        WidgetUpdater.refreshAll(context)
+        WidgetUpdater.updateMinuteTick(context, customization)
+        savedFlash = true
+    }
+
     // بلا تمريرٍ خاص — صفحة القسم نفسها تتمرّر فلا تمريرٌ مزدوج
     Column {
         Text(
             text = "ويدجت واحدة تخصّصها كما تحب: تستدلي بها من قائمة " +
                 "ويدجتات الشاشة الرئيسية (اضغط مطولاً على الخلفية ← ويدجتات ← " +
-                "نور المسلم)، وكل ضغطةٍ هنا تعيد رسمها فوراً على شاشتك — " +
-                "وما تخفيه من عناصر يضمّ الباقون مكانه بأجمل توزيع.",
+                "نور المسلم)، وضغطةٌ على الويدجت نفسها على شاشتك تفتح هذا " +
+                "القسم داخل التطبيق، وما تخفيه من عناصر يضمّ الباقون مكانه " +
+                "بأجمل توزيع.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 14.dp),
@@ -103,6 +122,47 @@ fun WidgetSection() {
             customization = customization,
             onUpdate = { next -> apply { next } },
         )
+
+        // معاينة أكبر — بلاغ المالك alpha63: «عايزك تكبر شاشه معاينه الويدجت»
+        Spacer(Modifier.height(8.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "افتح المعاينة بحجم أكبر ←",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { bigPreview = true }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+            )
+            Spacer(Modifier.weight(1f))
+            // زر الحفظ — بلاغ المالك alpha63: «عايز زر حفظ في اعادادات
+            // الويدجت علشان احفظ التعديل في يظهر في نفس الوقت على
+            // الويدجت الموجوده في الشاشه»
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.primary,
+                onClick = { saveNow() },
+            ) {
+                Text(
+                    text = if (savedFlash) "حُفظ ✓ وعلى الويدجت الآن" else "حفظ التعديلات",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+                )
+            }
+        }
+        if (savedFlash) {
+            LaunchedEffect(savedFlash) {
+                kotlinx.coroutines.delay(2_500L)
+                savedFlash = false
+            }
+        }
 
         Spacer(Modifier.height(16.dp))
         // ===== المظهر =====
@@ -232,19 +292,72 @@ fun WidgetSection() {
 
         Spacer(Modifier.height(16.dp))
 
-        // ===== الإطار الدائري — بديل النقطة السائلة (alpha62) =====
-        SettingLabel("الإطار الدائري")
+        // ===== الإطار — بألوانٍ مختارةٍ أو بلا (alpha63) =====
+        SettingLabel("إطار الويدجت")
         Text(
-            text = "إطارٌ بحوافٍ دائريةٍ حول الويدجت بلونٍ تختاره — وضغطةٌ " +
-                "على الويدجت نفسها على شاشتك تُبدّل لونه دورةً في الألوان.",
+            text = "حوافٌ حادةٌ وإطارٌ بلونٍ تختاره من اللوحة — أو بلا " +
+                "إطارٍ خالصاً — وضغطةٌ على الويدجت نفسها على شاشتك تفتح " +
+                "إعداداتها داخل التطبيق.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp),
         )
         ColorPanelChipInline(
             selected = customization.frameColor,
+            allowNone = true,
             onSelect = { hex -> apply { it.copy(frameColor = hex) } },
         )
+    }
+
+    // ===== المعاينة بحجمٍ أكبر (alpha63) — المُحرر نفسه في حوارٍ يملأ
+    // الشاشة فتُرى عناصر الويدجت أوضح وتُحرَّر بنفس السحب والزوم =====
+    if (bigPreview) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { bigPreview = false },
+            properties = androidx.compose.ui.window.DialogProperties(
+                usePlatformDefaultWidth = false,
+            ),
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 28.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "معاينة الويدجت بحجمٍ أكبر",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = "إغلاق",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { bigPreview = false }
+                                .padding(8.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    WidgetInteractiveEditor(
+                        customization = customization,
+                        onUpdate = { next -> apply { next } },
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+            }
+        }
     }
 }
 

@@ -50,7 +50,9 @@ class WidgetAnalogClockTest {
 
     @Test
     fun `مقامات الرسم محصورة`() {
-        // ميناء الميناء ثابت وصغير عمداً — درس alpha58 البايندر
-        assertTrue(WidgetArt.ANALOG_SIZE <= 130)
+        // الميناء ١٥٠ (alpha63: «شكل الساعه التناظريه صغير جدا») —
+        // وصغيرٌ بما يكفي لدرس alpha58: مخزن البايندر لا يمتلئ
+        assertEquals(150, WidgetArt.ANALOG_SIZE)
+        assertTrue(WidgetArt.ANALOG_SIZE <= 160)
     }
 }

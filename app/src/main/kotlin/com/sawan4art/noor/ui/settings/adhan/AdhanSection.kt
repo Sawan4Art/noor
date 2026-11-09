@@ -30,10 +30,12 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -925,6 +927,50 @@ internal fun ReminderRow(
                 minutes = rule.minutes,
                 onCommit = { onSetRule(rule.copy(minutes = PrayerReminder.clampMinutes(it))) },
             )
+            // اسم المنبه المخصص — بلاغ المالك alpha63: «ميزه التنبيه قبل او
+            // بعد الاذان عايز يكون فيها اسماء المنبهات المظبوطه يعني مثلا
+            // اذا اراد المستخدم ظبط تنبيه السحور قبل اذان الفجر و هكذا اي
+            // تنبيه لاز يكون ليه اسم» — والاسم هو ما يظهر في شاشة المنبه
+            // والإشعار، والفارغ يعود للنص التلقائي
+            Spacer(Modifier.height(8.dp))
+            var nameDraft by remember(rule.name) {
+                mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(rule.name))
+            }
+            OutlinedTextField(
+                value = nameDraft,
+                onValueChange = { nameDraft = it },
+                singleLine = true,
+                placeholder = {
+                    Text(
+                        text = "اسم المنبه — مثال: تنبيه السحور",
+                        color = scheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = scheme.primary,
+                    unfocusedBorderColor = scheme.outline.copy(alpha = 0.35f),
+                    focusedTextColor = scheme.onSurface,
+                    unfocusedTextColor = scheme.onSurface,
+                    cursorColor = scheme.primary,
+                ),
+                textStyle = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = "الفارغ يبقى الاسم التلقائي: " +
+                    PrayerReminder.note(prayerLabel, rule),
+                fontSize = 11.sp,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            LaunchedEffect(nameDraft.text) {
+                // حفظ الاسم فوراً مع تحصينه — بلا فواصلٍ تكسر سجل القواعد
+                val cleaned = PrayerReminder.sanitizeName(nameDraft.text)
+                if (cleaned != rule.name) {
+                    onSetRule(rule.copy(name = cleaned))
+                }
+            }
         }
     }
 }

@@ -106,4 +106,77 @@ class MushafSearchTest {
         assertEquals("mushaf_pages/604.webp", MushafPages.assetPath(604))
         assertEquals("mushaf_pages/1.webp", MushafPages.assetPath(0))
     }
+
+    // ===== بحث أسماء السور وقفزة الآية — alpha63 =====
+    // بلاغ المالك: «يدعم البحث باسم السوره و عده كلمات او كلمه واحده و
+    // يدعم البحث برقم الايه … مثلا مريم ٥٠ فتأتي له الايه رقم ٥٠ من
+    // سوره مريم».
+
+    private val names = (1..114).map { it to com.sawan4art.noor.domain.mushaf.MushafSurahs.name(it) }
+
+    @Test
+    fun `قفزة الآية تستخرج الاسم والرقم بالعربية واللاتينية`() {
+        val ar = MushafSearch.extractSurahJump("مريم ٥٠")!!
+        assertEquals("مريم", ar.suraNameQuery)
+        assertEquals(50, ar.ayah)
+        val lat = MushafSearch.extractSurahJump("مريم 50")!!
+        assertEquals(50, lat.ayah)
+        val al = MushafSearch.extractSurahJump("آل عمران 200")!!
+        assertEquals("آل عمران", al.suraNameQuery)
+        assertEquals(200, al.ayah)
+        // وبدون رقمٍ في الذيل لا قفزة
+        assertEquals(null, MushafSearch.extractSurahJump("مريم"))
+        assertEquals(null, MushafSearch.extractSurahJump(""))
+        // والرقم وحده بلا اسمٍ لا قفزة — البحث بالآية يحتاج اسم السورة أولاً
+        assertEquals(null, MushafSearch.extractSurahJump("٥٠"))
+        // ورقمٌ خارج المصحف يُرفض
+        assertEquals(null, MushafSearch.extractSurahJump("مريم 999"))
+    }
+
+    @Test
+    fun `مطابقة أسماء السور بكلمة واحدة وعدة كلمات`() {
+        // كلمة واحدة
+        assertEquals(listOf(19), MushafSearch.matchingSurahs("مريم", names))
+        // عدة كلمات — آل عمران بأشكال الكتابة كلها
+        assertEquals(listOf(3), MushafSearch.matchingSurahs("آل عمران", names))
+        assertEquals(listOf(3), MushafSearch.matchingSurahs("ال عمران", names))
+        assertEquals(listOf(3), MushafSearch.matchingSurahs("عمران", names))
+        // وسابقة سورة تُسقط
+        assertEquals(listOf(2), MushafSearch.matchingSurahs("سورة البقرة", names))
+        // والجزء من الاسم يكفي
+        assertTrue(MushafSearch.matchingSurahs("الن", names).contains(114))
+        // ولا شيء لعناوين غير موجودة
+        assertEquals(emptyList<Int>(), MushafSearch.matchingSurahs("الفراغ", names))
+    }
+
+    @Test
+    fun `مسح التحديد بضغطة مطولة على آية من المدى`() {
+        val sel = com.sawan4art.noor.domain.mushaf.MushafSelection(19, 50, 60)
+        assertTrue(
+            com.sawan4art.noor.domain.mushaf.MushafSelectionOps.contains(
+                sel,
+                com.sawan4art.noor.domain.mushaf.MushafAyah(19, 55),
+            ),
+        )
+        // طرفا المدى داخلانه
+        assertTrue(
+            com.sawan4art.noor.domain.mushaf.MushafSelectionOps.contains(
+                sel,
+                com.sawan4art.noor.domain.mushaf.MushafAyah(19, 50),
+            ),
+        )
+        // وخارجه أو سورة أخرى لا
+        assertTrue(
+            !com.sawan4art.noor.domain.mushaf.MushafSelectionOps.contains(
+                sel,
+                com.sawan4art.noor.domain.mushaf.MushafAyah(19, 61),
+            ),
+        )
+        assertTrue(
+            !com.sawan4art.noor.domain.mushaf.MushafSelectionOps.contains(
+                sel,
+                com.sawan4art.noor.domain.mushaf.MushafAyah(2, 55),
+            ),
+        )
+    }
 }

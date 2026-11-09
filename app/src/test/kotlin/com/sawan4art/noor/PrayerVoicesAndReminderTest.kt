@@ -121,4 +121,48 @@ class PrayerVoicesAndReminderTest {
         assertEquals(10, on.reminderFor(PrayerTimeKey.FAJR)?.minutes)
         assertNull(on.reminderFor(PrayerTimeKey.DHUHR))
     }
+
+    // ===== اسم المنبه المخصص — alpha63 =====
+    // بلاغ المالك: «ميزه التنبيه قبل او بعد الاذان عايز يكون فيها اسماء
+    // المنبهات المظبوطه يعني مثلا اذا اراد المستخدم ظبط تنبيه السحور
+    // قبل اذان الفجر و هكذا اي تنبيه لاز يكون ليه اسم».
+
+    @Test
+    fun `الاسم المخصص هو ما يظهر في المنبه`() {
+        val rule = PrayerReminder.Rule(
+            PrayerReminder.Mode.BEFORE, 15, "تنبيه السحور",
+        )
+        assertEquals("تنبيه السحور", PrayerReminder.note("الفجر", rule))
+    }
+
+    @Test
+    fun `الاسم الفارغ يعود للنص التلقائي`() {
+        val rule = PrayerReminder.Rule(PrayerReminder.Mode.BEFORE, 15)
+        assertTrue(PrayerReminder.note("الفجر", rule).contains("الفجر"))
+        assertTrue(PrayerReminder.note("الفجر", rule).contains("قبل"))
+    }
+
+    @Test
+    fun `الاسم في سجل CSV يعود كما هو والقديم بلا اسم يعمل`() {
+        // سجل حديث بالاسم
+        val round = PrayerReminder.parseRules("FAJR:BEFORE:15:تنبيه السحور,MAGHRIB:AFTER:5")
+        assertEquals("تنبيه السحور", round["FAJR"]?.name)
+        assertEquals(15, round["FAJR"]?.minutes)
+        assertEquals("", round["MAGHRIB"]?.name)
+        // ونسخة قديمة ثلاثية بلا اسمٍ تُقرأ كما هي فلا يفقد المستخدم تخصيصه
+        val legacy = PrayerReminder.parseRules("FAJR:BEFORE:15")
+        assertEquals(PrayerReminder.Rule(PrayerReminder.Mode.BEFORE, 15), legacy["FAJR"])
+        // والتنسيق يحفظ الاسم ويقصده
+        val csv = PrayerReminder.formatRules(
+            mapOf("FAJR" to PrayerReminder.Rule(PrayerReminder.Mode.BEFORE, 10, "تنبيه الإمساك")),
+        )
+        assertEquals("FAJR:BEFORE:10:تنبيه الإمساك", csv)
+    }
+
+    @Test
+    fun `تحصين الاسم يرمي الفواصل التي تكسر سجل القواعد`() {
+        assertEquals("تنبيه أ، ب", PrayerReminder.sanitizeName("تنبيه أ, ب"))
+        assertEquals("ساعة-٣", PrayerReminder.sanitizeName("ساعة:٣"))
+        assertEquals(60, PrayerReminder.sanitizeName("ط".repeat(100)).length)
+    }
 }

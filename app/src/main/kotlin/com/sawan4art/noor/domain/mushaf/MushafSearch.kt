@@ -58,4 +58,60 @@ object MushafSearch {
         }
         return hits
     }
+
+    // ===== بحث أسماء السور وقفزة الآية (alpha63) =====
+    // بلاغ المالك: «اجعل البحث الموجود داخل صفحه اختيار السوره يدعم البحث
+    // باسم السوره و عده كلمات او كلمه واحده و يدعم البحث برقم الايه
+    // و لتفعيل البحث بالايه يجب علي المستخدم كتابه اسم السوره اولا ثم
+    // يتبعها رقم الايه المراد البحث عنها مثلا مريم ٥٠ فتأتي له الايه
+    // رقم ٥٠ من سوره مريم و هكذا».
+
+    /** نتيجة قفزة آية — سورةً ورقماً بعد استخراج «الاسم + الرقم» */
+    data class SurahJump(val suraNameQuery: String, val ayah: Int)
+
+    /** رقم عربي هندية أو لاتينية — للقراءة بعد التطبيع */
+    private val TRAILING_NUMBER = Regex("([٠-٩0-9]+)\\s*$")
+
+    /**
+     * استخراج «اسم السورة + رقم الآية» من نصّ البحث — «مريم ٥٠» و«مريم
+     * 50» و«آل عمران ٢٠٠» كلها تعود باسم السورة ورقمها، وبدون رقمٍ في
+     * الذيل يعود null فالبحث باسمٍ أو كلمةٍ آيةٍ كما هو.
+     */
+    fun extractSurahJump(query: String): SurahJump? {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return null
+        val m = TRAILING_NUMBER.find(trimmed) ?: return null
+        val digits = m.groupValues[1]
+        val ayah = digits.map { c ->
+            if (c in '٠'..'٩') c - '٠' else c - '0'
+        }.reduceOrNull { acc, d -> acc * 10 + d } ?: return null
+        if (ayah !in 1..286) return null
+        val namePart = trimmed.substring(0, m.range.first).trim()
+        if (namePart.isEmpty()) return null
+        return SurahJump(namePart, ayah)
+    }
+
+    /**
+     * مطابقة أسماء السور بنصّ البحث — كلمةً واحدةٍ أو عدة كلماتٍ (آل
+     * عمران / ال عمران / عمران)، والسابقة «سورة» تُسقط إن حضرت. النتيجة
+     * معرّفات السور بترتيبها المعتمد.
+     */
+    fun matchingSurahs(
+        query: String,
+        names: List<Pair<Int, String>>,
+    ): List<Int> {
+        val stripped = query.trim()
+            .replace(Regex("^(سورة|سوره|سور)\\s+"), "")
+        val needle = normalize(stripped).trim()
+        if (needle.isEmpty()) return emptyList()
+        val needleTight = needle.replace(" ", "")
+        val out = ArrayList<Int>()
+        for ((sura, name) in names) {
+            val hay = normalize(name)
+            if (hay.contains(needle) || hay.replace(" ", "").contains(needleTight)) {
+                out.add(sura)
+            }
+        }
+        return out
+    }
 }

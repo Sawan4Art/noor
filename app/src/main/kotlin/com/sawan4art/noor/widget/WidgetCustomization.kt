@@ -20,8 +20,10 @@ import org.json.JSONObject
  * «الغى المسبحه في الويدجت و اكتفي بباقي العناصر و ايضا الغي السائل
  * الحي من الويدجت و استبدله باطار حوافه دائريه قابل للضغط عليها
  * لتغيير لونه» — فالمسبحة والفقاعات السائلة الثلاث محذوفةٌ من العقد
- * كليةً، ومكانها **لون الإطار الدائري** [frameColor] الذي يتبدل
- * بضغطةٍ على الويدجت نفسها عبر [FRAME_CYCLE] — وفي alpha59
+ * كليةً، ومكانها **لون الإطار** [frameColor] يُختار من لوحة قسم الويدجت،
+ * وفي alpha63 بأمر المالك «بالوان مختاره او بدون» صار تلقائياً أو
+ * لوناً صريحاً أو بلا إطارٍ خالصاً، وضغطة الويدجت نفسها فتحت إعداداتها.
+ * وفي alpha59
  * توسّع العقد ببلاغ المالك: «عايز خانات لتحديد حجم الخط ولونه لكل
  * عنصر» فحجمُ كل عنصرٍ ولونه خريطتان مستقلتان (غيابُ المفتاح = الوضع
  * التلقائي)، و«عايز صيغ اكثر للتواريخ و عند اختيار صيغه للتاريخ تفتح
@@ -81,13 +83,13 @@ data class WidgetCustomization(
      */
     val elementOrder: List<String> = DEFAULT_ORDER,
 
-    // ===== الإطار الدائري — بديل النقطة السائلة (alpha62) =====
+    // ===== الإطار — بألوانٍ مختارةٍ أو بلا (alpha63) =====
     /**
-     * لون الإطار الدائري حول الويدجت — «تلقائي» يتبع لون التطبيق،
-     * وضغطةٌ على الويدجت نفسها تُبدّل اللون دورةً في [FRAME_CYCLE]
-     * (بلاغ المالك: «استبدله باطار حوافه دائريه قابل للضغط عليها
-     * لتغيير لونه»). ومفاتيح الفقاعات القديمة «bubble*» في JSON
-     * تُرمى بأمان فلا تعود.
+     * لون الإطار حول الويدجت — «تلقائي» يتبع لون التطبيق، أو لون صريح،
+     * أو [FRAME_NONE] بلا إطارٍ خالصاً (بلاغ المالك alpha63: «عايز اخلي
+     * اطار الويدجت يكون بالوان مختاره او بدون»). يُختار من لوحة قسم
+     * الويدجت — وضغطة الويدجت نفسها فتحت إعداداتها (alpha63) فانتهى
+     * التبديل بدورةٍ على الويدجت.
      */
     val frameColor: String = COLOR_AUTO,
 ) {
@@ -117,7 +119,9 @@ data class WidgetCustomization(
         put("gregFormat", gregFormat.coerceIn(0, 5))
         put("clockStyle", clockStyle.name)
         if (elementSizes.isNotEmpty()) {
-            put("elementSizes", JSONObject().apply { elementSizes.forEach { (k, v) -> put(k, v.coerceIn(50, 250)) } })
+            put("elementSizes", JSONObject().apply {
+                elementSizes.forEach { (k, v) -> put(k, clampSize(k, v)) }
+            })
         }
         if (elementColors.isNotEmpty()) {
             put("elementColors", JSONObject().apply { elementColors.forEach { (k, v) -> put(k, v) } })
@@ -134,6 +138,9 @@ data class WidgetCustomization(
 
         /** لون الخط يتبع المظهر */
         const val COLOR_AUTO = "auto"
+
+        /** بلا إطارٍ خالصاً — بلاغ المالك alpha63: «او بدون» */
+        const val FRAME_NONE = "none"
 
         // ===== مفاتيح عناصر الحجم/اللون لكل عنصرٍ (alpha59) =====
         const val ELEMENT_HEADER = "header"
@@ -174,33 +181,45 @@ data class WidgetCustomization(
         }
 
         /**
-         * دورة ألوان الإطار الدائري (alpha62) — ضغطة الويدجت تُقدّم
-         * خطوةً في هذه القائمة: «قابل للضغط عليها لتغيير لونه» —
-         * أولها التلقائي ثم ألوان لوحة الويدجت الثمانية المعتمدة.
+         * دورة ألوان الإطار انتهت (alpha63) — اللون يُختار من لوحة قسم
+         * الويدجت (تلقائي أو ثمانية ألوان أو بلا إطار) وضغطة الويدجت
+         * نفسها تفتح الإعدادات.
          */
-        val FRAME_CYCLE = listOf(
-            COLOR_AUTO, "#2FA48C", "#C98A3D", "#B04A3A", "#5B6E9E",
-            "#7A5B9E", "#4E7A4E", "#233029", "#F2EDE0",
-        )
 
         /**
-         * لون الإطار التالي في الدورة — دالةٌ نقية تُختبر: الحاضر
-         * يُقدَّم خطوةً، وآخر القائمة يعود إلى أولها، والغريب يدخل
-         * الدورة من أولها.
+         * **حدود حجم كل عنصرٍ** (alpha63 — بلاغ المالك: «عايز خاصيه
+         * تصغير العناصر او تكبيرها يكون ليها حدود حسب العنصر نفسه
+         * يعني مثلا اوقات الصلاه اذا كبرت على اعلى مستوى تكبير
+         * فيستم قص بعض الحروف»): خمسة خلاياٍ متساويةٍ تقسم عرض
+ * الويدجت لا تحتمل أكثر من ١٦٠٪ بلا قصٍّ، والساعة التناظرية
+ * صورةٌ مربعةٌ سقفها ٢٠٠٪ كي لا تبتلع الويدجت، والبقية ٥٠..٢٠٠٪.
+ * المصدر الواحد للحدود — المنزلق والزوم والقراءة من JSON كله
+ * يمرّ هنا فالتكبير متناسقٌ في كل الحوال.
          */
-        fun nextFrameColor(current: String): String {
-            val index = FRAME_CYCLE.indexOf(current)
-            return if (index < 0) FRAME_CYCLE.first()
-            else FRAME_CYCLE[(index + 1) % FRAME_CYCLE.size]
-        }
+        val ELEMENT_BOUNDS: Map<String, IntRange> = mapOf(
+            ELEMENT_HEADER to 50..200,
+            ELEMENT_CLOCK to 50..200,
+            ELEMENT_HIJRI to 50..200,
+            ELEMENT_GREG to 50..200,
+            ELEMENT_NEXT to 50..200,
+            ELEMENT_COUNTDOWN to 50..200,
+            ELEMENT_GRID to 50..160,
+        )
 
-        /** قراءة خريطة الحجم من JSON — الغريب يُرمى والمحصور ٥٠..٢٥٠ */
+        /** حدود عنصرٍ بمفتاحه — الغريب يعود للمدى العام */
+        fun boundsOf(key: String): IntRange = ELEMENT_BOUNDS[key] ?: (50..200)
+
+        /** تحصين حجم عنصرٍ داخل حدود عنصره — المصدر الواحد للحدود */
+        fun clampSize(key: String, value: Int): Int =
+            value.coerceIn(boundsOf(key).first, boundsOf(key).last)
+
+        /** قراءة خريطة الحجم من JSON — الغريب يُرمى والمحصور بحدود عنصره */
         private fun sizesFrom(o: JSONObject): Map<String, Int> {
             val raw = o.optJSONObject("elementSizes") ?: return emptyMap()
             val out = mutableMapOf<String, Int>()
             for (key in ELEMENT_KEYS) {
                 val v = raw.optInt(key, Int.MIN_VALUE)
-                if (v != Int.MIN_VALUE) out[key] = v.coerceIn(50, 250)
+                if (v != Int.MIN_VALUE) out[key] = clampSize(key, v)
             }
             return out
         }
@@ -260,9 +279,14 @@ data class WidgetCustomization(
                         },
                     ),
                     // alpha62: مفاتيح misbaha و bubble* القديمة تُرمى بصمت
+                    // alpha63: «none» بلا إطارٍ مقبول كذلك
                     frameColor = runCatching {
                         val raw = o.optString("frameColor", COLOR_AUTO)
-                        if (raw == COLOR_AUTO || parseColor(raw) != null) raw else COLOR_AUTO
+                        when {
+                            raw == FRAME_NONE -> FRAME_NONE
+                            raw == COLOR_AUTO || parseColor(raw) != null -> raw
+                            else -> COLOR_AUTO
+                        }
                     }.getOrDefault(COLOR_AUTO),
                 )
             }.getOrDefault(DEFAULT)

@@ -80,20 +80,38 @@ class WidgetCustomizationTest {
     }
 
     @Test
-    fun `دورة لون الإطار — الضغطة تُقدّم خطوةً والغريب يدخل من أولها`() {
-        val cycle = WidgetCustomization.FRAME_CYCLE
-        assertEquals(
-            cycle[1],
-            WidgetCustomization.nextFrameColor(WidgetCustomization.COLOR_AUTO),
+    fun `الإطار بألوان مختارة أو بدون — alpha63`() {
+        // «او بدون» — لون الإطار الفارغ يُقرأ كما هو
+        val none = WidgetCustomization.fromJson("""{"frameColor": "none"}""")
+        assertEquals(WidgetCustomization.FRAME_NONE, none.frameColor)
+        // والتلقائي كما هو
+        val auto = WidgetCustomization.fromJson("""{"frameColor": "auto"}""")
+        assertEquals(WidgetCustomization.COLOR_AUTO, auto.frameColor)
+        // ولون إطارٍ فاسد يعود تلقائياً
+        val broken = WidgetCustomization.fromJson("""{"frameColor": "أحمر"}""")
+        assertEquals(WidgetCustomization.COLOR_AUTO, broken.frameColor)
+    }
+
+    @Test
+    fun `حدود حجم كل عنصر — سقف المواقيت ١٦٠٪ ولا عنصر تحت الخمسين`() {
+        // بلاغ المالك: «مثلا اوقات الصلاه اذا كبرت على اعلى مستوى تكبير
+        // فيستم قص بعض الحروف» — فسقف الخلايا الخمس ١٦٠
+        assertEquals(160, WidgetCustomization.boundsOf(WidgetCustomization.ELEMENT_GRID).last)
+        assertEquals(50, WidgetCustomization.boundsOf(WidgetCustomization.ELEMENT_GRID).first)
+        // والبقية ٥٠..٢٠٠
+        for (key in WidgetCustomization.ELEMENT_KEYS - WidgetCustomization.ELEMENT_GRID) {
+            assertEquals(50, WidgetCustomization.boundsOf(key).first)
+            assertEquals(200, WidgetCustomization.boundsOf(key).last)
+        }
+        // والتحصين يمرّ بحدود العنصر نفسه مهما جاء الرقم
+        assertEquals(160, WidgetCustomization.clampSize(WidgetCustomization.ELEMENT_GRID, 250))
+        assertEquals(60, WidgetCustomization.clampSize(WidgetCustomization.ELEMENT_GRID, 60))
+        // والقراءة من JSON محصّنة بالحدود ذاتها
+        val parsed = WidgetCustomization.fromJson(
+            """{"elementSizes": {"grid": 250, "clock": 30}}""",
         )
-        // آخر القائمة يعود إلى أولها
-        assertEquals(cycle.first(), WidgetCustomization.nextFrameColor(cycle.last()))
-        // والغريب يبدأ الدورة
-        assertEquals(cycle.first(), WidgetCustomization.nextFrameColor("غير موجود"))
-        // والدورة محكمة: كل خطوةٍ ضمن القائمة
-        var current = WidgetCustomization.COLOR_AUTO
-        repeat(cycle.size) { current = WidgetCustomization.nextFrameColor(current) }
-        assertEquals(WidgetCustomization.COLOR_AUTO, current)
+        assertEquals(160, parsed.elementSizes["grid"])
+        assertEquals(50, parsed.elementSizes["clock"])
     }
 
     @Test
@@ -171,12 +189,12 @@ class WidgetCustomizationTest {
 
     @Test
     fun `خرائط الحجم واللون للعناصر تُقرأ بسلامة وتُقذّر الغريب`() {
-        // مفاتيح غريبة تُرمى والقيم خارج الحدود تُحصر (alpha61: ٥٠..٢٥٠)
+        // مفاتيح غريبة تُرمى والقيم خارج الحدود تُحصر (alpha63: حدود العنصر)
         val parsed = WidgetCustomization.fromJson(
             """{"elementSizes": {"clock": 300, "ghost": 150, "grid": 40},
                "elementColors": {"hijri": "#5B6E9E", "ghost": "#123456"}}""",
         )
-        assertEquals(250, parsed.elementSizes[WidgetCustomization.ELEMENT_CLOCK])
+        assertEquals(200, parsed.elementSizes[WidgetCustomization.ELEMENT_CLOCK])
         assertEquals(50, parsed.elementSizes[WidgetCustomization.ELEMENT_GRID])
         assertEquals(null, parsed.elementSizes["ghost"])
         assertEquals("#5B6E9E", parsed.elementColors[WidgetCustomization.ELEMENT_HIJRI])

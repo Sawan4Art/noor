@@ -17,14 +17,15 @@ import kotlin.math.sin
  * يُرسم في الخلفية نفسها [widgetBackgroundBitmap] فلا صورةً إضافية
  * ولا بايتاً زائداً في باكِت البايندر.
  *
- * كل الصور صغيرةٌ عمداً (خلفية ≤ ٣٦٠×٢٦٠ وميناء ١١٠×١١٠)
+ * كل الصور صغيرةٌ عمداً (خلفية ≤ ٣٦٠×٢٦٠ وميناء ≤ ٢٦٠×٢٦٠)
  * — درس alpha58: مجموع البايتات داخل باكِت RemoteViews لا يجاوز
  * مخزن البايندر (~١MB) وإلا فشل التحديث وبدت الويدجت ميتة.
  */
 object WidgetArt {
 
-    /** حجم ميناء الساعة التناظرية (مربع) */
-    const val ANALOG_SIZE = 110
+    /** حجم ميناء الساعة التناظرية (مربع) — alpha63 كبّرها بلاغ
+     *  المالك: «شكل الساعه التناظريه صغير جدا» — من ١١٠ إلى ١٥٠ */
+    const val ANALOG_SIZE = 150
 
     /**
      * زاوية عقارب الساعة بالدرجات من الثانية عشر باتجاه العقارب — دالة
@@ -50,7 +51,7 @@ object WidgetArt {
         accentColor: Int,
         onDialColor: Int,
     ): Bitmap {
-        val s = size.coerceIn(48, 240)
+        val s = size.coerceIn(64, 260)
         val bmp = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         val cx = s / 2f

@@ -88,6 +88,72 @@ object QuranAudioLibrary {
      */
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    // ===== طابور التنزيلات الدائم (alpha63) =====
+    // **جذر «بعض الأصوات لا تُنزَّل»** (بلاغ المالك: «مازالت بعض الاصوات
+    // لا يتم تنزيلها و تفشل حل المشكله من جذورها»): التنزيل يعيش في مجال
+    // التطبيق لكن **العملية نفسها** لو قُتلت (الذاكرة أو المستخدم من
+    // الريسنتس أو إعادة تشغيل الجهاز) مات التنزيل صامتاً بلا رسالةٍ ولا
+    // استكمال — فيبدو «يفشل» مع أن المرآة سليمة (الفحص الآلي ٢١٦٦/٢١٦٦
+    // أصلاً). الطابور الدائم في SharedPreferences يقرأه إقلاع التطبيق
+    // فيستأنف كل تنزيلٍ متوقفٍ وحده، والحفظ قبل البدء والمسح بعد النهاية.
+    private const val QUEUE_PREFS = "audio_downloads_queue"
+    private const val QUEUE_KEY = "pending_json"
+
+    /** إدخال الطابور — «شيخ:سورة» وسورة صفر للمصحف كله */
+    private data class QueueEntry(val reciterId: String, val sura: Int)
+
+    private fun queuePrefs(context: Context) =
+        context.getSharedPreferences(QUEUE_PREFS, Context.MODE_PRIVATE)
+
+    /** قراءة الطابور الحالي — الفاسد يسير بأمان إلى لا شيء */
+    private fun queueLoad(context: Context): List<QueueEntry> =
+        runCatching {
+            org.json.JSONArray(queuePrefs(context).getString(QUEUE_KEY, "[]")).let { arr ->
+                (0 until arr.length()).mapNotNull { i ->
+                    val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                    val r = o.optString("r")
+                    val s = o.optInt("s", -1)
+                    if (r.isNotBlank() && s in 0..114) QueueEntry(r, s) else null
+                }
+            }
+        }.getOrDefault(emptyList())
+
+    private fun queueSave(context: Context, entries: List<QueueEntry>) {
+        val arr = org.json.JSONArray()
+        entries.forEach { arr.put(org.json.JSONObject().put("r", it.reciterId).put("s", it.sura)) }
+        queuePrefs(context).edit().putString(QUEUE_KEY, arr.toString()).apply()
+    }
+
+    private fun queueAdd(context: Context, entry: QueueEntry) {
+        queueSave(context, queueLoad(context).filter { it != entry } + entry)
+    }
+
+    private fun queueRemove(context: Context, entry: QueueEntry) {
+        queueSave(context, queueLoad(context).filter { it != entry })
+    }
+
+    /**
+     * استكمال ما توقف — يُنادى من إقلاع التطبيق: كل إدخالٍ في الطابور
+     * يُعاد إطلاقه في مجال التطبيق نفسه (والسور المتاحة تُتخطى كعادتها
+     * فالاستكمال من حيث توقف). خطأٌ في إدخالٍ لا يمنع بقية الطابور.
+     */
+    fun resumePending(context: Context) {
+        val pending = queueLoad(context)
+        if (pending.isEmpty()) return
+        val appContext = context.applicationContext
+        scope.launch {
+            val counts = runCatching {
+                (1..114).associateWith { MushafDb.surahAyahCount(appContext, it) }
+            }.getOrDefault(emptyMap())
+            for (entry in pending) {
+                // لا تُعاد إطلاقَ تنزيلٍ يعمل أصلاً (start يعيد نافجه نفسه)
+                runCatching {
+                    start(appContext, entry.reciterId, entry.sura, counts)
+                }
+            }
+        }
+    }
+
     /** تنزيلات الجري — مفتاحها «شيخ:سورة» وواحد فقط لكل مفتاح */
     private val running = ConcurrentHashMap<String, Deferred<Boolean>>()
 
@@ -155,12 +221,17 @@ object QuranAudioLibrary {
     fun start(context: Context, reciterId: String, sura: Int, surahCounts: Map<Int, Int>): Deferred<Boolean> {
         val stateKey = key(reciterId, sura)
         val appContext = context.applicationContext
+        // الطابور الدائم — لو ماتت العملية يُستأنف من إقلاع التطبيق (alpha63)
+        queueAdd(appContext, QueueEntry(reciterId, sura))
         return synchronized(running) {
             running[stateKey] ?: scope.async {
                 try {
                     downloadInternal(appContext, reciterId, sura, surahCounts, stateKey)
                 } finally {
                     running.remove(stateKey)
+                    // اكتمل أو أوقفه المستخدم — خرج من الطابور؛ الموت
+                    // المفاجئ للعملية وحده هو الذي يُبقيه للاستكمال
+                    runCatching { queueRemove(appContext, QueueEntry(reciterId, sura)) }
                 }
             }.also { running[stateKey] = it }
         }
@@ -192,6 +263,7 @@ object QuranAudioLibrary {
         val dir = reciterDir(context, reciterId)
         dir.mkdirs()
 
+
         // قائمة العمل: سورة واحدة أو ١١٤ للمصحف كامل
         val surahs = if (sura in 1..114) listOf(sura) else (1..114)
         val total = surahs.sumOf { QuranAudioMath.surahFileCount(it, surahCounts[it] ?: 0) }
@@ -209,6 +281,19 @@ object QuranAudioLibrary {
                 )
         }
         publish(active = true)
+
+        // فحص المساحة قبل أي بايت (alpha63): جهازٌ ممتلئٌ هو أصلٌ شائع
+        // لبلاغ «يفشل ولا يكمل» — الرسالة الآن صريحة بدل تعذّرٍ غامض
+        val neededBytes = if (sura == 0) 150_000_000L else 15_000_000L
+        val usable = runCatching { dir.usableSpace }.getOrDefault(Long.MAX_VALUE)
+        if (usable in 0 until neededBytes) {
+            publish(
+                active = false,
+                error = "مساحة التخزين شارفت على الامتلاء — امسح تنزيلاً " +
+                    "لا تستعمله أو ملفات أخرى ثم أعد المحاولة",
+            )
+            return false
+        }
 
         outer@ for (s in surahs) {
             val count = QuranAudioMath.surahFileCount(s, surahCounts[s] ?: 0)
@@ -285,10 +370,17 @@ object QuranAudioLibrary {
                                 publish(active = true)
                             } else {
                                 failedHere.incrementAndGet()
+                                // سبب الفشل يُرى — والمساحة الممتلئة أول المشتبهات
+                                val spaceTight = runCatching { dir.usableSpace }
+                                    .getOrDefault(Long.MAX_VALUE) < 50_000_000L
                                 publish(
                                     active = true,
-                                    error = "تعذّر " + MushafSurahs.arabicDigits(failedHere.get()) +
-                                        " آية حتى الآن — التنزيل يُكمل وإعادة الضغطة تكملتها",
+                                    error = when {
+                                        spaceTight -> "مساحة التخزين شارفت على الامتلاء — " +
+                                            "امسح ملفات ثم أعد المحاولة لتكملة المتبقي"
+                                        else -> "تعذّر " + MushafSurahs.arabicDigits(failedHere.get()) +
+                                            " آية حتى الآن — التنزيل يُكمل وإعادة الضغطة تكملتها"
+                                    },
                                 )
                             }
                         }
