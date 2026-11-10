@@ -19,6 +19,14 @@ pluginManagement {
     }
 }
 
+// منصّة جافا تلقائية (alpha64 — بيئة الساندبوكس جاءت بجافا-ركن فقط
+// بلا javac): محوِّل foojay يتيح لغرادل تنزيل JDK 17 المطابق للـ
+// toolchain من اعتماديات المشروع نفسها في بيئات التشغيل التي تفتقر
+// للمحوِّل، ولا أثر له في CI حيث JDK 21 مثبت أصلاً.
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
+}
+
 dependencyResolutionManagement {
     // PREFER_PROJECT: يسمح لسكريبت مرايا الساندبوكس المحلي بالتقدم — في CI
     // لا يوجد سكريبت مرايا فتُستخدم google و mavenCentral كما هي.

@@ -1,11 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- عنصر العدّاد المتبقي (alpha62 — بلا فقاعته السائلة: «الغي السائل
-     الحي من الويدجت») -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  عنصر العدّاد المتبقي (alpha64 — تحوّل من الجذر): الجملة «متبقي حتى
+  أذان الفجر» صارت TextView عاديّاً بالمنادى setText الذي ينجح ميدانياً
+  على بيئة المالك (التواريخ والمدينة والمواقيت كلها شاهدة)، والأرقام
+  وحدها للـ Chronometer بصيغة %s — فلو سقطت صيغة العدّاد في بيئة
+  سامسونج (بلاغ الصورتين: أرقام ٩:٠٦:٥٨ عارية) تبقى الجملة مكتملة
+  والمعنى سليم بلا لبس مع وقت الصلاة.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_countdown_frame"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:layout_gravity="center_horizontal">
+    android:layout_gravity="center_horizontal"
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+
+    <TextView
+        android:id="@+id/widget_countdown_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="2dp"
+        android:textSize="12sp"
+        android:maxLines="1" />
 
     <Chronometer
         android:id="@+id/widget_countdown"
@@ -15,4 +32,4 @@
         android:paddingVertical="2dp"
         android:textSize="12sp"
         android:countDown="true" />
-</FrameLayout>
+</LinearLayout>

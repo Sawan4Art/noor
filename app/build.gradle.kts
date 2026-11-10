@@ -14,8 +14,8 @@ android {
         minSdk = 24
         targetSdk = 36
         // إصدارات ألفا لإعادة البناء الكوتلنية — النسخة النهائية الموحّدة تُضبط عند اكتمال المراحل
-        versionCode = 50063
-        versionName = "0.5.0-alpha63"
+        versionCode = 50064
+        versionName = "0.5.0-alpha64"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -107,4 +107,11 @@ dependencies {
     // org.json الحقيقية في اختبارات الوحدة — android.jar للجهاز الافتراضي
     // يزوّرها فيرجع JSON كله افتراضياً (درس اختبار تخصيص الويدجت alpha56)
     testImplementation("org.json:json:20240303")
+}
+
+// منصة الأدوات 17 معلنة صراحةً (alpha64 — بيئة الساندبوكس جاءت بجافا-ركن
+// بلا javac): مع محوِّل foojay في settings.gradle.kts ينزّل غرادل JDK 17
+// المطابق تلقائياً بدل أن يقف على JRE النظام الذي لا يحوّل
+kotlin {
+    jvmToolchain(17)
 }

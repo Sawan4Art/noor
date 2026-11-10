@@ -137,5 +137,23 @@ data class WidgetSnapshot(
 internal fun chronometerBase(remainingSeconds: Long, elapsedRealtime: Long): Long =
     elapsedRealtime + (remainingSeconds * 1000L).coerceAtLeast(0L)
 
-/** صيغة العدّاد الحي — عقد alpha58: تُمرَّر لـ setChronometer بمنادى started=true */
-internal const val COUNTDOWN_FORMAT = "متبقي %s حتى الأذان"
+/**
+ * صيغة العدّاد الحي — عقد alpha58: تُمرَّر لـ setChronometer بمنادى
+ * started=true. **alpha64 تحوّل من الجذر**: الجملة «متبقي حتى الأذان»
+ * كانت جزء الصيغة نفسها، والتحقق الميداني (صورتا شاشة المالك ١٠/١١)
+ * أثبت أن جهازه يعرض الأرقام العارية ٩:٠٦:٥٨ بلا كلماتٍ — بيئة
+ * سامسونج تُسقط صيغة Chronometer داخل RemoteViews فتضيع المعنى ويُقرأ
+ * العدّاد كأنه وقت الصلاة نفسها. الكلمات صارت TextView عاديّاً
+ * ([countdownLabel]) بالمنادى setText الذي ينجح ميدانياً في كل عناصر
+ * الويدجت (التواريخ والمدينة والمواقيت كلها شاهدة)، والصيغة هنا أرقامٌ
+ * خالصة لا شيء غيرها.
+ */
+internal const val COUNTDOWN_FORMAT = "%s"
+
+/**
+ * جملة العدّاد الكاملة باسم الصلاة القادمة — TextView مستقل لا يعتمد
+ * على صيغة Chronometer (alpha64): «متبقي حتى أذان الفجر» — والاسم
+ * الغائب (لقطة احتياطية) يعود للصياغة العامة «متبقي حتى الأذان».
+ */
+internal fun countdownLabel(nextName: String): String =
+    if (nextName.isNotBlank()) "متبقي حتى أذان $nextName" else "متبقي حتى الأذان"

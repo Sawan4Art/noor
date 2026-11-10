@@ -59,6 +59,7 @@ import com.sawan4art.noor.widget.WidgetArt
 import com.sawan4art.noor.widget.WidgetCustomization
 import com.sawan4art.noor.widget.WidgetPalette
 import com.sawan4art.noor.widget.WidgetSnapshot
+import com.sawan4art.noor.widget.countdownLabel
 import com.sawan4art.noor.widget.palette
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -486,15 +487,26 @@ private fun WidgetElementPreview(
             )
         }
 
-        WidgetCustomization.ELEMENT_COUNTDOWN -> Box(
+        WidgetCustomization.ELEMENT_COUNTDOWN -> Row(
             modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center,
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+            // المعاينة تطابق الويدجت (alpha64): الجملة TextView والأرقام
+            // للعدّاد الحي — بصيغة العدّاد نفسها
             Text(
-                text = "متبقي ${remainingPreview(snapshot.remainingSeconds)} حتى الأذان",
+                text = countdownLabel(snapshot.nextName),
                 fontSize = sizeOf(key, 12f).sp,
                 color = colorOf(key, pal.muted),
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
+                maxLines = 1,
+            )
+            Text(
+                text = remainingPreview(snapshot.remainingSeconds),
+                fontSize = sizeOf(key, 12f).sp,
+                color = colorOf(key, pal.muted),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
+                maxLines = 1,
             )
         }
 
@@ -534,13 +546,13 @@ private fun WidgetElementPreview(
     }
 }
 
-/** نص المتبقي في المعاينة — ساعة:دقيقة كما يعدّ الويدجت */
+/** نص المتبقي في المعاينة — نفس شكل العدّاد الحي (س:د:ث / د:ث) */
 private fun remainingPreview(seconds: Long): String {
     val total = seconds.coerceAtLeast(0)
     val h = total / 3600
     val m = (total % 3600) / 60
     val s = total % 60
-    return if (h > 0) "%d:%02d".format(h, m) else "%02d:%02d".format(m, s)
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
 }
 
 /**

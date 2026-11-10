@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  التوأم البنيوي لويدجت «نور المسلم» (alpha64) — نسخة حرفية من
+  widget_main بمعرّف موردٍ مختلف، والرسّام يبدّل بينهما فيتحوّل معرف
+  تخطيط RemoteViews كل تحديثٍ فتجبر بيئة الويدجت (وهوست سامسونج
+  خاصةً) على نفخ شجرة عرضٍ **جديدة كلياً** بدل إعادة تطبيق الأفعال
+  فوق شجرةٍ قديمة متحجّرة. هذا قتلٌ جذري ثانٍ لعائلة بلاغات
+  «الويدجت تكرر نفسه / تعرض شكلاً قديماً مخلوطاً» — بعد إصلاح
+  alpha63 (removeAllViews) الذي يعالج العُلبة نفسها لا الشجرة
+  الموروثة من نسخٍ أقدم كلها. التكلفة: نفخ شجرةٍ صغيرة كل تحديث،
+  ولا أثرَ له على موضع الويدجت ولا مقاسها.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="8dp">
+
+    <ImageView
+        android:id="@+id/widget_bg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
+
+    <LinearLayout
+        android:id="@+id/widget_stack"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp" />
+</FrameLayout>

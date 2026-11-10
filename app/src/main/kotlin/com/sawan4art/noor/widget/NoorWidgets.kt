@@ -145,7 +145,12 @@ object WidgetRenderer {
         heightDp: Int = 180,
     ): RemoteViews {
         val pal = palette(customization)
-        val views = RemoteViews(context.packageName, R.layout.widget_main)
+        // **شجرة جديدة كل تحديث** (alpha64): التبادل بين التوأمين
+        // widget_main/widget_main_alt يقلّب معرف التخطيط فيقلّب قرار
+        // الهوست بين النفخ الكامل وإعادة التطبيق — والنفخ الكامل هو
+        // المطلوب: كل تحديث شجرةٌ من أوله لا شجرةٌ قديمة تتراكم عليها
+        // أفعالٌ جديدة (جذر بلاغ التكرار alpha63 وخلط الشكل بعده).
+        val views = RemoteViews(context.packageName, mainLayoutForUpdate(System.currentTimeMillis()))
 
         // **جذر تكرار العناصر** (alpha63 — بلاغ المالك: «بعد ما بحط الويدجت
         // في الشاشه لو ضغط عليه الويدجت بيكرر نفسه بشكل غريب» — والصورة
@@ -295,8 +300,18 @@ object WidgetRenderer {
                     key,
                     visible = customization.showCountdown,
                 ) { child ->
+                    // الجملة كاملةً TextView عاديّاً (alpha64) — نفس منادى
+                    // setText الذي يظهر عند المالك في التواريخ والمدينة
+                    // والمواقيت، فلا يعتمد المعنى على صيغة Chronometer
+                    // التي سقطت ميدانياً فظهرت أرقامٌ عارية بلا كلمات
+                    child.setTextViewText(
+                        R.id.widget_countdown_label,
+                        countdownLabel(snapshot.nextName),
+                    )
+                    child.setFloat(R.id.widget_countdown_label, "setTextSize", sizeOf(key, 12f))
+                    child.setTextColor(R.id.widget_countdown_label, colorOf(key, pal.muted))
                     // الجذر المُصلَح (alpha58): setChronometer(…, started=true)
-                    // هي التي تُشغّل العدّاد — وصيغته التنازلية من التخطيط
+                    // هي التي تُشغّل العدّاد — والصيغة أرقامٌ خالصة (alpha64)
                     child.setChronometer(
                         R.id.widget_countdown,
                         chronometerBase(snapshot.remainingSeconds, SystemClock.elapsedRealtime()),
@@ -350,6 +365,19 @@ object WidgetRenderer {
         WidgetCustomization.ELEMENT_GRID -> R.layout.widget_el_grid
         else -> R.layout.widget_el_header
     }
+
+    /**
+     * تخطيط الحاضنة لهذا التحديث — التبادل بين التوأمين كل دقيقة:
+     * تحديثان متتاليان في دقيقتين مختلفتين يأخذان معرفين مختلفين فيُنفخ
+     * الهوست الشجرة من أوله (alpha64). القرار نقي على الزمن ([useAltMainLayout])
+     * كي يُختبر بلا R، والخريطة هنا وحدةُ الربط بالموارد.
+     */
+    internal fun mainLayoutForUpdate(nowMillis: Long): Int =
+        if (useAltMainLayout(nowMillis)) R.layout.widget_main_alt else R.layout.widget_main
+
+    /** هل يأخذ هذا التحديث التوأم البديل؟ — دقيقة زوجية أصليّة وفرديّة بديلة */
+    internal fun useAltMainLayout(nowMillis: Long): Boolean =
+        nowMillis / 60_000L % 2L != 0L
 
     /**
      * نية ضغطة الويدجت — فتح قسم «الويدجت» في إعدادات التطبيق
