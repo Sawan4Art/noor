@@ -123,7 +123,9 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: نور المسلم ${{ github.ref_name }}
-          files: ${{ env.NOOR_APKS }}
+          files: |
+            noor-almuslim-${{ github.ref_name }}.apk
+            noor-almuslim-${{ github.ref_name }}-alpha.apk
           prerelease: false
           generate_release_notes: true
           body_path: release_body.md
