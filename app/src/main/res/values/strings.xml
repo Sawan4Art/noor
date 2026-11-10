@@ -2,4 +2,13 @@
 <resources>
     <!-- أوصاف الويدجتات الخمسة في قائمة اختيار النظام (alpha56) -->
     <string name="widget_main_desc">نور المسلم — الوقت والتاريخان والمواقيت والقادمة بعدّادها والمسبحة، كلها كما تخصّصها من التطبيق</string>
+
+    <!-- أسماء الأشكال الستة في قائمة ويدجتات النظام (بلاغ المالك 2026-11-11) -->
+    <string name="widget_main_label">نور المسلم — افتراضي</string>
+    <string name="widget_preset1_label">نور المسلم — افتراضي</string>
+    <string name="widget_preset2_label">نور المسلم — الساعة التناظرية</string>
+    <string name="widget_preset3_label">نور المسلم — مختصر</string>
+    <string name="widget_preset4_label">نور المسلم — التواريخ</string>
+    <string name="widget_preset5_label">نور المسلم — ليلي</string>
+    <string name="widget_preset6_label">نور المسلم — فاتح</string>
 </resources>

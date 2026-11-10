@@ -38,12 +38,35 @@ object MushafSurahs {
      * · الآيات ١٠–١٤» — للتلاوة والمشاركة والنسخ والعلامة المرجعية.
      */
     fun caption(selection: MushafSelection): String {
-        val first = selection.ayahs.first
-        val last = selection.ayahs.last
-        val ayahPart = if (first == last) {
-            "آية ${arabicDigits(first)}"
-        } else {
-            "الآيات ${arabicDigits(first)}–${arabicDigits(last)}"
+        // قائمة الآيات تُضغط إلى مداها المتتابع — «٥٥–٥٧، ٥٩» — فقد
+        // ينتج التحديد قائمةً مقطوعة بإزالة آيةٍ وحدها (بلاغ 2026-11-11)
+        val ayahs = selection.ayahs
+        val ayahPart = when {
+            ayahs.size == 1 -> "آية ${arabicDigits(ayahs.first())}"
+            else -> {
+                val groups = ArrayList<String>()
+                var start = ayahs.first()
+                var prev = start
+                for (a in ayahs.drop(1)) {
+                    if (a == prev + 1) {
+                        prev = a
+                    } else {
+                        groups += if (start == prev) {
+                            arabicDigits(start)
+                        } else {
+                            "${arabicDigits(start)}–${arabicDigits(prev)}"
+                        }
+                        start = a
+                        prev = a
+                    }
+                }
+                groups += if (start == prev) {
+                    arabicDigits(start)
+                } else {
+                    "${arabicDigits(start)}–${arabicDigits(prev)}"
+                }
+                "الآيات " + groups.joinToString("، ")
+            }
         }
         return "سورة ${name(selection.sura)} · $ayahPart"
     }

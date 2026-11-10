@@ -81,43 +81,50 @@ jobs:
           done
           exit 1
 
-      # الإصدار الرسمي الموحّد عند الوسم النهائي (بلا لاحقة ألفا)
-      - name: بناء نسخة release عند الوسم
-        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, 'alpha')
-        run: ./gradlew :app:assembleRelease --console=plain --stacktrace
-
-      - name: التحقق من التوقيع
+      # من 1.70 (بلاغ المالك 2026-11-11: إزالة كلمة ألفا) كل إصدارٍ
+      # يُبنى بالنكهتين: المستقرة (com.sawan4art.noor) ونسخة ألفا
+      # (com.sawan4art.noor.alpha — نسخة الجهاز المعتمدة) — والفاحصُ
+      # في التطبيق يختار أصل نكهته من الأصول
+      - name: بناء النسختين release وalpha عند الوسم
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          if [[ "${{ github.ref_name }}" == *alpha* ]]; then
-            APK_PATH="app/build/outputs/apk/alpha/app-alpha.apk"
-          else
-            APK_PATH="app/build/outputs/apk/release/app-release.apk"
-          fi
-          echo "الملف: $APK_PATH"
-          $ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs "$APK_PATH" | head -4
-          echo "NOOR_APK_PATH=$APK_PATH" >> $GITHUB_ENV
+          for i in 1 2 3 4 5; do
+            if ./gradlew :app:assembleRelease :app:assembleAlpha --console=plain --stacktrace; then exit 0; fi
+            echo "المحاولة $i فشلت — انتظار ٣٠ ثانية قبل الإعادة…"
+            sleep 30
+          done
+          exit 1
 
-      - name: تسمية ملف الإصدار
+      - name: التحقق من التوقيع (النسختان)
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          cp "${NOOR_APK_PATH}" "noor-almuslim-${{ github.ref_name }}.apk"
-          echo "NOOR_APK_NAME=noor-almuslim-${{ github.ref_name }}.apk" >> $GITHUB_ENV
+          echo "== نسخة release =="
+          $ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk | head -4
+          echo "== نسخة alpha =="
+          $ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs app/build/outputs/apk/alpha/app-alpha.apk | head -4
+
+      - name: تسمية ملفات الإصدار
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "noor-almuslim-${{ github.ref_name }}.apk"
+          cp app/build/outputs/apk/alpha/app-alpha.apk "noor-almuslim-${{ github.ref_name }}-alpha.apk"
+          echo "NOOR_APKS=noor-almuslim-${{ github.ref_name }}.apk noor-almuslim-${{ github.ref_name }}-alpha.apk" >> $GITHUB_ENV
 
       # نص الإصدار يُولّد من سجل النسخ — التطبيق نفسه يقرأ هذا القسم في «ما الجديد»
       - name: توليد نص الإصدار من سجل النسخ
         if: startsWith(github.ref, 'refs/tags/v')
         run: python3 scripts/release_body.py "${{ github.ref_name }}" > release_body.md
 
-      # ألفا = pre-release حتى لا يلتقطها بنر التحديث في النسخة المستقرة
+      # من 1.70: كل إصدارٍ كامل (بلا ألفا في الاسم) — والفاحص في
+      # التطبيق يختار ملف نكهته من الأصول المرفقة
       - name: إنشاء GitHub Release ورفع الـ APK
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: نور المسلم ${{ github.ref_name }}
-          files: ${{ env.NOOR_APK_NAME }}
-          prerelease: ${{ contains(github.ref_name, 'alpha') }}
+          files: ${{ env.NOOR_APKS }}
+          prerelease: false
           generate_release_notes: true
           body_path: release_body.md
       - name: ملخص

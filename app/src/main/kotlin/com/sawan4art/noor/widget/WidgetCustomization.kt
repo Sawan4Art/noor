@@ -83,6 +83,18 @@ data class WidgetCustomization(
      */
     val elementOrder: List<String> = DEFAULT_ORDER,
 
+    /**
+     * **إطار كل عنصرٍ على حدة** (بلاغ المالك 2026-11-11: «عايز اطار
+     * للويدجت ولكل عنصر من الويدجت يكون اختيار اما اضافه الاطار بلون
+     * معين او ازاله الاطار و يكون اطار مربع بحواف دائريه مثلا اطار
+     * لكل عنصر على حده و اطار للويدجت كله المستخدم يقرر يستخدمهم ام
+     * لا») — مفتاح ELEMENT_* إلى «auto» (لون التطبيق) أو «none» (بلا
+     * إطار) أو لون صريح من لوحة الويدجت الثمانية. الإطار حَدٌّ مربّع
+     * بحواف دائرية (رسمٌ جاهز el_frame_*) لا يمس خلفية العنصر —
+     * والغيابُ في الخريطة يعني بلا إطارٍ خالصاً.
+     */
+    val elementFrames: Map<String, String> = emptyMap(),
+
     // ===== الإطار — بألوانٍ مختارةٍ أو بلا (alpha63) =====
     /**
      * لون الإطار حول الويدجت — «تلقائي» يتبع لون التطبيق، أو لون صريح،
@@ -128,6 +140,9 @@ data class WidgetCustomization(
         }
         if (elementOrder != DEFAULT_ORDER) {
             put("elementOrder", org.json.JSONArray(elementOrder))
+        }
+        if (elementFrames.isNotEmpty()) {
+            put("elementFrames", JSONObject().apply { elementFrames.forEach { (k, v) -> put(k, v) } })
         }
         put("frameColor", frameColor)
     }.toString()
@@ -235,6 +250,26 @@ data class WidgetCustomization(
             return out
         }
 
+        /**
+         * قراءة خريطة إطارات العناصر من JSON — القيمة المقبولة تلقائي أو
+         * «none» أو لون صريح صالح، والغريب يُرمى فلا إطار له.
+         */
+        private fun framesFrom(o: JSONObject): Map<String, String> {
+            val raw = o.optJSONObject("elementFrames") ?: return emptyMap()
+            val out = mutableMapOf<String, String>()
+            for (key in ELEMENT_KEYS) {
+                val v = raw.optString(key, "")
+                when {
+                    v.isEmpty() -> Unit
+                    // عقد الأطراف: لونٌ صريحٌ أو «none» — «auto» بلا رسمٍ
+                    // جاهزٍ ثابتٍ فلا تُقبل (درس العقد قبل الحفظ)
+                    v == FRAME_NONE -> out[key] = v
+                    parseColor(v) != null -> out[key] = v
+                }
+            }
+            return out
+        }
+
         /** الافتراضي — قبل أي تخصيص */
         val DEFAULT = WidgetCustomization()
 
@@ -270,6 +305,7 @@ data class WidgetCustomization(
                     }.getOrDefault(ClockStyle.DIGITAL),
                     elementSizes = sizesFrom(o),
                     elementColors = colorsFrom(o),
+                    elementFrames = framesFrom(o),
                     elementOrder = normalizeOrder(
                         buildList {
                             val arr = o.optJSONArray("elementOrder")

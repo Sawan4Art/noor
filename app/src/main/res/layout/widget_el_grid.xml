@@ -6,32 +6,44 @@
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/grid_row"
+    android:paddingHorizontal="4dp"
+    android:paddingVertical="2dp"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal">
 
     <LinearLayout style="@style/WidgetPrayerCell">
-        <TextView android:id="@+id/widget_pname_0" style="@style/WidgetPrayerName" />
-        <TextView android:id="@+id/widget_ptime_0" style="@style/WidgetPrayerTime" />
+        <TextView android:id="@+id/widget_pname_0" style="@style/WidgetPrayerName" 
+        android:fontFamily="sans-serif" />
+        <TextView android:id="@+id/widget_ptime_0" style="@style/WidgetPrayerTime" 
+        android:fontFamily="sans-serif" />
     </LinearLayout>
 
     <LinearLayout style="@style/WidgetPrayerCell">
-        <TextView android:id="@+id/widget_pname_1" style="@style/WidgetPrayerName" />
-        <TextView android:id="@+id/widget_ptime_1" style="@style/WidgetPrayerTime" />
+        <TextView android:id="@+id/widget_pname_1" style="@style/WidgetPrayerName" 
+        android:fontFamily="sans-serif" />
+        <TextView android:id="@+id/widget_ptime_1" style="@style/WidgetPrayerTime" 
+        android:fontFamily="sans-serif" />
     </LinearLayout>
 
     <LinearLayout style="@style/WidgetPrayerCell">
-        <TextView android:id="@+id/widget_pname_2" style="@style/WidgetPrayerName" />
-        <TextView android:id="@+id/widget_ptime_2" style="@style/WidgetPrayerTime" />
+        <TextView android:id="@+id/widget_pname_2" style="@style/WidgetPrayerName" 
+        android:fontFamily="sans-serif" />
+        <TextView android:id="@+id/widget_ptime_2" style="@style/WidgetPrayerTime" 
+        android:fontFamily="sans-serif" />
     </LinearLayout>
 
     <LinearLayout style="@style/WidgetPrayerCell">
-        <TextView android:id="@+id/widget_pname_3" style="@style/WidgetPrayerName" />
-        <TextView android:id="@+id/widget_ptime_3" style="@style/WidgetPrayerTime" />
+        <TextView android:id="@+id/widget_pname_3" style="@style/WidgetPrayerName" 
+        android:fontFamily="sans-serif" />
+        <TextView android:id="@+id/widget_ptime_3" style="@style/WidgetPrayerTime" 
+        android:fontFamily="sans-serif" />
     </LinearLayout>
 
     <LinearLayout style="@style/WidgetPrayerCell">
-        <TextView android:id="@+id/widget_pname_4" style="@style/WidgetPrayerName" />
-        <TextView android:id="@+id/widget_ptime_4" style="@style/WidgetPrayerTime" />
+        <TextView android:id="@+id/widget_pname_4" style="@style/WidgetPrayerName" 
+        android:fontFamily="sans-serif" />
+        <TextView android:id="@+id/widget_ptime_4" style="@style/WidgetPrayerTime" 
+        android:fontFamily="sans-serif" />
     </LinearLayout>
 </LinearLayout>

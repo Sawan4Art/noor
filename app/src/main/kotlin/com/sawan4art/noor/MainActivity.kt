@@ -189,9 +189,14 @@ class MainActivity : ComponentActivity() {
         handleUpdateIntent(intent)
         openWidgetSettings.value =
             intent?.action == com.sawan4art.noor.widget.NoorWidget.ACTION_OPEN_WIDGET_SETTINGS
+        openWidgetId.value = if (openWidgetSettings.value) {
+            intent?.getIntExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: -1
+        } else {
+            -1
+        }
         setContent {
             val viewModel: HomeViewModel = viewModel()
-            NoorApp(viewModel, openWidgetSettings)
+            NoorApp(viewModel, openWidgetSettings, openWidgetId)
         }
     }
 
@@ -233,11 +238,16 @@ class MainActivity : ComponentActivity() {
         // ضغطة الويدجت والنشاط حي — نفس المسار: فتح قسم إعدادات الويدجت (alpha63)
         if (intent.action == com.sawan4art.noor.widget.NoorWidget.ACTION_OPEN_WIDGET_SETTINGS) {
             openWidgetSettings.value = true
+            openWidgetId.value =
+                intent.getIntExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
         }
     }
 
     /** ضغطة الويدجت على الشاشة تفتح قسم إعداداتها داخل التطبيق (alpha63) */
     private val openWidgetSettings = androidx.compose.runtime.mutableStateOf(false)
+
+    /** ومعرّف الويدجت المضغوطة — المحرر يحرّر تخصيصها هي (الأشكال الستة) */
+    private val openWidgetId = androidx.compose.runtime.mutableIntStateOf(-1)
 
     /** ضغط إشعار التحديث → إلغاء أي استبعاد + فحص فوري بلا سقف زمني
      *  فيظهر ملخص ما الجديد دائماً بضغطة الإشعار (alpha37) */
@@ -259,6 +269,20 @@ class MainActivity : ComponentActivity() {
                 steps.clear()
                 for (key in plan.first) enqueueStep(key)
                 launchNextStep()
+            }
+        }
+        // إشعار التشغيل السريع — يظهر مع كل إقلاعٍ إن كان مفتاحه مفعّلاً
+        // (بلاغ المالك 2026-11-11: «ايقونه في شريط الاشعارات لتشغيل
+        // سريع للتطبيق») ويُغلق إن طفأ المفتاح في مكانٍ آخر
+        lifecycleScope.launch {
+            runCatching {
+                val enabled = SettingsRepository(this@MainActivity)
+                    .settingsOnce().quickNotification
+                if (enabled) {
+                    com.sawan4art.noor.util.QuickLaunchNotification.show(this@MainActivity)
+                } else {
+                    com.sawan4art.noor.util.QuickLaunchNotification.dismiss(this@MainActivity)
+                }
             }
         }
     }

@@ -1,7 +1,5 @@
 package com.sawan4art.noor.domain.mushaf
 
-import kotlin.math.max
-import kotlin.math.min
 
 /**
  * هندسة صفحات المصحف الملوّن — توصيف محسوس من الطبعة نفسها.
@@ -142,17 +140,40 @@ data class MushafSegment(
 data class MushafAyah(val sura: Int, val ayah: Int)
 
 /**
- * تحديد مُدى آيات — من ضغطة أولى (أو ضغط مطوّل) إلى ضغطة ثانية: كل الآيات
+ * تحديد آيات — من ضغطة أولى (أو ضغط مطوّل) إلى ضغطةٍ ثانية: كل الآيات
  * بينهما تُحدَّد آلياً بتوجيه المالك «اذا حدد المستخدم مثلا ايه رقم ٥٠ و
  * جيه يدوس على ايه ٥٥ يبقى اوتماتك الايات التي في المنتصف تحدد».
+ *
+ * **بلاغ المالك 2026-11-11** أعاد تشكيل الحساب: «عند التحديد على ايه
+ * في المصحف لا يتم حذف التحديد ابدا… اذا كانت هناك ايه واحده محدده
+ * اذا ضغط المستخدم مره اخرى عليها ضغطه مطوله يزال التحديد و اذا كانت
+ * اكثر من ايه محدده يتم الضغط ضغطه واحده لاغاء تحديد ايه الى اخر ايه
+ * لازم المستخدم يضغط ضغطه طويله لالغاء تحديدها» — فالتحديد صار
+ * **قائمةَ آياتٍ** لا مُدىً: الضغطة الواحدة تَقطُع الذيل (من الآية
+ * المضغوطة إلى آخرها)، والضغطة المطوّلة تُسقط الآية الواحدة وحدها
+ * — وقد ينتج قائمةٌ مقطوعةَ الأطراف فالقائمة هي العقد لا المدى.
  */
-data class MushafSelection(
+class MushafSelection(
     val sura: Int,
-    val from: Int,
-    val to: Int,
+    ayahs: List<Int>,
 ) {
-    /** مدى الآيات المنتظب — الضغط قبل البداية يقلب المُدى هادئاً */
-    val ayahs: IntRange get() = min(from, to)..max(from, to)
+    /** آيات التحديد مرتبةً تصاعدياً ومكررةً لا — قائمةٌ لا مدى (بلاغ 2026-11-11) */
+    val ayahs: List<Int> = ayahs.distinct().sorted()
+
+    /** آيةٌ واحدة — بداية كل تحديد */
+    constructor(sura: Int, single: Int) : this(sura, listOf(single))
+
+    /** أول آية في التحديد */
+    val first: Int get() = ayahs.first()
+
+    /** آخر آية في التحديد */
+    val last: Int get() = ayahs.last()
+
+    /** هل التحديد آيةً واحدة؟ */
+    val isSingle: Boolean get() = ayahs.size == 1
+
+    /** مجموعةٌ سريعة للفحص والرسم */
+    val ayahSet: Set<Int> get() = ayahs.toSet()
 }
 
 object MushafSelectionOps {
@@ -186,31 +207,57 @@ object MushafSelectionOps {
     }
 
     /**
-     * توسيع التحديد بضغطة جديدة: نفس السورة ← مُدى من ثابت التحديد الحالي
-     * إلى الآية المضغوطة (الأوسط آلياً)، وسورة أخرى ← بداية تحديد جديدة.
+     * توسيع التحديد بضغطة جديدة: نفس السورة ← يُملأ المُدى من ثابت
+     * التحديد إلى الآية المضغوطة (الأوسط آلياً)، وسورة أخرى ← بداية
+     * تحديدٍ جديد.
      */
     fun extend(current: MushafSelection?, tapped: MushafAyah): MushafSelection =
         if (current != null && current.sura == tapped.sura) {
-            MushafSelection(tapped.sura, current.from, tapped.ayah)
+            val lo = minOf(current.first, tapped.ayah)
+            val hi = maxOf(current.last, tapped.ayah)
+            MushafSelection(tapped.sura, (current.ayahSet + (lo..hi).toSet()).sorted())
         } else {
-            MushafSelection(tapped.sura, tapped.ayah, tapped.ayah)
+            MushafSelection(tapped.sura, tapped.ayah)
         }
 
     /** أول آية في التحديد — للعلامة المرجعية والتلاوة */
     fun firstOf(selection: MushafSelection): MushafAyah =
-        MushafAyah(selection.sura, min(selection.from, selection.to))
+        MushafAyah(selection.sura, selection.first)
 
     /**
-     * هل الآية داخل المُدى المحدَّد؟ — لمسح التحديد بضغطةٍ مطوّلةٍ
-     * ثانيةٍ على آيةٍ من المُدى (alpha63 — بلاغ المالك: «انا عايز
-     * التحديد يزال عند الضغط المطول عليه مره اخرى»).
+     * هل الآية داخل التحديد؟ — لقواعد الإزالة الجديدة (بلاغ المالك
+     * 2026-11-11) ولرسم الإبراز.
      */
     fun contains(selection: MushafSelection?, ayah: MushafAyah): Boolean {
         if (selection == null) return false
         if (selection.sura != ayah.sura) return false
-        return ayah.ayah in selection.ayahs
+        return ayah.ayah in selection.ayahSet
+    }
+
+    /**
+     * **إزالة الآية الواحدة بالضغطة المطوّلة** — بلاغ المالك 2026-11-11:
+     * «لازم المستخدم يضغط ضغطه طويله لالغاء تحديدها» — تُسقط الآية
+     * وحدها من القائمة، فإن كانت التحديدَ كله (آيةً واحدةً) عاد null
+     * فيُمسح التحديد كلياً.
+     */
+    fun removeSingle(selection: MushafSelection, ayah: MushafAyah): MushafSelection? {
+        if (selection.sura != ayah.sura) return selection
+        val rest = selection.ayahs.filter { it != ayah.ayah }
+        return if (rest.isEmpty()) null else MushafSelection(selection.sura, rest)
+    }
+
+    /**
+     * **قطع الذيل بضغطةٍ واحدة** — بلاغ المالك 2026-11-11: «يتم الضغط
+     * ضغطه واحده لاغاء تحديد ايه الى اخر ايه» — تُسقط الآية المضغوطة
+     * وكل ما بعدها من التحديد، فإن لم يبقَ شيءٍ عاد null.
+     */
+    fun truncateFrom(selection: MushafSelection, ayah: MushafAyah): MushafSelection? {
+        if (selection.sura != ayah.sura) return selection
+        val rest = selection.ayahs.filter { it < ayah.ayah }
+        return if (rest.isEmpty()) null else MushafSelection(selection.sura, rest)
     }
 }
+
 
 /**
  * آيات التلاوة الثلاثية — توجيه المالك ٢٠٢٦-١١-٠٦: «عايز لما ادوس على زر
@@ -225,7 +272,7 @@ object MushafPlaylist {
 
     /** السورة من بداية التحديد إلى آخر آية فيها */
     fun surahFromSelection(selection: MushafSelection, surahAyahCount: Int): List<Int> {
-        val start = min(selection.from, selection.to)
+        val start = selection.first
         return if (start <= surahAyahCount) (start..surahAyahCount).toList() else emptyList()
     }
 

@@ -59,9 +59,10 @@ class MushafSelectionTest {
     @Test
     fun `المدي بين آيتين يحدد ما بينهما آليا كما طلب المالك ٥٠ ثم ٥٥`() {
         val anchor = MushafSelectionOps.extend(null, com.sawan4art.noor.domain.mushaf.MushafAyah(2, 50))
-        assertEquals(MushafSelection(2, 50, 50), anchor)
+        assertEquals(2, anchor.sura)
+        assertEquals(listOf(50), anchor.ayahs)
         val extended = MushafSelectionOps.extend(anchor, com.sawan4art.noor.domain.mushaf.MushafAyah(2, 55))
-        assertEquals(MushafSelection(2, 50, 55), extended)
+        assertEquals((50..55).toList(), extended.ayahs)
         assertEquals((50..55).toList(), extended.ayahs.toList())
     }
 
@@ -76,24 +77,26 @@ class MushafSelectionTest {
     fun `سورة مختلفة تبدأ تحديدا جديدا لا تمتد المدي`() {
         val anchor = MushafSelectionOps.extend(null, com.sawan4art.noor.domain.mushaf.MushafAyah(2, 286))
         val extended = MushafSelectionOps.extend(anchor, com.sawan4art.noor.domain.mushaf.MushafAyah(3, 200))
-        assertEquals(MushafSelection(3, 200, 200), extended)
+        assertEquals(3, extended.sura)
+        assertEquals(listOf(200), extended.ayahs)
     }
 
     @Test
-    fun `أول آية في المدي هي الأصغر رقمين كان أم لا`() {
-        val sel = MushafSelection(2, 55, 50)
+    fun `البناء يرتب الآيات آليا فيبقى أول التحديد الأصغر`() {
+        val sel = MushafSelection(2, listOf(55, 50))
+        assertEquals(listOf(50, 55), sel.ayahs)
         assertEquals(50, MushafSelectionOps.firstOf(sel).ayah)
     }
 
     @Test
     fun `عنوان التحديد آية واحدة بأرقام عربية`() {
-        assertEquals("سورة البقرة · آية ١٠", MushafSurahs.caption(MushafSelection(2, 10, 10)))
+        assertEquals("سورة البقرة · آية ١٠", MushafSurahs.caption(MushafSelection(2, listOf(10))))
     }
 
     @Test
-    fun `عنوان المدي بأرقام عربية ومشطتين`() {
-        assertEquals("سورة آل عمران · الآيات ٥٠–٥٥", MushafSurahs.caption(MushafSelection(3, 50, 55)))
-        assertEquals("سورة آل عمران · الآيات ٥٠–٥٥", MushafSurahs.caption(MushafSelection(3, 55, 50)))
+    fun `عنوان المدي المتتابع بأرقام عربية ومشطتين والمتقطع بفاصلة`() {
+        assertEquals("سورة آل عمران · الآيات ٥٠–٥٥", MushafSurahs.caption(MushafSelection(3, (50..55).toList())))
+        assertEquals("سورة آل عمران · الآيات ٥٠، ٥٥", MushafSurahs.caption(MushafSelection(3, listOf(50, 55))))
     }
 
     @Test
@@ -203,12 +206,23 @@ class MushafGeometryTest {
 /** اختبارات آيات التلاوة الثلاثية — قائمة الاختيارات التي طلبها المالك */
 class MushafPlaylistTest {
 
-    private val sel = MushafSelection(2, 50, 55)
+    private val sel = MushafSelectionOps.extend(
+        MushafSelectionOps.extend(null, com.sawan4art.noor.domain.mushaf.MushafAyah(2, 50)),
+        com.sawan4art.noor.domain.mushaf.MushafAyah(2, 55),
+    )
 
     @Test
     fun `المحدد فقط يرجع المدى المنتظم`() {
         assertEquals((50..55).toList(), com.sawan4art.noor.domain.mushaf.MushafPlaylist.selected(sel))
-        assertEquals((50..55).toList(), com.sawan4art.noor.domain.mushaf.MushafPlaylist.selected(MushafSelection(2, 55, 50)))
+        assertEquals(
+            (50..55).toList(),
+            com.sawan4art.noor.domain.mushaf.MushafPlaylist.selected(
+                MushafSelectionOps.extend(
+                    MushafSelectionOps.extend(null, com.sawan4art.noor.domain.mushaf.MushafAyah(2, 55)),
+                    com.sawan4art.noor.domain.mushaf.MushafAyah(2, 50),
+                ),
+            ),
+        )
     }
 
     @Test
@@ -225,5 +239,59 @@ class MushafPlaylistTest {
     fun `عدد غير سليم لا يفجّر القوائم`() {
         assertTrue(com.sawan4art.noor.domain.mushaf.MushafPlaylist.surahFromSelection(sel, 0).isEmpty())
         assertTrue(com.sawan4art.noor.domain.mushaf.MushafPlaylist.surahFull(0).isEmpty())
+    }
+}
+
+/** قواعد الإزالة الجديدة — بلاغ المالك 2026-11-11 */
+class MushafSelectionRulesTest {
+
+    private val ayah2 = com.sawan4art.noor.domain.mushaf.MushafAyah(2, 55)
+
+    @Test
+    fun `ضغطة واحدة على آية من المدى المتعدد تقع الذيل حتى آخر التحديد`() {
+        val sel = MushafSelection(2, listOf(50, 51, 52, 53, 54, 55))
+        val cut = MushafSelectionOps.truncateFrom(sel, ayah2)
+        assertEquals(listOf(50, 51, 52, 53, 54), cut?.ayahs)
+    }
+
+    @Test
+    fun `ضغطة واحدة على أول آية في المدى تمسح التحديد كله`() {
+        val sel = MushafSelection(2, listOf(50, 51, 52))
+        assertNull(MushafSelectionOps.truncateFrom(sel, com.sawan4art.noor.domain.mushaf.MushafAyah(2, 50)))
+    }
+
+    @Test
+    fun `ضغطة طويلة على آية وسط المدى تسقطها وحدها بلا كسر البقية`() {
+        val sel = MushafSelection(2, listOf(50, 51, 52, 53))
+        val cut = MushafSelectionOps.removeSingle(sel, com.sawan4art.noor.domain.mushaf.MushafAyah(2, 52))
+        assertEquals(listOf(50, 51, 53), cut?.ayahs)
+    }
+
+    @Test
+    fun `ضغطة طويلة على الآية الوحيدة المحددة تمسح التحديد كليا`() {
+        val sel = MushafSelection(2, listOf(55))
+        assertNull(MushafSelectionOps.removeSingle(sel, ayah2))
+    }
+
+    @Test
+    fun `المدى بعد إزالة آية يبقى قائمة مرتبة والاحتواء يعمل`() {
+        val sel = MushafSelection(2, listOf(50, 51, 53))
+        assertTrue(MushafSelectionOps.contains(sel, com.sawan4art.noor.domain.mushaf.MushafAyah(2, 53)))
+        assertTrue(!MushafSelectionOps.contains(sel, com.sawan4art.noor.domain.mushaf.MushafAyah(2, 52)))
+    }
+
+    @Test
+    fun `توسيع تحديد مقطوع يملأ الفجوة حتى الآية الجديدة`() {
+        val sel = MushafSelection(2, listOf(50, 51, 53))
+        val ext = MushafSelectionOps.extend(sel, com.sawan4art.noor.domain.mushaf.MushafAyah(2, 55))
+        assertEquals(listOf(50, 51, 52, 53, 54, 55), ext.ayahs)
+    }
+
+    @Test
+    fun `عنوان تحديد مقطوع يضغط المدى المتتابع ويفصل المقطوع`() {
+        assertEquals(
+            "سورة البقرة · الآيات ٥٠–٥١، ٥٣",
+            MushafSurahs.caption(MushafSelection(2, listOf(50, 51, 53))),
+        )
     }
 }

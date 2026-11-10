@@ -64,27 +64,103 @@
             android:exported="false" />
 
         <!--
-          ويدجتات النظام الخمسة (alpha56 — توجيه المالك: «خمس اشكال
-          مختلفه بنفس تصميم التطبيق و قابله للتخصيص والتعديل الكامل»):
-          كلٌّ شكل مستقل يستدلِيه المستخدم من قائمة ويدجتات النظام،
-          والتخصيص المشترك يُقرأ عند كل رسم من مخزن الويدجت.
-        -->
-        <!--
-          ويدجت «نور المسلم» الواحدة (alpha57 — بلاغ المالك: «خليها
-          ويدجت واحده و قابلة للتخصيص بالكامل من الاعدادات») — مستقبل
-          واحد: يرسم من التخصيص الحي ويستقبل بثّي المسبحة (تسبيح/تصفير).
+          ويدجت نور المسلم — الشكل الافتراضي والأشكال الستة الجاهزة
+          (بلاغ المالك 2026-11-11: «عايز ٦ اشكال للويدجت تكون جاهزة
+          للمستخدم ممكن يختار منهم و يكون اشكالهم ظاهره في قائمه
+          التطبيقات المصغرة في الهاتف علشان المستخدم يقدر يفرق بينهم»):
+          كل شكلٍ مستقبِلٌ مستقلٌ بمعاينةٍ مرسومةٍ (widget_preview_1..6)
+          واسمٍ واضحٍ في قائمة النظام، وأول رسمٍ يزرع تخصيص شكله للويدجت
+          المنصوبة، والتخصيص لكل ويدجتٍ على حدة من مخزنها.
         -->
         <receiver
             android:name=".widget.NoorWidget"
             android:enabled="true"
             android:exported="false"
-            android:label="@string/widget_main_desc">
+            android:label="@string/widget_main_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_main_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.NoorWidgetPreset1"
+            android:enabled="true"
+            android:exported="false"
+            android:label="@string/widget_preset1_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_preset1_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.NoorWidgetPreset2"
+            android:enabled="true"
+            android:exported="false"
+            android:label="@string/widget_preset2_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_preset2_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.NoorWidgetPreset3"
+            android:enabled="true"
+            android:exported="false"
+            android:label="@string/widget_preset3_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_preset3_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.NoorWidgetPreset4"
+            android:enabled="true"
+            android:exported="false"
+            android:label="@string/widget_preset4_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_preset4_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.NoorWidgetPreset5"
+            android:enabled="true"
+            android:exported="false"
+            android:label="@string/widget_preset5_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_preset5_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.NoorWidgetPreset6"
+            android:enabled="true"
+            android:exported="false"
+            android:label="@string/widget_preset6_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_preset6_info" />
         </receiver>
 
         <service
@@ -144,6 +220,13 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!--
+      الموقع في الخلفية (بلاغ المالك 2026-11-11: «زر تحديد الموقع
+      تلقائى… يعني التطبيق لازم يشتغل في الخلفيه») — دورةٌ دوريةٌ
+      تُحدّث الموقع والمواقيت لو التطبيق مغلق، والإذن يُطلب من صفحة
+      النظام «Allow all the time» عند تفعيل المفتاح فقط.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />

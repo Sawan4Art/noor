@@ -151,7 +151,11 @@ class MushafSearchTest {
 
     @Test
     fun `مسح التحديد بضغطة مطولة على آية من المدى`() {
-        val sel = com.sawan4art.noor.domain.mushaf.MushafSelection(19, 50, 60)
+        val ops = com.sawan4art.noor.domain.mushaf.MushafSelectionOps
+        val sel = ops.extend(
+            ops.extend(null, com.sawan4art.noor.domain.mushaf.MushafAyah(19, 50)),
+            com.sawan4art.noor.domain.mushaf.MushafAyah(19, 60),
+        )
         assertTrue(
             com.sawan4art.noor.domain.mushaf.MushafSelectionOps.contains(
                 sel,

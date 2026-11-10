@@ -216,7 +216,17 @@ class ManifestContractTest {
                 .map { it.getAttribute("android:name") }
                 .filter { it.startsWith(".widget.") }
         }
-        assertEquals("مستقبل ويدجت واحد فقط", listOf(".widget.NoorWidget"), receivers)
+        // بلاغ المالك 2026-11-11: الأشكال الستة مستقبِلات مستقلة بمعايناتها
+        assertEquals(
+            "الشكل الافتراضي والأشكال الستة",
+            listOf(
+                ".widget.NoorWidget",
+                ".widget.NoorWidgetPreset1", ".widget.NoorWidgetPreset2",
+                ".widget.NoorWidgetPreset3", ".widget.NoorWidgetPreset4",
+                ".widget.NoorWidgetPreset5", ".widget.NoorWidgetPreset6",
+            ),
+            receivers,
+        )
     }
 
     /**

@@ -64,7 +64,15 @@ object UpdateChecker {
      */
     suspend fun check(currentVersion: String): UpdateInfo? = withContext(Dispatchers.IO) {
         val json = fetchReleasesJson()
-        val releases = parseReleases(json)
+        // ملف الـ APK يُختار بذوق الحزمة المثبتة: ألفا (.alpha) تأخذ أصل
+        // ألفا، والمستقرة تأخذ أصل المستقرة — الإصدارات من 1.70 تحمل
+        // ملفين معاً (بلاغ المالك 2026-11-11: إزالة كلمة ألفا من الاسم
+        // مع بقاء نسخته المثبتة) — والإصدارات القديمة بملفٍ واحدٍ تسير
+        // بأمانٍ بأول أصلٍ إن لم يوجد أصلاً بطابع النكهة
+        val releases = parseReleases(
+            json,
+            preferAlphaAsset = BuildConfig.APPLICATION_ID.endsWith(".alpha"),
+        )
         pickUpdate(releases, currentVersion, allowPrerelease = isAlphaChannel(currentVersion))
     }
 
@@ -86,8 +94,12 @@ object UpdateChecker {
         }
     }
 
-    /** تحليل مصفوفة إصدارات GitHub — تسامح: عنصر تالف يُتخطى ولا يُسقط البقية */
-    internal fun parseReleases(json: String): List<ReleaseSummary> {
+    /** تحليل مصفوفة إصدارات GitHub — تسامح: عنصر تالف يُتخطى ولا يُسقط البقية.
+     *  كل أصول الـ APK تُجمع وتُختار أصول النكهة المطلوبة إن وُجدت */
+    internal fun parseReleases(
+        json: String,
+        preferAlphaAsset: Boolean = false,
+    ): List<ReleaseSummary> {
         val array = JSONArray(json)
         val summaries = mutableListOf<ReleaseSummary>()
         for (i in 0 until array.length()) {
@@ -97,15 +109,29 @@ object UpdateChecker {
                 var apkName: String? = null
                 var apkUrl: String? = null
                 var apkSize = 0L
+                var flavorApkName: String? = null
+                var flavorApkUrl: String? = null
+                var flavorApkSize = 0L
                 val assets = release.optJSONArray("assets") ?: JSONArray()
                 for (j in 0 until assets.length()) {
                     val asset = assets.getJSONObject(j)
                     val name = asset.optString("name", "")
                     if (name.endsWith(".apk", ignoreCase = true)) {
-                        apkName = name
-                        apkUrl = asset.optString("browser_download_url", "")
-                        apkSize = asset.optLong("size", 0L)
-                        break
+                        if (apkName == null) {
+                            // أول أصلٍ كخطةٍ احتياطيةٍ للإصدارات القديمة
+                            apkName = name
+                            apkUrl = asset.optString("browser_download_url", "")
+                            apkSize = asset.optLong("size", 0L)
+                        }
+                        val isAlphaAsset = name.contains("alpha", ignoreCase = true)
+                        if ((preferAlphaAsset && isAlphaAsset) ||
+                            (!preferAlphaAsset && !isAlphaAsset)
+                        ) {
+                            flavorApkName = name
+                            flavorApkUrl = asset.optString("browser_download_url", "")
+                            flavorApkSize = asset.optLong("size", 0L)
+                            break
+                        }
                     }
                 }
                 summaries.add(
@@ -116,9 +142,9 @@ object UpdateChecker {
                         isPrerelease = release.optBoolean("prerelease", false),
                         releaseUrl = release.optString("html_url", ""),
                         publishedAt = release.optString("published_at", ""),
-                        apkName = apkName,
-                        apkUrl = apkUrl,
-                        apkSizeBytes = apkSize,
+                        apkName = flavorApkName ?: apkName,
+                        apkUrl = flavorApkUrl ?: apkUrl,
+                        apkSizeBytes = if (flavorApkName != null) flavorApkSize else apkSize,
                     ),
                 )
             }

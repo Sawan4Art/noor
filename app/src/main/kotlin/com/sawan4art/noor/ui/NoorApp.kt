@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -84,6 +85,8 @@ fun NoorApp(
     viewModel: HomeViewModel,
     /** ضغطة الويدجت على الشاشة تفتح قسم إعداداتها داخل التطبيق (alpha63) */
     openWidgetSettings: androidx.compose.runtime.MutableState<Boolean>? = null,
+    /** ومعرّف الويدجت المضغوطة — المحرر يحرّر تخصيصها هي (بلاغ 2026-11-11) */
+    openWidgetId: androidx.compose.runtime.MutableState<Int>? = null,
 ) {
     // **ثبات مقاس الخط** (alpha39 — بلاغ المالك: «في مشكله عند تكبير حجم
     // العرض والخط من اعدادات الهاتف يتم ازاله بعض الايقونات انا عايز
@@ -95,7 +98,7 @@ fun NoorApp(
     val system = LocalDensity.current
     val fixed = Density(density = system.density, fontScale = APP_FONT_SCALE)
     CompositionLocalProvider(LocalDensity provides fixed) {
-        NoorRoot(viewModel, openWidgetSettings)
+        NoorRoot(viewModel, openWidgetSettings, openWidgetId)
     }
 }
 
@@ -103,14 +106,18 @@ fun NoorApp(
 private fun NoorRoot(
     viewModel: HomeViewModel,
     openWidgetSettings: androidx.compose.runtime.MutableState<Boolean>? = null,
+    openWidgetId: androidx.compose.runtime.MutableState<Int>? = null,
 ) {
     var tab by rememberSaveable { mutableStateOf(NoorTab.PRAYER) }
     // قسم الإعدادات المطلوب فتحه مباشرة — ضغطة الويدجت تفتح قسمها (alpha63)
     var settingsSectionHint by remember { mutableStateOf("home") }
+    // ومعرّف الويدجت المضغوطة — المحرر يحرّر تخصيصها هي (الأشكال الستة)
+    var settingsWidgetIdHint by remember { mutableIntStateOf(-1) }
     androidx.compose.runtime.LaunchedEffect(openWidgetSettings?.value == true) {
         if (openWidgetSettings?.value == true) {
             tab = NoorTab.SETTINGS
             settingsSectionHint = "widgets"
+            settingsWidgetIdHint = openWidgetId?.value ?: -1
             openWidgetSettings.value = false
         }
     }
@@ -165,6 +172,7 @@ private fun NoorRoot(
                     tab = tab,
                     onTab = { tab = it },
                     settingsSectionHint = settingsSectionHint,
+                    settingsWidgetIdHint = settingsWidgetIdHint,
                     uiState = uiState,
                     locating = locating,
                     isDark = darkTheme,
@@ -173,6 +181,9 @@ private fun NoorRoot(
                     onSetHanafi = viewModel::setHanafi,
                     onSetAccent = viewModel::setAccent,
                     onSetPrimary = viewModel::setPrimary,
+                    onSetQuickNotification = viewModel::setQuickNotification,
+                    onSetAutoLocation = viewModel::setAutoLocation,
+                    onSetManualLocation = viewModel::setManualLocation,
                     adhanPrefs = adhanPrefs,
                     adhanActions = viewModel,
                     updateState = updateState,
@@ -269,6 +280,7 @@ private fun NoorRoot(
                             tab = tab,
                             onTab = { tab = it },
                             settingsSectionHint = settingsSectionHint,
+                            settingsWidgetIdHint = settingsWidgetIdHint,
                             uiState = uiState,
                             locating = locating,
                             // نسخة المعاينة تتلقى الثيم **المثبّت** لا هدف المعاينة
@@ -281,6 +293,9 @@ private fun NoorRoot(
                             onSetHanafi = viewModel::setHanafi,
                             onSetAccent = viewModel::setAccent,
                             onSetPrimary = viewModel::setPrimary,
+                            onSetQuickNotification = viewModel::setQuickNotification,
+                            onSetAutoLocation = viewModel::setAutoLocation,
+                            onSetManualLocation = viewModel::setManualLocation,
                             adhanPrefs = adhanPrefs,
                             adhanActions = viewModel,
                             updateState = updateState,
@@ -440,6 +455,8 @@ private fun NoorBody(
     onTab: (NoorTab) -> Unit,
     /** ضغطة الويدجت تفتح قسم الويدجت مباشرة داخل الإعدادات (alpha63) */
     settingsSectionHint: String,
+    /** ومعرّف الويدجت المضغوطة — المحرر يحرّر تخصيصها هي (بلاغ 2026-11-11) */
+    settingsWidgetIdHint: Int,
     uiState: HomeViewModel.HomeUiState,
     locating: Boolean,
     /** الثيم المثبّت الحالي — ينزل للرئيسية كي تدور جمل التذكير مع قلبه */
@@ -450,6 +467,12 @@ private fun NoorBody(
     onSetAccent: (String) -> Unit,
     /** اللون الأساسي — نص فارغ يعني «الحالي» (يتبع لون التطبيق) */
     onSetPrimary: (String) -> Unit,
+    /** إشعار التشغيل السريع — شريط الإشعارات (بلاغ 2026-11-11) */
+    onSetQuickNotification: (Boolean) -> Unit,
+    /** التحديد التلقائي للموقع في الخلفية (بلاغ 2026-11-11) */
+    onSetAutoLocation: (Boolean) -> Unit,
+    /** حفظ موقعٍ يدوي من القوائم المتدرجة (بلاغ 2026-11-11) */
+    onSetManualLocation: (String, Double, Double) -> Unit,
     /** حفظ آخر صفحة مصحف — المصحف يفتح مكمنه الذي تركه القارئ (alpha49) */
     onSaveMushafPage: (Int) -> Unit,
     /** حفظ علامة مرجعية على آية أو مسحها — سورة صفر للمسح (alpha51) */
@@ -524,8 +547,12 @@ private fun NoorBody(
                     NoorTab.SETTINGS -> SettingsScreen(
                         settings = uiState.settings,
                         initialSection = settingsSectionHint,
+                        initialWidgetId = settingsWidgetIdHint,
                         locating = locating,
                         onDetectLocation = onDetectLocation,
+                        onSetQuickNotification = onSetQuickNotification,
+                        onSetAutoLocation = onSetAutoLocation,
+                        onSetManualLocation = onSetManualLocation,
                         onSetMethod = onSetMethod,
                         onSetHanafi = onSetHanafi,
                         onSetAccent = onSetAccent,

@@ -191,6 +191,66 @@ class CityGeocoder {
             address.optString(key).trim().takeIf { it.isNotEmpty() }
         }
 
+    /**
+     * **الترميز الجغرافي الأمامي** — تحويل اسم مكانٍ (من التحديد اليدوي:
+     * قرية، مدينة، تقسيم، دولة) إلى إحداثياته عبر Nominatim — بلاغ
+     * المالك 2026-11-11 «زر تحديد الموقع يدويا عن طريق اختيار الدوله
+     * ثم المحافظه ثم المدينه ثم القريه ان وجدت»: الهرم أسماءٌ فقط،
+     * والإحداثيات من الجغرافيا لا من اختلاقها — أول نتيجةٍ تُقبل بلا
+     * قبولٍ عشوائي، و[manualMode] يطالب بالتطابق الصريح للاسم فلا «الأعراف
+     * نفسها من مدينةٍ أخرى».
+     */
+    suspend fun forwardGeocode(query: String, manualMode: Boolean = true): Pair<Double, Double>? =
+        withContext(Dispatchers.IO) {
+            val q = query.trim()
+            if (q.isEmpty()) return@withContext null
+            val url = "https://nominatim.openstreetmap.org/search" +
+                "?q=" + java.net.URLEncoder.encode(q, "UTF-8") +
+                "&format=json&limit=5&accept-language=ar&addressdetails=1"
+            val data = try {
+                fetchJsonArray(url)
+            } catch (_: Exception) {
+                null
+            } ?: return@withContext null
+            val candidates = ArrayList<Pair<Double, Double>>()
+            for (i in 0 until data.length()) {
+                val item = data.optJSONObject(i) ?: continue
+                val lat = item.optDouble("lat", Double.NaN)
+                val lng = item.optDouble("lon", Double.NaN)
+                if (lat.isNaN() || lng.isNaN()) continue
+                val displayName = item.optString("display_name")
+                // الوضع اليدوي: الاسم المختار يجب أن يظهر في نتيجة Nominatim
+                // — نتحقق من أول مقطع من النص العربي (المكان الأدق)
+                if (manualMode) {
+                    val needle = q.split("،", ",").firstOrNull()?.trim().orEmpty()
+                    if (needle.length >= 2 && !normalizeForCompare(displayName)
+                            .contains(normalizeForCompare(needle))
+                    ) {
+                        continue
+                    }
+                }
+                candidates.add(lat to lng)
+            }
+            candidates.firstOrNull()
+        }
+
+    /** مصفوفة JSON من Nominatim — [[...]] لا كائنٌ واحد */
+    private fun fetchJsonArray(url: String): org.json.JSONArray? = try {
+        val connection = URL(url).openConnection() as HttpURLConnection
+        connection.connectTimeout = FORWARD_CONNECT_TIMEOUT_MS
+        connection.readTimeout = FORWARD_READ_TIMEOUT_MS
+        connection.setRequestProperty("Accept", "application/json")
+        connection.setRequestProperty("User-Agent", USER_AGENT)
+        try {
+            if (connection.responseCode !in 200..299) null
+            else connection.inputStream.bufferedReader().use { org.json.JSONArray(it.readText()) }
+        } finally {
+            connection.disconnect()
+        }
+    } catch (_: Exception) {
+        null
+    }
+
     private fun fetchJson(url: String): JSONObject? = try {
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.connectTimeout = CONNECT_TIMEOUT_MS
@@ -233,6 +293,9 @@ class CityGeocoder {
         private const val MERGE_TIMEOUT_MS = 4_000L
         private const val CONNECT_TIMEOUT_MS = 3_000
         private const val READ_TIMEOUT_MS = 3_000
+        /** مهليات الترميز الأمامي — اختيارٌ يدويٌّ فالصبر أبعد قليلاً */
+        private const val FORWARD_CONNECT_TIMEOUT_MS = 8_000
+        private const val FORWARD_READ_TIMEOUT_MS = 12_000
         private const val USER_AGENT = "noor-app/0.5 (Android; https://github.com/Sawan4Art/noor)"
 
         /**

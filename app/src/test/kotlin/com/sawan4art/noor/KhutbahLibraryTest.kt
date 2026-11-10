@@ -13,9 +13,9 @@ import org.junit.Test
 class KhutbahLibraryTest {
 
     @Test
-    fun `الخطبات أربعة وعشرون مرتبة بمعرفات متتالية`() {
-        assertEquals(24, KhutbahLibrary.ORDERED.size)
-        assertEquals((1..24).toList(), KhutbahLibrary.ORDERED.map { it.id })
+    fun `الخطبات خمسون مرتبة بمعرفات متتالية — بلاغ المالك 2026-11-11`() {
+        assertEquals(50, KhutbahLibrary.ORDERED.size)
+        assertEquals((1..50).toList(), KhutbahLibrary.ORDERED.map { it.id })
     }
 
     @Test
@@ -63,8 +63,9 @@ class KhutbahLibraryTest {
     fun `الخطبة بالمعرف تعيد المطلوب والغريب يعيد لا شيء`() {
         assertEquals("تقوى الله أوجز الوصايا", KhutbahLibrary.byId(1)?.title)
         assertEquals("الصلاة على النبي ﷺ", KhutbahLibrary.byId(24)?.title)
+        assertEquals("إعداد النفس للقاء الله", KhutbahLibrary.byId(50)?.title)
         assertEquals(null, KhutbahLibrary.byId(0))
-        assertEquals(null, KhutbahLibrary.byId(25))
+        assertEquals(null, KhutbahLibrary.byId(51))
     }
 
     @Test

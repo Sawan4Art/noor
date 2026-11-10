@@ -35,11 +35,19 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -54,6 +62,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -68,6 +77,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sawan4art.noor.BuildConfig
+import kotlinx.coroutines.launch
 import com.sawan4art.noor.data.AdhanPrefs
 import com.sawan4art.noor.data.NoorSettingsState
 import com.sawan4art.noor.data.update.DownloadState
@@ -110,6 +120,9 @@ fun SettingsScreen(
     settings: NoorSettingsState,
     /** القسم المطلوب فتحه مباشرة — ضغطة الويدجت تفتح قسمها (alpha63) */
     initialSection: String = "home",
+    /** ومعرّف الويدجت المضغوطة — قسم الويدجت يحرّر تخصيصها هي
+     *  (الأشكال الستة — بلاغ المالك 2026-11-11)، وسالبٌ يعني العام */
+    initialWidgetId: Int = -1,
     locating: Boolean,
     onDetectLocation: () -> Unit,
     onSetMethod: (CalculationMethod) -> Unit,
@@ -142,6 +155,12 @@ fun SettingsScreen(
     onImportKhutbahImage: (android.net.Uri) -> Unit,
     /** حذف صورة من الخطبة */
     onDeleteKhutbahImage: (String) -> Unit,
+    /** إشعار التشغيل السريع — شريط الإشعارات (بلاغ 2026-11-11) */
+    onSetQuickNotification: (Boolean) -> Unit,
+    /** التحديد التلقائي للموقع في الخلفية (بلاغ 2026-11-11) */
+    onSetAutoLocation: (Boolean) -> Unit,
+    /** حفظ موقعٍ يدوي من القوائم المتدرجة (بلاغ 2026-11-11) */
+    onSetManualLocation: (String, Double, Double) -> Unit,
 ) {
     // الروابط الداخلية: home ← location / method / adhan / colors / voices / khutbah / widgets / updates
     // وinitialSection يفتح قسماً مباشرةً — ضغطة الويدجت تفتح قسمها (alpha63)
@@ -151,7 +170,22 @@ fun SettingsScreen(
     when (section) {
         "location" -> SectionPage(title = "الموقع", onBack = { section = "home" }) {
             SectionCard {
-                LocationSection(settings = settings, locating = locating, onDetectLocation = onDetectLocation)
+                LocationSection(
+                    settings = settings,
+                    locating = locating,
+                    onDetectLocation = onDetectLocation,
+                    onSetAutoLocation = onSetAutoLocation,
+                    onSetManualLocation = onSetManualLocation,
+                )
+            }
+        }
+        // قسم عام — إشعار التشغيل السريع (بلاغ المالك 2026-11-11)
+        "general" -> SectionPage(title = "عام", onBack = { section = "home" }) {
+            SectionCard {
+                GeneralSection(
+                    quickNotification = settings.quickNotification,
+                    onSetQuickNotification = onSetQuickNotification,
+                )
             }
         }
         // alpha34: مذهب العصر داخل صفحة طريقة الحساب بأمر المالك —
@@ -212,10 +246,10 @@ fun SettingsScreen(
                 )
             }
         }
-        // قسم الويدجت — خمسة أشكال وتخصيص كامل (alpha56)
+        // قسم الويدجت — الأشكال الستة وتخصيص كامل لكل ويدجتٍ على حدة
         "widgets" -> SectionPage(title = "الويدجت", onBack = { section = "home" }) {
             SectionCard {
-                WidgetSection()
+                WidgetSection(widgetId = initialWidgetId)
             }
         }
         "updates" -> SectionPage(title = "التحديثات", onBack = { section = "home" }) {
@@ -272,6 +306,12 @@ private fun SettingsHome(
             title = "الموقع",
             summary = settings.city,
             onOpen = { onOpen("location") },
+        )
+        SectionRow(
+            icon = androidx.compose.material.icons.Icons.Filled.Settings,
+            title = "عام",
+            summary = "إشعار التشغيل السريع وضباط التطبيق العامة",
+            onOpen = { onOpen("general") },
         )
         SectionRow(
             icon = NoorIcons.PrayerTimes,
@@ -560,39 +600,324 @@ private fun SectionCard(
 
 // ===== محتوى الأقسام الخمسة — كامل إعدادات المرحلة الأولى =====
 
-/** قسم الموقع — مدينتك الحالية وتحديدها تلقائياً */
+/** قسم الموقع — ثلاث مجموعاتٍ مرتبةٍ: التلقائي في الخلفية واليدوي والفوري */
 @Composable
 private fun LocationSection(
     settings: NoorSettingsState,
     locating: Boolean,
     onDetectLocation: () -> Unit,
+    onSetAutoLocation: (Boolean) -> Unit,
+    onSetManualLocation: (String, Double, Double) -> Unit,
 ) {
-    Text(
-        text = settings.city,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-    )
-    Text(
-        text = String.format(Locale.US, "%.4f° ، %.4f°", settings.latitude, settings.longitude),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(10.dp))
-    Button(
-        onClick = onDetectLocation,
-        enabled = !locating,
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-    ) {
-        if (locating) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.onPrimary,
+    val scheme = MaterialTheme.colorScheme
+    Column {
+        // ===== المجموعة الأولى: الموقع الحالي =====
+        SettingLabel("موقعك الحالي")
+        Text(
+            text = settings.city,
+            style = MaterialTheme.typography.titleMedium,
+            color = scheme.onSurface,
+        )
+        Text(
+            text = String.format(Locale.US, "%.4f° ، %.4f°", settings.latitude, settings.longitude),
+            style = MaterialTheme.typography.bodySmall,
+            color = scheme.onSurfaceVariant,
+        )
+
+        Spacer(Modifier.height(18.dp))
+
+        // ===== المجموعة الثانية: التحديد التلقائي في الخلفية — بلاغ
+        // المالك 2026-11-11: «زر تحديد الموقع تلقائى اذا تم تفعيله سيتم
+        // كل مره فيها فتح الموقع و يوجد اتصال انترنت في الهاتف سواء
+        // فتحت التطبيق ام لا… يعني التطبيق لازم يشتغل في الخلفيه»
+        SettingLabel("التحديد التلقائي — في الخلفية")
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(scheme.primary.copy(alpha = 0.08f))
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "تحديد الموقع تلقائياً",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = scheme.onSurface,
+                )
+                Text(
+                    text = "كل ربع ساعة وفي الهاتف اتصال: يُقرأ الموقع وتُحدّث " +
+                        "المواقيت ولو كان التطبيق مغلقاً تماماً",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = scheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Switch(
+                checked = settings.autoLocation,
+                onCheckedChange = { onSetAutoLocation(it) },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = scheme.onPrimary,
+                    checkedTrackColor = scheme.primary,
+                ),
             )
-            Spacer(Modifier.size(8.dp))
         }
-        Text("تحديد موقعي تلقائياً")
+
+        Spacer(Modifier.height(18.dp))
+
+        // ===== المجموعة الثالثة: التحديد اليدوي — دولة ← تقسيم ← مدينة ←
+        // قرية إن وجدت (بلاغ المالك 2026-11-11) وكل دولةٍ باسم تقسيمها
+        SettingLabel("التحديد اليدوي — دولة، تقسيم، مدينة، قرية")
+        ManualLocationPicker(
+            onSaved = onSetManualLocation,
+        )
+
+        Spacer(Modifier.height(18.dp))
+
+        // ===== المجموعة الرابعة: التحديد الفوري بالسواتل =====
+        SettingLabel("التحديد الفوري الآن")
+        Button(
+            onClick = onDetectLocation,
+            enabled = !locating,
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = scheme.primary),
+        ) {
+            if (locating) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = scheme.onPrimary,
+                )
+                Spacer(Modifier.size(8.dp))
+            }
+            Text("تحديد موقعي الآن بالسواتل")
+        }
+    }
+}
+
+/**
+ * منتقي الموقع اليدوي — قوائم متدرجة (دولة ← تقسيمها ← مدينة) وحقلٌ
+ * حرّ للقرية «إن وجدت» — والإحداثيات من الترميز الجغرافي للاسم المركب
+ * فلا اختلاقٍ ولا خطأ في الموقع.
+ */
+@Composable
+private fun ManualLocationPicker(
+    onSaved: (String, Double, Double) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val scope = rememberCoroutineScope()
+    val geocoder = remember { com.sawan4art.noor.domain.location.CityGeocoder() }
+    var countryName by remember { mutableStateOf("") }
+    var divisionName by remember { mutableStateOf("") }
+    var cityName by remember { mutableStateOf("") }
+    var village by remember { mutableStateOf("") }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    val country = countryName.takeIf { it.isNotBlank() }
+        ?.let { com.sawan4art.noor.domain.location.ManualLocations.country(it) }
+    val division = country?.let { c ->
+        divisionName.takeIf { it.isNotBlank() }
+            ?.let { com.sawan4art.noor.domain.location.ManualLocations.division(c, it) }
+    }
+
+    Column {
+        DropdownRow(
+            label = "الدولة",
+            options = com.sawan4art.noor.domain.location.ManualLocations.COUNTRIES.map { it.name },
+            selected = countryName,
+            onSelect = {
+                countryName = it
+                divisionName = ""
+                cityName = ""
+                error = null
+            },
+        )
+        Spacer(Modifier.height(8.dp))
+        if (country != null) {
+            DropdownRow(
+                label = country.divisionLabel,
+                options = country.divisions.map { it.name },
+                selected = divisionName,
+                onSelect = {
+                    divisionName = it
+                    cityName = ""
+                    error = null
+                },
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+        if (division != null) {
+            DropdownRow(
+                label = "المدينة",
+                options = division.cities,
+                selected = cityName,
+                onSelect = {
+                    cityName = it
+                    error = null
+                },
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+        OutlinedTextField(
+            value = village,
+            onValueChange = { village = it },
+            singleLine = true,
+            label = { Text("القرية أو العزبة أو الكفر — إن وجدت (اختياري)") },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = scheme.primary,
+                unfocusedBorderColor = scheme.outline.copy(alpha = 0.35f),
+                focusedTextColor = scheme.onSurface,
+                unfocusedTextColor = scheme.onSurface,
+                cursorColor = scheme.primary,
+            ),
+            textStyle = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        error?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = it,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = {
+                val cName = countryName.trim()
+                if (cName.isEmpty() || divisionName.isBlank() || cityName.isBlank()) {
+                    error = "اختر الدولة والتقسيم والمدينة أولاً"
+                    return@Button
+                }
+                saving = true
+                error = null
+                scope.launch {
+                    val query = com.sawan4art.noor.domain.location.ManualLocations
+                        .geocodeQuery(cName, divisionName, cityName, village)
+                    val coords = runCatching {
+                        geocoder.forwardGeocode(query)
+                    }.getOrNull()
+                    saving = false
+                    if (coords == null) {
+                        error = "تعذّر تحديد إحداثيات المكان — تحقق من الاتصال " +
+                            "أو اكتب اسم القرية كما هو معروف ثم أعد المحاولة"
+                    } else {
+                        val label = com.sawan4art.noor.domain.location.ManualLocations
+                            .locationLabel(cName, divisionName, cityName, village)
+                        onSaved(label, coords.first, coords.second)
+                        error = null
+                    }
+                }
+            },
+            enabled = !saving,
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = scheme.primary),
+        ) {
+            if (saving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = scheme.onPrimary,
+                )
+                Spacer(Modifier.size(8.dp))
+            }
+            Text("حفظ هذا الموقع")
+        }
+    }
+}
+
+/** قائمة منسدلة بسيطة بلغة قسم الموقع */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DropdownRow(
+    label: String,
+    options: List<String>,
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+    ) {
+        OutlinedTextField(
+            value = selected.ifBlank { "$label…" },
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+            ),
+            textStyle = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onSelect(option)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** قسم عام — إشعار التشغيل السريع وضباط التطبيق العامة */
+@Composable
+private fun GeneralSection(
+    quickNotification: Boolean,
+    onSetQuickNotification: (Boolean) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Column {
+        SettingLabel("إشعار التشغيل السريع")
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(scheme.primary.copy(alpha = 0.08f))
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "أيقونة التطبيق في شريط الإشعارات",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = scheme.onSurface,
+                )
+                Text(
+                    text = "أيقونةٌ دائمةٌ هادئةٌ — ضغطةٌ عليها تفتح التطبيق فوراً من أي مكان",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = scheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Switch(
+                checked = quickNotification,
+                onCheckedChange = onSetQuickNotification,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = scheme.onPrimary,
+                    checkedTrackColor = scheme.primary,
+                ),
+            )
+        }
     }
 }
 

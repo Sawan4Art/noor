@@ -411,7 +411,7 @@ object QuranAudioLibrary {
         reciter: QuranReciters.Reciter,
         sura: Int,
         onZipPct: (Int) -> Unit = {},
-        onExtracted: () -> Unit,
+        onExtracted: () -> Unit = {},
     ): Boolean {
         if (sura !in 1..114) return false
         val zip = File.createTempFile("noor_surah", ".zip", context.cacheDir)
@@ -452,8 +452,15 @@ object QuranAudioLibrary {
     }
 
     /**
-     * جلب آية واحدة — محاولتان: everyayah برواية الشيخ الأصلية، فإن
-     * خذلت جُرّبت نظيرتها في islamic.network (لمن له إصدار هناك) —
+     * جلب آية واحدة — محاولاتُ بترتيب «سيرفرنا أولاً ثم المفتوح ثم النظير»
+     * (بلاغ المالك 2026-11-11: «تأكد من جميع الاصوات انها قبله للتنزيل
+     * و خلي كل الاصوات في السيرفر الخاص بينا افضل»):
+     * ١) everyayah — آيةٌ واحدةٌ خفيفةٌ (الطريق الأسرع للبثّ الحي).
+     * ٢) **المرآة الخاصة** (noor-audio) — ضغطُ السورة كله بضغطةٍ واحدةٍ
+     *    وفكُّ الآيات الغائبة منه فأكثرُ من آيةٍ تُصلَح بطلبٍ واحدٍ من
+     *    سيرفرنا — وهي السقوطُ الذي كان يفشل معه القطامي ومن لا نظير
+     *    له في islamic.network فلا شيء بعده.
+     * ٣) islamic.network للشيخ صاحب إصدارٍ نظير.
      * والتنزيل إلى ملف مؤقت ثم تسميته نهائياً بعد اكتماله.
      */
     private fun fetchAyahFile(
@@ -467,7 +474,9 @@ object QuranAudioLibrary {
         // الأربع كانت تعيد تنزيل الآية المكتملة لأن النجاح كان يُحسب فشلاً
         if (target.isFile && target.length() > 0L) return true
         if (downloadTo(QuranReciters.ayahUrl(reciter, sura, ayah), target)) return true
-        // الاحتياط — بترقيم الآية الكلي من قاعدة المصحف نفسها
+        // المرآة الخاصة — ضغطُ السورة كله وفكّ ما غاب منه (بلاغ 2026-11-11)
+        if (downloadSurahZip(context, reciter, sura)) return target.isFile && target.length() > 0L
+        // الاحتياط الأخير — بترقيم الآية الكلي من قاعدة المصحف نفسها
         val global = MushafDb.globalAyah(context, sura, ayah)
         val fallback = QuranReciters.fallbackUrl(reciter, global) ?: return false
         return downloadTo(fallback, target)

@@ -86,6 +86,11 @@ import kotlin.math.roundToInt
 internal fun WidgetInteractiveEditor(
     customization: WidgetCustomization,
     onUpdate: (WidgetCustomization) -> Unit,
+    /** عرض بالحجم الأصلي — بلاغ المالك 2026-11-11: «شاشه المعاينه تكون
+     *  اكبر لتعرض كامل الويدجت بالحجم الاصلي» — بلا تصغيرٍ ولا نسبة
+     *  قياسٍ: عرضُ الويدجت الحقيقي وارتفاعُها بمحتواها، والتمرير
+     *  الرأسي يكمل ما لا تتسع له الشاشة */
+    realSize: Boolean = false,
 ) {
     val context = LocalContext.current
     val snapshot = remember { WidgetSnapshot.compute(context) }
@@ -102,10 +107,13 @@ internal fun WidgetInteractiveEditor(
     // معاينه و تعديل الويدجت في التطبيق لا تعرض كامل شكل الويدجت»
     // فالمحتوى إذا زاد عن الإطار كان يُقص؛ والآن يُقاس ارتفاعُ المحتوى
     // الحقيقي ويُصغَّر كلُّه بنسبةٍ واحدةٍ (graphicsLayer) فيظهر شكل
-    // الويدجت كاملاً دائماً مهما تعددت العناصر وكبُرت أحجامها.
+    // الويدجت كاملاً دائماً مهما تعددت العناصر وكبُرت أحجامها —
+    // **ووضع الحجم الأصلي** (بلاغ المالك 2026-11-11) بلا تصغيرٍ أبداً
     var containerH by remember { mutableStateOf(0) }
     var contentH by remember { mutableStateOf(0) }
-    val fitScale = if (containerH > 0 && contentH > containerH) {
+    val fitScale = if (realSize) {
+        1f
+    } else if (containerH > 0 && contentH > containerH) {
         containerH.toFloat() / contentH
     } else {
         1f
@@ -148,7 +156,14 @@ internal fun WidgetInteractiveEditor(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(250f / 180f)
+                .then(
+                    if (realSize) {
+                        // الحجم الأصلي: الارتفاع بمحتواها — وهي عرض الويدجت الحقيقي
+                        Modifier
+                    } else {
+                        Modifier.aspectRatio(250f / 180f)
+                    },
+                )
                 // الحواف حادة كالويدجت نفسها (alpha63) — والإطار بلونه
                 // الحقيقي من التخصيص أو بلا إطارٍ خالصاً
                 .clip(RectangleShape)
@@ -201,7 +216,14 @@ internal fun WidgetInteractiveEditor(
             // المستقبِل المتاح بعد الحواشي — هو سقفُ المحتوى
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .then(
+                        if (realSize) {
+                            Modifier
+                        } else {
+                            Modifier.fillMaxSize()
+                        },
+                    )
                     .padding(horizontal = 12.dp, vertical = 6.dp)
                     .onSizeChanged { containerH = it.height },
                 verticalArrangement = Arrangement.Center,
@@ -257,6 +279,21 @@ internal fun WidgetInteractiveEditor(
                                 }
                             }
                             .clip(RoundedCornerShape(8.dp))
+                            .then(
+                                // إطار العنصر في المعاينة — بعين ما يُرسم في
+                                // الويدجت (حدٌّ بحوافٍ دائريةٍ بلون التخصيص)
+                                customization.elementFrames[key]
+                                    ?.let { hex ->
+                                        WidgetCustomization.parseColor(hex)?.let { argb ->
+                                            Modifier.border(
+                                                width = 2.dp,
+                                                color = Color(argb),
+                                                shape = RoundedCornerShape(10.dp),
+                                            )
+                                        }
+                                    }
+                                    ?: Modifier,
+                            )
                             .then(
                                 if (panelKey == key || draggingKey == key) {
                                     Modifier.border(
@@ -633,6 +670,37 @@ private fun ElementPanelDialog(
                     },
                 )
 
+                Spacer(Modifier.height(12.dp))
+
+                // ===== إطار العنصر — حدٌّ مربّعٌ بحوافٍ دائريةٍ بلونٍ مختارٍ
+                // أو بلا إطارٍ (بلاغ المالك 2026-11-11: «عايز اطار للويدجت
+                // ولكل عنصر … اطار مربع بحواف دائريه … اطار لكل عنصر على
+                // حده و اطار للويدجت كله المستخدم يقرر يستخدمهم ام لا»)
+                Text(
+                    text = "إطار العنصر — حدٌّ بحوافٍ دائرية",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = scheme.onSurface,
+                )
+                Spacer(Modifier.height(6.dp))
+                ColorPanelChipInline(
+                    selected = customization.elementFrames[key]
+                        ?: WidgetCustomization.FRAME_NONE,
+                    allowNone = true,
+                    frameOnly = true,
+                    onSelect = { hex ->
+                        onUpdate(
+                            customization.copy(
+                                elementFrames = if (hex == WidgetCustomization.FRAME_NONE) {
+                                    customization.elementFrames - key
+                                } else {
+                                    customization.elementFrames + (key to hex)
+                                },
+                            ),
+                        )
+                    },
+                )
+
                 // ===== الظهور =====
                 if (key != WidgetCustomization.ELEMENT_NEXT) {
                     Spacer(Modifier.height(12.dp))
@@ -808,6 +876,8 @@ private fun PanelChip(text: String, onClick: () -> Unit) {
 internal fun ColorPanelChipInline(
     selected: String,
     allowNone: Boolean = false,
+    /** للأطراف فقط: بلا خيار «تلقائي» — الإطار لونٌ صريحٌ أو بلا */
+    frameOnly: Boolean = false,
     onSelect: (String) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -847,7 +917,7 @@ internal fun ColorPanelChipInline(
         Text(
             text = when {
                 selected == WidgetCustomization.COLOR_AUTO -> "تلقائي — يتبع المظهر"
-                selected == WidgetCustomization.FRAME_NONE -> "بلا إطار"
+                selected == WidgetCustomization.FRAME_NONE -> if (frameOnly) "بلا إطار" else "بلا إطار"
                 else -> "لون صريح محفوظ"
             },
             fontSize = 13.sp,
@@ -871,7 +941,8 @@ internal fun ColorPanelChipInline(
             },
             text = {
                 Column {
-                    Row(
+                    // خيار التلقائي يُخفى في لوحات الأطراف — الإطار لونٌ صريحٌ أو بلا
+                    if (!frameOnly) Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

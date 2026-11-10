@@ -62,6 +62,8 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -296,8 +298,31 @@ fun MushafScreen(
     // اضغط على ايقونه المصحف يظهر لي اختيار السوره»
     var chooserOpen by remember { mutableStateOf(true) }
 
-    // التحديد والمنغّلة وقائمتا التلاوة والحفظ ولوحة التفسير — فوق الصفحات
-    var selection by remember { mutableStateOf<MushafSelection?>(null) }
+    // التحديد والمنغّلة وقائمتا التلاوة والحفظ ولوحة التفسير — فوق الصفحات.
+    // **التحديد لا يُحذف أبداً** (بلاغ المالك 2026-11-11: «عند التحديد على
+    // ايه في المصحف لا يتم حذف التحديد ابدا») — فحالته محفوظةٌ عبر التنقل
+    // بين التبويبات والصفحات كي لا يفقد المستخدم تحديده إلا بإزالته بنفسه
+    var selection by rememberSaveable(
+        stateSaver = listSaver<MushafSelection?, Any>(
+            save = { sel ->
+                if (sel == null) {
+                    emptyList()
+                } else {
+                    mutableListOf<Any>().apply { add(sel.sura); addAll(sel.ayahs) }
+                }
+            },
+            restore = { list ->
+                if (list.size < 2) {
+                    null
+                } else {
+                    MushafSelection(
+                        (list[0] as Int),
+                        list.drop(1).map { it as Int },
+                    )
+                }
+            },
+        ),
+    ) { mutableStateOf<MushafSelection?>(null) }
     var menuAt by remember { mutableStateOf<Offset?>(null) }
     var playMenuOpen by remember { mutableStateOf(false) }
     var tafsirOpen by remember { mutableStateOf(false) }
@@ -479,11 +504,18 @@ fun MushafScreen(
                     menuAt = null
                 },
                 onClearSelection = {
-                    // الضغطة المطوّلة الثانية على آيةٍ من المُدى تمسحه
-                    // كلياً (alpha63) — والمنغّلة تختفي معه
+                    // الضغطة المطوّلة على الآية الوحيدة المحددة تمسح
+                    // التحديد كلياً (alpha63) — وقواعد 2026-11-11: مع أكثر
+                    // من آيةٍ تمسح الآية وحدها من القائمة
                     selection = null
                     menuAt = null
                     playMenuOpen = false
+                },
+                onRemoveSingleAyah = { ayah ->
+                    // **الضغطة المطوّلة على آيةٍ من مُدىٍ متعددٍ تُسقط
+                    // الآية وحدها** (بلاغ المالك 2026-11-11: «لازم
+                    // المستخدم يضغط ضغطة طويلة لإلغاء تحديدها»)
+                    selection = selection?.let { MushafSelectionOps.removeSingle(it, ayah) }
                 },
                 onDragExtendAyah = { ayah ->
                     // السحب على الأسطر يمدّ المُدى حيّاً — تحديد آيات مع بعضها
@@ -494,7 +526,18 @@ fun MushafScreen(
                     menuAt = clampMenu(at)
                 },
                 onTapAyah = { ayah, at ->
-                    selection = MushafSelectionOps.extend(selection, ayah)
+                    // **الضغطة الواحدة على آيةٍ محدّدةٍ في مُدىٍ متعددٍ
+                    // تقطع الذيل**: من الآية المضغوطة إلى آخر التحديد
+                    // (بلاغ المالك 2026-11-11) — وعلى غير المحددة تمدّ
+                    // المُدى كما كان (alpha51)
+                    selection = if (selection != null &&
+                        MushafSelectionOps.contains(selection, ayah) &&
+                        !selection!!.isSingle
+                    ) {
+                        MushafSelectionOps.truncateFrom(selection!!, ayah)
+                    } else {
+                        MushafSelectionOps.extend(selection, ayah)
+                    }
                     menuAt = clampMenu(at)
                 },
             )
@@ -545,7 +588,7 @@ fun MushafScreen(
                         onCopy = {
                             scope.launch {
                                 val text = withContext(Dispatchers.IO) {
-                                    MushafDb.ayahRangeText(context, sel.sura, sel.from, sel.to)
+                                    MushafDb.ayahRangeText(context, sel.sura, sel.first, sel.last)
                                 }
                                 val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 cm.setPrimaryClip(ClipData.newPlainText("آيات", text))
@@ -560,7 +603,7 @@ fun MushafScreen(
                         onShare = {
                             scope.launch {
                                 val text = withContext(Dispatchers.IO) {
-                                    MushafDb.ayahRangeText(context, sel.sura, sel.from, sel.to)
+                                    MushafDb.ayahRangeText(context, sel.sura, sel.first, sel.last)
                                 }
                                 val send = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
@@ -628,6 +671,11 @@ fun MushafScreen(
                 bookmarkPage = bookmarkPage,
                 lastPage = pagerState.currentPage + 1,
                 onJump = { jumpTo(it) },
+                onHighlightAyah = { sura, ayah ->
+                    selection = MushafSelection(sura, ayah)
+                    menuAt = null
+                    playMenuOpen = false
+                },
                 onDismiss = { chooserOpen = false },
             )
         }
@@ -689,8 +737,10 @@ private fun MushafPage(
     selectionColor: Color,
     /** بداية تحديد جديد بالضغط المطوّل — بلا منغّلة بعد */
     onLongPressAyah: (MushafAyah) -> Unit,
-    /** **مسح التحديد بضغطةٍ مطوّلةٍ ثانيةٍ على آيةٍ من المُدى** (alpha63) */
+    /** **مسح التحديد كلياً بالضغطة المطوّلة على الآية الوحيدة المحددة** */
     onClearSelection: () -> Unit,
+    /** **إزالة الآية الوحيدة من مُدىٍ متعدد بالضغطة المطوّلة** (بلاغ 2026-11-11) */
+    onRemoveSingleAyah: (MushafAyah) -> Unit,
     /** سحب الأسطر يمدّ المُدى حيّاً آيةً وراء آية */
     onDragExtendAyah: (MushafAyah) -> Unit,
     /** نهاية سحب التحديد — موضع ظهور المنغّلة */
@@ -765,14 +815,17 @@ private fun MushafPage(
                         val t = transform ?: return@detectDragGesturesAfterLongPress
                         val (gx, gy) = glyphAt(t, pos, zoom, viewSize)
                         MushafSelectionOps.hit(segs, gx, gy)?.let { ayah ->
-                            // **الضغطة المطوّلة الثانية على آيةٍ من المُدى
-                            // تمسح التحديد** (alpha63 — بلاغ المالك: «عند
-                            // تحديد ايه لا يتم مسح التحديد الاول الا اذا
-                            // خرج المستخدم من المصحف ثم رجع انا عايز
-                            // التحديد يزال عند الضغط المطول عليه مره
-                            // اخرى») — بلا سحبٍ بعدها كي لا يعود التحديد
-                            if (MushafSelectionOps.contains(selection, ayah)) {
-                                onClearSelection()
+                            // **قواعد الإزالة (بلاغ المالك 2026-11-11):**
+                            // الضغطة المطوّلة على آيةٍ محدّدةٍ:
+                            // — آيةً واحدةً محدّدة: يُمسح التحديد كلياً
+                            // — من مُدىٍ متعدد: تُسقط الآية وحدها
+                            val sel = selection
+                            if (MushafSelectionOps.contains(sel, ayah)) {
+                                if (sel!!.isSingle) {
+                                    onClearSelection()
+                                } else {
+                                    onRemoveSingleAyah(ayah)
+                                }
                                 return@detectDragGesturesAfterLongPress
                             }
                             onLongPressAyah(ayah)
@@ -1136,7 +1189,7 @@ private fun PlayOptionsCard(
     val ap = appear.value
 
     val first = MushafSelectionOps.firstOf(selection).ayah
-    val last = selection.ayahs.last
+    val last = selection.last
     val span = MushafSurahs.caption(selection)
     val accent = MaterialTheme.colorScheme.primary
 
@@ -1268,8 +1321,8 @@ private fun TafsirPanel(
     }
     LaunchedEffect(selection) {
         entries = withContext(Dispatchers.IO) {
-            val lo = minOf(selection.from, selection.to)
-            val hi = maxOf(selection.from, selection.to)
+            val lo = selection.first
+            val hi = selection.last
             MushafDb.tafsirRange(context, selection.sura, lo, hi).map { (ayah, tafsir) ->
                 Triple(ayah, MushafDb.ayahText(context, selection.sura, ayah) ?: "", tafsir)
             }
@@ -1386,8 +1439,8 @@ private fun HifzPanel(
     }
     LaunchedEffect(selection) {
         entries = withContext(Dispatchers.IO) {
-            val lo = minOf(selection.from, selection.to)
-            val hi = maxOf(selection.from, selection.to)
+            val lo = selection.first
+            val hi = selection.last
             (lo..hi).map { ayah -> ayah to (MushafDb.ayahText(context, selection.sura, ayah) ?: "") }
         }
     }
@@ -1571,6 +1624,8 @@ private fun SurahChooserPanel(
     bookmarkPage: Int,
     lastPage: Int,
     onJump: (Int) -> Unit,
+    /** إبراز الآية المطلوبة عند الوصول إلى صفحتها (بلاغ 2026-11-11) */
+    onHighlightAyah: (Int, Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -1639,6 +1694,8 @@ private fun SurahChooserPanel(
             val page = withContext(Dispatchers.IO) {
                 MushafDb.pageOfAyah(context, hit.sura, hit.ayah)
             }
+            // الآية تُبرز عند وصول القارئ — بلا بحثٍ ثانٍ عنها
+            onHighlightAyah(hit.sura, hit.ayah)
             onJump(page)
         }
     }
@@ -1762,6 +1819,11 @@ private fun SurahChooserPanel(
                                             val page = withContext(Dispatchers.IO) {
                                                 MushafDb.pageOfAyah(context, jumpSura, jumpAyah)
                                             }
+                                            // **القفزة تُبرز الآية نفسها** — بلاغ
+                                            // المالك 2026-11-11: «البحث يوديه الى
+                                            // سوره الاعراف الايه ٦٠» فلا يُترك
+                                            // القارئ يبحث عنها في الصفحة
+                                            onHighlightAyah(jumpSura, jumpAyah)
                                             onJump(page)
                                         }
                                     },

@@ -179,6 +179,21 @@ data class NoorSettingsState(
     val khutbahButtonEnabled: Boolean = true,
     /** شاشة الترحيب اكتملت؟ — تظهر أول فتحٍ فقط (alpha56) */
     val onboardingDone: Boolean = false,
+    /**
+     * **إشعار التشغيل السريع** (بلاغ المالك 2026-11-11: «عايز يكون
+     * للتطبيق ايقونه في شريط الاشعارات لتشغيل سريع للتطبيق») — إشعارٌ
+     * دائمٌ هادئٌ ضغطةٌ عليه تفتح التطبيق، مفعّلٌ افتراضياً بأمر المالك.
+     */
+    val quickNotification: Boolean = true,
+    /**
+     * **تحديد الموقع تلقائياً في الخلفية** (بلاغ المالك 2026-11-11:
+     * «زر تحديد الموقع تلقائى اذا تم تفعيله سيتم كل مره فيها فتح
+     * الموقع و يوجد اتصال انترنت في الهاتف سواء فتحت التطبيق ام لا
+     * سيتم البحث عن الموقع لتحديد الاوقات بدقه… يعني التطبيق لازم
+     * يشتغل في الخلفيه») — عملٌ دوريٌّ بقيود الشبكة يحدّث الموقع
+     * والمواقيت بلا فتحٍ للتطبيق، مطفأٌ افتراضياً.
+     */
+    val autoLocation: Boolean = false,
 )
 
 class SettingsRepository(private val context: Context) {
@@ -206,6 +221,9 @@ class SettingsRepository(private val context: Context) {
         // زر خطبة الجمعة وشاشة الترحيب (alpha56)
         val KHUTBAH_BUTTON_ENABLED = booleanPreferencesKey("khutbah_button_enabled")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
+        // إشعار التشغيل السريع والتحديد التلقائي في الخلفية (بلاغ 2026-11-11)
+        val QUICK_NOTIFICATION = booleanPreferencesKey("quick_notification")
+        val AUTO_LOCATION = booleanPreferencesKey("auto_location")
         val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check_at")
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
         val UPDATE_NOTIFIED_AT = longPreferencesKey("update_notified_at")
@@ -284,6 +302,8 @@ class SettingsRepository(private val context: Context) {
                 ?.split(',')?.filter { it.isNotBlank() } ?: emptyList(),
             khutbahButtonEnabled = p[Keys.KHUTBAH_BUTTON_ENABLED] ?: true,
             onboardingDone = p[Keys.ONBOARDING_DONE] ?: false,
+            quickNotification = p[Keys.QUICK_NOTIFICATION] ?: true,
+            autoLocation = p[Keys.AUTO_LOCATION] ?: false,
         )
     }
 
@@ -435,6 +455,38 @@ class SettingsRepository(private val context: Context) {
                 map[key.name] = rule.copy(minutes = PrayerReminder.clampMinutes(rule.minutes))
             }
             it[Keys.PRAYER_REMINDERS] = PrayerReminder.formatRules(map)
+        }
+    }
+
+    /** إشعار التشغيل السريع — أيقونة شريط الإشعارات الدائمة (بلاغ 2026-11-11) */
+    suspend fun setQuickNotification(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.QUICK_NOTIFICATION] = on }
+    }
+
+    /** التحديد التلقائي للموقع في الخلفية — عملٌ دوريٌّ بقيود الشبكة */
+    suspend fun setAutoLocation(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.AUTO_LOCATION] = on }
+    }
+
+    /** قراءة فورية لمفتاح التحديد التلقائي — لجدولة العمل الدوري خارج دورة الواجهة */
+    suspend fun autoLocationOnce(): Boolean =
+        context.noorDataStore.data.map { p -> p[Keys.AUTO_LOCATION] ?: false }.first()
+
+    /**
+     * حفظ موقعٍ يدويّ من القوائم المتدرجة (دولة ← تقسيم ← مدينة ← قرية)
+     * — الإحداثيات تأتي من الترميز الجغرافي للنصّ المُركّب، والتسمية
+     * تُبنى قريةً ثم مدينةً ثم تقسيماً ثم دولةً بعين عقد سطر الموقع.
+     */
+    suspend fun setManualLocation(
+        label: String,
+        latitude: Double,
+        longitude: Double,
+    ) {
+        context.noorDataStore.edit {
+            it[Keys.CITY] = label
+            it[Keys.LAT] = latitude
+            it[Keys.LNG] = longitude
+            it[Keys.LOCATION_RESOLVED] = true
         }
     }
 

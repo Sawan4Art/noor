@@ -13,6 +13,7 @@ import com.sawan4art.noor.data.AdhanPrefs
 import com.sawan4art.noor.data.NoorSettingsState
 import com.sawan4art.noor.data.SettingsRepository
 import com.sawan4art.noor.data.ThemeMode
+import com.sawan4art.noor.data.location.AutoLocationWorker
 import com.sawan4art.noor.domain.adhan.AdhanSoundKind
 import com.sawan4art.noor.domain.adhan.PrayerReminder
 import com.sawan4art.noor.domain.khutbah.KhutbahLibrary
@@ -206,6 +207,57 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     /** إتمام شاشة الترحيب — أول تشغيل فقط (alpha56) */
     fun setOnboardingDone(done: Boolean) =
         viewModelScope.launch { repository.setOnboardingDone(done) }
+
+    /** إشعار التشغيل السريع — يظهر ويُغلق مع المفتاح (بلاغ 2026-11-11) */
+    fun setQuickNotification(on: Boolean) = viewModelScope.launch {
+        repository.setQuickNotification(on)
+        val app = getApplication<Application>()
+        if (on) {
+            com.sawan4art.noor.util.QuickLaunchNotification.show(app)
+        } else {
+            com.sawan4art.noor.util.QuickLaunchNotification.dismiss(app)
+        }
+    }
+
+    /**
+     * **التحديد التلقائي للموقع في الخلفية** — التفعيل يجدول الدورة
+     * الدورية بقيود الشبكة (بلاغ المالك 2026-11-11: «التطبيق لازم
+     * يشتغل في الخلفيه»)، والإطفاء يلغيها.
+     */
+    fun setAutoLocation(on: Boolean) = viewModelScope.launch {
+        repository.setAutoLocation(on)
+        val app = getApplication<Application>()
+        if (on) {
+            AutoLocationWorker.schedule(app)
+            // دورة فورية أولى كي لا ينتظر المستخدم ربع ساعة
+            runCatching {
+                androidx.work.WorkManager.getInstance(app).enqueue(
+                    androidx.work.OneTimeWorkRequestBuilder<AutoLocationWorker>()
+                        .setConstraints(
+                            androidx.work.Constraints.Builder()
+                                .setRequiredNetworkType(
+                                    androidx.work.NetworkType.CONNECTED,
+                                )
+                                .build(),
+                        )
+                        .build(),
+                )
+            }
+        } else {
+            AutoLocationWorker.cancel(app)
+        }
+    }
+
+    /**
+     * **حفظ موقعٍ يدويّ من القوائم المتدرجة** (دولة ← تقسيم ← مدينة ←
+     * قرية) — بلاغ المالك 2026-11-11 — ويُعاد جدول المنبهات فالمواقيت
+     * تُحسب من الإحداثيات الجديدة فوراً.
+     */
+    fun setManualLocation(label: String, latitude: Double, longitude: Double) =
+        viewModelScope.launch {
+            repository.setManualLocation(label, latitude, longitude)
+            runCatching { AlarmScheduler.reschedule(getApplication()) }
+        }
 
     /**
      * استيراد صورة إلى خطبة الجمعة — تُنسخ داخل مجلد صور الخطبة

@@ -1,9 +1,11 @@
 package com.sawan4art.noor.ui.settings
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import com.sawan4art.noor.ui.theme.AccentPalette
 import com.sawan4art.noor.util.Hijri
 import com.sawan4art.noor.widget.WidgetCustomization
+import com.sawan4art.noor.widget.WidgetPresets
 import com.sawan4art.noor.widget.WidgetStore
 import com.sawan4art.noor.widget.WidgetUpdater
 
@@ -72,13 +76,23 @@ import com.sawan4art.noor.widget.WidgetUpdater
  * الويدجت المنصوبة فوراً بـ [WidgetUpdater].
  */
 @Composable
-fun WidgetSection() {
+fun WidgetSection(widgetId: Int = -1) {
     val context = LocalContext.current
+    // **تحرير ويدجتٍ بعينها**: ضغطة الويدجت على الشاشة تفتح هذا القسم
+    // بمعرّفها (الأشكال الستة — بلاغ المالك 2026-11-11) فتُحرَّر تخصيصها
+    // هي، ومن القائمة تُحرَّر القيمة العامة التي ترثها الويدجتات الجديدة
     var customization by remember {
-        mutableStateOf(WidgetStore.customization(context))
+        mutableStateOf(
+            if (widgetId > 0) {
+                WidgetStore.customizationFor(context, widgetId)
+            } else {
+                WidgetStore.customization(context)
+            },
+        )
     }
     // معاينة المُحرر بحجمٍ أكبر — حوارٌ يملأ الشاشة (alpha63 — بلاغ
-    // المالك: «عايزك تكبر شاشه معاينه الويدجت»)
+    // المالك: «عايزك تكبر شاشه معاينه الويدجت»)، ومنذ بلاغ 2026-11-11
+    // صارت بالحجم الأصلي («لتعرض كامل الويدجت بالحجم الاصلي»)
     var bigPreview by remember { mutableStateOf(false) }
     // زر الحفظ — بلاغ المالك alpha63: «عايز زر حفظ في اعادادات
     // الويدجت علشان احفظ التعديل في يظهر في نفس الوقت على الويدجت
@@ -88,14 +102,22 @@ fun WidgetSection() {
     fun apply(update: (WidgetCustomization) -> WidgetCustomization) {
         val next = update(customization)
         customization = next
-        WidgetStore.save(context, next)
+        if (widgetId > 0) {
+            WidgetStore.saveFor(context, widgetId, next)
+        } else {
+            WidgetStore.save(context, next)
+        }
         WidgetUpdater.refreshAll(context)
         // شكل الساعة يدير منبه الدقيقة — التناظرية تُنَبَّه والرقمية تُهدأ
         WidgetUpdater.updateMinuteTick(context, next)
     }
 
     fun saveNow() {
-        WidgetStore.save(context, customization)
+        if (widgetId > 0) {
+            WidgetStore.saveFor(context, widgetId, customization)
+        } else {
+            WidgetStore.save(context, customization)
+        }
         WidgetUpdater.refreshAll(context)
         WidgetUpdater.updateMinuteTick(context, customization)
         savedFlash = true
@@ -103,12 +125,70 @@ fun WidgetSection() {
 
     // بلا تمريرٍ خاص — صفحة القسم نفسها تتمرّر فلا تمريرٌ مزدوج
     Column {
+        // ===== الأشكال الستة الجاهزة — بلاغ المالك 2026-11-11:
+        // «عايز ٦ اشكال للويدجت تكون جاهزة للمستخدم ممكن يختار منهم»
+        // — ضغطةٌ على شكلٍ تُطبّقه فوراً على هذه الويدجت
+        SettingLabel("أشكال جاهزة — ستة أشكال بضغطة")
         Text(
-            text = "ويدجت واحدة تخصّصها كما تحب: تستدلي بها من قائمة " +
-                "ويدجتات الشاشة الرئيسية (اضغط مطولاً على الخلفية ← ويدجتات ← " +
-                "نور المسلم)، وضغطةٌ على الويدجت نفسها على شاشتك تفتح هذا " +
-                "القسم داخل التطبيق، وما تخفيه من عناصر يضمّ الباقون مكانه " +
-                "بأجمل توزيع.",
+            text = "وهي نفسها في قائمة ويدجتات الشاشة الرئيسية باسمها " +
+                "ومعاينتها: (اضغط مطولاً على الخلفية ← ويدجتات ← نور المسلم)",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        ) {
+            WidgetPresets.ALL.forEach { preset ->
+                val selected = preset.customization == customization
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    },
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    ),
+                    onClick = {
+                        apply { preset.customization }
+                    },
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    ) {
+                        val previewBmp = presetPreviewBitmap(context, preset.index)
+                        if (previewBmp != null) {
+                            Image(
+                                bitmap = previewBmp.asImageBitmap(),
+                                contentDescription = preset.name,
+                                modifier = Modifier.size(width = 64.dp, height = 46.dp),
+                            )
+                        } else {
+                            Spacer(Modifier.height(46.dp))
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = preset.name,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "ويدجت تخصّصها كما تحب: تستدلي بها من قائمة " +
+                "ويدجتات الشاشة الرئيسية، وضغطةٌ على الويدجت نفسها على شاشتك تفتح " +
+                "هذا القسم داخل التطبيق وتحرّر تخصيصها هي، وما تخفيه من عناصر " +
+                "يضمّ الباقون مكانه بأجمل توزيع.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 14.dp),
@@ -292,12 +372,13 @@ fun WidgetSection() {
 
         Spacer(Modifier.height(16.dp))
 
-        // ===== الإطار — بألوانٍ مختارةٍ أو بلا (alpha63) =====
+        // ===== الإطار — بألوانٍ مختارةٍ أو بلا (alpha63) — والإطار
+        // منذ بلاغ 2026-11-11 مربّعٌ بحوافٍ دائريةٍ فوق الحواف الحادة
         SettingLabel("إطار الويدجت")
         Text(
-            text = "حوافٌ حادةٌ وإطارٌ بلونٍ تختاره من اللوحة — أو بلا " +
-                "إطارٍ خالصاً — وضغطةٌ على الويدجت نفسها على شاشتك تفتح " +
-                "إعداداتها داخل التطبيق.",
+            text = "إطارٌ مربّعٌ بحوافٍ دائريةٍ بلونٍ تختاره من اللوحة — " +
+                "أو بلا إطارٍ خالصاً — ولكل عنصرٍ على حدة إطاره من لوحته " +
+                "(اضغط العنصر في المعاينة).",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp),
@@ -350,9 +431,14 @@ fun WidgetSection() {
                         )
                     }
                     Spacer(Modifier.height(10.dp))
+                    // **المعاينة بالحجم الأصلي** — بلاغ المالك 2026-11-11:
+                    // «شاشه المعاينه تكون اكبر لتعرض كامل الويدجت بالحجم
+                    // الاصلي» — بلا تصغيرٍ: عرضُ الويدجت الحقيقي وارتفاعُها
+                    // بمحتواها والتمرير يكمل ما لا تتسع له الشاشة
                     WidgetInteractiveEditor(
                         customization = customization,
                         onUpdate = { next -> apply { next } },
+                        realSize = true,
                     )
                     Spacer(Modifier.height(12.dp))
                 }
@@ -534,5 +620,26 @@ private fun ToggleRow(title: String, checked: Boolean, onChange: (Boolean) -> Un
                 checkedTrackColor = MaterialTheme.colorScheme.primary,
             ),
         )
+    }
+}
+
+/**
+ * معاينة الشكل الجاهز — رسم قائمة النظام نفسه (widget_preview_1..6)
+ * يُصغَّر في رقاقة المحرر كي يختار المستخدم بعينٍ كما يختار من قائمة
+ * الهاتف — «علشان المستخدم يقدر يفرق بينهم».
+ */
+@Composable
+private fun presetPreviewBitmap(context: android.content.Context, index: Int): android.graphics.Bitmap? {
+    return remember(index) {
+        runCatching {
+            val id = context.resources.getIdentifier(
+                "widget_preview_$index", "drawable", context.packageName,
+            )
+            if (id != 0) {
+                android.graphics.BitmapFactory.decodeResource(context.resources, id)
+            } else {
+                null
+            }
+        }.getOrNull()
     }
 }

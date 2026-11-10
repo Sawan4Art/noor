@@ -80,11 +80,12 @@ internal fun palette(c: WidgetCustomization): WidgetPalette {
     return base
 }
 
-/** خلفية الويدجت — تدرّج بحوافٍ **حادة** بشفافية التخصيص وإطارٌ بلون
- *  التخصيص أو بلا إطارٍ خالصاً (alpha63: «عايز اخلي حواف الويدجت حاده
- *  و عايز اخلي اطار الويدجت يكون بالوان مختاره او بدون») — الإطار
- *  مرسومٌ في الخلفية نفسها كي لا يزيد بايتان في باكِت البايندر
- *  (درس alpha58)، و[frameColor] صفرٌ يعني بلا إطار. */
+/** خلفية الويدجت — تدرّج بشفافية التخصيص وإطارٌ بلون التخصيص أو بلا
+ *  إطارٍ خالصاً — **الإطار مربّعٌ بحوافٍ دائرية** (بلاغ المالك
+ *  2026-11-11: «و يكون اطار مربع بحواف دائريه») فيُرسم حدّه بقوسٍ
+ *  دائريٍ فوق التدرّج الحادّ (حواف الويدجت نفسها بقيت حادة — alpha63)
+ *  والإطار مرسومٌ في الخلفية نفسها كي لا يزيد بايتان في باكِت
+ *  البايندر (درس alpha58)، و[frameColor] صفرٌ يعني بلا إطار. */
 internal fun widgetBackgroundBitmap(
     width: Int,
     height: Int,
@@ -101,15 +102,27 @@ internal fun widgetBackgroundBitmap(
     ).apply {
         // الحواف حادة بلا دائرية — بلاغ المالك alpha63
         cornerRadius = 0f
-        if (frameColor != null) {
-            setStroke((3f * w / 250f).toInt().coerceAtLeast(1), withAlpha(frameColor, 0.85f))
-        }
     }
     drawable.alpha = (alpha.coerceIn(0f, 1f) * 255).toInt()
     val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bmp)
     drawable.setBounds(0, 0, w, h)
     drawable.draw(canvas)
+    if (frameColor != null) {
+        // الإطار مربّع بحوافٍ دائرية — حدٌّ مستقلٌ فوق التدرّج لا يمسّه
+        val stroke = (3f * w / 250f).toInt().coerceAtLeast(2)
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            style = android.graphics.Paint.Style.STROKE
+            this.strokeWidth = stroke.toFloat()
+            color = withAlpha(frameColor, 0.85f)
+        }
+        val radius = w * 0.06f
+        val inset = stroke / 2f
+        canvas.drawRoundRect(
+            inset, inset, w - inset, h - inset,
+            radius, radius, paint,
+        )
+    }
     return bmp
 }
 
@@ -134,8 +147,45 @@ internal fun withAlpha(color: Int, alpha: Float): Int =
  * ترتيبٌ حيّ في المحرر، والحجم زومٌ باليد، واللون لوحةٌ منبثقة —
  * والمخفي لا يُضاف أصلاً فلا فراغ مكانه. وأي غلطةٍ في عنصرٍ واحدٍ
  * لا تقتل البقية: كل عنصرٍ يُبنى بأمانه (درس alpha58).
+ * **إطار كل عنصرٍ على حدة** (بلاغ المالك 2026-11-11: «عايز اطار
+ * للويدجت ولكل عنصر من الويدجت يكون اختيار اما اضافه الاطار بلون
+ * معين او ازاله الاطار … اطار لكل عنصر على حده و اطار للويدجت كله»):
+ * كل عنصرٍ له خلفيةٌ جاهزة (el_frame_1..8) بحدٍّ مربّعٍ بحوافٍ دائريةٍ
+ * بلونٍ من لوحة الويدجت الثمانية — تُضبط ب setBackgroundResource على
+ * جذر العنصر، وغياب الإطار يعني بلا خلفيةٍ أصلاً.
  */
 object WidgetRenderer {
+
+    /** إطارات العناصر الثمانية — لون اللوحة إلى الرسم الجاهز بحوافٍ دائرية */
+    internal val ELEMENT_FRAME_DRAWABLES: Map<String, Int> = mapOf(
+        "#233029" to R.drawable.el_frame_1,
+        "#F2EDE0" to R.drawable.el_frame_2,
+        "#2FA48C" to R.drawable.el_frame_3,
+        "#C98A3D" to R.drawable.el_frame_4,
+        "#B04A3A" to R.drawable.el_frame_5,
+        "#5B6E9E" to R.drawable.el_frame_6,
+        "#7A5B9E" to R.drawable.el_frame_7,
+        "#4E7A4E" to R.drawable.el_frame_8,
+    )
+
+    /** جذر العنصر الذي يُضبط عليه الإطار — بمفتاحه */
+    internal fun elementRootId(key: String): Int = when (key) {
+        WidgetCustomization.ELEMENT_HIJRI -> R.id.widget_date_hijri
+        WidgetCustomization.ELEMENT_GREG -> R.id.widget_date_greg
+        WidgetCustomization.ELEMENT_NEXT -> R.id.widget_next_row
+        WidgetCustomization.ELEMENT_COUNTDOWN -> R.id.widget_countdown_frame
+        WidgetCustomization.ELEMENT_GRID -> R.id.grid_row
+        else -> R.id.widget_el_root
+    }
+
+    /** رسم إطار عنصرٍ بلونه — «auto»/«none»/الغريب = بلا إطار */
+    internal fun elementFrameRes(frameValue: String?): Int? {
+        if (frameValue == null) return null
+        if (frameValue == WidgetCustomization.COLOR_AUTO) return null
+        if (frameValue == WidgetCustomization.FRAME_NONE) return null
+        return ELEMENT_FRAME_DRAWABLES[frameValue.uppercase()]
+            ?: ELEMENT_FRAME_DRAWABLES[frameValue]
+    }
 
     internal fun render(
         context: Context,
@@ -143,6 +193,7 @@ object WidgetRenderer {
         customization: WidgetCustomization,
         widthDp: Int = 250,
         heightDp: Int = 180,
+        appWidgetId: Int = -1,
     ): RemoteViews {
         val pal = palette(customization)
         // **شجرة جديدة كل تحديث** (alpha64): التبادل بين التوأمين
@@ -192,7 +243,7 @@ object WidgetRenderer {
         // المالك: «عايز لما اضغط عليه يفتح اعادات الويدجت داخل التطبيق»
         views.setOnClickPendingIntent(
             R.id.widget_root,
-            settingsPendingIntent(context),
+            settingsPendingIntent(context, appWidgetId),
         )
 
         val analog = customization.clockStyle == WidgetCustomization.ClockStyle.ANALOG
@@ -204,6 +255,12 @@ object WidgetRenderer {
             val child = runCatching {
                 RemoteViews(context.packageName, elementLayout(key)).also(build)
             }.getOrNull() ?: return
+            // إطار العنصر — حدٌّ مربّعٌ بحوافٍ دائريةٍ بلونٍ مختارٍ أو بلا
+            runCatching {
+                elementFrameRes(customization.elementFrames[key])?.let { res ->
+                    child.setInt(elementRootId(key), "setBackgroundResource", res)
+                }
+            }
             runCatching {
                 // الإضافة بالتتابع تكفي: addView يلحق بآخر العمود
                 // فترتيب الاستدعاء هو الترتيب المختار
@@ -382,17 +439,20 @@ object WidgetRenderer {
     /**
      * نية ضغطة الويدجت — فتح قسم «الويدجت» في إعدادات التطبيق
      * (alpha63 — بلاغ المالك: «عايز لما اضغط عليه يفتح اعادات
-     * الويدجت داخل التطبيق») بدل تبديل لون الإطار الذي كان يعيد
-     * الرسم فيكرّر العناصر قبل إصلاح الجذر.
+     * الويدجت داخل التطبيق») ومعرّف الويدجت نفسها كي يحرّر المحرر
+     * تخصيصَها هو لا العام (الأشكال الستة: بلاغ المالك 2026-11-11).
      */
-    private fun settingsPendingIntent(context: Context): PendingIntent {
+    private fun settingsPendingIntent(context: Context, appWidgetId: Int): PendingIntent {
         val intent = Intent(context, com.sawan4art.noor.MainActivity::class.java).apply {
             action = NoorWidget.ACTION_OPEN_WIDGET_SETTINGS
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            if (appWidgetId > 0) {
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            }
         }
         return PendingIntent.getActivity(
             context,
-            3,
+            3 + (if (appWidgetId > 0) appWidgetId else 0),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -410,35 +470,55 @@ object WidgetRenderer {
 }
 
 /**
- * الويدجت الواحدة — تحديثها يعيد الحساب والرسم من الإعدادات الحية،
- * وضغطةٌ عليها تفتح قسم إعداداتها داخل التطبيق (alpha63). ومع
- * الساعة التناظرية (alpha59) بثّ نبضةٍ كل دقيقةٍ يعيد رسم العقارب
- * ما دامت ظاهرةً — ويُلغى ما إن تعود رقمية — ونبضةٌ يوم منتصف
- * الليل تعيد الأسماء والتواريخ كي يعود الظهر ليلةَ الجمعة
- * «الجمعة» بلا انتظار فتح التطبيق.
+ * ويدجت «نور المسلم» — مستقبِل الشكل الافتراضي وجذرُ الأشكال الستة
+ * (بلاغ المالك 2026-11-11: «٦ اشكال للويدجت تكون جاهزة… و اشكالهم
+ * ظاهره في قائمه التطبيقات المصغره في الهاتف علشان المستخدم يقدر
+ * يفرق بينهم»). تحديثها يعيد الحساب والرسم من تخصيص **هذه الويدجت**
+ * (لكل ويدجتٍ مخزنٌ خاص بمعرّفها — درس الأشكال الستة) وضغطةٌ عليها
+ * تفتح قسم إعداداتها داخل التطبيق (alpha63). ومع الساعة التناظرية
+ * بثّ نبضةٍ كل دقيقةٍ يعيد رسم العقارب ما دامت ظاهرةً — ونبضةٌ يوم
+ * منتصف الليل تعيد الأسماء والتواريخ.
  */
-class NoorWidget : AppWidgetProvider() {
+open class NoorWidget : AppWidgetProvider() {
+
+    /** رقم الشكل الجاهز لهذا المستقبِل — null للشكل الافتراضي */
+    protected open val presetIndex: Int? = null
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
+        // زرع الشكل الجاهز في أول رسمٍ للويدجت — مرةً واحدةً فلا يمسّ
+        // تخصيص المستخدم اليدوي بعدها
+        presetIndex?.let { idx ->
+            val preset = WidgetPresets.byIndex(idx)
+            for (id in appWidgetIds) {
+                WidgetStore.seedPresetIfAbsent(context, id, preset.customization)
+            }
+        }
         // التحصين (alpha58): أي غلطةٍ في الحساب أو الرسم لا تقتل التحديث
-        // كله — كل ويدجت تُرسم بأمانها: التخصيص الحي فإن انفجر الافتراضي
+        // كله — كل ويدجت تُرسم بأمانها: تخصيصها هو فإن انفجر الافتراضي
         val snapshot = WidgetSnapshot.compute(context)
-        val customization = WidgetStore.customization(context)
         for (id in appWidgetIds) {
+            val customization = WidgetStore.customizationFor(context, id)
             val views = runCatching {
-                WidgetRenderer.render(context, snapshot, customization)
+                WidgetRenderer.render(context, snapshot, customization, appWidgetId = id)
             }.getOrElse {
                 runCatching {
                     WidgetRenderer.render(
                         context, WidgetSnapshot.compute(context), WidgetCustomization.DEFAULT,
+                        appWidgetId = id,
                     )
                 }.getOrNull()
             }
             if (views != null) manager.updateAppWidget(id, views)
         }
         // نبضتا الحياة: دقيقة العقارب ومنتصف الليل (الأسماء والتواريخ)
-        WidgetUpdater.updateMinuteTick(context, customization)
+        WidgetUpdater.updateMinuteTick(context, WidgetStore.customization(context))
         WidgetUpdater.updateDayTick(context)
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        // مخزن الويدجت المحذوفة يُمسح كي لا يتراكم الموتى
+        for (id in appWidgetIds) WidgetStore.clearFor(context, id)
+        super.onDeleted(context, appWidgetIds)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -474,36 +554,71 @@ class NoorWidget : AppWidgetProvider() {
     }
 }
 
+// ===== الأشكال الستة في قائمة ويدجتات النظام =====
+// كلٌّ مستقبِلٌ مستقلٌ بمعاينته واسمه — أول رسمٍ يزرع تخصيص شكله
+// (بلاغ المالك 2026-11-11: «عايز ٦ اشكال للويدجت تكون جاهزة…»)
+
+class NoorWidgetPreset1 : NoorWidget() { override val presetIndex = 1 }
+class NoorWidgetPreset2 : NoorWidget() { override val presetIndex = 2 }
+class NoorWidgetPreset3 : NoorWidget() { override val presetIndex = 3 }
+class NoorWidgetPreset4 : NoorWidget() { override val presetIndex = 4 }
+class NoorWidgetPreset5 : NoorWidget() { override val presetIndex = 5 }
+class NoorWidgetPreset6 : NoorWidget() { override val presetIndex = 6 }
+
 /** أدوات الدفع الجماعي — تحديث الويدجت من التطبيق والمنبهات */
 object WidgetUpdater {
 
-    private val PROVIDER = NoorWidget::class.java
+    /** كل مستقبِلات الويدجت — الافتراضي والأشكال الستة */
+    val PROVIDERS: List<Class<out AppWidgetProvider>> = listOf(
+        NoorWidget::class.java,
+        NoorWidgetPreset1::class.java, NoorWidgetPreset2::class.java,
+        NoorWidgetPreset3::class.java, NoorWidgetPreset4::class.java,
+        NoorWidgetPreset5::class.java, NoorWidgetPreset6::class.java,
+    )
     private const val TICK_REQUEST_CODE = 2001
     private const val DAY_REQUEST_CODE = 2002
 
-    /** تحديث ويدجت التطبيق المنصوبة — يُستدعى من التطبيق والمنبهات */
+    /** هل هناك أي ويدجتٍ منصوبةٍ من أي شكل؟ */
+    fun hasAnyWidget(context: Context): Boolean {
+        val manager = AppWidgetManager.getInstance(context) ?: return false
+        return PROVIDERS.any { provider ->
+            manager.getAppWidgetIds(ComponentName(context, provider)).isNotEmpty()
+        }
+    }
+
+    /**
+     * تحديث كل ويدجتات التطبيق المنصوبة — كلٌّ بتخصيصها الخاص بمعرّفها
+     * (الأشكال الستة: بلاغ المالك 2026-11-11) — يُستدعى من التطبيق والمنبهات
+     */
     fun refreshAll(context: Context) {
         runCatching {
             val manager = AppWidgetManager.getInstance(context) ?: return
-            val ids = manager.getAppWidgetIds(ComponentName(context, PROVIDER))
-            if (ids.isEmpty()) return
             val snapshot = WidgetSnapshot.compute(context)
-            val customization = WidgetStore.customization(context)
-            manager.updateAppWidget(ids, WidgetRenderer.render(context, snapshot, customization))
+            for (provider in PROVIDERS) {
+                val ids = manager.getAppWidgetIds(ComponentName(context, provider))
+                for (id in ids) {
+                    val customization = WidgetStore.customizationFor(context, id)
+                    runCatching {
+                        manager.updateAppWidget(
+                            id,
+                            WidgetRenderer.render(context, snapshot, customization, appWidgetId = id),
+                        )
+                    }
+                }
+            }
         }
     }
 
     /**
      * نبضة الدقيقة — عقارب الساعة التناظرية لا تتحرك وحدها في RemoteViews
      * (بلاغ alpha59: «ساعه تناظريه») فمنبهٌ رقيقٌ كل دقيقةٍ يعيد الرسم
-     * ما دامت الساعة التناظرية مختارةً والويدجت منصوبة، ويُلغى بعودة
+     * ما دامت الساعة التناظرية مختارةً في أي ويدجتٍ منصوبة، ويُلغى بعودة
      * الرقمية — فلا بطارية تُهدر إلا لعقاربٍ تُرى.
      */
     fun updateMinuteTick(context: Context, customization: WidgetCustomization) {
         runCatching {
             val manager = AppWidgetManager.getInstance(context)
-            val hasWidget = manager != null &&
-                manager.getAppWidgetIds(ComponentName(context, PROVIDER)).isNotEmpty()
+            val hasWidget = manager != null && hasAnyWidget(context)
             val wanted = hasWidget && customization.showClock &&
                 customization.clockStyle == WidgetCustomization.ClockStyle.ANALOG
             val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
@@ -522,7 +637,7 @@ object WidgetUpdater {
         PendingIntent.getBroadcast(
             context,
             TICK_REQUEST_CODE,
-            Intent(context, PROVIDER).setAction(NoorWidget.ACTION_TICK),
+            Intent(context, NoorWidget::class.java).setAction(NoorWidget.ACTION_TICK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
@@ -537,8 +652,7 @@ object WidgetUpdater {
     fun updateDayTick(context: Context) {
         runCatching {
             val manager = AppWidgetManager.getInstance(context)
-            val hasWidget = manager != null &&
-                manager.getAppWidgetIds(ComponentName(context, PROVIDER)).isNotEmpty()
+            val hasWidget = manager != null && hasAnyWidget(context)
             if (!hasWidget) return
             val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
                 ?: return
@@ -557,7 +671,7 @@ object WidgetUpdater {
         PendingIntent.getBroadcast(
             context,
             DAY_REQUEST_CODE,
-            Intent(context, PROVIDER).setAction(NoorWidget.ACTION_DAY_TICK),
+            Intent(context, NoorWidget::class.java).setAction(NoorWidget.ACTION_DAY_TICK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 }

@@ -268,6 +268,42 @@ fun KhutbahEditorContent(
                         minLines = 6,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    // ===== زرا المقدمة والخاتمة الجاهزتان — بلاغ المالك
+                    // 2026-11-11: «زر كتابه الخطبه يكون داخله زر كتابه
+                    // مقدمه للخطب لتسهيل الكتابه و البدأ فور الضغط على
+                    // الزر بنسخ نص المقدمه الجاهزه ونفس المبدأ لزر آخر
+                    // لنهايه الخطبه» — ضغطةٌ تُدرج النص فوراً
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SheetChip(
+                            text = "إدراج مقدمة جاهزة",
+                            filled = false,
+                            accent = accent,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                CrashLog.breadcrumb("خطبة: إدراج المقدمة الجاهزة")
+                                text = if (text.isBlank()) {
+                                    KhutbahLibrary.INTRO_TEMPLATE
+                                } else {
+                                    KhutbahLibrary.INTRO_TEMPLATE + "\n\n" + text
+                                }
+                            },
+                        )
+                        SheetChip(
+                            text = "إدراج خاتمة جاهزة",
+                            filled = false,
+                            accent = accent,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                CrashLog.breadcrumb("خطبة: إدراج الخاتمة الجاهزة")
+                                text = if (text.isBlank()) {
+                                    KhutbahLibrary.CONCLUSION_TEMPLATE
+                                } else {
+                                    text + "\n\n" + KhutbahLibrary.CONCLUSION_TEMPLATE
+                                }
+                            },
+                        )
+                    }
                     Spacer(Modifier.height(10.dp))
                     KhutbahImagesRow(
                         images = savedImages,
