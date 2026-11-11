@@ -111,6 +111,15 @@ interface AdhanActions {
     /** قاعدة تنبيه صلاة بعينها — null يلغيها (alpha61) */
     fun setPrayerReminder(key: PrayerTimeKey, rule: PrayerReminder.Rule?)
 
+    /** اهتزاز أثناء رنين الأذان — كل صوتٍ بمفتاحه (بلاغ المالك v1.71) */
+    fun setAdhanVibrate(on: Boolean)
+
+    /** اهتزاز أثناء رنين الإقامة */
+    fun setIqamahVibrate(on: Boolean)
+
+    /** اهتزاز أثناء رنين التنبيه */
+    fun setReminderVibrate(on: Boolean)
+
     fun importCustomSound(kind: AdhanSoundKind, uri: Uri)
 
     fun clearCustomSound(kind: AdhanSoundKind)
@@ -153,7 +162,13 @@ fun AdhanSection(
             return
         }
         AdhanSoundPlayer.stop()
-        AdhanSoundPlayer.start(context, kind, soundId, customPath)
+        // الاهتزاز مواكبٌ للمعاينة إن كان مفتاح هذا الصوت مفعّلاً —
+        // فالمعاينة تعين عين المسموع والمحسوس وقت الرنين الحقيقي
+        val vibrate = when (kind) {
+            AdhanSoundKind.IQAMAH -> adhan.iqamahVibrate
+            AdhanSoundKind.ADHAN -> adhan.adhanVibrate
+        }
+        AdhanSoundPlayer.start(context, kind, soundId, customPath, vibrate)
         previewing = if (AdhanSoundPlayer.isPlaying) kind else null
     }
 
@@ -204,6 +219,20 @@ fun AdhanSection(
                 },
             )
 
+            // ===== اهتزاز أثناء الرنين — بلاغ المالك v1.71: «اضف ميزه
+            // الاهتزاز اثنار الرنين لكل الاصوات الصادره من التطبيق و يكون
+            // كل صوت قابل لتفعيل الميزه او ايقافها»
+            ToggleRow(
+                title = "الاهتزاز أثناء رنين الأذان",
+                subtitle = if (adhan.adhanVibrate) {
+                    "الهاتف يهتز مع الأذان من بدايته حتى نهايته"
+                } else {
+                    "مطفأ — الأذان يرن بلا اهتزاز"
+                },
+                checked = adhan.adhanVibrate,
+                onToggle = { actions.setAdhanVibrate(it) },
+            )
+
             // ===== صوت لكل صلاة على حدة أو للكل (alpha61) =====
             Spacer(Modifier.height(12.dp))
             ToggleRow(
@@ -237,6 +266,17 @@ fun AdhanSection(
                 subtitle = "«قد قامت الصلاة» — يشتغل بعد الأذان بالمدة المحددة لكل صلاة",
                 checked = adhan.iqamahEnabled,
                 onToggle = { actions.setIqamahEnabled(it) },
+            )
+            // اهتزاز أثناء رنين الإقامة — بلاغ المالك v1.71
+            ToggleRow(
+                title = "الاهتزاز أثناء رنين الإقامة",
+                subtitle = if (adhan.iqamahVibrate) {
+                    "الهاتف يهتز مع الإقامة من بدايتها حتى نهايتها"
+                } else {
+                    "مطفأ — الإقامة ترن بلا اهتزاز"
+                },
+                checked = adhan.iqamahVibrate,
+                onToggle = { actions.setIqamahVibrate(it) },
             )
             if (adhan.iqamahEnabled) {
                 Spacer(Modifier.height(10.dp))
@@ -376,6 +416,17 @@ fun AdhanSection(
                 },
                 checked = adhan.reminderEnabled,
                 onToggle = { actions.setReminderEnabled(it) },
+            )
+            // اهتزاز أثناء رنين التنبيه — بلاغ المالك v1.71
+            ToggleRow(
+                title = "الاهتزاز أثناء رنين التنبيه",
+                subtitle = if (adhan.reminderVibrate) {
+                    "الهاتف يهتز مع صوت التنبيه من بدايته حتى نهايته"
+                } else {
+                    "مطفأ — التنبيه يرن بلا اهتزاز"
+                },
+                checked = adhan.reminderVibrate,
+                onToggle = { actions.setReminderVibrate(it) },
             )
             if (adhan.reminderEnabled) {
                 Spacer(Modifier.height(6.dp))

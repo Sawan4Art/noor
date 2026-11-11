@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -46,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -210,7 +212,7 @@ fun WidgetSection(widgetId: Int = -1) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
-                text = "افتح المعاينة بحجم أكبر ←",
+                text = "افتح صفحة المعاينة الكاملة ←",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
@@ -390,8 +392,13 @@ fun WidgetSection(widgetId: Int = -1) {
         )
     }
 
-    // ===== المعاينة بحجمٍ أكبر (alpha63) — المُحرر نفسه في حوارٍ يملأ
-    // الشاشة فتُرى عناصر الويدجت أوضح وتُحرَّر بنفس السحب والزوم =====
+    // ===== صفحة المعاينة الكاملة (v1.71) — بلاغ المالك: «شاشه المعاينه
+    // في اعدادات الويدجت نفسها صغيره و لا تعرض كامل شكل الويدجت بشكل
+    // صحيح اعلها صفحه معاينه كامله لوحدها» — لم تكن حواراً بحشواتٍ
+    // وحوافٍ دائريةٍ بعدُ فبدا صغيراً لا يعرض الشكل كاملاً؛ صارت الآن
+    // صفحةً مستقلةً تملأ الشاشة كلَّها: شريطٌ علويٌّ بالعودة والحفظ،
+    // والويدجت بالحجم الأصلي بعرض الشاشة كاملاً والتمرير يكمل ما لا
+    // تتسع له، وكل تعديلٍ فيها يُحفظ ويُعاد رسم الويدجت المنصوبة فوراً
     if (bigPreview) {
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { bigPreview = false },
@@ -400,47 +407,72 @@ fun WidgetSection(widgetId: Int = -1) {
             ),
         ) {
             Surface(
-                shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 28.dp),
+                modifier = Modifier.fillMaxSize(),
             ) {
-                Column(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .verticalScroll(androidx.compose.foundation.rememberScrollState()),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // الشريط العلوي — رجوعٌ وعنوانٌ وحفظ
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                    ) {
                         Text(
-                            text = "معاينة الويدجت بحجمٍ أكبر",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = "إغلاق",
-                            fontSize = 13.sp,
+                            text = "رجوع ←",
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(10.dp))
                                 .clickable { bigPreview = false }
-                                .padding(8.dp),
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                        )
+                        Text(
+                            text = "معاينة الويدجت — الحجم الأصلي",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            text = if (savedFlash) "حُفظ ✓" else "حفظ",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.primary)
+                                .clickable { saveNow() }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
                         )
                     }
-                    Spacer(Modifier.height(10.dp))
-                    // **المعاينة بالحجم الأصلي** — بلاغ المالك 2026-11-11:
-                    // «شاشه المعاينه تكون اكبر لتعرض كامل الويدجت بالحجم
-                    // الاصلي» — بلا تصغيرٍ: عرضُ الويدجت الحقيقي وارتفاعُها
-                    // بمحتواها والتمرير يكمل ما لا تتسع له الشاشة
-                    WidgetInteractiveEditor(
-                        customization = customization,
-                        onUpdate = { next -> apply { next } },
-                        realSize = true,
+                    if (savedFlash) {
+                        LaunchedEffect(savedFlash) {
+                            kotlinx.coroutines.delay(2_500L)
+                            savedFlash = false
+                        }
+                    }
+                    androidx.compose.material3.HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
                     )
-                    Spacer(Modifier.height(12.dp))
+                    // جسم الصفحة — الويدجت بالحجم الأصلي بعرض الشاشة
+                    // كاملاً، والتمرير الرأسي يكمل ما لا تتسع له الشاشة
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                            .padding(horizontal = 12.dp, vertical = 14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        WidgetInteractiveEditor(
+                            customization = customization,
+                            onUpdate = { next -> apply { next } },
+                            realSize = true,
+                            fullPage = true,
+                        )
+                    }
                 }
             }
         }
@@ -548,9 +580,9 @@ internal fun SettingLabel(text: String) {
     )
 }
 
-/** رقاقة مظهر — مختارة تُملأ بلون التطبيق */
+/** رقاقة اختيار — مشتركة بين قسم الويدجت وقسم التحديثات (قنوات الإشعار v1.71) */
 @Composable
-private fun ThemeChip(text: String, selected: Boolean, onClick: () -> Unit) {
+internal fun ThemeChip(text: String, selected: Boolean, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Surface(
         shape = RoundedCornerShape(14.dp),

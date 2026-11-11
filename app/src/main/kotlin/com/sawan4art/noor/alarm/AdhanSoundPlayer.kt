@@ -6,6 +6,7 @@ import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import com.sawan4art.noor.domain.adhan.AdhanSoundKind
+import com.sawan4art.noor.util.VibrationRinger
 import com.sawan4art.noor.domain.adhan.AdhanVoices
 import java.io.File
 
@@ -18,6 +19,9 @@ object AdhanSoundPlayer {
 
     private var player: MediaPlayer? = null
 
+    /** سياق المعاينة الحالية — لإيقاف الاهتزاز في stop() بلا معامل (بلاغ v1.71) */
+    private var playingContext: Context? = null
+
     val isPlaying: Boolean
         get() = runCatching { player?.isPlaying == true }.getOrDefault(false)
 
@@ -27,8 +31,11 @@ object AdhanSoundPlayer {
         kind: AdhanSoundKind,
         soundId: String,
         customPath: String,
+        /** اهتزازٌ مواكبٌ للمعاينة إن كان مفتاح هذا الصوت مفعّلاً (بلاغ v1.71) */
+        vibrate: Boolean = false,
     ) {
         stop()
+        playingContext = context.applicationContext
         val attrs = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
@@ -69,6 +76,9 @@ object AdhanSoundPlayer {
         }
         player = prepared
         prepared.start()
+        if (vibrate) {
+            VibrationRinger.startLooping(context)
+        }
     }
 
     fun stop() {
@@ -77,5 +87,8 @@ object AdhanSoundPlayer {
             runCatching { p.release() }
         }
         player = null
+        // المعاينة انتهت أو أُوقفت — الاهتزاز ينقطع معها (بلاغ v1.71)
+        playingContext?.let { VibrationRinger.cancel(it) }
+        playingContext = null
     }
 }

@@ -82,8 +82,10 @@ fun UpdateDialog(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                         )
+                        // قناة الإصدار من الوسم — بلاغ المالك v1.71: التنويه
+                        // بأن الاصدار مستقر أم بيتا أم تجريبي
                         Text(
-                            text = "النسخة ${info.versionName}",
+                            text = "نسخة ${info.channel.title} — ${info.versionName}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.secondary,
                         )

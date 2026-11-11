@@ -22,6 +22,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.sawan4art.noor.MainActivity
+import com.sawan4art.noor.util.VibrationRinger
 import com.sawan4art.noor.R
 import com.sawan4art.noor.domain.adhan.AdhanMode
 import com.sawan4art.noor.domain.adhan.AdhanSoundKind
@@ -53,6 +54,9 @@ class AlarmService : Service() {
     /** نصّ التنبيه الجاهز للوضع REMINDER — فارغٌ لباقي الأوضاع */
     private var note = ""
 
+    /** اهتزاز أثناء الرنين — مفتاح الصوت الحالي من الإعدادات (بلاغ v1.71) */
+    private var vibrate = true
+
     /** إعدادات نافذة الكتم للحبة الحالية — تُملأ من نية الحدث */
     private var muteStartPending = false
     private var muteMinutes = 10
@@ -81,11 +85,13 @@ class AlarmService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                VibrationRinger.cancel(this)
                 MuteManager.restore(this)
                 stopSelf()
                 return START_NOT_STICKY
             }
             ACTION_RESTORE_MUTE -> {
+                VibrationRinger.cancel(this)
                 MuteManager.restore(this)
                 stopSelf()
                 return START_NOT_STICKY
@@ -106,6 +112,10 @@ class AlarmService : Service() {
         val customPath = intent?.getStringExtra(EXTRA_CUSTOM_PATH) ?: ""
         // نصّ التنبيه الجاهز (alpha61 — وضع التنبيه قبل/بعد الأذان)
         note = intent?.getStringExtra(EXTRA_NOTE) ?: ""
+        // اهتزاز أثناء الرنين — «اضف ميزه الاهتزاز اثنار الرنين لكل
+        // الاصوات الصادره من التطبيق و يكون كل صوت قابل لتفعيل الميزه او
+        // ايقافها» (بلاغ المالك v1.71)
+        vibrate = intent?.getBooleanExtra(EXTRA_VIBRATE, true) ?: true
 
         muteStartPending = intent?.getBooleanExtra(EXTRA_MUTE_START, false) == true
         muteMinutes = intent?.getIntExtra(EXTRA_MUTE_MINUTES, 10)?.coerceAtLeast(1) ?: 10
@@ -303,6 +313,11 @@ class AlarmService : Service() {
             true
         }
         prepared.start()
+        // اهتزازٌ مواكبٌ للرنين من بدايته حتى نهايته — لا اهتزازاً
+        // لحظةً واحدةً عند نشر الإشعار (بلاغ المالك v1.71)
+        if (vibrate) {
+            VibrationRinger.startLooping(this)
+        }
 
         // أمان: نهاية التشغيل تلقائياً بعد الحد الأقصى مهما حدث —
         // وتنتهي بنفس مسار الانتهاء الطبيعي (نافذة الكتم إن كانت بدايته)
@@ -321,6 +336,7 @@ class AlarmService : Service() {
      * معاً — نافذة الكتم بعدها لا تحتاج سهراً فالاستعادة بمنبه مستقل.
      */
     private fun finishPlayback() {
+        VibrationRinger.cancel(this)
         releasePlayer()
         markPlaybackEnded()
         runCatching {
@@ -426,7 +442,8 @@ class AlarmService : Service() {
         const val EXTRA_CUSTOM_PATH = "noor_extra_alarm_custom_path"
         /** نصّ التنبيه الجاهز — وضع REMINDER يعرضه في الشاشة والإشعار */
         const val EXTRA_NOTE = "noor_extra_alarm_note"
-        const val EXTRA_MUTE_START = "noor_extra_alarm_mute_start"
+        const val EXTRA_VIBRATE = "noor_extra_adhan_vibrate"
+    const val EXTRA_MUTE_START = "noor_extra_alarm_mute_start"
         const val EXTRA_MUTE_MINUTES = "noor_extra_alarm_mute_minutes"
         const val EXTRA_MUTE_CANCEL_ON_UNLOCK = "noor_extra_alarm_mute_cancel_on_unlock"
         // الأوضاع من الموحِّد نفسه — نقطة حقيقة واحدة للاستقبِل والخدمة والشاشة

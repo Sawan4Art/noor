@@ -1,6 +1,7 @@
 package com.sawan4art.noor.data
 
 import android.content.Context
+import com.sawan4art.noor.data.update.UpdateChannel
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -82,6 +83,17 @@ data class AdhanPrefs(
     val reminderEnabled: Boolean = false,
     /** قواعد التنبيه — مفتاح PrayerTimeKey.name إلى قاعدتها */
     val reminders: Map<String, PrayerReminder.Rule> = emptyMap(),
+    /**
+     * **اهتزاز أثناء الرنين** (بلاغ المالك v1.71: «اضف ميزه الاهتزاز
+     * اثنار الرنين لكل الاصوات الصادره من التطبيق و يكون كل صوت قابل
+     * لتفعيل الميزه او ايقافها») — كلٌّ من الأصوات الثلاثة مستقلٌ بمفتاحه:
+     * الاهتزاز يبدأ مع الصوت ويُقطع مع انتهائه، مفعّلٌ افتراضياً.
+     */
+    val adhanVibrate: Boolean = true,
+    /** اهتزاز أثناء رنين الإقامة */
+    val iqamahVibrate: Boolean = true,
+    /** اهتزاز أثناء رنين التنبيه */
+    val reminderVibrate: Boolean = true,
 ) {
     /** فاصل الأذان←الإقامة الخاص بصلاة معينة — استهلاك خطّة الأذان */
     fun gapFor(key: PrayerTimeKey): Int = when (key) {
@@ -121,6 +133,16 @@ data class AdhanPrefs(
         if (!reminderEnabled) return null
         return reminders[key.name]
     }
+
+    /**
+     * مفتاح الاهتزاز الفعلي للوضع الحالي — بلاغ v1.71: «كل صوت قابل
+     * لتفعيل الميزه او ايقافها» — التنبيه ثم الإقامة ثم الأذان كلٌّ بمفتاحه.
+     */
+    fun vibrateFor(isReminder: Boolean, isIqamah: Boolean): Boolean = when {
+        isReminder -> reminderVibrate
+        isIqamah -> iqamahVibrate
+        else -> adhanVibrate
+    }
 }
 
 /** ذاكرة نظام التحديثات — متى فُحص آخر مرة وماذا أُشعر عنه ومتى واستُبعد */
@@ -130,6 +152,12 @@ data class UpdatePrefs(
     /** آخر وقت نُشر فيه إشعار فعلي — عصا سياسة التكرار (alpha37) */
     val lastNotifiedAt: Long = 0L,
     val dismissedVersion: String? = null,
+    /**
+     * **قنوات الإشعار** (بلاغ المالك v1.71: «يمكن للمستخدم تفعيل اشعارات
+     * النسخ المستقره فقط او اي نسخ اخرى») — «stable» للمستقرة فقط
+     * (الافتراضي) و«all» لكل النسخ.
+     */
+    val notifyChannels: String = UpdateChannel.NOTIFY_PREF_STABLE,
 )
 
 /**
@@ -173,6 +201,17 @@ data class NoorSettingsState(
     /** خطبة الجمعة — أسماء ملفات الصور المرفقة (alpha54) */
     val khutbahImages: List<String> = emptyList(),
     /**
+     * **المقدمة الجاهزة القابلة للتعديل** (بلاغ المالك v1.71: «اضف امكانيه
+     * تعديل مقدمه الخطبه الجاهزه») — نصٌّ يُدرجه زر «إدراج مقدمة جاهزة»؛
+     * الفارغ يعود للقالب المعهد [KhutbahLibrary.INTRO_TEMPLATE].
+     */
+    val khutbahIntroTemplate: String = "",
+    /**
+     * **الخاتمة الجاهزة القابلة للتعديل** — بنفس المبدأ: «و النهايه ايضا
+     * تكون قابله لتعديل ايضا» — الفارغ يعود للقالب المعهد.
+     */
+    val khutbahConclusionTemplate: String = "",
+    /**
      * زر خطبة الجمعة في الرئيسية مفعّل؟ (alpha56) — قسم «خطبة الجمعة»
      * في الإعدادات: من أراد إخفاء الزر عن الرئيسية يطفئه من هنا.
      */
@@ -185,6 +224,11 @@ data class NoorSettingsState(
      * دائمٌ هادئٌ ضغطةٌ عليه تفتح التطبيق، مفعّلٌ افتراضياً بأمر المالك.
      */
     val quickNotification: Boolean = true,
+    /**
+     * **قنوات إشعار التحديث** (بلاغ المالك v1.71) — «stable» للمستقرة
+     * فقط (الافتراضي) و«all» لكل النسخ (مستقرة وبيتا وتجريبية).
+     */
+    val updateNotifyChannels: String = UpdateChannel.NOTIFY_PREF_STABLE,
     /**
      * **تحديد الموقع تلقائياً في الخلفية** (بلاغ المالك 2026-11-11:
      * «زر تحديد الموقع تلقائى اذا تم تفعيله سيتم كل مره فيها فتح
@@ -218,6 +262,9 @@ class SettingsRepository(private val context: Context) {
         val KHUTBAH_TITLE = stringPreferencesKey("khutbah_title")
         val KHUTBAH_TEXT = stringPreferencesKey("khutbah_text")
         val KHUTBAH_IMAGES = stringPreferencesKey("khutbah_images")
+        // المقدمة والخاتمة الجاهزتان القابلتان للتعديل (بلاغ v1.71)
+        val KHUTBAH_INTRO_TEMPLATE = stringPreferencesKey("khutbah_intro_template")
+        val KHUTBAH_CONCLUSION_TEMPLATE = stringPreferencesKey("khutbah_conclusion_template")
         // زر خطبة الجمعة وشاشة الترحيب (alpha56)
         val KHUTBAH_BUTTON_ENABLED = booleanPreferencesKey("khutbah_button_enabled")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
@@ -228,6 +275,8 @@ class SettingsRepository(private val context: Context) {
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
         val UPDATE_NOTIFIED_AT = longPreferencesKey("update_notified_at")
         val UPDATE_DISMISSED = stringPreferencesKey("update_dismissed_version")
+        // قنوات إشعار التحديث (بلاغ v1.71) — «stable» أو «all»
+        val UPDATE_NOTIFY_CHANNELS = stringPreferencesKey("update_notify_channels")
         val HADITH_FAVORITES = stringPreferencesKey("hadith_favorites")
         // الأذان والإقامة
         val ADHAN_ENABLED = booleanPreferencesKey("adhan_enabled")
@@ -257,6 +306,10 @@ class SettingsRepository(private val context: Context) {
         val PER_PRAYER_ADHAN = stringPreferencesKey("adhan_per_prayer_adhan")
         val PER_PRAYER_IQAMAH = stringPreferencesKey("adhan_per_prayer_iqamah")
         val REMINDER_ENABLED = booleanPreferencesKey("adhan_reminder_enabled")
+        // اهتزاز أثناء الرنين — لكل صوتٍ مفتاحه (بلاغ v1.71)
+        val ADHAN_VIBRATE = booleanPreferencesKey("adhan_vibrate")
+        val IQAMAH_VIBRATE = booleanPreferencesKey("iqamah_vibrate")
+        val REMINDER_VIBRATE = booleanPreferencesKey("reminder_vibrate")
         val PRAYER_REMINDERS = stringPreferencesKey("adhan_prayer_reminders")
         // طلب الصلاحيات — آخر نسخة طُلبت عندها السلسلة كاملة
         val PERMISSIONS_ASKED_VERSION = intPreferencesKey("permissions_asked_version")
@@ -300,9 +353,13 @@ class SettingsRepository(private val context: Context) {
             khutbahText = p[Keys.KHUTBAH_TEXT] ?: "",
             khutbahImages = p[Keys.KHUTBAH_IMAGES]
                 ?.split(',')?.filter { it.isNotBlank() } ?: emptyList(),
+            khutbahIntroTemplate = p[Keys.KHUTBAH_INTRO_TEMPLATE] ?: "",
+            khutbahConclusionTemplate = p[Keys.KHUTBAH_CONCLUSION_TEMPLATE] ?: "",
             khutbahButtonEnabled = p[Keys.KHUTBAH_BUTTON_ENABLED] ?: true,
             onboardingDone = p[Keys.ONBOARDING_DONE] ?: false,
             quickNotification = p[Keys.QUICK_NOTIFICATION] ?: true,
+            updateNotifyChannels = p[Keys.UPDATE_NOTIFY_CHANNELS]
+                ?: UpdateChannel.NOTIFY_PREF_STABLE,
             autoLocation = p[Keys.AUTO_LOCATION] ?: false,
         )
     }
@@ -343,6 +400,9 @@ class SettingsRepository(private val context: Context) {
             perPrayerIqamahVoices = PrayerVoiceMaps.parse(p[Keys.PER_PRAYER_IQAMAH]),
             reminderEnabled = p[Keys.REMINDER_ENABLED] ?: false,
             reminders = PrayerReminder.parseRules(p[Keys.PRAYER_REMINDERS]),
+            adhanVibrate = p[Keys.ADHAN_VIBRATE] ?: true,
+            iqamahVibrate = p[Keys.IQAMAH_VIBRATE] ?: true,
+            reminderVibrate = p[Keys.REMINDER_VIBRATE] ?: true,
         )
     }
 
@@ -354,6 +414,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAdhanEnabled(on: Boolean) {
         context.noorDataStore.edit { it[Keys.ADHAN_ENABLED] = on }
+    }
+
+    /** اهتزاز أثناء رنين الأذان — بلاغ المالك v1.71: «كل صوت قابل لتفعيل الميزه او ايقافها» */
+    suspend fun setAdhanVibrate(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.ADHAN_VIBRATE] = on }
+    }
+
+    /** اهتزاز أثناء رنين الإقامة */
+    suspend fun setIqamahVibrate(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.IQAMAH_VIBRATE] = on }
+    }
+
+    /** اهتزاز أثناء رنين التنبيه */
+    suspend fun setReminderVibrate(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.REMINDER_VIBRATE] = on }
     }
 
     suspend fun setAdhanVoice(id: String) {
@@ -622,6 +697,19 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    /**
+     * حفظ المقدمة الجاهزة المعدّلة — بلاغ المالك v1.71: «اضف امكانيه
+     * تعديل مقدمه الخطبه الجاهزه» — نصٌّ فارغٌ يعيد القالب المعهد.
+     */
+    suspend fun setKhutbahIntroTemplate(text: String) {
+        context.noorDataStore.edit { it[Keys.KHUTBAH_INTRO_TEMPLATE] = text.trim() }
+    }
+
+    /** حفظ الخاتمة الجاهزة المعدّلة — «و النهايه ايضا تكون قابله لتعديل ايضا» */
+    suspend fun setKhutbahConclusionTemplate(text: String) {
+        context.noorDataStore.edit { it[Keys.KHUTBAH_CONCLUSION_TEMPLATE] = text.trim() }
+    }
+
     /** حفظ قائمة صور الخطبة — أسماء الملفات داخل مجلد صور الخطبة */
     suspend fun setKhutbahImages(images: List<String>) {
         context.noorDataStore.edit {
@@ -664,6 +752,8 @@ class SettingsRepository(private val context: Context) {
             notifiedVersion = p[Keys.UPDATE_NOTIFIED],
             lastNotifiedAt = p[Keys.UPDATE_NOTIFIED_AT] ?: 0L,
             dismissedVersion = p[Keys.UPDATE_DISMISSED],
+            notifyChannels = p[Keys.UPDATE_NOTIFY_CHANNELS]
+                ?: UpdateChannel.NOTIFY_PREF_STABLE,
         )
     }
 
@@ -685,6 +775,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setDismissedVersion(versionName: String) {
         context.noorDataStore.edit { it[Keys.UPDATE_DISMISSED] = versionName }
+    }
+
+    /**
+     * حفظ قنوات إشعار التحديث — بلاغ المالك v1.71: «يمكن للمستخدم
+     * تفعيل اشعارات النسخ المستقره فقط او اي نسخ اخرى».
+     */
+    suspend fun setUpdateNotifyChannels(value: String) {
+        context.noorDataStore.edit { it[Keys.UPDATE_NOTIFY_CHANNELS] = value }
     }
 
     /** إلغاء الاستبعاد — ضغط إشعار التحديث يعيد فتح «ما الجديد» دائماً (alpha37) */

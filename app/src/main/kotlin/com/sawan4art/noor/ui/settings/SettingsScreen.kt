@@ -76,11 +76,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sawan4art.noor.BuildConfig
 import kotlinx.coroutines.launch
 import com.sawan4art.noor.data.AdhanPrefs
 import com.sawan4art.noor.data.NoorSettingsState
 import com.sawan4art.noor.data.update.DownloadState
+import com.sawan4art.noor.data.update.UpdateChannel
+import com.sawan4art.noor.data.update.UpdateInfo
 import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.data.update.UpdateNotifier
 import com.sawan4art.noor.domain.mushaf.QuranReciters
@@ -135,8 +138,15 @@ fun SettingsScreen(
     updateState: UpdateUiState,
     /** حالة تنزيل التحديث داخل التطبيق (alpha48) */
     downloadState: DownloadState,
+    /** أحدث نسخةٍ لكل قناةٍ من الثلاث (بلاغ المالك v1.71) */
+    updateChannels: Map<UpdateChannel, UpdateInfo?>,
+    /** قنوات الإشعار المختارة — «stable» أو «all» */
+    updateNotifyChannels: String,
+    onSetUpdateNotifyChannels: (String) -> Unit,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
+    /** تنزيل نسخة قناةٍ بعينها من بطاقات القنوات الثلاث */
+    onDownloadChannel: (UpdateInfo) -> Unit,
     /** معرّف الشيخ المختار لتلاوة المصحف (alpha54) */
     reciterId: String,
     /** تغيير الشيخ المختار — قسم «أصوات الشيخ» */
@@ -151,6 +161,14 @@ fun SettingsScreen(
     khutbahImages: List<String>,
     /** حفظ خطبة الجمعة المكتوبة */
     onSetKhutbah: (String, String) -> Unit,
+    /** المقدمة الجاهزة المعدّلة — فارغةٌ تعني القالب المعهد (بلاغ v1.71) */
+    khutbahIntroTemplate: String,
+    /** الخاتمة الجاهزة المعدّلة — فارغةٌ تعني القالب المعهد */
+    khutbahConclusionTemplate: String,
+    /** حفظ المقدمة الجاهزة المعدّلة */
+    onSetKhutbahIntroTemplate: (String) -> Unit,
+    /** حفظ الخاتمة الجاهزة المعدّلة */
+    onSetKhutbahConclusionTemplate: (String) -> Unit,
     /** استيراد صورة إلى الخطبة */
     onImportKhutbahImage: (android.net.Uri) -> Unit,
     /** حذف صورة من الخطبة */
@@ -241,6 +259,10 @@ fun SettingsScreen(
                     savedText = khutbahText,
                     savedImages = khutbahImages,
                     onSetKhutbah = onSetKhutbah,
+                    introTemplate = khutbahIntroTemplate,
+                    conclusionTemplate = khutbahConclusionTemplate,
+                    onSetIntroTemplate = onSetKhutbahIntroTemplate,
+                    onSetConclusionTemplate = onSetKhutbahConclusionTemplate,
                     onImportImage = onImportKhutbahImage,
                     onDeleteImage = onDeleteKhutbahImage,
                 )
@@ -258,8 +280,12 @@ fun SettingsScreen(
                     updateState = updateState,
                     downloadState = downloadState,
                     currentVersion = BuildConfig.VERSION_NAME,
+                    channels = updateChannels,
+                    notifyChannels = updateNotifyChannels,
+                    onSetNotifyChannels = onSetUpdateNotifyChannels,
                     onCheckUpdates = onCheckUpdates,
                     onDownloadUpdate = onDownloadUpdate,
+                    onDownloadChannel = onDownloadChannel,
                 )
             }
         }
@@ -878,7 +904,7 @@ private fun DropdownRow(
     }
 }
 
-/** قسم عام — إشعار التشغيل السريع وضباط التطبيق العامة */
+/** قسم عام — أيقونة التشغيل السريع في شريط الإشعارات وضباط التطبيق العامة */
 @Composable
 private fun GeneralSection(
     quickNotification: Boolean,
@@ -886,7 +912,7 @@ private fun GeneralSection(
 ) {
     val scheme = MaterialTheme.colorScheme
     Column {
-        SettingLabel("إشعار التشغيل السريع")
+        SettingLabel("أيقونة التشغيل السريع")
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -897,7 +923,7 @@ private fun GeneralSection(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "أيقونة التطبيق في شريط الإشعارات",
+                    text = "أيقونة التطبيق خالصةً في شريط الإشعارات بلا نصٍّ",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = scheme.onSurface,
@@ -1076,17 +1102,25 @@ private fun colorsSummary(settings: NoorSettingsState): String =
         (if (settings.primaryId.isBlank()) "يتبع لون التطبيق"
             else AccentPalette.byId(settings.primaryId).arabicName)
 
-/** قسم التحديثات — النسخة الحالية والفحص اليدوي وزر «تحديث الآن»
- *  الذي ينزّل النسخة من داخل التطبيق بشريط تقدم ثم يفتح مثبّت النظام
- *  مباشرة (alpha48 — توجيه المالك: «التحديث بقا يفتح المتصفح انا
- *  مش عايز كده») ونسخ رابط التحميل الاحتياطي (alpha37). */
+/**
+ * قسم التحديثات — **بقنواته الثلاث** (بلاغ المالك v1.71: «في زر
+ * التحديثات عايز اضيف كذا اصدار قابلين للتحميل من قبل المستخدم النسخه
+ * المستقره و البيتا و الاصدار التجريبي»): بطاقةٌ لكل قناةٍ بأحدث نسختها
+ * وحجمها وزر تنزيلٍ وتثبيتٍ من داخل التطبيق، وخيار إشعارات «المستقرة
+ * فقط» أو «كل النسخ»، والفحص اليدوي وزر «تحديث الآن» ونسخ رابط
+ * التحميل الاحتياطي كما كانت.
+ */
 @Composable
 private fun UpdatesSection(
     updateState: UpdateUiState,
     downloadState: DownloadState,
     currentVersion: String,
+    channels: Map<UpdateChannel, UpdateInfo?>,
+    notifyChannels: String,
+    onSetNotifyChannels: (String) -> Unit,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
+    onDownloadChannel: (UpdateInfo) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val busy = updateState is UpdateUiState.Checking
@@ -1178,95 +1212,123 @@ private fun UpdatesSection(
     }
     // alpha48: زر «تحديث الآن» في الصفحة نفسها — التنزيل من داخل التطبيق
     // بشريط تقدم ثم فتح مثبّت النظام، من هنا دائماً حتى بعد استبعاد
-    // حوار «ما الجديد» بـ«لاحقاً»
-    when (updateState) {
-        is UpdateUiState.Available -> {
-            Spacer(Modifier.height(10.dp))
-            when (downloadState) {
-                is DownloadState.Running -> {
-                    LinearProgressIndicator(
-                        progress = { downloadState.percent / 100f },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = scheme.primary,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = "جارٍ تنزيل التحديث… ${downloadState.percent}٪",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = scheme.secondary,
-                    )
-                }
-                is DownloadState.Failed -> {
-                    Text(
-                        text = downloadState.message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = scheme.error,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = onDownloadUpdate,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = scheme.secondary,
-                            contentColor = scheme.onSecondary,
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("إعادة المحاولة")
-                    }
-                }
-                is DownloadState.NeedsPermission -> {
-                    Text(
-                        text = "سمح بنور من «التثبيت من مصادر غير معروفة» " +
-                            "ثم اضغط تحديث تاني — خطوة مرة واحدة بس",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = scheme.secondary,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = onDownloadUpdate,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = scheme.secondary,
-                            contentColor = scheme.onSecondary,
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("تحديث الآن (${updateState.info.sizeText})")
-                    }
-                }
-                is DownloadState.Done -> {
-                    Button(
-                        onClick = onDownloadUpdate,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = scheme.secondary,
-                            contentColor = scheme.onSecondary,
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("فتح مثبِّت التحديث")
-                    }
-                }
-                DownloadState.Idle -> {
-                    Button(
-                        onClick = onDownloadUpdate,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = scheme.secondary,
-                            contentColor = scheme.onSecondary,
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("تحديث الآن (${updateState.info.sizeText})")
-                    }
-                }
-            }
+    // حوار «ما الجديد» بـ«لاحقاً» — والتنزيل الفعلي وحالته في كتلة
+    // التنزيل الموحدة أدناه كي تخدم زر القنوات الثلاث كذلك
+    val candidate = (updateState as? UpdateUiState.Available)?.info
+    if (candidate != null && downloadState is DownloadState.Idle) {
+        Spacer(Modifier.height(10.dp))
+        Button(
+            onClick = onDownloadUpdate,
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = scheme.secondary,
+                contentColor = scheme.onSecondary,
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("تحديث الآن (${candidate.sizeText})")
         }
-        is UpdateUiState.Failed -> {
-            Spacer(Modifier.height(10.dp))
+    }
+    if (updateState is UpdateUiState.Failed) {
+        Spacer(Modifier.height(10.dp))
+        Button(
+            onClick = onCheckUpdates,
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = scheme.secondary,
+                contentColor = scheme.onSecondary,
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("إعادة المحاولة")
+        }
+    }
+
+    Spacer(Modifier.height(16.dp))
+    // ===== قنوات الإشعار — بلاغ المالك v1.71: «يمكن للمستخدم تفعيل
+    // اشعارات النسخ المستقره فقط او اي نسخ اخرى»
+    SettingLabel("إشعارات التحديث")
+    Text(
+        text = "أي النسخ تنبّهك إشعاراتٍ عند صدورها؟ بقية النسخ تبقى " +
+            "قابلة للتنزيل من البطاقات الثلاثة أدناه وقتما تحب.",
+        style = MaterialTheme.typography.bodySmall,
+        color = scheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = 8.dp),
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ThemeChip(
+            "المستقرة فقط",
+            notifyChannels == UpdateChannel.NOTIFY_PREF_STABLE,
+        ) { onSetNotifyChannels(UpdateChannel.NOTIFY_PREF_STABLE) }
+        ThemeChip(
+            "كل النسخ",
+            notifyChannels == UpdateChannel.NOTIFY_PREF_ALL,
+        ) { onSetNotifyChannels(UpdateChannel.NOTIFY_PREF_ALL) }
+    }
+
+    Spacer(Modifier.height(16.dp))
+    // ===== بطاقات القنوات الثلاث — بلاغ المالك v1.71: «كذا اصدار
+    // قابلين للتحميل من قبل المستخدم» — أحدث نسخةٍ لكل قناةٍ وزرُ
+    // تنزيلٍ وتثبيتٍ من داخل التطبيق
+    SettingLabel("القنوات الثلاث — كل قناةٍ بأحدث نسختها")
+    Text(
+        text = "القناة تُقرأ من اسم الإصدار نفسه: بلا مرحلةٍ مستقرة، " +
+            "وبـ beta بيتا، وبـ alpha تجريبية — والتنزيل من هنا بلا متصفح.",
+        style = MaterialTheme.typography.bodySmall,
+        color = scheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = 8.dp),
+    )
+    var activeDownloadUrl by remember { mutableStateOf<String?>(null) }
+    UpdateChannel.entries.forEach { channel ->
+        val info = channels[channel]
+        ChannelCard(
+            channel = channel,
+            info = info,
+            currentVersion = currentVersion,
+            downloadState = downloadState,
+            isActive = info != null && activeDownloadUrl == info.apkUrl,
+            onDownload = { target ->
+                activeDownloadUrl = target.apkUrl
+                onDownloadChannel(target)
+            },
+        )
+        Spacer(Modifier.height(10.dp))
+    }
+
+    // ===== كتلة التنزيل الموحدة — شريط التقدم والإذن والفشل والفتح
+    // (alpha48) تخدم زر «تحديث الآن» وأزرار القنوات الثلاث كلها
+    when (downloadState) {
+        is DownloadState.Running -> {
+            LinearProgressIndicator(
+                progress = { downloadState.percent / 100f },
+                modifier = Modifier.fillMaxWidth(),
+                color = scheme.primary,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "جارٍ تنزيل التحديث… ${downloadState.percent}٪",
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.secondary,
+            )
+        }
+        is DownloadState.NeedsPermission -> {
+            Text(
+                text = "سمح بنور من «التثبيت من مصادر غير معروفة» " +
+                    "ثم اضغط زر التنزيل تاني — خطوة مرة واحدة بس",
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.secondary,
+            )
+        }
+        is DownloadState.Failed -> {
+            Text(
+                text = downloadState.message,
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.error,
+            )
+        }
+        is DownloadState.Done -> {
             Button(
-                onClick = onCheckUpdates,
+                onClick = onDownloadUpdate,
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = scheme.secondary,
@@ -1274,18 +1336,15 @@ private fun UpdatesSection(
                 ),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("إعادة المحاولة")
+                Text("فتح مثبِّت التحديث")
             }
         }
-        else -> Unit
+        DownloadState.Idle -> Unit
     }
+
     // alpha37: احتياط المالك «اديني رابط للنسخ» — نسخ رابط الـ APK المباشر
     // إلى الحافظة ليُحمّل من أي متصفح
-    val apkInfo = when (updateState) {
-        is UpdateUiState.Available -> updateState.info
-        is UpdateUiState.Failed -> updateState.info
-        else -> null
-    }
+    val apkInfo = candidate ?: (updateState as? UpdateUiState.Failed)?.info
     if (apkInfo != null) {
         val clipboard = LocalClipboardManager.current
         var linkCopied by remember { mutableStateOf(false) }
@@ -1301,6 +1360,104 @@ private fun UpdatesSection(
                 style = MaterialTheme.typography.labelMedium,
                 color = scheme.secondary,
             )
+        }
+    }
+}
+
+/**
+ * بطاقة قناة تحديث واحدة — بلاغ المالك v1.71: المستقرة والبيتا
+ * والتجريبية، كلٌّ بأحدث نسخةٍ وحجمها وحالة نسختها الحالية وزر
+ * تنزيلٍ وتثبيتٍ من داخل التطبيق.
+ */
+@Composable
+private fun ChannelCard(
+    channel: UpdateChannel,
+    info: UpdateInfo?,
+    currentVersion: String,
+    downloadState: DownloadState,
+    isActive: Boolean,
+    onDownload: (UpdateInfo) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = scheme.primary.copy(alpha = 0.06f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            scheme.outline.copy(alpha = 0.3f),
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = channel.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = scheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                if (info != null) {
+                    val newer = com.sawan4art.noor.data.update.NoorVersion.isNewer(
+                        info.tag, currentVersion,
+                    )
+                    val same = info.versionName == currentVersion.removePrefix("v")
+                    val badge = when {
+                        newer -> "أحدث من نسختك"
+                        same -> "نسختك الحالية"
+                        else -> "أقدم من نسختك"
+                    }
+                    Text(
+                        text = badge,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            newer -> scheme.primary
+                            same -> scheme.secondary
+                            else -> scheme.onSurfaceVariant
+                        },
+                    )
+                }
+            }
+            Text(
+                text = channel.subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = scheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            if (info == null) {
+                Text(
+                    text = "لا يوجد إصدار منشورٍ لهذه القناة بعد",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                )
+            } else {
+                Text(
+                    text = "أحدث نسخة: ${info.versionName} — ${info.sizeText}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurface,
+                )
+                Spacer(Modifier.height(8.dp))
+                if (isActive && downloadState is DownloadState.Running) {
+                    LinearProgressIndicator(
+                        progress = { downloadState.percent / 100f },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = scheme.primary,
+                    )
+                } else {
+                    Button(
+                        onClick = { onDownload(info) },
+                        enabled = downloadState !is DownloadState.Running,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = scheme.primary,
+                            contentColor = scheme.onPrimary,
+                        ),
+                    ) {
+                        Text("تنزيل وتثبيت")
+                    }
+                }
+            }
         }
     }
 }
@@ -1385,6 +1542,14 @@ private fun KhutbahSettingsSection(
     savedText: String,
     savedImages: List<String>,
     onSetKhutbah: (String, String) -> Unit,
+    /** المقدمة الجاهزة المعدّلة — الفارغة تعني القالب المعهد (بلاغ v1.71) */
+    introTemplate: String,
+    /** الخاتمة الجاهزة المعدّلة — الفارغة تعني القالب المعهد */
+    conclusionTemplate: String,
+    /** حفظ المقدمة الجاهزة المعدّلة */
+    onSetIntroTemplate: (String) -> Unit,
+    /** حفظ الخاتمة الجاهزة المعدّلة */
+    onSetConclusionTemplate: (String) -> Unit,
     onImportImage: (android.net.Uri) -> Unit,
     onDeleteImage: (String) -> Unit,
 ) {
@@ -1438,12 +1603,98 @@ private fun KhutbahSettingsSection(
         }
 
         Spacer(Modifier.height(16.dp))
+        // ===== المقدمة والخاتمة الجاهزتان القابلتان للتعديل — بلاغ المالك
+        // v1.71: «اضف امكانيه تعديل مقدمه الخطبه الجاهزه و النهايه ايضا
+        // تكون قابله لتعديل ايضا» — نصُّ زرَّي الإدراج في شاشة الكتابة
+        // يُعدَّل من هنا، والفارغ يعود للقالب المعهد
+        SettingLabel("المقدمة والخاتمة الجاهزتان — قابلتان للتعديل")
+        Text(
+            text = "هما النصان اللذان يُدرجهما زرّا «إدراج مقدمة جاهزة» و«إدراج " +
+                "خاتمة جاهزة» في شاشة كتابة الخطبة — عدّلهما كما تحب، والفارغ " +
+                "يعود للنص الأصلي.",
+            style = MaterialTheme.typography.bodySmall,
+            color = scheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        var introDraft by remember(introTemplate) {
+            mutableStateOf(
+                introTemplate.ifBlank { com.sawan4art.noor.domain.khutbah.KhutbahLibrary.INTRO_TEMPLATE },
+            )
+        }
+        OutlinedTextField(
+            value = introDraft,
+            onValueChange = { introDraft = it },
+            label = { Text("المقدمة الجاهزة") },
+            minLines = 4,
+            maxLines = 10,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            text = "حفظ المقدمة",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = scheme.onPrimary,
+            modifier = Modifier
+                .padding(top = 6.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(scheme.primary)
+                .clickable {
+                    onSetIntroTemplate(
+                        if (introDraft.trim() ==
+                            com.sawan4art.noor.domain.khutbah.KhutbahLibrary.INTRO_TEMPLATE.trim()
+                        ) "" else introDraft.trim(),
+                    )
+                }
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+        Spacer(Modifier.height(12.dp))
+        var conclusionDraft by remember(conclusionTemplate) {
+            mutableStateOf(
+                conclusionTemplate.ifBlank {
+                    com.sawan4art.noor.domain.khutbah.KhutbahLibrary.CONCLUSION_TEMPLATE
+                },
+            )
+        }
+        OutlinedTextField(
+            value = conclusionDraft,
+            onValueChange = { conclusionDraft = it },
+            label = { Text("الخاتمة الجاهزة") },
+            minLines = 4,
+            maxLines = 10,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            text = "حفظ الخاتمة",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = scheme.onPrimary,
+            modifier = Modifier
+                .padding(top = 6.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(scheme.primary)
+                .clickable {
+                    onSetConclusionTemplate(
+                        if (conclusionDraft.trim() ==
+                            com.sawan4art.noor.domain.khutbah.KhutbahLibrary.CONCLUSION_TEMPLATE.trim()
+                        ) "" else conclusionDraft.trim(),
+                    )
+                }
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+
+        Spacer(Modifier.height(16.dp))
         // مركز التعديل — الخطب الجاهزة والمكتوبة والصور (alpha57)
         KhutbahEditorContent(
             savedTitle = savedTitle,
             savedText = savedText,
             savedImages = savedImages,
             onSetKhutbah = onSetKhutbah,
+            introTemplate = introTemplate.ifBlank {
+                com.sawan4art.noor.domain.khutbah.KhutbahLibrary.INTRO_TEMPLATE
+            },
+            conclusionTemplate = conclusionTemplate.ifBlank {
+                com.sawan4art.noor.domain.khutbah.KhutbahLibrary.CONCLUSION_TEMPLATE
+            },
             onImportImage = onImportImage,
             onDeleteImage = onDeleteImage,
         )

@@ -43,16 +43,16 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sawan4art.noor.data.ThemeMode
 import com.sawan4art.noor.data.update.DownloadState
+import com.sawan4art.noor.data.update.UpdateChannel
+import com.sawan4art.noor.data.update.UpdateInfo
 import com.sawan4art.noor.data.update.UpdateManager
 import com.sawan4art.noor.data.update.UpdateUiState
-import com.sawan4art.noor.domain.location.LocationGate
 import com.sawan4art.noor.ui.home.HomeScreen
 import com.sawan4art.noor.ui.home.HomeViewModel
 import com.sawan4art.noor.ui.azkar.AzkarScreen
 import com.sawan4art.noor.ui.hadith.HadithScreen
 import com.sawan4art.noor.ui.nav.LiquidNavScaffold
 import com.sawan4art.noor.ui.nav.NoorTab
-import com.sawan4art.noor.ui.notice.NoorNoticeDialog
 import com.sawan4art.noor.ui.mushaf.MushafScreen
 import com.sawan4art.noor.ui.onboarding.WelcomeScreen
 import com.sawan4art.noor.ui.qibla.QiblaScreen
@@ -129,6 +129,8 @@ private fun NoorRoot(
     val adhanPrefs by viewModel.adhanPrefs.collectAsStateWithLifecycle()
     // نظام التحديثات — حالة واحدة تخدم حوار «ما الجديد» وبطاقة الإعدادات
     val updateState by UpdateManager.state.collectAsStateWithLifecycle()
+    // أحدث نسخةٍ لكل قناةٍ من الثلاث — بطاقات قسم التحديثات (بلاغ v1.71)
+    val updateChannels by UpdateManager.channels.collectAsStateWithLifecycle()
     val dismissedVersion by UpdateManager.dismissedVersion.collectAsStateWithLifecycle()
     // حالة تنزيل التحديث داخل التطبيق (alpha48 — بلا متصفح)
     val downloadState by UpdateManager.download.collectAsStateWithLifecycle()
@@ -157,7 +159,6 @@ private fun NoorRoot(
         uiState.settings.primaryId.takeIf { it.isNotBlank() }?.let { AccentPalette.byId(it) }
     }
     // بوابات الموقع — حوار الرسالة مع إجراء فتح الإعدادات المناسب (alpha18)
-    val locationGate by viewModel.locationGate.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     CompositionLocalProvider(LocalLayoutDirection provides AppDirection) {
@@ -193,6 +194,10 @@ private fun NoorRoot(
                         (updateState as? UpdateUiState.Available)?.info
                             ?.let { UpdateManager.downloadAndInstall(it) }
                     },
+                    updateChannels = updateChannels,
+                    updateNotifyChannels = uiState.settings.updateNotifyChannels,
+                    onSetUpdateNotifyChannels = viewModel::setUpdateNotifyChannels,
+                    onDownloadChannel = { UpdateManager.downloadAndInstall(it) },
                     onSaveMushafPage = viewModel::setMushafPage,
                     onSetMushafBookmark = viewModel::setMushafBookmark,
                     hifzMemorized = uiState.settings.mushafHifz,
@@ -203,6 +208,10 @@ private fun NoorRoot(
                     khutbahText = uiState.settings.khutbahText,
                     khutbahImages = uiState.settings.khutbahImages,
                     onSetKhutbah = viewModel::setKhutbah,
+                    khutbahIntroTemplate = uiState.settings.khutbahIntroTemplate,
+                    khutbahConclusionTemplate = uiState.settings.khutbahConclusionTemplate,
+                    onSetKhutbahIntroTemplate = viewModel::setKhutbahIntroTemplate,
+                    onSetKhutbahConclusionTemplate = viewModel::setKhutbahConclusionTemplate,
                     onImportKhutbahImage = viewModel::importKhutbahImage,
                     onDeleteKhutbahImage = viewModel::deleteKhutbahImage,
                     khutbahEnabled = uiState.settings.khutbahButtonEnabled,
@@ -305,6 +314,10 @@ private fun NoorRoot(
                                 (updateState as? UpdateUiState.Available)?.info
                                     ?.let { UpdateManager.downloadAndInstall(it) }
                             },
+                        updateChannels = updateChannels,
+                        updateNotifyChannels = uiState.settings.updateNotifyChannels,
+                        onSetUpdateNotifyChannels = viewModel::setUpdateNotifyChannels,
+                        onDownloadChannel = { UpdateManager.downloadAndInstall(it) },
                             onSaveMushafPage = viewModel::setMushafPage,
                             onSetMushafBookmark = viewModel::setMushafBookmark,
                             hifzMemorized = uiState.settings.mushafHifz,
@@ -315,6 +328,10 @@ private fun NoorRoot(
                             khutbahText = uiState.settings.khutbahText,
                             khutbahImages = uiState.settings.khutbahImages,
                             onSetKhutbah = viewModel::setKhutbah,
+                            khutbahIntroTemplate = uiState.settings.khutbahIntroTemplate,
+                            khutbahConclusionTemplate = uiState.settings.khutbahConclusionTemplate,
+                            onSetKhutbahIntroTemplate = viewModel::setKhutbahIntroTemplate,
+                            onSetKhutbahConclusionTemplate = viewModel::setKhutbahConclusionTemplate,
                             onImportKhutbahImage = viewModel::importKhutbahImage,
                             onDeleteKhutbahImage = viewModel::deleteKhutbahImage,
                             khutbahEnabled = uiState.settings.khutbahButtonEnabled,
@@ -389,49 +406,9 @@ private fun NoorRoot(
         )
     }
 
-    // حوار بوابات الموقع (توجيه المالك alpha18): «لا تظهر رسالة تفيد بتفعيل
-    // الموقع والانترنت» — الرسالة الآن إلزامية على كل بوابة مقفولة، مع زر
-    // يفتح الإعدادات المناسبة مباشرة، وزر إغلاق دائم.
-    // alpha19: الحوار عبر **القالب الموحد** NoorNoticeDialog — نفس لون
-    // الثيم ونفس تصميم حوار التحديث (بلاغ المالك: الإشعارات ليست بنفس
-    // لون الثيم ولا بنفس التصميم).
-    locationGate?.let { gate ->
-        NoorNoticeDialog(
-            title = "تحديد الموقع",
-            message = gate.message.orEmpty(),
-            icon = Icons.Filled.LocationOn,
-            iconDescription = "الموقع",
-            actionLabel = if (gate.action != LocationGate.Action.NONE) gate.actionLabel else null,
-            onAction = if (gate.action != LocationGate.Action.NONE) {
-                {
-                    viewModel.dismissLocationGate()
-                    // فشل فتح الإعدادات على أجهزة غريبة لا يكسر التطبيق
-                    runCatching {
-                        val intent = when (gate.action) {
-                            LocationGate.Action.OPEN_APP_SETTINGS ->
-                                android.content.Intent(
-                                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                    android.net.Uri.fromParts("package", context.packageName, null),
-                                )
-                            LocationGate.Action.OPEN_LOCATION_SETTINGS ->
-                                android.content.Intent(
-                                    android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS,
-                                )
-                            LocationGate.Action.OPEN_INTERNET_SETTINGS ->
-                                android.content.Intent(
-                                    android.provider.Settings.ACTION_WIRELESS_SETTINGS,
-                                )
-                            LocationGate.Action.NONE -> null
-                        }?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                        intent?.let(context::startActivity)
-                    }
-                }
-            } else {
-                null
-            },
-            onDismiss = viewModel::dismissLocationGate,
-        )
-    }
+    // حوار بوابات الموقع أُلغي كلياً — بلاغ المالك v1.71: «ازل رساله
+    // التنبيه التي تظهر عند الضغط على ايقونه الموقع لاختيار الموقع»
+    // — ضغطة أيقونة الموقع تمشي في التحديد مباشرةً بلا أي رسالة
 }
 
 /**
@@ -504,8 +481,20 @@ private fun NoorBody(
     updateState: UpdateUiState,
     /** حالة تنزيل التحديث داخل التطبيق (alpha48) */
     downloadState: DownloadState,
+    /** أحدث نسخةٍ لكل قناةٍ من الثلاث (بلاغ المالك v1.71) */
+    updateChannels: Map<UpdateChannel, UpdateInfo?>,
+    /** قنوات الإشعار المختارة — «stable» أو «all» */
+    updateNotifyChannels: String,
+    onSetUpdateNotifyChannels: (String) -> Unit,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
+    /** تنزيل نسخة قناةٍ بعينها من بطاقات القنوات الثلاث */
+    onDownloadChannel: (UpdateInfo) -> Unit,
+    /** المقدمة والخاتمة الجاهزتان القابلتان للتعديل (بلاغ v1.71) */
+    khutbahIntroTemplate: String,
+    khutbahConclusionTemplate: String,
+    onSetKhutbahIntroTemplate: (String) -> Unit,
+    onSetKhutbahConclusionTemplate: (String) -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -561,8 +550,16 @@ private fun NoorBody(
                         adhanActions = adhanActions,
                         updateState = updateState,
                         downloadState = downloadState,
+                        updateChannels = updateChannels,
+                        updateNotifyChannels = uiState.settings.updateNotifyChannels,
+                        onSetUpdateNotifyChannels = onSetUpdateNotifyChannels,
                         onCheckUpdates = onCheckUpdates,
                         onDownloadUpdate = onDownloadUpdate,
+                        onDownloadChannel = onDownloadChannel,
+                        khutbahIntroTemplate = khutbahIntroTemplate,
+                        khutbahConclusionTemplate = khutbahConclusionTemplate,
+                        onSetKhutbahIntroTemplate = onSetKhutbahIntroTemplate,
+                        onSetKhutbahConclusionTemplate = onSetKhutbahConclusionTemplate,
                         reciterId = reciterId,
                         onSetReciter = onSetReciter,
                         khutbahEnabled = khutbahEnabled,

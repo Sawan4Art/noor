@@ -55,8 +55,79 @@ object UpdateChecker {
                 apkSizeBytes = summary.apkSizeBytes,
                 releaseUrl = summary.releaseUrl,
                 publishedAt = summary.publishedAt,
+                channel = summary.channel,
             )
         }
+
+    /**
+     * **المرشّح المُشعَر به حسب قنوات الإشعار** — بلاغ المالك v1.71:
+     * «يمكن للمستخدم تفعيل اشعارات النسخ المستقره فقط او اي نسخ اخرى»
+     * — أحدث إصدارٍ أحدث من الحالي ضمن القنوات المسموح إشعارُها:
+     * المستقرة فقط (الافتراضي) أو كل النسخ، والنكهة (ألفا/مستقرة) كما
+     * كانت تختار أصل الـ APK لا قناة الإشعار.
+     */
+    fun pickCandidateForNotify(
+        releases: List<ReleaseSummary>,
+        currentVersion: String,
+        notifyAllChannels: Boolean,
+    ): UpdateInfo? = releases
+        .filter { it.apkUrl != null }
+        .filter { notifyAllChannels || it.channel == UpdateChannel.STABLE }
+        .filter { NoorVersion.isNewer(it.tag, currentVersion) }
+        .mapNotNull { summary ->
+            NoorVersion.parse(summary.tag)?.let { version ->
+                summary to version
+            }
+        }
+        .maxByOrNull { it.second }
+        ?.let { (summary, _) ->
+            UpdateInfo(
+                tag = summary.tag,
+                versionName = summary.tag.removePrefix("v"),
+                title = summary.title.ifBlank { summary.tag },
+                body = summary.body,
+                apkName = summary.apkName!!,
+                apkUrl = summary.apkUrl!!,
+                apkSizeBytes = summary.apkSizeBytes,
+                releaseUrl = summary.releaseUrl,
+                publishedAt = summary.publishedAt,
+                channel = summary.channel,
+            )
+        }
+
+    /**
+     * **أحدث نسخة لكل قناةٍ** — بلاغ المالك v1.71: «النسخه المستقره و
+     * البيتا و الاصدار التجريبي» قابلة للتنزيل من قسم التحديثات —
+     * فالخريطة تُرجع أحدث إصدارٍ لكل قناةٍ من الثلاث (القناة الفارغة
+     * تعني لا إصدارٍ منشورٍ لها بعد).
+     */
+    fun latestPerChannel(releases: List<ReleaseSummary>): Map<UpdateChannel, UpdateInfo?> {
+        val best = mutableMapOf<UpdateChannel, Pair<ReleaseSummary, NoorVersion>>()
+        for (summary in releases) {
+            if (summary.apkUrl == null) continue
+            val version = NoorVersion.parse(summary.tag) ?: continue
+            val current = best[summary.channel]
+            if (current == null || version > current.second) {
+                best[summary.channel] = summary to version
+            }
+        }
+        return UpdateChannel.entries.associateWith { entry ->
+            best[entry]?.let { (summary, _) ->
+                UpdateInfo(
+                    tag = summary.tag,
+                    versionName = summary.tag.removePrefix("v"),
+                    title = summary.title.ifBlank { summary.tag },
+                    body = summary.body,
+                    apkName = summary.apkName!!,
+                    apkUrl = summary.apkUrl!!,
+                    apkSizeBytes = summary.apkSizeBytes,
+                    releaseUrl = summary.releaseUrl,
+                    publishedAt = summary.publishedAt,
+                    channel = summary.channel,
+                )
+            }
+        }
+    }
 
     /**
      * فحص الشبكة الفعلي — جسم الـ JSON يُحوَّل إلى ملخصات ثم يُختار التحديث.
@@ -75,6 +146,30 @@ object UpdateChecker {
         )
         pickUpdate(releases, currentVersion, allowPrerelease = isAlphaChannel(currentVersion))
     }
+
+    /**
+     * فحص الشبكة بقنواته الثلاث (بلاغ المالك v1.71) — جسمٌ واحدٌ يُجلب
+     * ثم يُبنى منه: أحدث نسخةٍ لكل قناةٍ + ملخصات القائمة كاملةً لمن
+     * يريد اختيار المرشّح بقواعد الإشعار.
+     */
+    suspend fun checkChannels(currentVersion: String): ChannelsResult =
+        withContext(Dispatchers.IO) {
+            val json = fetchReleasesJson()
+            val releases = parseReleases(
+                json,
+                preferAlphaAsset = BuildConfig.APPLICATION_ID.endsWith(".alpha"),
+            )
+            ChannelsResult(
+                perChannel = latestPerChannel(releases),
+                releases = releases,
+            )
+        }
+
+    /** نتيجة فحص القنوات — أحدث نسخةٍ لكل قناةٍ مع القائمة الخام */
+    data class ChannelsResult(
+        val perChannel: Map<UpdateChannel, UpdateInfo?>,
+        val releases: List<ReleaseSummary>,
+    )
 
     private fun fetchReleasesJson(): String {
         val connection = URL(RELEASES_URL).openConnection() as HttpURLConnection
@@ -145,6 +240,9 @@ object UpdateChecker {
                         apkName = flavorApkName ?: apkName,
                         apkUrl = flavorApkUrl ?: apkUrl,
                         apkSizeBytes = if (flavorApkName != null) flavorApkSize else apkSize,
+                        // القناة من الوسم نفسه (بلاغ المالك v1.71): بلا مرحلةٍ
+                        // مستقرة، ببيتا بيتا، بألفا تجريبية
+                        channel = UpdateChannel.ofTag(release.optString("tag_name", "")),
                     ),
                 )
             }

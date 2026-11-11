@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- أيقونة التشغيل السريع — بلاغ المالك v1.71: «الغي تفعيل اشعار
+     التشغيل السريع و استبدله بايقونه تكون موجوده في شريط الاشعارات
+     نفسه» — محتوى الإشعار كله صورةُ أيقونة التطبيق بلا نصٍّ ولا
+     عنوانٍ ولا سطرٍ ثانٍ، فتبدو في شريط الإشعارات أيقونةً خالصةً
+     ضغطةٌ عليها تفتح التطبيق فوراً -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/quick_icon_image"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:scaleType="center"
+        android:src="@mipmap/ic_launcher"
+        android:importantForAccessibility="no" />
+</FrameLayout>

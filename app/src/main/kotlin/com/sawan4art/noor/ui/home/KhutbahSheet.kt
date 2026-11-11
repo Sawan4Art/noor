@@ -144,6 +144,10 @@ fun KhutbahEditorContent(
     savedText: String,
     savedImages: List<String>,
     onSetKhutbah: (String, String) -> Unit,
+    /** المقدمة الجاهزة الفعّالة — المعدّلة أو القالب المعهد (بلاغ v1.71) */
+    introTemplate: String = KhutbahLibrary.INTRO_TEMPLATE,
+    /** الخاتمة الجاهزة الفعّالة — المعدّلة أو القالب المعهد */
+    conclusionTemplate: String = KhutbahLibrary.CONCLUSION_TEMPLATE,
     onImportImage: (android.net.Uri) -> Unit,
     onDeleteImage: (String) -> Unit,
 ) {
@@ -282,10 +286,12 @@ fun KhutbahEditorContent(
                             modifier = Modifier.weight(1f),
                             onClick = {
                                 CrashLog.breadcrumb("خطبة: إدراج المقدمة الجاهزة")
+                                // النص الفعّال: المعدّل من قسم «خطبة الجمعة»
+                                // أو القالب المعهد (بلاغ v1.71)
                                 text = if (text.isBlank()) {
-                                    KhutbahLibrary.INTRO_TEMPLATE
+                                    introTemplate
                                 } else {
-                                    KhutbahLibrary.INTRO_TEMPLATE + "\n\n" + text
+                                    introTemplate + "\n\n" + text
                                 }
                             },
                         )
@@ -297,9 +303,9 @@ fun KhutbahEditorContent(
                             onClick = {
                                 CrashLog.breadcrumb("خطبة: إدراج الخاتمة الجاهزة")
                                 text = if (text.isBlank()) {
-                                    KhutbahLibrary.CONCLUSION_TEMPLATE
+                                    conclusionTemplate
                                 } else {
-                                    text + "\n\n" + KhutbahLibrary.CONCLUSION_TEMPLATE
+                                    text + "\n\n" + conclusionTemplate
                                 }
                             },
                         )

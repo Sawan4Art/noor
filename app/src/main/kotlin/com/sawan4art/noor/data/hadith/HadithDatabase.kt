@@ -11,14 +11,27 @@ import java.io.File
 /**
  * قاعدة مكتبة الأحاديث — Room فوق ملف SQLite جاهز في الـ Assets:
  *
- * databases/hadiths.db مولَّد آلياً بواسطة scripts/rebuild_hadiths_official.py
- * ثم scripts/prune_hadiths_five_books.py (قصّ الكتب الخمسة) ويحوي
- * ٣٠٠٢٥ حديثاً من **خمسة كتب** بفهرس **FTS4** مُعبَّأ مسبقاً (contentless —
+ * databases/hadiths.db مولَّد آلياً بواسطة scripts/fix_hadiths_v6.py
+ * (فوق سلسلة rebuild_hadiths_official.py وprune_hadiths_five_books.py)
+ * ويحوي ٣٠٠٣٠ حديثاً من **خمسة كتب** بفهرس **FTS4** مُعبَّأ مسبقاً (contentless —
  * الفهرس فقط بلا نسخة نص إضافية). Room ينسخ الملف عند أول فتح
  * (createFromAsset) ويقرأ جدوليه books وhadiths بتحقق مخططه المعتاد،
  * بينما hadiths_fts جدول افتراضي لا يعرفه Room فلا يتحقق منه ولا يمسه —
  * والقراءة منه عبر RawQuery في HadithDao. القاعدة للقراءة فقط: لا
  * إدراج ولا تعديل من التطبيق إطلاقاً، فلا حاجة لترحيلات ولا مشغّلات مزامنة.
+ *
+ * **النسخة ٦ (v1.71)**: بلاغا المالك «ترتيب الاحاديث في كتاب سنن النسائى غير
+ * صحيح و ايضا كتاب صحيح مسلم لا يعرض كل الاحاديث و ايضا غير مرتب» —
+ * التشخيص الفعلي: النسائي ترتيبه سليمٌ لكن ٨٦ نصاً فارغاً (ومنها ٨٢
+ * متتالية ٣٨٥٧–٣٩٣٨) تظهر بطاقاتٍ بيضاءٍ كأنها عطب ترتيب — فمُلئت
+ * كلها من كشط sunnah.com الرسمي مع بخاري وترمذي وأبي داود (١٦٨
+ * فراغاً: ١٥٥ من الكشط و٥ من صفحات sunnah.com و٨ أرقام مدمجةٍ في
+ * جيرانها حُذفت صفوفها الفارغة لا اختراعَ لنصوص). ومسلم عاد كاملاً
+ * من الكشط الرسمي بثلاثة إصلاحاتٍ جذريّة: النمطُ الموسِّع يقبل اللواحق
+ * المركبة (1211aa–1211ah و157L) فرجع ١٣ حديثاً ساقطاً، وإزالة التكرار
+ * على النص المطبَّع كاملاً بدل أول ٤٠٠ حرفٍ فرجعت ١٠ سلاسلٌ متوازية
+ * متاولاها مختلف، وسلاسل الرقم الواحد تُرقَّم بترتيب الكشط نفسه (١١٢
+ * سلسلةً أُعيد ترتيبها) فتصفح مسلم يطابق sunnah.com حرفاً بحرف.
  *
  * **النسخة ٥ (alpha58)**: المكتبة صارت الكتب الخمسة — بلاغ المالك:
  * «بقولك ايي يكفي فقط اهم خمس كتب من الاحاديث بدل عشره لاكن يكونوا
@@ -44,7 +57,7 @@ import java.io.File
  */
 @Database(
     entities = [BookEntity::class, HadithEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class HadithDatabase : RoomDatabase() {
@@ -53,7 +66,7 @@ abstract class HadithDatabase : RoomDatabase() {
 
     companion object {
         const val NAME = "hadiths.db"
-        const val VERSION = 5
+        const val VERSION = 6
 
         @Volatile
         private var instance: HadithDatabase? = null

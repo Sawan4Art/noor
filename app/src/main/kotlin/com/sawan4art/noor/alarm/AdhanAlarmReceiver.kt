@@ -98,6 +98,11 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             .putExtra(AlarmService.EXTRA_SOUND_ID, soundId)
             .putExtra(AlarmService.EXTRA_CUSTOM_PATH, customPath)
             .putExtra(AlarmService.EXTRA_NOTE, reminderNote)
+            // اهتزاز أثناء الرنين — مفتاح كل صوتٍ لحظة الدقّ (بلاغ v1.71)
+            .putExtra(
+                AlarmService.EXTRA_VIBRATE,
+                prefs?.vibrateFor(isReminder, isIqamah) ?: true,
+            )
             .putExtra(AlarmService.EXTRA_MUTE_START, intent.getBooleanExtra(EXTRA_MUTE_START, false))
             .putExtra(AlarmService.EXTRA_MUTE_MINUTES, prefs?.muteMinutes ?: 10)
             .putExtra(

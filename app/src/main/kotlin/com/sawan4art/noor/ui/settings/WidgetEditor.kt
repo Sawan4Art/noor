@@ -91,6 +91,10 @@ internal fun WidgetInteractiveEditor(
      *  قياسٍ: عرضُ الويدجت الحقيقي وارتفاعُها بمحتواها، والتمرير
      *  الرأسي يكمل ما لا تتسع له الشاشة */
     realSize: Boolean = false,
+    /** صفحة المعاينة الكاملة (v1.71) — بلاغ المالك: «اعلها صفحه معاينه
+     *  كامله لوحدها» — بلا عنوان القسم ولا الشرح الطويل: ترويسةٌ قصيرةٌ
+     *  فقط كي تملأ الويدجت الصفحة */
+    fullPage: Boolean = false,
 ) {
     val context = LocalContext.current
     val snapshot = remember { WidgetSnapshot.compute(context) }
@@ -141,17 +145,28 @@ internal fun WidgetInteractiveEditor(
     }
 
     Column {
-        SettingLabel("شكل الويدجت الآن — محرر تفاعلي حيّ")
-        Text(
-            text = "معاينةٌ مطابقةٌ للويدجت على شاشتك وتُظهر شكلها كاملاً: " +
-                "اسحب أي عنصرٍ بضغطةٍ مطوّلةٍ لتحريكه وترتيبه، واضغط عليه " +
-                "تُفتح لوحته المنبثقة (الحجم واللون والظهور)، وافتح لوحة " +
-                "العنصر ثم اجمع إصبعين على المعاينة للزوم تكبيراً وتصغيراً " +
-                "— وضغطةٌ على الويدجت المنصوبة نفسها تُبدّل لون إطارها الدائري.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 10.dp),
-        )
+        if (fullPage) {
+            // ترويسة الصفحة الكاملة — قصيرةٌ كي تملأ الويدجت الشاشة
+            Text(
+                text = "اضغط عنصراً لضبطه، واسحبه بضغطةٍ مطوّلةٍ لترتيبه، " +
+                    "واجمع إصبعين للزوم — كل تعديلٍ يُحفظ فوراً على الويدجت المنصوبة.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 10.dp),
+            )
+        } else {
+            SettingLabel("شكل الويدجت الآن — محرر تفاعلي حيّ")
+            Text(
+                text = "معاينةٌ مطابقةٌ للويدجت على شاشتك وتُظهر شكلها كاملاً: " +
+                    "اسحب أي عنصرٍ بضغطةٍ مطوّلةٍ لتحريكه وترتيبه، واضغط عليه " +
+                    "تُفتح لوحته المنبثقة (الحجم واللون والظهور)، وافتح لوحة " +
+                    "العنصر ثم اجمع إصبعين على المعاينة للزوم تكبيراً وتصغيراً " +
+                    "— وضغطةٌ على الويدجت المنصوبة نفسها تُبدّل لون إطارها الدائري.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 10.dp),
+            )
+        }
 
         Box(
             modifier = Modifier

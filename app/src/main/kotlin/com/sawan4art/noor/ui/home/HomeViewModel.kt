@@ -18,8 +18,6 @@ import com.sawan4art.noor.domain.adhan.AdhanSoundKind
 import com.sawan4art.noor.domain.adhan.PrayerReminder
 import com.sawan4art.noor.domain.khutbah.KhutbahLibrary
 import com.sawan4art.noor.domain.location.CityGeocoder
-import com.sawan4art.noor.domain.location.LocationGate
-import com.sawan4art.noor.domain.location.LocationGateChecker
 import com.sawan4art.noor.domain.location.LocationSource
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
@@ -107,26 +105,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     val locating: StateFlow<Boolean> = _locating
 
     /**
-     * رسالة بوابات الموقع (توجيه المالك alpha18) — كل بوابة مقفولة تُنهي
-     * الطلب فوراً برسالة عربية وإجراء فتح الإعدادات المناسب، بلا انتظار
-     * عقد المهلة القديم الذي كان يُقرأ لاجاً
+     * رسالة بوابات الموقع — أُلغيت (بلاغ المالك v1.71: «ازل رساله التنبيه
+     * التي تظهر عند الضغط على ايقونه الموقع») فحوار الموقع لم يعد له وجود
+     * في الواجهة، ونموذج البوابات نفسه في domain/location باقٍ للاختبارات
      */
-    private val _locationGate = MutableStateFlow<LocationGate?>(null)
-    val locationGate: StateFlow<LocationGate?> = _locationGate
-
-    fun dismissLocationGate() {
-        _locationGate.value = null
-    }
 
     fun detectLocation() {
         if (_locating.value) return
-        // البوابات أولاً — فحص رخيص فوري يمنع اللاج القديم (انتظار مهلة
-        // كاملة ثم محاولتا شبكة ثم سكوت بلا رسالة)
-        val gate = LocationGateChecker.check(getApplication())
-        if (gate.blocked) {
-            _locationGate.value = gate
-            return
-        }
+        // **بلا رسالة تنبيه عند الضغط** — بلاغ المالك v1.71: «ازل رساله
+        // التنبيه التي تظهر عند الضغط على ايقونه الموقع لاختيار الموقع»
+        // — الضغطة تمشي في مسار التحديد مباشرةً بلا بواباتٍ ولا حوارٍ:
+        // إن نجحت القراءة حُفظ الموقع وصارّ التطبيق، وإن فشلت فسكوتٌ
+        // هادئٌ مع تسجيلٍ في دفتر الأعطال — والموقع يبقى كما كان
         _locating.value = true
         viewModelScope.launch {
             try {
@@ -156,13 +146,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
                         CrashLog.note("الموقع: فشل حفظ الموقع", it)
                     }
                 } else {
-                    // البوابات مفتوحة والقراءة فشلت (مهلة الموقع انقضت) — رسالة عامة
-                    _locationGate.value = LocationGate.READING_FAILED
+                    // القراءة فشلت (مهلة الموقع انقضت) — بلا حوارٍ بلاغ v1.71:
+                    // سكوتٌ هادئٌ وسجلٌّ في دفتر الأعطال والموقع يبقى كما كان
+                    CrashLog.note("الموقع: القراءة فشلت بلا نتيجة", null)
                 }
             } catch (t: Throwable) {
-                // أي غلطةٍ غير متوقعة لا تغلق التطبيق — رسالةٌ وسجلٌّ
+                // أي غلطةٍ غير متوقعة لا تغلق التطبيق ولا تُظهر حواراً — سجلٌّ فقط
                 CrashLog.note("الموقع: عطل غير متوقع في مسار التحديد", t)
-                _locationGate.value = LocationGate.READING_FAILED
             } finally {
                 _locating.value = false
             }
@@ -203,6 +193,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     /** تفعيل/إيقاف زر خطبة الجمعة في الرئيسية — قسم «خطبة الجمعة» (alpha56) */
     fun setKhutbahButtonEnabled(on: Boolean) =
         viewModelScope.launch { repository.setKhutbahButtonEnabled(on) }
+
+    /** حفظ المقدمة الجاهزة المعدّلة — فارغٌ يعيد القالب المعهد (بلاغ v1.71) */
+    fun setKhutbahIntroTemplate(text: String) =
+        viewModelScope.launch { repository.setKhutbahIntroTemplate(text) }
+
+    /** حفظ الخاتمة الجاهزة المعدّلة — فارغٌ يعيد القالب المعهد (بلاغ v1.71) */
+    fun setKhutbahConclusionTemplate(text: String) =
+        viewModelScope.launch { repository.setKhutbahConclusionTemplate(text) }
+
+    /** حفظ قنوات إشعار التحديث — «stable» أو «all» (بلاغ v1.71) */
+    fun setUpdateNotifyChannels(value: String) =
+        viewModelScope.launch { repository.setUpdateNotifyChannels(value) }
 
     /** إتمام شاشة الترحيب — أول تشغيل فقط (alpha56) */
     fun setOnboardingDone(done: Boolean) =
@@ -419,6 +421,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     /** قاعدة تنبيه صلاة بعينها — null يلغيها (alpha61) */
     override fun setPrayerReminder(key: PrayerTimeKey, rule: PrayerReminder.Rule?) {
         viewModelScope.launch { repository.setPrayerReminder(key, rule) }
+    }
+
+    /** اهتزاز أثناء رنين الأذان — بلاغ المالك v1.71: «كل صوت قابل لتفعيل الميزه او ايقافها» */
+    override fun setAdhanVibrate(on: Boolean) {
+        viewModelScope.launch { repository.setAdhanVibrate(on) }
+    }
+
+    /** اهتزاز أثناء رنين الإقامة */
+    override fun setIqamahVibrate(on: Boolean) {
+        viewModelScope.launch { repository.setIqamahVibrate(on) }
+    }
+
+    /** اهتزاز أثناء رنين التنبيه */
+    override fun setReminderVibrate(on: Boolean) {
+        viewModelScope.launch { repository.setReminderVibrate(on) }
     }
 
     /** استيراد صوت مخصص من الهاتف — يُنسخ داخل مسار التطبيق ليبقى دائماً */

@@ -11,7 +11,8 @@ package com.sawan4art.noor.data.update
  */
 data class NoorVersion private constructor(
     private val numbers: List<Int>,
-    private val stageRank: Int,
+    /** رتبة المرحلة — قنوات الإصدار تقرأها (alpha=0 بيتا=1 ومافوق مستقر) */
+    val stageRank: Int,
     private val stageNumber: Int,
 ) : Comparable<NoorVersion> {
 
@@ -37,6 +38,12 @@ data class NoorVersion private constructor(
     companion object {
         /** رتبة النسخة المستقرة — أكبر من كل المراحل (alpha0 < beta0 < rc0 < مستقرة) */
         const val STABLE_RANK = 4
+
+        /** رتبة مرحلة ألفا — قناة «التجريبية» تقرؤها (بلاغ v1.71) */
+        const val STAGE_ALPHA = 0
+
+        /** رتبة مرحلة بيتا — قناة «البيتا» تقرؤها (بلاغ v1.71) */
+        const val STAGE_BETA = 1
 
         private val STAGE_RANKS = mapOf("alpha" to 0, "beta" to 1, "rc" to 2, "" to 3)
         private val STAGE_NAMES = mapOf(0 to "alpha", 1 to "beta", 2 to "rc", 3 to "pre")
