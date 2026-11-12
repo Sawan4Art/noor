@@ -482,6 +482,19 @@ object QuranAudioLibrary {
         return downloadTo(fallback, target)
     }
 
+    /**
+     * جلب آيةٍ واحدةٍ عند الطلب — للذاكرة الذكية [AyahAudioCache]:
+     * الحاضرة على القرص تعود ناجحةً بلا أي شبكة، والغائبة تمشي
+     * طرقها الثلاثة (everyayah ← مرآتنا ← islamic.network). تعليقةٌ
+     * تعمل على Dispatchers.IO كاملةً فالواجهة لا تلتقط أنفاساً.
+     */
+    suspend fun fetchSingleAyah(context: Context, reciterId: String, sura: Int, ayah: Int): Boolean =
+        withContext(Dispatchers.IO) {
+            val target = ayahFile(context, reciterId, sura, ayah)
+            if (target.isFile && target.length() > 0L) return@withContext true
+            fetchAyahFile(context, QuranReciters.byId(reciterId), sura, ayah, target)
+        }
+
     /** تنزيل رابطٍ إلى الملف الهدف — false لأي عطلٍ أو ردٍّ غير سليم */
     private fun downloadTo(url: String, target: File): Boolean = runCatching {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
