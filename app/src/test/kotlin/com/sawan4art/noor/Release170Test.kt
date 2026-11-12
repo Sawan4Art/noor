@@ -129,9 +129,9 @@ class Release170Test {
         assertTrue(KhutbahLibrary.ORDERED.size == 50)
     }
 
-    // ===== اختيار ملف التحديث بنكهته =====
+    // ===== اختيار ملف التحديث — القناة العادية الواحدة =====
 
-    /** JSON إصدارٍ بأصلين — مستقرة وألفا */
+    /** JSON إصدارٍ بأصلين — مستقرة وألفا (إصدارات 1.70→1.72 القديمة) */
     private fun dualAssetRelease(tag: String, alphaFirst: Boolean): String {
         val stable = org.json.JSONObject()
             .put("name", "noor-almuslim-$tag.apk")
@@ -161,19 +161,30 @@ class Release170Test {
     }
 
     @Test
-    fun `نسخة ألفا تختار أصل ألفا من إصدار بأصلين`() {
-        val releases = UpdateChecker.parseReleases(dualAssetRelease("v1.71", alphaFirst = false), preferAlphaAsset = true)
-        assertEquals("noor-almuslim-v1.71-alpha.apk", releases.first().apkName)
+    fun `إصدار بأصلين يتخذ أصل المستقرة أياً كان ترتيبه`() {
+        // بلاغ المالك v1.73: تطبيقٌ واحدٌ بملفٍ واحدٍ — من إصدارٍ قديمٍ
+        // بأصلين يُعرض دائماً أصل المستقرة فلا يُنزَّل ملفُّ حزمةٍ منفصلة
+        val stableFirst = UpdateChecker.parseReleases(dualAssetRelease("v1.71", alphaFirst = false))
+        assertEquals("noor-almuslim-v1.71.apk", stableFirst.first().apkName)
+        val alphaFirst = UpdateChecker.parseReleases(dualAssetRelease("v1.71", alphaFirst = true))
+        assertEquals("noor-almuslim-v1.71.apk", alphaFirst.first().apkName)
     }
 
     @Test
-    fun `النسخة المستقرة تختار أصل المستقرة من إصدار بأصلين`() {
-        val releases = UpdateChecker.parseReleases(dualAssetRelease("v1.71", alphaFirst = true), preferAlphaAsset = false)
-        assertEquals("noor-almuslim-v1.71.apk", releases.first().apkName)
+    fun `إصدار بملف واحد يتخذ به كما هو`() {
+        val json = """
+            [{"tag_name":"v1.73","name":"x","body":"x","prerelease":false,
+              "draft":false,"assets":[{"name":"noor-almuslim-v1.73.apk",
+              "browser_download_url":"https://x/a.apk","size":1}]}]
+        """.trimIndent()
+        assertEquals(
+            "noor-almuslim-v1.73.apk",
+            UpdateChecker.parseReleases(json).first().apkName,
+        )
     }
 
     @Test
-    fun `إصدار بملف واحد يتخذ به كلتا النكهتين`() {
+    fun `إصدار قديم بملف ألفا وحيد يتخذ به احتياطاً`() {
         val json = """
             [{"tag_name":"v0.5.0-alpha64","name":"x","body":"x","prerelease":true,
               "draft":false,"assets":[{"name":"noor-almuslim-v0.5.0-alpha64.apk",
@@ -181,11 +192,7 @@ class Release170Test {
         """.trimIndent()
         assertEquals(
             "noor-almuslim-v0.5.0-alpha64.apk",
-            UpdateChecker.parseReleases(json, preferAlphaAsset = true).first().apkName,
-        )
-        assertEquals(
-            "noor-almuslim-v0.5.0-alpha64.apk",
-            UpdateChecker.parseReleases(json, preferAlphaAsset = false).first().apkName,
+            UpdateChecker.parseReleases(json).first().apkName,
         )
     }
 }
