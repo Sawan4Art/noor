@@ -115,4 +115,9 @@ jobs:
       - name: ملخص
         run: |
           echo "### ✅ بناء نور المسلم الكوتلني نجح" >> $GITHUB_STEP_SUMMARY
-          du -h app/build/outputs/apk/release/app-release.apk
+          # على main بلا وسم يبني فحصاً فقط فلا APK إصدارٍ هنا — درس run 171
+          if [ -f app/build/outputs/apk/release/app-release.apk ]; then
+            du -h app/build/outputs/apk/release/app-release.apk
+          else
+            echo "بناء فحص على main — لا APK إصدارٍ في هذا المسار"
+          fi
