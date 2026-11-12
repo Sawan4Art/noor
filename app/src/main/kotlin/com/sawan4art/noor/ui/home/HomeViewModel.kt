@@ -18,6 +18,8 @@ import com.sawan4art.noor.domain.adhan.AdhanSoundKind
 import com.sawan4art.noor.domain.adhan.PrayerReminder
 import com.sawan4art.noor.domain.khutbah.KhutbahLibrary
 import com.sawan4art.noor.domain.location.CityGeocoder
+import com.sawan4art.noor.domain.location.LocationGate
+import com.sawan4art.noor.domain.location.LocationGateChecker
 import com.sawan4art.noor.domain.location.LocationSource
 import com.sawan4art.noor.domain.prayer.CalculationMethod
 import com.sawan4art.noor.domain.prayer.PrayerTimeKey
@@ -105,18 +107,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     val locating: StateFlow<Boolean> = _locating
 
     /**
-     * رسالة بوابات الموقع — أُلغيت (بلاغ المالك v1.71: «ازل رساله التنبيه
-     * التي تظهر عند الضغط على ايقونه الموقع») فحوار الموقع لم يعد له وجود
-     * في الواجهة، ونموذج البوابات نفسه في domain/location باقٍ للاختبارات
+     * **بوابة الموقع راجعة إلزامياً** — أمر المالك 2026-11-13: «عايز تنبيه
+     * بضروره فتح الموقع و البيانات لو مقفولين عند الضغط على زر تحديد
+     * الموقع». حوار البوابات عاد بشقّه الإلزامي وحده: يظهر **فقط** حين
+     * خدمة الموقع أو الإنترنت أو الإذن مقفول — ولو كل البوابات مفتوحة
+     * تمشي الضغطة في التحديد مباشرةً بلا أي رسالة (التوجيه v1.71 باقٍ:
+     * لا إزعاجٍ لمن كل شيء عنده شغال).
      */
+    private val _locationGate = MutableStateFlow<LocationGate?>(null)
+    val locationGate: StateFlow<LocationGate?> = _locationGate
+
+    fun dismissLocationGate() {
+        _locationGate.value = null
+    }
 
     fun detectLocation() {
         if (_locating.value) return
-        // **بلا رسالة تنبيه عند الضغط** — بلاغ المالك v1.71: «ازل رساله
-        // التنبيه التي تظهر عند الضغط على ايقونه الموقع لاختيار الموقع»
-        // — الضغطة تمشي في مسار التحديد مباشرةً بلا بواباتٍ ولا حوارٍ:
-        // إن نجحت القراءة حُفظ الموقع وصارّ التطبيق، وإن فشلت فسكوتٌ
-        // هادئٌ مع تسجيلٍ في دفتر الأعطال — والموقع يبقى كما كان
+        // البوابات أولاً — فحصٌ رخيصٌ فوري على خيط الواجهة: مقفولٌ منها
+        // يعرض الحوار الإلزامي مع زر فتح الإعدادات المناسبة، ومفتوحٌ
+        // يمرّ صامتاً كما أراد المالك في v1.71 لمن كل بواباته مفتوحة
+        val gate = LocationGateChecker.check(getApplication())
+        if (gate.blocked) {
+            _locationGate.value = gate
+            return
+        }
         _locating.value = true
         viewModelScope.launch {
             try {
@@ -146,9 +160,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
                         CrashLog.note("الموقع: فشل حفظ الموقع", it)
                     }
                 } else {
-                    // القراءة فشلت (مهلة الموقع انقضت) — بلا حوارٍ بلاغ v1.71:
-                    // سكوتٌ هادئٌ وسجلٌّ في دفتر الأعطال والموقع يبقى كما كان
-                    CrashLog.note("الموقع: القراءة فشلت بلا نتيجة", null)
+                    // القراءة فشلت والبوابات كلها كانت مفتوحة — سكوتٌ هادئٌ
+                    // وسجلٌّ في دفتر الأعطال والموقع يبقى كما كان — حوارُ
+                    // البوابات وحدَه هو الإلزامي (أمر المالك 2026-11-13)
+                    CrashLog.note("الموقع: القراءة فشلت بلا نتيجة والبوابات مفتوحة", null)
                 }
             } catch (t: Throwable) {
                 // أي غلطةٍ غير متوقعة لا تغلق التطبيق ولا تُظهر حواراً — سجلٌّ فقط

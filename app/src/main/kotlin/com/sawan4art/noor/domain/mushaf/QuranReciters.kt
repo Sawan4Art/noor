@@ -36,6 +36,17 @@ object QuranReciters {
          * null لمن لا نظير له فالتنزيل من everyayah وحده.
          */
         val fallbackEdition: String? = null,
+        /**
+         * **هل إصداره في islamic.network متاحٌ بجودة 128kbps؟** — درس
+         * الدراسة الحية 2026-11-13: القياس الفعلي بروابط HEAD لكل
+         * التقديرات العشرة أثبت أن خمسة منها تخدم /128 بينما خمسة
+         * يردّون 403 عليها (64kbps وحدهم): المنشاوي والحصري وجبريل
+         * والعفاسي والمعيقلي. لهؤلاء الخمسة يكون CDN مكتبة القرآن
+         * المفتوحة هو **المصدر الأول** للآيات — نفس الجودة المسجّلة
+         * في مجلد everyayah (١٢٨kbps) لكن على شبكة توزيعٍ قيست أسرع
+         * أربع مراتٍ من everyayah في الفحص الحي.
+         */
+        val cdnHighBitrate: Boolean = false,
     )
 
     /** مجلد التلاوات المفتوح — مصدر الروابط والتنزيل معاً */
@@ -45,22 +56,22 @@ object QuranReciters {
 
     private val EGYPTIAN = listOf(
         Reciter("abdelbaset", "عبد الباسط عبد الصمد", "Abdul_Basit_Murattal_192kbps", "مصر", Origin.EGYPTIAN, "ar.abdulbasitmurattal"),
-        Reciter("minshawi", "محمد صديق المنشاوي", "Minshawy_Murattal_128kbps", "مصر", Origin.EGYPTIAN, "ar.minshawi"),
-        Reciter("husary", "محمود خليل الحصري", "Husary_128kbps", "مصر", Origin.EGYPTIAN, "ar.husary"),
+        Reciter("minshawi", "محمد صديق المنشاوي", "Minshawy_Murattal_128kbps", "مصر", Origin.EGYPTIAN, "ar.minshawi", cdnHighBitrate = true),
+        Reciter("husary", "محمود خليل الحصري", "Husary_128kbps", "مصر", Origin.EGYPTIAN, "ar.husary", cdnHighBitrate = true),
         Reciter("al_banna", "محمود علي البنا", "mahmoud_ali_al_banna_32kbps", "مصر", Origin.EGYPTIAN),
         Reciter("tablaway", "محمد الطبلاوي", "Mohammad_al_Tablaway_128kbps", "مصر", Origin.EGYPTIAN),
         Reciter("sowaid", "أيمن سويد", "Ayman_Sowaid_64kbps", "مصر", Origin.EGYPTIAN, "ar.aymanswoaid"),
         Reciter("hajjaj", "علي الحجاج السويسي", "Ali_Hajjaj_AlSuesy_128kbps", "مصر", Origin.EGYPTIAN),
         Reciter("neana", "أحمد نائنا", "Ahmed_Neana_128kbps", "مصر", Origin.EGYPTIAN),
-        Reciter("jibreel", "محمد جبريل", "Muhammad_Jibreel_128kbps", "مصر", Origin.EGYPTIAN, "ar.muhammadjibreel"),
+        Reciter("jibreel", "محمد جبريل", "Muhammad_Jibreel_128kbps", "مصر", Origin.EGYPTIAN, "ar.muhammadjibreel", cdnHighBitrate = true),
     )
 
     // ===== العشرة من غير المصريين — أفاضل القرّاء في العالم =====
 
     private val OTHER = listOf(
-        Reciter("alafasy", "مشاري راشد العفاسي", "Alafasy_128kbps", "الكويت", Origin.OTHER, "ar.alafasy"),
+        Reciter("alafasy", "مشاري راشد العفاسي", "Alafasy_128kbps", "الكويت", Origin.OTHER, "ar.alafasy", cdnHighBitrate = true),
         Reciter("sudais", "عبد الرحمن السديس", "Abdurrahmaan_As-Sudais_192kbps", "السعودية", Origin.OTHER, "ar.abdurrahmaansudais"),
-        Reciter("muaiqly", "ماهر المعيقلي", "MaherAlMuaiqly128kbps", "السعودية", Origin.OTHER, "ar.mahermuaiqly"),
+        Reciter("muaiqly", "ماهر المعيقلي", "MaherAlMuaiqly128kbps", "السعودية", Origin.OTHER, "ar.mahermuaiqly", cdnHighBitrate = true),
         Reciter("qatami", "ناصر القطامي", "Nasser_Alqatami_128kbps", "السعودية", Origin.OTHER),
         Reciter("dossary", "ياسر الدوسري", "Yasser_Ad-Dussary_128kbps", "السعودية", Origin.OTHER),
         Reciter("juhany", "عبد الله عواد الجهني", "Abdullaah_3awwaad_Al-Juhaynee_128kbps", "السعودية", Origin.OTHER),
@@ -94,6 +105,23 @@ object QuranReciters {
 
     fun fallbackUrl(reciter: Reciter, globalAyah: Int): String? =
         reciter.fallbackEdition?.let { "$FALLBACK_BASE_URL/$it/$globalAyah.mp3" }
+
+    /**
+     * **مصدر الآية الأول للشيخ صاحب جودةٍ عاليةٍ على CDN** — نفس مكتبة
+     * islamic.network لكن بجودة 128kbps: الدراسة الحية 2026-11-13 قاست
+     * هذا الموجه أسرع أربع مراتٍ من everyayah وبنفس جودة مجلد الشيخ
+     * المسجّل هنا (١٢٨kbps) — فمن ثبت أن إصداره يخدم /128 صار هذا
+     * أول طريقٍ للآية عنده، ومن ليس كذلك فالـ null يقفز فوقه فوراً
+     * (الخمسة المتحقق منهم: المنشاوي والحصري وجبريل والعفاسي والمعيقلي).
+     */
+    const val CDN_128_BASE_URL = "https://cdn.islamic.network/quran/audio/128"
+
+    fun cdnAyahUrl(reciter: Reciter, globalAyah: Int): String? =
+        if (reciter.cdnHighBitrate && reciter.fallbackEdition != null) {
+            "$CDN_128_BASE_URL/${reciter.fallbackEdition}/$globalAyah.mp3"
+        } else {
+            null
+        }
 
     /**
      * **مرآة جت هب** — بلاغ المالك alpha59: «عايز اخلي الاصوات دي تكون

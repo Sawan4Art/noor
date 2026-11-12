@@ -1,5 +1,6 @@
 package com.sawan4art.noor
 
+import com.sawan4art.noor.data.mushaf.QuranAudioLibrary
 import com.sawan4art.noor.domain.mushaf.QuranAudioMath
 import com.sawan4art.noor.domain.mushaf.QuranReciters
 import org.junit.Assert.assertEquals
@@ -222,5 +223,66 @@ class QuranAudioMathTest {
         assertEquals(255, QuranAudioMath.zipEntryAyah("002255.mp3"))
         assertEquals(1, QuranAudioMath.zipEntryAyah("001001.mp3"))
         assertEquals(0, QuranAudioMath.zipEntryAyah("hackers.mp3"))
+    }
+}
+
+/**
+ * اختبارات مسار الصوت بعد الدراسة الحية (2026-11-13) — بلاغ المالك:
+ * «ادرس كويس جدا طريق تنزيل و اصوات الشيوخ الموجوده داخل تطبيقات
+ * المصحف علشان التنزيل للاصوات عندنا مش شغال و مش سريع» — عقد
+ * المصدر الأول (CDN ١٢٨ لمن ثبت له بالقياس الحي) وعقد الاستسلام
+ * المبكر للطريق الآية-آية.
+ */
+class QuranAudioRouteTest {
+
+    @Test
+    fun `الخمسة المتحقق منهم لهم رابط CDN مئة وثمانية وعشرون`() {
+        // القياس الحي: هذه التقديرات تخدم /128 في مكتبة القرآن المفتوحة
+        val five = listOf("minshawi", "husary", "jibreel", "alafasy", "muaiqly")
+        for (id in five) {
+            val reciter = QuranReciters.byId(id)
+            assertEquals(
+                "https://cdn.islamic.network/quran/audio/128/${reciter.fallbackEdition}/262.mp3",
+                QuranReciters.cdnAyahUrl(reciter, 262),
+            )
+        }
+    }
+
+    @Test
+    fun `من ليست جودته العالية ثبتة فلا رابط CDN مئة وثمانية وعشرين`() {
+        // الخمسة أصحاب الإصدارات الـ64kbps وحدها — القياس الحي أرجع
+        // 403 على /128 لهم فيبقى everyayah أول طريقٍ لآياتهم
+        for (id in listOf("abdelbaset", "sudais", "rifai", "shuraym", "sowaid")) {
+            assertEquals(null, QuranReciters.cdnAyahUrl(QuranReciters.byId(id), 262))
+        }
+        // ومن لا إصدارٍ نظير له أصلاً فالـ null دائماً
+        for (id in listOf(
+            "al_banna", "tablaway", "hajjaj", "neana",
+            "qatami", "dossary", "juhany", "bukhatir", "tunaiji",
+        )) {
+            assertEquals(null, QuranReciters.cdnAyahUrl(QuranReciters.byId(id), 262))
+        }
+    }
+
+    @Test
+    fun `عدد أصحاب الجودة العالية خمسة بالضبط وكلهم أصحاب إصدار`() {
+        assertEquals(5, QuranReciters.ALL.count { it.cdnHighBitrate })
+        assertTrue(
+            QuranReciters.ALL.filter { it.cdnHighBitrate }
+                .all { it.fallbackEdition != null },
+        )
+    }
+
+    @Test
+    fun `الاستسلام المبكر بلا نجاح عند بلوغ الحد فقط`() {
+        // نجاحٌ صفرٌ وفشلٌ بلغ الحد أو فوقه = استسلام
+        assertTrue(QuranAudioLibrary.shouldAbortPerAyah(0, 8, 8))
+        assertTrue(QuranAudioLibrary.shouldAbortPerAyah(0, 12, 8))
+        // دون الحد لا استسلام
+        assertTrue(!QuranAudioLibrary.shouldAbortPerAyah(0, 7, 8))
+        // أي نجاحٍ واحدٍ يلغي الاستسلام — المصدر حيّ فالطريق يجدي
+        assertTrue(!QuranAudioLibrary.shouldAbortPerAyah(1, 50, 8))
+        // والحد صفر = المرور الأخير بلا استسلامٍ أبداً مهما فشل
+        assertTrue(!QuranAudioLibrary.shouldAbortPerAyah(0, 1000, 0))
     }
 }

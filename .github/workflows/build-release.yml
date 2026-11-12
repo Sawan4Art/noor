@@ -121,3 +121,13 @@ jobs:
           else
             echo "بناء فحص على main — لا APK إصدارٍ في هذا المسار"
           fi
+
+      # قانون الإصدارات (أمر المالك 2026-11-13): آخر خمسة إصداراتٍ فقط —
+      # القديم يُحذف تلقائياً بوسمه بعد كل إصدارٍ جديد، وممنوع تعطيل الخطوة
+      - name: حذف الإصدارات الأقدم من آخر خمسة
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          KEEP: "5"
+        run: python3 scripts/prune_releases.py

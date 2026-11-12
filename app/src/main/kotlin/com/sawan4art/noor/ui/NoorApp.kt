@@ -62,6 +62,8 @@ import com.sawan4art.noor.ui.theme.ThemeDialMath
 import com.sawan4art.noor.ui.theme.ThemeDialOverlay
 import com.sawan4art.noor.ui.theme.ThemeDialState
 import com.sawan4art.noor.ui.settings.adhan.AdhanActions
+import com.sawan4art.noor.domain.location.LocationGate
+import com.sawan4art.noor.ui.notice.NoorNoticeDialog
 import com.sawan4art.noor.ui.update.UpdateDialog
 
 /** التطبيق عربي أولاً — الاتجاه مثبت يمين-لليسار مهما كانت لغة الجهاز */
@@ -121,6 +123,8 @@ private fun NoorRoot(
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val locating by viewModel.locating.collectAsStateWithLifecycle()
+    // بوابة الموقع الإلزامية — حوار فتح الموقع والبيانات لو مقفولين (أمر المالك 2026-11-13)
+    val locationGate by viewModel.locationGate.collectAsStateWithLifecycle()
     // شاشة الترحيب — أول تشغيلٍ فقط (null = ما زال يُتحقّق)
     val onboardingDone by viewModel.onboardingDone.collectAsStateWithLifecycle()
     // تفضيلات الأذان والإقامة — القسم الجديد في الإعدادات
@@ -394,9 +398,50 @@ private fun NoorRoot(
         )
     }
 
-    // حوار بوابات الموقع أُلغي كلياً — بلاغ المالك v1.71: «ازل رساله
-    // التنبيه التي تظهر عند الضغط على ايقونه الموقع لاختيار الموقع»
-    // — ضغطة أيقونة الموقع تمشي في التحديد مباشرةً بلا أي رسالة
+    // حوار بوابات الموقع الإلزامي — راجع بأمر المالك 2026-11-13: «عايز
+    // تنبيه بضروره فتح الموقع و البيانات لو مقفولين عند الضغط على زر
+    // تحديد الموقع» — يظهر **فقط** حين بوابةٌ مقفولة (إذن/خدمة الموقع/
+    // الإنترنت) ولها زرٌ يفتح الإعدادات المناسبة مباشرةً، ومتى كل
+    // البوابات مفتوحة فلا حوارَ إطلاقاً (توجيه v1.71 الباقي). والحوار
+    // عبر **القالب الموحد** NoorNoticeDialog — نفس لون الثيم ونفس تصميم
+    // حوار التحديث (بلاغ المالك alpha19).
+    locationGate?.let { gate ->
+        NoorNoticeDialog(
+            title = "تحديد الموقع",
+            message = gate.message.orEmpty(),
+            icon = Icons.Filled.LocationOn,
+            iconDescription = "الموقع",
+            actionLabel = if (gate.action != LocationGate.Action.NONE) gate.actionLabel else null,
+            onAction = if (gate.action != LocationGate.Action.NONE) {
+                {
+                    viewModel.dismissLocationGate()
+                    // فشل فتح الإعدادات على أجهزة غريبة لا يكسر التطبيق
+                    runCatching {
+                        val intent = when (gate.action) {
+                            LocationGate.Action.OPEN_APP_SETTINGS ->
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    android.net.Uri.fromParts("package", context.packageName, null),
+                                )
+                            LocationGate.Action.OPEN_LOCATION_SETTINGS ->
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS,
+                                )
+                            LocationGate.Action.OPEN_INTERNET_SETTINGS ->
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_WIRELESS_SETTINGS,
+                                )
+                            LocationGate.Action.NONE -> null
+                        }?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        intent?.let(context::startActivity)
+                    }
+                }
+            } else {
+                null
+            },
+            onDismiss = viewModel::dismissLocationGate,
+        )
+    }
 }
 
 /**
