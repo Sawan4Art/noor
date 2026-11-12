@@ -1,7 +1,6 @@
 package com.sawan4art.noor.data
 
 import android.content.Context
-import com.sawan4art.noor.data.update.UpdateChannel
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -152,12 +151,6 @@ data class UpdatePrefs(
     /** آخر وقت نُشر فيه إشعار فعلي — عصا سياسة التكرار (alpha37) */
     val lastNotifiedAt: Long = 0L,
     val dismissedVersion: String? = null,
-    /**
-     * **قنوات الإشعار** (بلاغ المالك v1.71: «يمكن للمستخدم تفعيل اشعارات
-     * النسخ المستقره فقط او اي نسخ اخرى») — «stable» للمستقرة فقط
-     * (الافتراضي) و«all» لكل النسخ.
-     */
-    val notifyChannels: String = UpdateChannel.NOTIFY_PREF_STABLE,
 )
 
 /**
@@ -225,11 +218,6 @@ data class NoorSettingsState(
      */
     val quickNotification: Boolean = true,
     /**
-     * **قنوات إشعار التحديث** (بلاغ المالك v1.71) — «stable» للمستقرة
-     * فقط (الافتراضي) و«all» لكل النسخ (مستقرة وبيتا وتجريبية).
-     */
-    val updateNotifyChannels: String = UpdateChannel.NOTIFY_PREF_STABLE,
-    /**
      * **تحديد الموقع تلقائياً في الخلفية** (بلاغ المالك 2026-11-11:
      * «زر تحديد الموقع تلقائى اذا تم تفعيله سيتم كل مره فيها فتح
      * الموقع و يوجد اتصال انترنت في الهاتف سواء فتحت التطبيق ام لا
@@ -275,8 +263,6 @@ class SettingsRepository(private val context: Context) {
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
         val UPDATE_NOTIFIED_AT = longPreferencesKey("update_notified_at")
         val UPDATE_DISMISSED = stringPreferencesKey("update_dismissed_version")
-        // قنوات إشعار التحديث (بلاغ v1.71) — «stable» أو «all»
-        val UPDATE_NOTIFY_CHANNELS = stringPreferencesKey("update_notify_channels")
         val HADITH_FAVORITES = stringPreferencesKey("hadith_favorites")
         // الأذان والإقامة
         val ADHAN_ENABLED = booleanPreferencesKey("adhan_enabled")
@@ -358,8 +344,6 @@ class SettingsRepository(private val context: Context) {
             khutbahButtonEnabled = p[Keys.KHUTBAH_BUTTON_ENABLED] ?: true,
             onboardingDone = p[Keys.ONBOARDING_DONE] ?: false,
             quickNotification = p[Keys.QUICK_NOTIFICATION] ?: true,
-            updateNotifyChannels = p[Keys.UPDATE_NOTIFY_CHANNELS]
-                ?: UpdateChannel.NOTIFY_PREF_STABLE,
             autoLocation = p[Keys.AUTO_LOCATION] ?: false,
         )
     }
@@ -752,8 +736,6 @@ class SettingsRepository(private val context: Context) {
             notifiedVersion = p[Keys.UPDATE_NOTIFIED],
             lastNotifiedAt = p[Keys.UPDATE_NOTIFIED_AT] ?: 0L,
             dismissedVersion = p[Keys.UPDATE_DISMISSED],
-            notifyChannels = p[Keys.UPDATE_NOTIFY_CHANNELS]
-                ?: UpdateChannel.NOTIFY_PREF_STABLE,
         )
     }
 
@@ -775,14 +757,6 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setDismissedVersion(versionName: String) {
         context.noorDataStore.edit { it[Keys.UPDATE_DISMISSED] = versionName }
-    }
-
-    /**
-     * حفظ قنوات إشعار التحديث — بلاغ المالك v1.71: «يمكن للمستخدم
-     * تفعيل اشعارات النسخ المستقره فقط او اي نسخ اخرى».
-     */
-    suspend fun setUpdateNotifyChannels(value: String) {
-        context.noorDataStore.edit { it[Keys.UPDATE_NOTIFY_CHANNELS] = value }
     }
 
     /** إلغاء الاستبعاد — ضغط إشعار التحديث يعيد فتح «ما الجديد» دائماً (alpha37) */

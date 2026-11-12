@@ -17,18 +17,6 @@ SADAQA = (
     "— تقبل الله منا ومنكم"
 )
 
-
-def channel_of(tag: str) -> str:
-    """قناة الإصدار من الوسم — بلاغ المالك v1.71: التنويه بأن الاصدار
-    مستقر أم بيتا أم تجريبي في ملخص كل إصدارٍ قادم."""
-    t = (tag or "").lower()
-    if "alpha" in t:
-        return "التجريبية (alpha)"
-    if "beta" in t:
-        return "البيتا (beta)"
-    return "المستقرة (stable)"
-
-
 ALPHA_NOTES = (
     "- **نسخة ألفا**: تطبيق منفصل (`نور المسلم`) يُثبَّت جنب النسخة المستقرة "
     "للتجربة والمقارنة — الاسم الظاهر موحّد بين النسختين بطلب المالك v1.71\n"
@@ -67,9 +55,7 @@ def main() -> int:
         print(f"تحذير: لا قسم للوسم {tag} في CHANGELOG.md — استُخدم النص الاحتياطي",
               file=sys.stderr)
 
-    channel = channel_of(tag)
-    print(f"{HEADER.format(tag=tag)}\n\n{SADAQA}\n\n## ما الجديد\n\n"
-          f"> **قناة هذا الإصدار**: نسخة {channel}\n\n{section}\n\n{ALPHA_NOTES}")
+    print(f"{HEADER.format(tag=tag)}\n\n{SADAQA}\n\n## ما الجديد\n{section}\n\n{ALPHA_NOTES}")
     return 0
 
 

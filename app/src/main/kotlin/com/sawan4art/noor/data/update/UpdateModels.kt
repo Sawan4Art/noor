@@ -13,8 +13,6 @@ data class ReleaseSummary(
     val apkName: String?,
     val apkUrl: String?,
     val apkSizeBytes: Long,
-    /** قناة الإصدار من الوسم — مستقرة/بيتا/تجريبية (بلاغ المالك v1.71) */
-    val channel: UpdateChannel = UpdateChannel.STABLE,
 )
 
 /** بيانات تحديث متاح — ما تظهره الواجهة وتحتاجه سلسلة التنزيل/التثبيت */
@@ -28,8 +26,6 @@ data class UpdateInfo(
     val apkSizeBytes: Long,
     val releaseUrl: String,
     val publishedAt: String,
-    /** قناة الإصدار — تُعرض في الحوار وقسم التحديثات (بلاغ v1.71) */
-    val channel: UpdateChannel = UpdateChannel.STABLE,
 ) {
     /** نص الحجم: «7.1 م.ب» */
     val sizeText: String

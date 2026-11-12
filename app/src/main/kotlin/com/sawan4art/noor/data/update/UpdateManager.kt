@@ -47,15 +47,6 @@ object UpdateManager {
     private val _state = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
     val state: StateFlow<UpdateUiState> = _state
 
-    /**
-     * **أحدث نسخةٍ لكل قناةٍ من الثلاث** (بلاغ المالك v1.71) — تُملأ بعد
-     * كل فحصٍ وتُعرض في قسم «التحديثات» ببطاقاتٍ قابلة للتنزيل من داخل
-     * التطبيق: المستقرة والبيتا والتجريبية.
-     */
-    private val _channels =
-        MutableStateFlow<Map<UpdateChannel, UpdateInfo?>>(emptyMap())
-    val channels: StateFlow<Map<UpdateChannel, UpdateInfo?>> = _channels
-
     /** حالة تنزيل النسخة الجديدة داخل التطبيق (alpha48) */
     private val _download = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val download: StateFlow<DownloadState> = _download
@@ -110,18 +101,8 @@ object UpdateManager {
         checkRunning = true
         _state.value = UpdateUiState.Checking
         try {
-            // **فحص القنوات الثلاث** (بلاغ المالك v1.71): جلبٌ واحدٌ يُبنى
-            // منه أحدث نسخةٍ لكل قناةٍ للعرض والتنزيل، والمرشّح للإشعار
-            // وحوار «ما الجديد» يُختار بقنوات الإشعار المسموحة
-            val result = UpdateChecker.checkChannels(currentVersion)
-            _channels.value = result.perChannel
+            val info = UpdateChecker.check(currentVersion)
             repository.setUpdateChecked(System.currentTimeMillis())
-            val prefs = repository.updatePrefs.first()
-            val info = UpdateChecker.pickCandidateForNotify(
-                releases = result.releases,
-                currentVersion = currentVersion,
-                notifyAllChannels = UpdateChannel.fromNotifyPref(prefs.notifyChannels),
-            )
             _state.value = if (info != null) {
                 maybeNotify(info)
                 UpdateUiState.Available(info)

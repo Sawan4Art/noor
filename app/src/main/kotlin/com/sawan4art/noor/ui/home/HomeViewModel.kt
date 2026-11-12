@@ -202,10 +202,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     fun setKhutbahConclusionTemplate(text: String) =
         viewModelScope.launch { repository.setKhutbahConclusionTemplate(text) }
 
-    /** حفظ قنوات إشعار التحديث — «stable» أو «all» (بلاغ v1.71) */
-    fun setUpdateNotifyChannels(value: String) =
-        viewModelScope.launch { repository.setUpdateNotifyChannels(value) }
-
     /** إتمام شاشة الترحيب — أول تشغيل فقط (alpha56) */
     fun setOnboardingDone(done: Boolean) =
         viewModelScope.launch { repository.setOnboardingDone(done) }

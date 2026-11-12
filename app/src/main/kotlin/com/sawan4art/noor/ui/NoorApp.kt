@@ -43,8 +43,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sawan4art.noor.data.ThemeMode
 import com.sawan4art.noor.data.update.DownloadState
-import com.sawan4art.noor.data.update.UpdateChannel
-import com.sawan4art.noor.data.update.UpdateInfo
 import com.sawan4art.noor.data.update.UpdateManager
 import com.sawan4art.noor.data.update.UpdateUiState
 import com.sawan4art.noor.ui.home.HomeScreen
@@ -129,8 +127,6 @@ private fun NoorRoot(
     val adhanPrefs by viewModel.adhanPrefs.collectAsStateWithLifecycle()
     // نظام التحديثات — حالة واحدة تخدم حوار «ما الجديد» وبطاقة الإعدادات
     val updateState by UpdateManager.state.collectAsStateWithLifecycle()
-    // أحدث نسخةٍ لكل قناةٍ من الثلاث — بطاقات قسم التحديثات (بلاغ v1.71)
-    val updateChannels by UpdateManager.channels.collectAsStateWithLifecycle()
     val dismissedVersion by UpdateManager.dismissedVersion.collectAsStateWithLifecycle()
     // حالة تنزيل التحديث داخل التطبيق (alpha48 — بلا متصفح)
     val downloadState by UpdateManager.download.collectAsStateWithLifecycle()
@@ -194,10 +190,6 @@ private fun NoorRoot(
                         (updateState as? UpdateUiState.Available)?.info
                             ?.let { UpdateManager.downloadAndInstall(it) }
                     },
-                    updateChannels = updateChannels,
-                    updateNotifyChannels = uiState.settings.updateNotifyChannels,
-                    onSetUpdateNotifyChannels = viewModel::setUpdateNotifyChannels,
-                    onDownloadChannel = { UpdateManager.downloadAndInstall(it) },
                     onSaveMushafPage = viewModel::setMushafPage,
                     onSetMushafBookmark = viewModel::setMushafBookmark,
                     hifzMemorized = uiState.settings.mushafHifz,
@@ -314,10 +306,6 @@ private fun NoorRoot(
                                 (updateState as? UpdateUiState.Available)?.info
                                     ?.let { UpdateManager.downloadAndInstall(it) }
                             },
-                        updateChannels = updateChannels,
-                        updateNotifyChannels = uiState.settings.updateNotifyChannels,
-                        onSetUpdateNotifyChannels = viewModel::setUpdateNotifyChannels,
-                        onDownloadChannel = { UpdateManager.downloadAndInstall(it) },
                             onSaveMushafPage = viewModel::setMushafPage,
                             onSetMushafBookmark = viewModel::setMushafBookmark,
                             hifzMemorized = uiState.settings.mushafHifz,
@@ -481,15 +469,8 @@ private fun NoorBody(
     updateState: UpdateUiState,
     /** حالة تنزيل التحديث داخل التطبيق (alpha48) */
     downloadState: DownloadState,
-    /** أحدث نسخةٍ لكل قناةٍ من الثلاث (بلاغ المالك v1.71) */
-    updateChannels: Map<UpdateChannel, UpdateInfo?>,
-    /** قنوات الإشعار المختارة — «stable» أو «all» */
-    updateNotifyChannels: String,
-    onSetUpdateNotifyChannels: (String) -> Unit,
     onCheckUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
-    /** تنزيل نسخة قناةٍ بعينها من بطاقات القنوات الثلاث */
-    onDownloadChannel: (UpdateInfo) -> Unit,
     /** المقدمة والخاتمة الجاهزتان القابلتان للتعديل (بلاغ v1.71) */
     khutbahIntroTemplate: String,
     khutbahConclusionTemplate: String,
@@ -550,12 +531,8 @@ private fun NoorBody(
                         adhanActions = adhanActions,
                         updateState = updateState,
                         downloadState = downloadState,
-                        updateChannels = updateChannels,
-                        updateNotifyChannels = uiState.settings.updateNotifyChannels,
-                        onSetUpdateNotifyChannels = onSetUpdateNotifyChannels,
                         onCheckUpdates = onCheckUpdates,
                         onDownloadUpdate = onDownloadUpdate,
-                        onDownloadChannel = onDownloadChannel,
                         khutbahIntroTemplate = khutbahIntroTemplate,
                         khutbahConclusionTemplate = khutbahConclusionTemplate,
                         onSetKhutbahIntroTemplate = onSetKhutbahIntroTemplate,
