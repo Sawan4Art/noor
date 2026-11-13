@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,9 +39,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +58,9 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.sawan4art.noor.domain.khutbah.KhutbahLibrary
 import com.sawan4art.noor.domain.mushaf.MushafSurahs
 import com.sawan4art.noor.util.CrashLog
@@ -523,9 +530,18 @@ fun KhutbahEditorContent(
 }
 
 /**
- * لوحة عرض خطبة الجمعة — زر الرئيسية (يوم الجمعة فقط) للعرض فقط:
+ * **صفحة عرض خطبة الجمعة كاملة الشاشة** — بلاغ المالك 2026-11-13:
+ * «شاشه عرض الخطبه في الرئيسيه جزء منها تحت شريط التنقل اجعل حدود
+ * الشاشه مع اخر حدود شريط التنقل او الافضل اجعلها تفتح صفحه بكامل
+ * الشاشه و بدون شريط التنقل و اضف في الصفحه ازرار تكبير و تصغير لحجم
+ * الخط» — اتُّخذ الأفضل بأمره نفسه: نوافذ Dialog المستقلة تُعرض فوق
+ * النافذة الأم كلها فتغطي الرئيسية **وشريط التنقل الزجاجي العائم
+ * معاً** — فلا جزءٌ تحت أي شريطٍ قط، وحدود الصفحة حدود الشاشة نفسها.
+ *
  * الخطبة التي حُرِّرت واعتمدت من قسم «خطبة الجمعة» في الإعدادات تُقرأ
- * هنا كاملةً بعنوانها وصورها ونصها، بلا حقول كتابةٍ إطلاقاً.
+ * هنا كاملةً بعنوانها وصورها ونصها بلا حقول كتابةٍ إطلاقاً، وأزرار
+ * «أ+» و«أ−» في الترويسة تكبّر وتصغّر نص الخطبة وعنوانها معاً
+ * (١٫٠× حتى ٢٫٦× بخطوة ٠٫٢×) والقيمة تتذكر خلال الجلسة.
  */
 @Composable
 fun KhutbahDisplaySheet(
@@ -536,114 +552,171 @@ fun KhutbahDisplaySheet(
 ) {
     val accent = MaterialTheme.colorScheme.primary
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // العاتم — ضغطة تقفل
-        Box(
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        // مقياس الخط — يتذكر خلال الجلسة (حفظ الجلسة rememberSaveable)
+        var textScale by rememberSaveable { mutableFloatStateOf(1f) }
+
+        Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(onClick = onDismiss),
-        )
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .fillMaxSize(fraction = 0.88f)
-                .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
-                .background(MaterialTheme.colorScheme.surface),
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+            color = MaterialTheme.colorScheme.background,
         ) {
-            // مقبض السحب
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(top = 10.dp)
-                    .size(width = 44.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
-            )
-
-            // الترويسة: الإكس أعلى اليمين ثم العنوان
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
+            Column(Modifier.fillMaxSize()) {
+                // الترويسة: الإكس ثم العنوان ثم زرا التكبير والتصغير
+                Row(
                     modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.14f))
-                        .clickable(onClick = onDismiss),
-                    contentAlignment = Alignment.Center,
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = "إغلاق",
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
-                        modifier = Modifier.size(16.dp),
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.14f))
+                            .clickable(onClick = onDismiss),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "إغلاق",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                    Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                        Text(
+                            text = "خطبة الجمعة",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "كامل الشاشة — للعرض فقط",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    // زرا تكبير وتصغير حجم الخط — أمر المالك 2026-11-13
+                    KhutbahZoomChip(
+                        label = "أ−",
+                        enabled = textScale > KHUTBAH_SCALE_MIN,
+                        onClick = {
+                            textScale = (textScale - KHUTBAH_SCALE_STEP)
+                                .coerceAtLeast(KHUTBAH_SCALE_MIN)
+                        },
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    KhutbahZoomChip(
+                        label = "أ+",
+                        enabled = textScale < KHUTBAH_SCALE_MAX,
+                        onClick = {
+                            textScale = (textScale + KHUTBAH_SCALE_STEP)
+                                .coerceAtMost(KHUTBAH_SCALE_MAX)
+                        },
                     )
                 }
-                Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                    Text(
-                        text = "خطبة الجمعة",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "الخطبة المعتمدة من الإعدادات — للعرض فقط",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
 
-            Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(4.dp))
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
-            ) {
-                if (savedTitle.isNotBlank()) {
+                // المحتوى القابل للتمرير — النص بمقياس الزوم الحي
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp),
+                ) {
+                    if (savedTitle.isNotBlank()) {
+                        Text(
+                            text = savedTitle,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = MaterialTheme.typography.titleMedium.fontSize * textScale,
+                                lineHeight = MaterialTheme.typography.titleMedium.lineHeight * textScale,
+                            ),
+                            fontWeight = FontWeight.Bold,
+                            color = accent,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    if (savedImages.isNotEmpty()) {
+                        KhutbahImagesRow(
+                            images = savedImages,
+                            editing = false,
+                            onAdd = {},
+                            onDelete = {},
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    val empty = savedTitle.isBlank() && savedText.isBlank() && savedImages.isEmpty()
                     Text(
-                        text = savedTitle,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = accent,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
+                        text = if (empty) {
+                            "لم تُجهَّز خطبة الجمعة بعد — جهّزها من الإعدادات ← " +
+                                "خطبة الجمعة: اكتبها أو اعتمد خطبةً جاهزة، ثم تُعرض هنا يوم الجمعة."
+                        } else {
+                            savedText.ifBlank { "الخطبة صورٌ فقط — انظر الصور أعلاه" }
+                        },
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = MaterialTheme.typography.bodyMedium.fontSize * textScale,
+                            lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * textScale,
+                        ),
+                        color = if (empty) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(28.dp))
                 }
-                if (savedImages.isNotEmpty()) {
-                    KhutbahImagesRow(
-                        images = savedImages,
-                        editing = false,
-                        onAdd = {},
-                        onDelete = {},
-                    )
-                    Spacer(Modifier.height(12.dp))
-                }
-                val empty = savedTitle.isBlank() && savedText.isBlank() && savedImages.isEmpty()
-                Text(
-                    text = if (empty) {
-                        "لم تُجهَّز خطبة الجمعة بعد — جهّزها من الإعدادات ← " +
-                            "خطبة الجمعة: اكتبها أو اعتمد خطبةً جاهزة، ثم تُعرض هنا يوم الجمعة."
-                    } else {
-                        savedText.ifBlank { "الخطبة صورٌ فقط — انظر الصور أعلاه" }
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (empty) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                )
-                Spacer(Modifier.height(28.dp))
             }
         }
+    }
+}
+
+/** سقفا مقياس الخط وخطوته — ١٫٠× إلى ٢٫٦× بخطوة ٠٫٢× */
+private const val KHUTBAH_SCALE_MIN = 1f
+private const val KHUTBAH_SCALE_MAX = 2.6f
+private const val KHUTBAH_SCALE_STEP = 0.2f
+
+/** زر دائرة صغير لتكبير/تصغير الخط — يخفت حين يبلغ السقف أو الأرضية */
+@Composable
+private fun KhutbahZoomChip(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(
+                if (enabled) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                } else {
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
+                },
+            )
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = if (enabled) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+            },
+        )
     }
 }
 

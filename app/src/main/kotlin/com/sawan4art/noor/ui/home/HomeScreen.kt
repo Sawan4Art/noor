@@ -127,13 +127,6 @@ fun HomeScreen(
     var khutbahOpen by remember { mutableStateOf(false) }
     val isFriday = today.dayOfWeek == DayOfWeek.FRIDAY
     val khutbahVisible = isFriday && khutbahEnabled
-    // زر الخطبة هو نفسه هيدر وقت صلاة الجمعة (توجيه المالك alpha56:
-    // «زر خطبه الجمعه يكون هو نفسه هيدر عرض وقت صلاه الجمعه»)
-    val jumahTimeText = if (khutbahVisible) {
-        TimeFormat.prayerTime(times[PrayerTimeKey.DHUHR])
-    } else {
-        null
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
     Column(
@@ -162,7 +155,6 @@ fun HomeScreen(
             locating = locating,
             onDetectLocation = onDetectLocation,
             isFriday = khutbahVisible,
-            jumahTimeText = jumahTimeText,
             onKhutbahClick = { khutbahOpen = true },
             modifier = Modifier
                 .fillMaxWidth()
@@ -325,9 +317,7 @@ private fun HeroCard(
     onDetectLocation: () -> Unit,
     /** يوم الجمعة ومع تفعيل الإعدادات — يظهر زر خطبة الجمعة (alpha54/56) */
     isFriday: Boolean,
-    /** وقت صلاة الجمعة — يعرضه زر الخطبة نفسه بهيدراً (alpha56) */
-    jumahTimeText: String?,
-    /** فتح لوحة خطبة الجمعة */
+    /** فتح صفحة خطبة الجمعة كاملة الشاشة */
     onKhutbahClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -388,62 +378,44 @@ private fun HeroCard(
                     sideDp = side,
                     modifier = Modifier.size(side),
                 )
-            }
-            Spacer(Modifier.height(4.dp))
-            // زر خطبة الجمعة — يوم الجمعة فقط: زرّ فوق التاريخ على اليمين،
-            // وهو نفسه هيدر وقت صلاة الجمعة (توجيه المالك alpha56):
-            // داخل المربع اسم الخطبة ووقت الصلاة، وتحته تنبيه صغير
-            // يعرف المستخدم بضرورة الضغط عليه لعرض الخطبة
-            if (isFriday) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Surface(
-                        onClick = onKhutbahClick,
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color.White.copy(alpha = 0.12f),
+                // زر خطبة الجمعة — **أيقونة صغيرة عائمة** (بلاغ المالك
+                // 2026-11-13: «صغر حجم ايقونه عرض الخطبه في الرئيسيه و
+                // اجعلها ايقونه صغيره بحيث لا يتم تصغير حجم النقطه السائله
+                // الخاصه ب الوقت المتبقي بسبب زر عرض الخطبه و اكتب تحت
+                // الزر كلمه الخطبة»): **طبقة عائمة** على زاوية منطقة النقطة
+                // لا تأخذ حقلاً من ترتيب العمود فلا تلمس النقطة السائلة
+                // مساحةً واحدةً — تظل بأكبر مقاسٍ لها — والأيقونة ١٦dp
+                // داخل دائرةٍ صغيرةٍ والكلمة «الخطبة» تحتها كما أمر
+                if (isFriday) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(top = 6.dp, start = 8.dp),
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        Surface(
+                            onClick = onKhutbahClick,
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.14f),
                         ) {
                             Icon(
                                 imageVector = NoorIcons.Mosque,
                                 contentDescription = "خطبة الجمعة",
                                 tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(17.dp),
+                                modifier = Modifier.padding(8.dp).size(16.dp),
                             )
-                            Spacer(Modifier.width(8.dp))
-                            Column {
-                                Row(verticalAlignment = Alignment.Bottom) {
-                                    Text(
-                                        text = "خطبة الجمعة",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = noorColors.heroContent,
-                                    )
-                                    if (jumahTimeText != null) {
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            text = jumahTimeText,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.secondary,
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = "اضغط لعرض الخطبة",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = noorColors.heroMuted,
-                                )
-                            }
                         }
+                        Text(
+                            text = "الخطبة",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = noorColors.heroMuted,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
                     }
                 }
-                Spacer(Modifier.height(4.dp))
             }
+            Spacer(Modifier.height(4.dp))
             // بطاقتا التاريخ — متساويتان تماماً في العرض والارتفاع
             // (بلاغ المالك alpha45: «ظبط ايقونات التواريخ لتكون بنفس
             // المقاس لكل منها»): كل بطاقة نصف عرض الهيدر بالنص مُوسَّط

@@ -1,22 +1,28 @@
 package com.sawan4art.noor.domain.mushaf
 
 /**
- * شيوخ التلاوة — تسعة عشر شيخاً (alpha60): توجيه المالك «يبقى نشيل
- * الشيخ مصطفى اسماعيل من التطبيق خالص طالما مش مكتمل اصواته» فحُذف
- * من العشرين، وبقيت التسعة المصريين والعشرة من سواهم. وكلٌّ منهم
- * معرّفه ومجلد صوته في مصدر التلاوات المفتوح (everyayah) الذي
- * تُنزَّل منه الآيات ملفاً ملفاً بالجهاز نفسه.
+ * شيوخ التلاوة — **عشرة شيخاً فقط بأمر المالك** (بلاغ 2026-11-13: «عايز
+ * فقط الاصوات التاليه هي اللي تبقى موجه في التطبيق و في المقابل عايز
+ * اعلى جوده للصوت و اعلى سرعه تحميل للاصوات») — القائمة بأسمائهم
+ * بترتيبه حرفياً، وكلُّ واحدٍ منهم على **أعلى جودةٍ متاحةٍ في المصادر
+ * المفتوحة الآيّة-آيّة** (١٩٢kbps لمن ثبت له و١٢٨ للبقية و٣٢ للبنا
+ * الذي لا نظيرَ أعلى منه في كل الكتالوجات المفتوحة — قيساً حياً
+ * 2026-11-13: إصدارات البنا والطبلاوي والقطامي في مكتبة القرآن
+ * المفتوحة ميتةٌ 403 على كل الجودات فأعلى طريقٍ لهم everyayah مباشرة)،
+ * **والأربعة المتحقق منهم** (المنشاوي والحصري والمعيقلي والعفاسي)
+ * على CDN 128 أول طريقٍ — أسرع أربع مراتٍ قياساً حياً.
  *
- * الترتيب: المصريون أولاً بعشرتهم (تسعةٌ الآن) ثم غير المصريين —
- * والملفات بصيغة «٣ أرقام للسورة + ٣ أرقام للآية» (QuranAudioMath)
- * موحّدة عند كل الشيوخ فالتنزيل والتشغيل والمسح بلا استثناءات.
+ * الشيوخ المحذوفون التسعة (أيمن سويد، الحجاج، نائنا، جبريل، الجهني،
+ * الرفاعي، بو خاطر، الطنيجي، الشريم) ومعرّفُهم المخزَّنُ في نسخةٍ قديمة
+ * يسير بأمانٍ إلى الافتراضي العفاسي — byId يعود به دائماً.
  *
- * ومعرّف الشيخ المحذوف (mustafa_ismail) المخزَّن في نسخةٍ قديمة يسير
- * بأمان: byId يعود به إلى الافتراضي العفاسي.
+ * الترتيب: المصريون الخمسة أولاً ثم الخمسة من سواهم — والملفات بصيغة
+ * «٣ أرقام للسورة + ٣ أرقام للآية» (QuranAudioMath) موحّدة عند الجميع
+ * فالتنزيل والتشغيل والمسح بلا استثناءات.
  */
 object QuranReciters {
 
-    /** أصل الشيخ في القسم — المصريون عشرة وغير المصريين عشرة */
+    /** أصل الشيخ في القسم — المصريون خمسة وغير المصريين خمسة */
     enum class Origin(val label: String) { EGYPTIAN("مصري"), OTHER("عالمي") }
 
     /** الشيخ الواحد — معرّف ثابت يُخزَّن ويُقرأ من الإعدادات */
@@ -52,38 +58,33 @@ object QuranReciters {
     /** مجلد التلاوات المفتوح — مصدر الروابط والتنزيل معاً */
     const val DATA_BASE_URL = "https://everyayah.com/data"
 
-    // ===== التسعة المصريون — أفاضل أئمة التلاوة في مصر =====
+    // ===== المصريون الخمسة — بأمر المالك وترتيبه حرفياً =====
 
     private val EGYPTIAN = listOf(
         Reciter("abdelbaset", "عبد الباسط عبد الصمد", "Abdul_Basit_Murattal_192kbps", "مصر", Origin.EGYPTIAN, "ar.abdulbasitmurattal"),
         Reciter("minshawi", "محمد صديق المنشاوي", "Minshawy_Murattal_128kbps", "مصر", Origin.EGYPTIAN, "ar.minshawi", cdnHighBitrate = true),
         Reciter("husary", "محمود خليل الحصري", "Husary_128kbps", "مصر", Origin.EGYPTIAN, "ar.husary", cdnHighBitrate = true),
+        // البنا: أعلى جودةٍ آيّة-آيّة موجودةٍ في كل المصادر المفتوحة هي
+        // 32kbps — القياس الحي 2026-11-13 أثبت أن إصداره في مكتبة القرآن
+        // المفتوحة (ar.mahmoudalialbanna) ميتٌ 403 على ١٢٨ و٦٤ و٣٢ جميعاً
+        // فلا إصدار احتياطيّ له فالتنزيل من everyayah وحده
         Reciter("al_banna", "محمود علي البنا", "mahmoud_ali_al_banna_32kbps", "مصر", Origin.EGYPTIAN),
+        // الطبلاوي: 128kbps أعلى جودةٍ له — وإصداره ar.mohamedtablawi
+        // ميتٌ 403 على كل الجودات فلا إصدار احتياطيّ
         Reciter("tablaway", "محمد الطبلاوي", "Mohammad_al_Tablaway_128kbps", "مصر", Origin.EGYPTIAN),
-        Reciter("sowaid", "أيمن سويد", "Ayman_Sowaid_64kbps", "مصر", Origin.EGYPTIAN, "ar.aymanswoaid"),
-        Reciter("hajjaj", "علي الحجاج السويسي", "Ali_Hajjaj_AlSuesy_128kbps", "مصر", Origin.EGYPTIAN),
-        Reciter("neana", "أحمد نائنا", "Ahmed_Neana_128kbps", "مصر", Origin.EGYPTIAN),
-        Reciter("jibreel", "محمد جبريل", "Muhammad_Jibreel_128kbps", "مصر", Origin.EGYPTIAN, "ar.muhammadjibreel", cdnHighBitrate = true),
     )
 
-    // ===== العشرة من غير المصريين — أفاضل القرّاء في العالم =====
+    // ===== الخمسة من غير المصريين — بأمر المالك وترتيبه حرفياً =====
 
     private val OTHER = listOf(
-        Reciter("alafasy", "مشاري راشد العفاسي", "Alafasy_128kbps", "الكويت", Origin.OTHER, "ar.alafasy", cdnHighBitrate = true),
-        Reciter("sudais", "عبد الرحمن السديس", "Abdurrahmaan_As-Sudais_192kbps", "السعودية", Origin.OTHER, "ar.abdurrahmaansudais"),
-        Reciter("muaiqly", "ماهر المعيقلي", "MaherAlMuaiqly128kbps", "السعودية", Origin.OTHER, "ar.mahermuaiqly", cdnHighBitrate = true),
         Reciter("qatami", "ناصر القطامي", "Nasser_Alqatami_128kbps", "السعودية", Origin.OTHER),
         Reciter("dossary", "ياسر الدوسري", "Yasser_Ad-Dussary_128kbps", "السعودية", Origin.OTHER),
-        Reciter("juhany", "عبد الله عواد الجهني", "Abdullaah_3awwaad_Al-Juhaynee_128kbps", "السعودية", Origin.OTHER),
-        Reciter("rifai", "هاني الرفاعي", "Hani_Rifai_192kbps", "لبنان", Origin.OTHER, "ar.hanirifai"),
-        // إصلاح alpha56: المجلد الصحيح «Salaah» بحرفين — الواسم القديم كان
-        // 404 فكان تنزيل بو خاطر لا يعمل أبداً (بلاغ المالك: الروابط)
-        Reciter("bukhatir", "صلاح بو خاطر", "Salaah_AbdulRahman_Bukhatir_128kbps", "الإمارات", Origin.OTHER),
-        Reciter("tunaiji", "خليفة الطنيجي", "khalefa_al_tunaiji_64kbps", "الكويت", Origin.OTHER),
-        Reciter("shuraym", "سعود الشريم", "Saood_ash-Shuraym_128kbps", "السعودية", Origin.OTHER, "ar.saoodshuraym"),
+        Reciter("sudais", "عبد الرحمن السديس", "Abdurrahmaan_As-Sudais_192kbps", "السعودية", Origin.OTHER, "ar.abdurrahmaansudais"),
+        Reciter("muaiqly", "ماهر المعيقلي", "MaherAlMuaiqly128kbps", "السعودية", Origin.OTHER, "ar.mahermuaiqly", cdnHighBitrate = true),
+        Reciter("alafasy", "مشاري راشد العفاسي", "Alafasy_128kbps", "الكويت", Origin.OTHER, "ar.alafasy", cdnHighBitrate = true),
     )
 
-    /** العشرون كاملة — المصريون أولاً ثم غيرهم بترتيب القائمتين */
+    /** العشرة كاملة — المصريون الخمسة أولاً ثم الخمسة بترتيب المالك */
     val ALL: List<Reciter> = EGYPTIAN + OTHER
 
     /** مقرئ التلاوة الافتراضي — العفاسي (كان هو المصدر الوحيد قبلهما) */
@@ -136,14 +137,16 @@ object QuranReciters {
      * مرفوعةٌ بأماكنها من alpha59 فخريطة الإصدار **مثبَّتة يدوياً**
      * (alpha60: بعد حذف مصطفى إسماعيل لم يعد العدّ التلقائي بالفهارس
      * يطابق ما هو مرفوع — فالحجّاج مثلاً أصوله في audio-v2 لا v1):
-     * ستة قراءٍ في audio-v1 وسبعة في audio-v2 وستة في audio-v3.
+     * ستة قراءٍ في audio-v1 وسبعة في audio-v2 وستة في audio-v3
+     * (بعد تقليص المالك للقائمة 2026-11-13: خمسةٌ في v1 وأربعةٌ في v2
+     * والدوسري وحده في v3 — الأصول المرفوعة كلها باقيةٌ كما هي).
      */
     const val MIRROR_BASE_URL = "https://github.com/Sawan4Art/noor-audio/releases/download"
 
     /** إصدار المرآة للقارئ — خريطة مثبَّتة تطابق ما هو مرفوع فعلاً */
     fun mirrorRelease(reciter: Reciter): String = when (reciter.id) {
-        "abdelbaset", "minshawi", "husary", "al_banna", "tablaway", "sowaid" -> "audio-v1"
-        "hajjaj", "neana", "jibreel", "alafasy", "sudais", "muaiqly", "qatami" -> "audio-v2"
+        "abdelbaset", "minshawi", "husary", "al_banna", "tablaway" -> "audio-v1"
+        "alafasy", "sudais", "muaiqly", "qatami" -> "audio-v2"
         else -> "audio-v3"
     }
 
@@ -155,14 +158,14 @@ object QuranReciters {
     fun mirrorSurahUrl(reciter: Reciter, sura: Int): String =
         "$MIRROR_BASE_URL/${mirrorRelease(reciter)}/${mirrorAssetName(reciter.folder, sura)}"
 
-    /** عدد المصريين في القائمة — تسعة بعد حذف مصطفى إسماعيل (alpha60) */
-    const val EGYPTIAN_COUNT = 9
+    /** عدد المصريين في القائمة — خمسة بأمر المالك 2026-11-13 */
+    const val EGYPTIAN_COUNT = 5
 
-    /** عدد غير المصريين — عشرة بالضبط */
-    const val OTHER_COUNT = 10
+    /** عدد غير المصريين — خمسة بالضبط */
+    const val OTHER_COUNT = 5
 
-    /** المجموع الكلي — تسعة عشر شيخاً */
-    const val COUNT = 19
+    /** المجموع الكلي — عشرة شيخاً بأمر المالك */
+    const val COUNT = 10
 }
 
 /**
