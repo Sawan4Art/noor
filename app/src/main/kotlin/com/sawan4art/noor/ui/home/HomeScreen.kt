@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalDensity
@@ -387,11 +388,19 @@ private fun HeroCard(
                 // مساحةً واحدةً — تظل بأكبر مقاسٍ لها — والأيقونة ١٦dp
                 // داخل دائرةٍ صغيرةٍ والكلمة «الخطبة» تحتها كما أمر
                 if (isFriday) {
+                    // بلاغ المالك 2026-11-13 (الصورة بالتوضيح الأحمر):
+                    // «انقل زر عرض الخطبه فوق التاريخ مباشره لاكن بعد
+                    // مسافه من هيدر التاريخ و يكون على اليمين» — فالطبقة
+                    // العائمة انتقلت من زاوية الأعلى إلى **زاوية الأسفل**
+                    // (البداية = اليمين في RTL) فوق صفّ التواريخ مباشرة
+                    // وبمسافةٍ عنه (10dp) — ولا تزال طبقةً عائمةً لا تاخد
+                    // حقلاً من ترتيب العمود فالنقطة السائلة تظل بأكبر
+                    // مقاسٍ لها كما قيس بلاغ v1.76
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(top = 6.dp, start = 8.dp),
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = 10.dp, start = 8.dp),
                     ) {
                         Surface(
                             onClick = onKhutbahClick,
@@ -563,6 +572,7 @@ private fun LiquidCountdown(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val noorColors = LocalNoorColors.current
     val textMeasurer = rememberTextMeasurer()
     // alpha41: مقياس التطبيق الثابت لا يدخل حلقة العدّاد — رياضيات
     // CountdownLiquidMath تضبط حجم النص على قطرة الحلقة بوحدات الكثافة
@@ -614,6 +624,23 @@ private fun LiquidCountdown(
         label = "prayerLiquidFill",
     )
 
+    // **حاكم تباين قوس الامتلاء** (بلاغ المالك 2026-11-13: «شريط التقديم
+    // الخاص بالوقت المتبقي في بعض الوان الثيمات و خصوصا الثيمات التي في
+    // الوضع الليلي الشريط لا يظهر بشكل جيد بسبب تشابه الالوان يكاد يكون
+    // غير مرئى») — حاويات الوضع الليلي داكنةٌ كخلفية الهيرو نفسها فالقوس
+    // يكاد يختفي: حاكمٌ نقّيٌّ مُختبَر يقيس التباين ضد الهيرو ويحكم
+    // بالزوج اللامع المضمون (نص الهيرو الفاتح والذهبي الثانوي) حين التشابه
+    val heroLum = remember(noorColors) {
+        (noorColors.heroTop.luminance() + noorColors.heroBottom.luminance()) / 2f
+    }
+    val brightFill = remember(scheme, heroLum) {
+        CountdownLiquidMath.ringFillNeedsBrightFallback(
+            fillLum = scheme.primaryContainer.luminance(),
+            midLum = scheme.secondaryContainer.luminance(),
+            heroLum = heroLum,
+        )
+    }
+
     Canvas(modifier = modifier) {
         val t = frameNanos / 1_000_000_000f
         val side = size.minDimension
@@ -645,15 +672,25 @@ private fun LiquidCountdown(
         //    السائلة تكن دائرة بألوان متدرجة تكتمل مع انتهاء الوقت». التدرّج
         //    يدور مع بداية القوس (أعلى الحلقة) كي تقرأ الألوان وهي تمشي
         //    مع الامتلاء — من لون النقطة إلى ثانويها ثم عودة عند الاكتمال
+        //    — وحاكم التباين (بلاغ 2026-11-13) فوقه: الزوج اللامع المضمون
+        //    حين تتشابه حاويات الوضع الليلي مع خلفية الهيرو (brightFill)
         val sweep = CountdownLiquidMath.sweepDegrees(animated)
         if (sweep > 0.5f) {
             rotate(degrees = -90f) {
                 drawArc(
-                    brush = Brush.sweepGradient(
-                        0f to scheme.primaryContainer,
-                        0.5f to scheme.secondaryContainer,
-                        1f to scheme.primaryContainer,
-                    ),
+                    brush = if (brightFill) {
+                        Brush.sweepGradient(
+                            0f to noorColors.heroContent,
+                            0.5f to scheme.secondary,
+                            1f to noorColors.heroContent,
+                        )
+                    } else {
+                        Brush.sweepGradient(
+                            0f to scheme.primaryContainer,
+                            0.5f to scheme.secondaryContainer,
+                            1f to scheme.primaryContainer,
+                        )
+                    },
                     startAngle = 0f,
                     sweepAngle = sweep,
                     useCenter = false,

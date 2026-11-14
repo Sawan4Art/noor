@@ -304,6 +304,26 @@ class QuranAudioRouteTest {
     }
 
     @Test
+    fun `بلا طريق CDN لهم المرآة أولا — بلاغ المالك 2026-11-13`() {
+        // «البنا و الطبلاوي و القطامي و الدوسري كل منهم اصواتهم لا تقبل
+        // التحميل و تفشل و باقي الاصوات تعمل بشكل جيد» — والجذر: هؤلاء
+        // الأربعة وحدهم بلا أي طريق CDN (لا ١٢٨ ولا ٦٤) فالمرآة أول
+        // طريق تنزيلهم، والستة الباقون لهم طريق CDN ينجّيهم
+        val noCdn = QuranReciters.ALL
+            .filter { QuranReciters.hasNoCdnPath(it) }
+            .map { it.id }
+        assertEquals(listOf("al_banna", "tablaway", "qatami", "dossary"), noCdn)
+        // والباقون الستة كلهم لهم طريق CDN (جودةٌ عاليةٌ أو إصدارٌ نظير)
+        val withCdn = QuranReciters.ALL
+            .filter { !QuranReciters.hasNoCdnPath(it) }
+            .map { it.id }
+        assertEquals(
+            listOf("abdelbaset", "minshawi", "husary", "sudais", "muaiqly", "alafasy"),
+            withCdn,
+        )
+    }
+
+    @Test
     fun `الاستسلام المبكر بلا نجاح عند بلوغ الحد فقط`() {
         // نجاحٌ صفرٌ وفشلٌ بلغ الحد أو فوقه = استسلام
         assertTrue(QuranAudioLibrary.shouldAbortPerAyah(0, 8, 8))

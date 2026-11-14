@@ -267,7 +267,12 @@ object QuranAudioLibrary {
      *
      * **مسار الدراسة الحية 2026-11-13** (بلاغ المالك: «ادرس كويس جدا
      * طريق تنزيل و اصوات الشيوخ … التنزيل للاصوات عندنا مش شغال و مش
-     * سريع») — ثلاثة أطوار لكل سورة:
+     * سريع») — أربعة أطوار لكل سورة:
+     * (٠) **المرآة أولاً لمن لا طريقَ CDN له** (بلاغ المالك: «البنا و
+     *     الطبلاوي و القطامي و الدوسري كل منهم اصواتهم لا تقبل التحميل
+     *     و تفشل و باقي الاصوات تعمل بشكل جيد») — هؤلاء طريقُهم
+     *     الآيّة-آية الوحيد everyayah فتنزيل سورتهم يبدأ من أصول
+     *     المرآة ضغطةً واحدةً ثم تكملةُ النواقص من everyayah بعدها.
      * (١) **الطريق السريع**: الآيات الغائبة موازيةً بستة عمّالٍ من
      *     شبكات التوزيع بترتيبها (CDN ١٢٨ لمن له → everyayah → CDN ٦٤)
      *     **بلا أي ضغطٍ هنا** — واستسلامٌ مبكرٌ حين ثمانية فشلٍ بلا
@@ -329,6 +334,53 @@ object QuranAudioLibrary {
                 done.set(base + surahDownloadedCount(context, reciterId, s, count))
             }
 
+            /**
+             * حشو المرآة — ضغطةٌ واحدةٌ للسورة كلها من مرآة جت هب وفكُّ
+             * ما غاب منها بمحاولاتٍ [attempts] وبنسبة نزولٍ حيّةٍ كما في
+             * alpha62 — تُستدعى مرتين: **أولاً لمن لا طريقَ CDN له**
+             * (بلاغ المالك 2026-11-13) ثم حشواً لما بقي عند الجميع.
+             */
+            suspend fun mirrorFill(attempts: Int) {
+                for (mirrorAttempt in 1..attempts) {
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            downloadSurahZip(
+                                context, reciter, s,
+                                // نسبة نزول الضغطة نفسها تُرى حيّة
+                                onZipPct = { pct ->
+                                    publish(
+                                        active = true,
+                                        phase = "جارٍ تكملة السورة من مرآة التطبيق — " +
+                                            MushafSurahs.arabicDigits(pct) + "٪",
+                                    )
+                                },
+                            ) {
+                                recount()
+                                publish(active = true)
+                            }
+                        }
+                    }
+                    recount()
+                    publish(active = true)
+                    if (surahDownloadedCount(context, reciterId, s, count) >= count) break
+                    if (mirrorAttempt < attempts) delay(1_200L)
+                }
+            }
+
+            // (٠) **المرآة أولاً لمن لا طريقَ CDN له** (بلاغ المالك
+            // 2026-11-13: «البنا و الطبلاوي و القطامي و الدوسري كل منهم
+            // اصواتهم لا تقبل التحميل و تفشل و باقي الاصوات تعمل بشكل
+            // جيد») — الجذر قيساً حياً: هؤلاء الأربعة وحدهم طريقُهم
+            // الآيّة-آية الوحيد everyayah (بلا CDN ١٢٨ ولا ٦٤)، فإذا
+            // تعطل everyayah على شبكة المالك مات تنزيلهم كله وآخرون
+            // نجاوا بالـ CDN — فأصول المرآة (١١٤ أصلاً لكل واحدٍ منهم
+            // تحقّقت آلياً) صارت **أول طريقٍ** لتنزيل سورتهم ضغطةً
+            // واحدةً، وتكملةُ النواقص آيةً آيةً من everyayah تأتي
+            // بعدها لا قبلها
+            if (QuranReciters.hasNoCdnPath(reciter)) {
+                mirrorFill(attempts = 2)
+            }
+
             // (١) الطريق السريع — الآيات موازيةً من شبكات التوزيع بلا ضغط
             val missing1 = missingAyahs(context, reciterId, s, count)
             if (missing1.isNotEmpty()) {
@@ -357,34 +409,10 @@ object QuranAudioLibrary {
             cancelled = cancelled || !kotlinx.coroutines.currentCoroutineContext().isActive
             if (cancelled) break@outer
 
-            // (٢) حشو المرآة — لما بقي بعد الطريق السريع: ضغطةٌ واحدةٌ
-            // للسورة كلها وفكٌّ ما غاب منها (محاولتان بنسبةٍ حيّة كما
-            // في alpha62)
+            // (٢) حشو المرآة — لما بقي بعد الطريق السريع (محاولتان
+            // بنسبةٍ حيّة كما في alpha62)
             if (surahDownloadedCount(context, reciterId, s, count) < count) {
-                for (mirrorAttempt in 1..2) {
-                    runCatching {
-                        withContext(Dispatchers.IO) {
-                            downloadSurahZip(
-                                context, reciter, s,
-                                // نسبة نزول الضغطة نفسها تُرى حيّة
-                                onZipPct = { pct ->
-                                    publish(
-                                        active = true,
-                                        phase = "جارٍ تكملة السورة من مرآة التطبيق — " +
-                                            MushafSurahs.arabicDigits(pct) + "٪",
-                                    )
-                                },
-                            ) {
-                                recount()
-                                publish(active = true)
-                            }
-                        }
-                    }
-                    recount()
-                    publish(active = true)
-                    if (surahDownloadedCount(context, reciterId, s, count) >= count) break
-                    if (mirrorAttempt == 1) delay(1_200L)
-                }
+                mirrorFill(attempts = 2)
             }
 
             // (٣) آخر مرورٍ رخيص — ما بقي بعد الضغط آيةً آيةً بلا ضغطٍ

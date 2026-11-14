@@ -70,6 +70,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
@@ -2199,11 +2200,33 @@ private fun BottomSheet(
         .coerceAtMost(rootSize.height - with(LocalDensity.current) { 90.dp.roundToPx() }.toFloat())
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // العاتم — ضغطة تقفل
+        // العاتم — ضغطة تقفل. **بلاغ المالك 2026-11-13: «شريط التنقل عند
+        // قائمه اختيار السوره الشريط اسفله يظهر بلون اسود فبتالي شكل
+        // الشريط يكون متغيير و لونه غير معتاد»** — فالعاتم لا يلمس منطقة
+        // شريط التنقل الزجاجي إطلاقاً: يخفت تدرّجاً قبل حدها الأعلى
+        // ([NAV_BAR_CLEAR]) كي يواصل الزجاج لمحةَ محتواه الفاتح غير
+        // المعتّم فيبقى على شكله ولونه المعتادين، والضغطة تغلق على
+        // الصفحة كلها كما هي
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f * slide.value.coerceIn(0f, 1f)))
+                .drawBehind {
+                    val scrimAlpha = 0.55f * slide.value.coerceIn(0f, 1f)
+                    val endY = (size.height - NAV_BAR_CLEAR.toPx()).coerceAtLeast(0f)
+                    if (endY > 0f && scrimAlpha > 0f) {
+                        val fade = 28.dp.toPx()
+                        drawRect(
+                            Brush.verticalGradient(
+                                0f to Color.Black.copy(alpha = scrimAlpha),
+                                ((endY - fade) / endY).coerceIn(0f, 1f) to
+                                    Color.Black.copy(alpha = scrimAlpha),
+                                1f to Color.Black.copy(alpha = 0f),
+                                startY = 0f,
+                                endY = endY,
+                            ),
+                        )
+                    }
+                }
                 .clickable(onClick = onDismiss),
         )
         Column(

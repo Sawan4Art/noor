@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.pow
 
 /**
  * عقود «مؤقت الصلاة السائل» — alpha31 توجيه المالك:
@@ -217,5 +218,105 @@ class CountdownLiquidMathTest {
             assertTrue("الدفعة تراجعت عند $i", s >= prev)
             prev = s
         }
+    }
+}
+
+// ===== حاكم تباين قوس الامتلاء — بلاغ المالك 2026-11-13 =====
+// «شريط التقديم الخاص بالوقت المتبقي في بعض الوان الثيمات و خصوصا
+// الثيمات التي في الوضع الليلي الشريط لا يظهر بشكل جيد بسبب تشابه
+// الالوان يكاد يكون غير مرئى»
+
+class CountdownRingContrastTest {
+
+    /** إضاءة لونٍ سداسي عشري بمعادلة luminance نفسها — لقياساتٍ حيةٍ هنا */
+    private fun lumOf(hex: Long): Float {
+        fun lin(c: Int): Float {
+            val v = c / 255f
+            return if (v > 0.04045f) (((v + 0.055f) / 1.055f).toDouble().pow(2.4)).toFloat()
+            else v / 12.92f
+        }
+        val r = ((hex shr 16) and 0xFF).toInt()
+        val g = ((hex shr 8) and 0xFF).toInt()
+        val b = (hex and 0xFF).toInt()
+        return 0.2126f * lin(r) + 0.7152f * lin(g) + 0.0722f * lin(b)
+    }
+
+    @Test
+    fun `حاويات الوضع الليلي تتشابه مع الهيرو فيلزم الزوج اللامع`() {
+        // قياسات فعلية لعشرين لوناً ليلياً: الحاويات الداكنة فرقها عن
+        // خلفية الهيرو دون الحد (أقصاها ٠٫٠٦٣) — والحد ٠٫١٦
+        val nightContainer = lumOf(0x24463D)   // زمردي ليليًّا
+        val nightSecondary = lumOf(0x3D3218)   // ثابت الهوية الليلي
+        val heroNight = (lumOf(0x17332C) + lumOf(0x0B1A16)) / 2f
+        assertTrue(
+            CountdownLiquidMath.ringFillNeedsBrightFallback(
+                fillLum = nightContainer, midLum = nightSecondary, heroLum = heroNight,
+            ),
+        )
+        // وأسوأ حالات الليل كلها دون الحد — القوس كان يكاد يختفي فعلاً
+        for (container in listOf(0x1F5236L, 0x7A2424L, 0x2C2C2CL, 0x66491AL)) {
+            assertTrue(
+                CountdownLiquidMath.ringFillNeedsBrightFallback(
+                    fillLum = lumOf(container), midLum = nightSecondary, heroLum = heroNight,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `حاويات الوضع النهاري تبان فتبقى على عينها المعتمدة`() {
+        // قياسات فعلية: الحاويات الفاتحة فرقها عن الهيرو الداكن فوق الحد
+        // بمرتين على الأقل (أدنى فجوةٍ نهاريةٍ قيست ٠٫٥٥٧) — فالنهاري
+        // لا يتغير أبداً
+        val heroDay = (lumOf(0x35655B) + lumOf(0x22453D)) / 2f
+        assertFalse(
+            CountdownLiquidMath.ringFillNeedsBrightFallback(
+                fillLum = lumOf(0xBFE5D8), midLum = lumOf(0xF2E3BC), heroLum = heroDay,
+            ),
+        )
+        // ولونٌ داكنٌ على خلفيةٍ فاتحةٍ يبان كذلك (الفرق يحكم لا الاتجاه)
+        assertFalse(
+            CountdownLiquidMath.ringFillNeedsBrightFallback(
+                fillLum = 0.05f, midLum = 0.06f, heroLum = 0.70f,
+            ),
+        )
+    }
+
+    @Test
+    fun `الحد نفسه يكفي ودونه يلزم البديل — وأحد اللونين يكفي للحكم`() {
+        val g = CountdownLiquidMath.MIN_RING_CONTRAST
+        assertTrue(g == 0.16f)
+        // الفجوة بالحد نفسه (٠٫١٦) تُعدَّ ظاهرة
+        assertFalse(
+            CountdownLiquidMath.ringFillNeedsBrightFallback(
+                fillLum = 0.30f, midLum = 0.30f, heroLum = 0.14f,
+            ),
+        )
+        // ودون الحدٍ بفجوةٍ واحدةٍ من الاثنتين يُستبدل الزوجان معاً
+        assertTrue(
+            CountdownLiquidMath.ringFillNeedsBrightFallback(
+                fillLum = 0.30f, midLum = 0.29f, heroLum = 0.14f,
+            ),
+        )
+        assertTrue(
+            CountdownLiquidMath.ringFillNeedsBrightFallback(
+                fillLum = 0.15f, midLum = 0.30f, heroLum = 0.14f,
+            ),
+        )
+    }
+
+    @Test
+    fun `القيم الفاسدة تحكم بالزوج اللامع بأمان`() {
+        // إضاءةٌ فاسدةٌ لا تُقاس — الاحتياط الأهدأ: الزوج اللامع المضمون
+        assertTrue(
+            CountdownLiquidMath.ringFillNeedsBrightFallback(
+                fillLum = Float.NaN, midLum = 0.5f, heroLum = 0.1f,
+            ),
+        )
+        assertTrue(
+            CountdownLiquidMath.ringFillNeedsBrightFallback(
+                fillLum = 0.5f, midLum = Float.POSITIVE_INFINITY, heroLum = 0.1f,
+            ),
+        )
     }
 }
