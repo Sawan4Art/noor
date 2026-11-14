@@ -131,3 +131,36 @@ jobs:
           REPO: ${{ github.repository }}
           KEEP: "5"
         run: python3 scripts/prune_releases.py
+
+      # نسخة الموقع docs/version.json — صفحة نور المسلم تقرأها لبناء رابط
+      # تحميل الـ APK المباشر بلا واجهة جت هب (التي تُحظر بمعدل الطلبات على
+      # شبكات الموبايل) — درس بلاغ «الموقع مش شغال»: رابطٌ مكتوبٌ يدوياً
+      # لإصدارٍ قديمٍ يُمسح فيموت تحميل الموقع كله، فالخطوة تجعل الصفحة
+      # تتبع آخر إصدارٍ آلياً بعد كل نشر. غير حاجبٍ للإصدار نفسه فلا
+      # تُفشله لو تعارضَت دفعةٌ أخرى على main
+      - name: تحديث نسخة الموقع ونشرها على main
+        if: startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          APK="noor-almuslim-${GITHUB_REF_NAME}.apk"
+          CODE=$(grep -oE 'versionCode *= *[0-9]+' app/build.gradle.kts | head -1 | grep -oE '[0-9]+')
+          for i in 1 2 3; do
+            git fetch origin main
+            git checkout -B main origin/main
+            python3 scripts/site_version.py "$VER" "$CODE" "$APK"
+            git add docs/version.json
+            if git diff --cached --quiet; then
+              echo "نسخة الموقع محدَّثةٌ أصلاً — لا تغيير"
+              exit 0
+            fi
+            git -c user.name="noor-bot" -c user.email="actions@users.noreply.github.com" \
+              commit -m "نسخة الموقع ${GITHUB_REF_NAME} — docs/version.json تتبع آخر إصدار [skip ci]" || break
+            if git push origin main; then
+              echo "نُشرت نسخة الموقع $VER ($CODE)"
+              exit 0
+            fi
+            echo "الدفعة تعارضت — إعادة المحاولة $i بعد ١٠ ثوانٍ"
+            sleep 10
+          done
+          echo "تعذّر نشر نسخة الموقع — الإصدار نفسه نُشر ورابط صفحة آخر إصدارٍ يبقى صالحاً"
