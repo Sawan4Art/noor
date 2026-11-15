@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#070D0B" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#F7F5EE" media="(prefers-color-scheme: light)">
 <title>نور المسلم — مؤذن ومصحف وأذكار ومسبحة</title>
-<meta name="description" content="نور المسلم: مواقيت صلاة دقيقة، مسبحة، أذكار، مكتبة أحاديث بالبحث الأوفلاين، وبوصلة قبلة — تطبيق أصلي بلغة كوتلن. حمّل أحدث إصدار APK من الموقع مباشرةً.">
+<meta name="description" content="نور المسلم: مواقيت صلاة دقيقة، مسبحة، أذكار، مكتبة أحاديث بالبحث الأوفلاين، وبوصلة قبلة — تطبيق أندرويد أصلي بلغة كوتلن. حمّل أحدث إصدار APK من الموقع مباشرةً.">
 <meta property="og:title" content="نور المسلم — مؤذن ومصحف وأذكار ومسبحة">
 <meta property="og:description" content="مواقيت دقيقة، أذكار، أحاديث بالبحث الأوفلاين، مسبحة وقبلة — نهار وليل بلمسة واحدة.">
 <meta property="og:image" content="icon.png">
@@ -20,13 +20,13 @@ document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
 </script>
 <style>
 /* ============================================================
-   نور المسلم — موقع الإصدارات — تصميم ٢٠٢٦ المعاد بناؤه كلياً
-   نهاري/ليلي تلقائياً من المتصفح + مبدّلٌ يدويٌّ محفوظ
+   نور المسلم — موقع الإصدارات — نسخة الموبايل فقط (أندرويد)
+   تصميم عمودٍ واحدٍ بعرض الهاتف — نهاري/ليلي تلقائي + مبدّل يدوي
    ============================================================ */
 @font-face { font-family:'Cairo'; src:url('fonts/Cairo.woff2') format('woff2'); font-weight:200 1000; font-display:swap; }
 @font-face { font-family:'Noto Naskh Arabic'; src:url('fonts/NotoNaskhArabic.woff2') format('woff2'); font-weight:400 700; font-display:swap; }
 
-/* ===== الرموز — الليل الافتراضي والنهار بتبديلٍ أو تلقائٍ ===== */
+/* ===== الرموز ===== */
 :root{
   --bg:#070D0B; --bg2:#0A1210; --card:#0D1714; --card2:#12201A;
   --line:rgba(196,226,212,.10); --line2:rgba(196,226,212,.20);
@@ -35,8 +35,8 @@ document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
   --gold:#E2C67F; --gold2:#F1DFA9; --goldg:linear-gradient(135deg,#F2D98F,#C9A24B);
   --glow:rgba(201,162,75,.32);
   --glass:rgba(9,16,13,.72);
-  --shadow:0 22px 55px rgba(0,0,0,.45);
-  --aur1:rgba(63,191,154,.16); --aur2:rgba(226,198,127,.12); --aur3:rgba(63,191,154,.09);
+  --shadow:0 18px 44px rgba(0,0,0,.42);
+  --aur1:rgba(63,191,154,.16); --aur2:rgba(226,198,127,.12);
   --err:#E8A18F; --errline:rgba(232,161,143,.35); --errbg:rgba(232,161,143,.07);
 }
 :root[data-theme="light"]{
@@ -47,8 +47,8 @@ document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
   --gold:#A8842F; --gold2:#8A6C26; --goldg:linear-gradient(135deg,#DDBA62,#A8842F);
   --glow:rgba(168,132,47,.30);
   --glass:rgba(252,251,246,.82);
-  --shadow:0 18px 44px rgba(23,42,34,.12);
-  --aur1:rgba(18,130,103,.10); --aur2:rgba(168,132,47,.12); --aur3:rgba(18,130,103,.08);
+  --shadow:0 14px 36px rgba(23,42,34,.12);
+  --aur1:rgba(18,130,103,.10); --aur2:rgba(168,132,47,.12);
   --err:#B4543C; --errline:rgba(180,84,60,.35); --errbg:rgba(180,84,60,.06);
 }
 
@@ -59,314 +59,119 @@ body { background:var(--bg); color:var(--tx); font-family:'Cairo','Noto Naskh Ar
 .naskh { font-family:'Noto Naskh Arabic',serif; }
 a { color:inherit; text-decoration:none; }
 img { display:block; }
-.wrap { width:min(960px,92%); margin-inline:auto; }
+.wrap { width:100%; max-width:520px; margin-inline:auto; padding-inline:18px; }
 ::selection { background:rgba(226,198,127,.35); }
 
-/* ===== الظلال القطبية — أضواءٌ ناعمةٌ بلا مرشحاتٍ ثقيلة ===== */
+/* ===== الأضواء القطبية ===== */
 .aurora { position:absolute; border-radius:50%; pointer-events:none; z-index:0; }
-.hero { position:relative; }
-.hero .a1 { width:640px; height:640px; top:-260px; inset-inline-start:-180px;
+.hero { position:relative; overflow:hidden; }
+.hero .a1 { width:420px; height:420px; top:-180px; inset-inline-start:-140px;
   background:radial-gradient(closest-side, var(--aur1), transparent 72%); }
-.hero .a2 { width:560px; height:560px; top:-160px; inset-inline-end:-160px;
+.hero .a2 { width:360px; height:360px; top:-120px; inset-inline-end:-120px;
   background:radial-gradient(closest-side, var(--aur2), transparent 72%); }
-#dl .a1 { width:520px; height:520px; top:-180px; inset-inline-end:-140px;
-  background:radial-gradient(closest-side, var(--aur3), transparent 72%); }
 
-/* ===== الهيدر الزجاجي ===== */
+/* ===== الهيدر ===== */
 .nav-shell { position:sticky; top:0; z-index:50; background:var(--glass);
   backdrop-filter:blur(16px) saturate(1.4); -webkit-backdrop-filter:blur(16px) saturate(1.4);
   border-bottom:1px solid var(--line); }
-.nav { display:flex; align-items:center; gap:14px; height:62px; }
-.brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:18px; z-index:2; }
-.brand img { width:34px; height:34px; border-radius:10px; box-shadow:0 4px 14px var(--glow); }
+.nav { display:flex; align-items:center; gap:10px; height:60px; }
+.brand { display:flex; align-items:center; gap:9px; font-weight:800; font-size:17px; }
+.brand img { width:32px; height:32px; border-radius:10px; box-shadow:0 4px 14px var(--glow); }
 .brand b { color:var(--gold); }
-.links { display:flex; gap:22px; margin-inline-start:14px; font-size:14px; font-weight:700; color:var(--tx2); }
-.links a { transition:.2s; padding:4px 2px; }
-.links a:hover { color:var(--gold2); }
-.nav-side { margin-inline-start:auto; display:flex; align-items:center; gap:10px; z-index:2; }
-.icon-btn { width:40px; height:40px; border-radius:13px; border:1px solid var(--line2);
+.nav-side { margin-inline-start:auto; display:flex; align-items:center; gap:8px; }
+.icon-btn { width:38px; height:38px; border-radius:12px; border:1px solid var(--line2);
   background:var(--card); color:var(--gold); display:flex; align-items:center; justify-content:center;
   cursor:pointer; transition:.2s; }
-.icon-btn:hover { border-color:var(--gold); transform:translateY(-1px); }
-.icon-btn svg { width:19px; height:19px; }
-@media (max-width:760px){ .links { display:none; } }
+.icon-btn:active { transform:scale(.94); }
+.icon-btn svg { width:18px; height:18px; }
 
 /* ===== الأزرار ===== */
 .btn { display:inline-flex; align-items:center; justify-content:center; gap:9px;
-  font-family:inherit; font-weight:800; border-radius:999px; transition:.22s; cursor:pointer;
-  border:none; }
+  font-family:inherit; font-weight:800; border-radius:999px; transition:.22s; cursor:pointer; border:none; }
 .btn svg { width:18px; height:18px; flex:0 0 auto; }
 .btn-primary { background:var(--goldg); color:#221A05;
-  box-shadow:0 12px 34px var(--glow), inset 0 1px 0 rgba(255,255,255,.55); }
-.btn-primary:hover { transform:translateY(-2px);
-  box-shadow:0 18px 44px var(--glow), inset 0 1px 0 rgba(255,255,255,.55); }
-.btn-primary:active { transform:translateY(0); }
-.btn-ghost { border:1.5px solid var(--line2); color:var(--tx); background:transparent; }
-.btn-ghost:hover { border-color:var(--gold); color:var(--gold2); transform:translateY(-2px); }
-.btn-sm { font-size:13.5px; padding:9px 18px; }
-.btn-md { font-size:15px; padding:12px 24px; }
-.btn-big { font-size:17px; padding:16px 36px; }
+  box-shadow:0 12px 30px var(--glow), inset 0 1px 0 rgba(255,255,255,.55); }
+.btn-primary:active { transform:scale(.97); }
+.btn-sm { font-size:13.5px; padding:9px 16px; }
+.btn-big { font-size:16.5px; padding:16px 30px; width:100%; max-width:340px; }
 
 /* ===== الهيرو ===== */
-.hero { text-align:center; padding:84px 0 64px; overflow:hidden; }
+.hero { text-align:center; padding:64px 0 48px; }
 .hero-in { position:relative; z-index:1; }
-.verse { display:inline-block; font-size:17px; color:var(--em2); font-weight:700; font-family:'Noto Naskh Arabic',serif;
-  border:1px solid var(--line2); background:var(--emdim); padding:8px 20px; border-radius:999px; }
-.hero h1 { font-size:clamp(40px,8vw,66px); font-weight:900; line-height:1.25; margin:22px 0 10px; color:var(--tx); }
+.verse { display:inline-block; font-size:16px; color:var(--em2); font-weight:700; font-family:'Noto Naskh Arabic',serif;
+  border:1px solid var(--line2); background:var(--emdim); padding:8px 18px; border-radius:999px; }
+.hero h1 { font-size:clamp(38px,11vw,52px); font-weight:900; line-height:1.25; margin:20px 0 10px; color:var(--tx); }
 .hero h1 b { background:var(--goldg); -webkit-background-clip:text; background-clip:text; color:transparent; }
-.hero .lead { max-width:58ch; margin:0 auto; font-size:16px; line-height:2.1; color:var(--tx2); font-weight:500; }
-.hero .cta { margin-top:30px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
-.chips { margin-top:24px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
-.chip { font-size:12.5px; font-weight:700; color:var(--tx2); border:1px solid var(--line);
-  background:var(--card); padding:6px 14px; border-radius:999px; }
+.hero .lead { margin:0 auto; font-size:15px; line-height:2.1; color:var(--tx2); font-weight:500; max-width:40ch; }
+.hero .cta { margin-top:26px; display:flex; justify-content:center; }
+.chips { margin-top:22px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.chip { font-size:12px; font-weight:700; color:var(--tx2); border:1px solid var(--line);
+  background:var(--card); padding:6px 12px; border-radius:999px; }
 .chip b { color:var(--gold); }
-.dl-note { margin:18px auto 0; max-width:620px; font-size:12.5px; line-height:2.1; color:var(--tx3); }
+.dl-note { margin:16px auto 0; font-size:12px; line-height:2.1; color:var(--tx3); max-width:42ch; }
 .dl-note a { color:var(--em2); border-bottom:1px dashed rgba(63,191,154,.45); }
-.dl-note a:hover { color:var(--gold2); }
 
 /* ===== الأقسام ===== */
-.sec { padding:72px 0; position:relative; }
+.sec { padding:56px 0; position:relative; }
 .sec-alt { background:var(--bg2); border-block:1px solid var(--line); }
-.sec-head { text-align:center; margin-bottom:38px; }
-.eyebrow { display:inline-block; font-size:12.5px; font-weight:800; color:var(--em2);
-  background:var(--emdim); border:1px solid var(--line); padding:5px 16px; border-radius:999px; margin-bottom:14px; }
-.sec-head h2 { font-size:clamp(25px,4.4vw,36px); font-weight:900; color:var(--tx); line-height:1.4; }
-.sec-head p { margin-top:10px; font-size:14.5px; color:var(--tx2); max-width:60ch; margin-inline:auto; line-height:2; }
+.sec-head { text-align:center; margin-bottom:28px; }
+.eyebrow { display:inline-block; font-size:12px; font-weight:800; color:var(--em2);
+  background:var(--emdim); border:1px solid var(--line); padding:5px 14px; border-radius:999px; margin-bottom:12px; }
+.sec-head h2 { font-size:clamp(23px,6vw,30px); font-weight:900; color:var(--tx); line-height:1.4; }
+.sec-head p { margin-top:8px; font-size:13.5px; color:var(--tx2); line-height:2; }
 
-/* ===== المميزات ===== */
-.feat-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:14px; }
-.feat { background:var(--card); border:1px solid var(--line); border-radius:20px;
-  padding:20px 8px 16px; text-align:center; transition:.25s; }
-.feat:hover { border-color:rgba(226,198,127,.45); transform:translateY(-4px); box-shadow:var(--shadow); }
-.feat .ico { width:50px; height:50px; margin:0 auto 12px; border-radius:16px; display:flex;
+/* ===== المميزات — شبكة موبايل ===== */
+.feat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+.feat { background:var(--card); border:1px solid var(--line); border-radius:18px;
+  padding:16px 6px 13px; text-align:center; transition:.25s; }
+.feat:active { transform:scale(.97); }
+.feat .ico { width:44px; height:44px; margin:0 auto 9px; border-radius:14px; display:flex;
   align-items:center; justify-content:center;
   background:linear-gradient(160deg, var(--emdim), rgba(226,198,127,.12));
   border:1px solid var(--line); }
-.feat .ico svg { width:25px; height:25px; color:var(--gold); }
-.feat span { font-size:13.5px; font-weight:800; color:var(--tx); }
-@media (max-width:760px) { .feat-grid { grid-template-columns:repeat(3,1fr); } }
-@media (max-width:420px) { .feat-grid { grid-template-columns:repeat(2,1fr); } }
+.feat .ico svg { width:22px; height:22px; color:var(--gold); }
+.feat span { font-size:13px; font-weight:800; color:var(--tx); }
 
-/* ===== الشاشات ===== */
-.viewer { position:relative; }
-.rail { display:flex; gap:26px; overflow-x:auto; scroll-snap-type:x mandatory; padding:14px 4% 26px;
-  scrollbar-width:none; cursor:grab; }
-.rail::-webkit-scrollbar { display:none; }
-.rail.dragging { cursor:grabbing; scroll-snap-type:none; }
-.slide { flex:0 0 auto; scroll-snap-align:center; text-align:center; }
-.slide figcaption { margin-top:14px; font-weight:800; font-size:15px; color:var(--tx); }
-.slide .cap-sub { font-size:12px; color:var(--tx3); font-weight:600; margin-top:2px; }
-.arrows { display:flex; justify-content:center; gap:12px; margin-top:6px; }
-.arrows button { width:46px; height:46px; border-radius:50%; border:1.5px solid var(--line2);
-  background:var(--card); color:var(--em2); font-size:20px; cursor:pointer; transition:.2s; font-family:inherit; }
-.arrows button:hover { background:var(--em); color:#fff; border-color:var(--em); }
-.dots { display:flex; justify-content:center; gap:8px; margin-top:16px; }
-.dots i { width:8px; height:8px; border-radius:999px; background:var(--line2); transition:.25s; cursor:pointer; }
-.dots i.on { background:var(--gold); width:24px; }
+/* ===== بطاقة التحميل ===== */
+.dl-card { position:relative; overflow:hidden; background:var(--card); border:1px solid var(--line2);
+  border-radius:24px; padding:34px 20px 28px; text-align:center; box-shadow:var(--shadow); }
+.dl-card h2 { font-size:clamp(22px,6vw,28px); font-weight:900; color:var(--tx); margin-top:2px; }
+.dl-card .sub { color:var(--tx2); margin-top:9px; font-size:13px; line-height:2; }
+.dl-card .cta { margin-top:22px; display:flex; justify-content:center; }
+.spin { display:inline-block; width:14px; height:14px; border-radius:50%; vertical-align:-2px;
+  border:2px solid rgba(234,240,235,.35); border-top-color:var(--em2); margin-inline-start:6px;
+  animation:spin .8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.dl-status { margin-top:14px; font-size:13px; font-weight:700; color:var(--tx2); line-height:1.9; min-height:0; }
+.dl-status b { color:var(--em2); }
+.dl-panel { display:none; margin-top:16px; text-align:start;
+  background:var(--errbg); border:1px solid var(--errline); border-radius:16px; padding:16px 18px;
+  font-size:12.5px; line-height:2.1; color:var(--tx2); }
+.dl-panel.on { display:block; }
+.dl-panel b { color:var(--err); }
+.dl-panel .row { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+.dl-panel .tip { margin-top:10px; font-size:11.5px; color:var(--tx3); }
+.dl-meta { display:flex; flex-wrap:wrap; justify-content:center; gap:5px 18px; margin-top:18px;
+  font-size:12.5px; font-weight:700; color:var(--tx3); }
+.dl-meta b { color:var(--gold); }
+.dl-links { margin-top:16px; display:flex; justify-content:center; gap:8px 18px; flex-wrap:wrap; font-size:12.5px; font-weight:700; }
+.dl-links a { color:var(--em2); border-bottom:1px dashed rgba(63,191,154,.4); padding-bottom:2px; }
 
-/* ===== ظهورٍ ناعم عند التمرير ===== */
-.reveal { opacity:0; transform:translateY(18px); transition:opacity .7s cubic-bezier(.2,.7,.3,1), transform .7s cubic-bezier(.2,.7,.3,1); }
+/* ===== الختام والتذييل ===== */
+.end-bar { background:var(--bg2); border-top:1px solid var(--line); padding:22px 16px 24px;
+  text-align:center; font-family:'Noto Naskh Arabic',serif; font-size:14.5px; color:var(--tx2); }
+.end-bar b { color:var(--gold); font-weight:700; }
+.foot { padding:18px 0 30px; text-align:center; font-size:12.5px; font-weight:700; color:var(--tx3); }
+.foot a { color:var(--em2); border-bottom:1px dashed rgba(63,191,154,.4); margin-inline:8px; }
+
+/* ===== ظهورٍ ناعم ===== */
+.reveal { opacity:0; transform:translateY(16px); transition:opacity .7s cubic-bezier(.2,.7,.3,1), transform .7s cubic-bezier(.2,.7,.3,1); }
 .reveal.in { opacity:1; transform:none; }
 @media (prefers-reduced-motion: reduce){
   .reveal { opacity:1; transform:none; transition:none; }
   html { scroll-behavior:auto; }
+  .spin { animation:none; }
 }
-
-/* ===== بطاقة التحميل ===== */
-#dl { padding:76px 0 56px; }
-.dl-card { position:relative; overflow:hidden; background:var(--card); border:1px solid var(--line2);
-  border-radius:28px; padding:46px 26px 36px; text-align:center; box-shadow:var(--shadow); }
-.dl-card > * { position:relative; z-index:1; }
-.dl-card h2 { font-size:clamp(24px,3.6vw,32px); font-weight:900; color:var(--tx); margin-top:2px; }
-.dl-card .sub { color:var(--tx2); margin-top:10px; font-size:14.5px; line-height:2; max-width:56ch; margin-inline:auto; }
-.dl-card .cta { margin-top:26px; }
-.dl-progress { display:none; max-width:460px; margin:24px auto 0; }
-.dl-progress.on { display:block; }
-.bar { height:9px; border-radius:999px; background:var(--card2); border:1px solid var(--line); overflow:hidden; }
-.bar i { display:block; height:100%; width:0%; border-radius:999px;
-  background:linear-gradient(90deg, var(--em), var(--gold)); transition:width .3s ease; }
-.dl-status { margin-top:12px; font-size:13.5px; font-weight:700; color:var(--tx2); line-height:1.9; }
-.dl-status b { color:var(--em2); }
-.dl-panel { display:none; max-width:560px; margin:20px auto 0; text-align:start;
-  background:var(--errbg); border:1px solid var(--errline); border-radius:18px; padding:18px 20px;
-  font-size:13px; line-height:2.1; color:var(--tx2); }
-.dl-panel.on { display:block; }
-.dl-panel b { color:var(--err); }
-.dl-panel .row { display:flex; gap:12px; margin-top:14px; flex-wrap:wrap; }
-.dl-panel .tip { margin-top:12px; font-size:12px; color:var(--tx3); }
-.dl-meta { display:flex; flex-wrap:wrap; justify-content:center; gap:6px 22px; margin-top:22px;
-  font-size:13px; font-weight:700; color:var(--tx3); }
-.dl-meta b { color:var(--gold); }
-.dl-links { margin-top:20px; display:flex; justify-content:center; gap:22px; flex-wrap:wrap; font-size:13px; font-weight:700; }
-.dl-links a { color:var(--em2); border-bottom:1px dashed rgba(63,191,154,.4); padding-bottom:2px; transition:.2s; }
-.dl-links a:hover { color:var(--gold2); }
-
-/* ===== الختام ===== */
-.end-bar { background:var(--bg2); border-top:1px solid var(--line); padding:26px 16px 30px;
-  text-align:center; font-family:'Noto Naskh Arabic',serif; font-size:15px; color:var(--tx2); }
-.end-bar b { color:var(--gold); font-weight:700; }
-
-/* ===== عناصر شاشة الهاتف المرسومة — تُورَّث من التصميم السابق ===== */
-
-.phone { width:252px; margin:0 auto; border-radius:38px; border:8px solid #1B241F; background:#000;
-  box-shadow:0 24px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(226,198,127,.15); overflow:hidden; position:relative; }
-.p-screen { position:relative; width:236px; height:512px; overflow:hidden; font-family:'Cairo','Noto Naskh Arabic',sans-serif; }
-.p-screen .cam { position:absolute; top:7px; left:50%; transform:translateX(-50%); width:9px; height:9px;
-  border-radius:50%; background:#05080a; box-shadow:0 0 0 2px rgba(255,255,255,.06); z-index:9; }
-@media (max-width:380px) { .phone { width:228px; } .p-screen { width:212px; height:460px; } }
-
-/* ===== عناصر شاشة التطبيق المشتركة ===== */
-.p-status { display:flex; justify-content:space-between; align-items:center; padding:6px 12px 0; font-size:9px; font-weight:700; }
-.p-status .sys { letter-spacing:2px; font-size:7.5px; opacity:.75; }
-.p-nav { position:absolute; bottom:7px; left:9px; right:9px; height:38px; border-radius:19px;
-  display:flex; align-items:center; z-index:8; border:1px solid rgba(255,255,255,.16); }
-.p-nav i { flex:1; display:flex; align-items:center; justify-content:center; position:relative; height:100%; }
-.p-nav i svg { width:15px; height:15px; position:relative; z-index:2; }
-.p-nav i.on::before { content:''; position:absolute; width:26px; height:26px; border-radius:50%;
-  background:linear-gradient(180deg, var(--nb1), var(--nb2)); }
-.p-nav i.on svg { color:var(--nb-on); }
-/* الشاشة النهارية */
-.s-day { background:#F6F2E9; color:#17251F; --pc:#17251F; --sc:#4A564F; --ln:#E4DCC9;
-  --card:#FDFBF5; --nb1:#BFE5D8; --nb2:#E9E2CE; --nb-on:#20514A; }
-.s-day .p-status { color:#17251F; }
-.s-day .p-nav { background:rgba(253,251,245,.82); box-shadow:0 2px 10px rgba(23,37,31,.08); }
-.s-day .p-nav i { color:#5C6B62; }
-/* الشاشة الليلية */
-.s-night { background:#0C1512; color:#E4EAE5; --pc:#E4EAE5; --sc:#A7B5AD; --ln:#24332C;
-  --card:#121E1A; --nb1:#2E5D52; --nb2:#173A31; --nb-on:#CFE8DD; }
-.s-night .p-hero { background:linear-gradient(180deg,#12241F,#080F0C); }
-.s-night .p-status { color:#E4EAE5; }
-.s-night .p-nav { background:rgba(18,30,26,.88); }
-.s-night .p-nav i { color:#7E9188; }
-
-/* عنوان صفحة داخل إطار (زي التطبيق) */
-.p-title { display:inline-block; font-size:14px; font-weight:800; padding:4px 14px;
-  border-radius:11px; border:1px solid var(--ln); margin:8px 0 3px;
-  background:linear-gradient(120deg, rgba(130,201,176,.2), rgba(184,148,63,.14)); }
-.p-sub { font-size:8.5px; color:var(--sc); font-weight:600; margin-bottom:8px; }
-
-/* الرئيسية */
-.p-hero { margin:36px 10px 0; border-radius:20px; padding:14px 12px 12px; text-align:center;
-  background:linear-gradient(180deg,#1B3A32,#0B1A16); color:#EFE9D8; }
-.p-hero .lbl { font-size:8.5px; opacity:.8; font-weight:700; }
-.p-hero .name { font-size:26px; font-weight:900; line-height:1.25; }
-.p-hero .time { font-size:11px; opacity:.85; font-weight:700; }
-.p-ring { width:86px; height:86px; margin:8px auto 6px; border-radius:50%;
-  background:conic-gradient(var(--gold) 0 62%, rgba(255,255,255,.14) 62% 100%);
-  display:flex; align-items:center; justify-content:center; position:relative; }
-.p-ring::before { content:''; position:absolute; inset:7px; border-radius:50%; background:#10251F; }
-.p-ring b { position:relative; font-size:13px; font-weight:900; color:#F2EDE0; }
-.p-hero .chips { display:flex; gap:6px; justify-content:center; margin-top:8px; flex-wrap:wrap; }
-.p-hero .chips span { font-size:7.5px; font-weight:700; background:rgba(255,255,255,.1); border-radius:50px; padding:3px 9px; }
-.p-hero .loc { margin-top:7px; font-size:8.5px; opacity:.85; font-weight:600; }
-.p-remind { display:flex; align-items:center; gap:7px; margin:8px 12px; }
-.p-remind .orb { width:26px; height:26px; flex:0 0 auto; border-radius:50%;
-  background:linear-gradient(180deg,#BFE5D8,#E9E2CE); display:flex; align-items:center; justify-content:center; }
-.p-remind .orb svg { width:13px; height:13px; color:#2E6B5E; }
-.p-remind span { font-size:8px; color:var(--sc); font-weight:600; line-height:1.5; }
-.p-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:0 10px; }
-.p-grid .c { background:var(--card); border:1px solid var(--ln); border-radius:12px; text-align:center; padding:7px 2px; }
-.p-grid .c b { display:block; font-size:9px; font-weight:800; color:var(--sc); }
-.p-grid .c span { font-size:10.5px; font-weight:800; }
-.p-grid .c.on { background:#F1E2B9; border-color:var(--gold); }
-.p-grid .c.on b, .p-grid .c.on span { color:#6B4E14; }
-.p-sadaqah { text-align:center; font-size:7.5px; color:var(--sc); margin:8px 14px 0; line-height:1.6; }
-
-/* مزلاج المظهر — شمس نهاراً وقمر ليلاً أعلى بداية الاتجاه */
-.p-dial { position:absolute; top:22px; inset-inline-start:10px; width:30px; height:30px; border-radius:50%;
-  display:flex; align-items:center; justify-content:center; z-index:7;
-  background:linear-gradient(160deg,#F2C063,#E08E3C); box-shadow:0 3px 10px rgba(224,142,60,.4); }
-.p-dial svg { width:16px; height:16px; color:#6E4310; }
-.s-night .p-dial { background:linear-gradient(160deg,#5A6B9E,#2E3A5C); box-shadow:0 3px 10px rgba(0,0,0,.5); }
-.s-night .p-dial svg { color:#DCE4F5; }
-
-/* الأذكار */
-.p-bigcard { margin:4px 10px 8px; border-radius:16px; padding:12px; text-align:center;
-  background:linear-gradient(140deg,#BFE5D8,#E9E2CE); color:#1E3A33; }
-.p-bigcard b { font-size:13px; font-weight:900; display:block; }
-.p-bigcard span { font-size:8px; font-weight:700; opacity:.75; }
-.p-grid2 { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; margin:0 10px; }
-.p-grid2 .g { background:var(--card); border:1px solid var(--ln); border-radius:13px; padding:9px 8px; display:flex; gap:7px; align-items:center; }
-.p-grid2 .g .gi { width:24px; height:24px; flex:0 0 auto; border-radius:8px; display:flex; align-items:center; justify-content:center;
-  background:linear-gradient(160deg, rgba(130,201,176,.25), rgba(184,148,63,.18)); }
-.p-grid2 .g .gi svg { width:12px; height:12px; color:#2E6B5E; }
-.p-grid2 .g b { font-size:9px; font-weight:800; display:block; }
-.p-grid2 .g span { font-size:7.5px; color:var(--sc); font-weight:600; }
-
-/* الأحاديث */
-.p-search { display:flex; align-items:center; gap:6px; margin:2px 10px 8px; background:var(--card);
-  border:1px solid var(--ln); border-radius:12px; padding:7px 10px; }
-.p-search svg { width:11px; height:11px; color:var(--sc); }
-.p-search span { font-size:8.5px; color:var(--sc); font-weight:600; }
-.p-chips { display:flex; gap:5px; margin:0 10px 8px; }
-.p-chips i { font-style:normal; font-size:7.5px; font-weight:800; padding:4px 9px; border-radius:50px;
-  border:1px solid var(--ln); color:var(--sc); background:var(--card); white-space:nowrap; }
-.p-chips i.on { background:#2E6B5E; color:#F2EDE0; border-color:#2E6B5E; }
-.p-hint { display:flex; gap:5px; align-items:center; margin:0 10px 8px; background:#E3EFE4;
-  border-radius:10px; padding:6px 9px; }
-.s-night .p-hint { background:#173A31; }
-.p-hint svg { width:10px; height:10px; flex:0 0 auto; color:#2E6B5E; }
-.s-night .p-hint svg { color:#82C9B0; }
-.p-hint span { font-size:7.5px; font-weight:700; color:#20514A; line-height:1.5; }
-.s-night .p-hint span { color:#CFE8DD; }
-.p-hadith { background:var(--card); border:1px solid var(--ln); border-radius:13px; margin:0 10px 7px; padding:9px 10px; }
-.p-hadith .badge { display:inline-block; font-size:7px; font-weight:800; color:#2E6B5E;
-  background:rgba(130,201,176,.16); border-radius:50px; padding:2px 8px; margin-bottom:5px; }
-.p-hadith p { font-family:'Noto Naskh Arabic',serif; font-size:9px; line-height:1.8; color:var(--pc); }
-.p-hadith .row { display:flex; justify-content:space-between; margin-top:6px; }
-.p-hadith .row span { font-size:8px; color:var(--sc); }
-.p-hadith .row .acts { display:flex; gap:6px; }
-.p-hadith .row .acts svg { width:10px; height:10px; color:var(--sc); }
-.p-hadith .row .acts .star { color:var(--gold); }
-
-/* المسبحة */
-.p-dot { width:150px; height:150px; margin:16px auto 10px; border-radius:50%;
-  background:radial-gradient(circle at 35% 30%, #CFEADF, #9ED3BE 55%, #5E9B87);
-  box-shadow:0 14px 30px rgba(46,107,94,.35), inset 0 -8px 18px rgba(23,58,49,.25);
-  display:flex; flex-direction:column; align-items:center; justify-content:center; }
-.s-night .p-dot { background:radial-gradient(circle at 35% 30%, #2E5D52, #173A31 70%);
-  box-shadow:0 14px 30px rgba(0,0,0,.5), inset 0 -8px 18px rgba(0,0,0,.4); }
-.p-dot b { font-size:30px; font-weight:900; color:#123A30; line-height:1; }
-.s-night .p-dot b { color:#CFE8DD; }
-.p-dot span { font-size:8.5px; font-weight:700; color:#2E6B5E; margin-top:3px; }
-.s-night .p-dot span { color:#82C9B0; }
-.p-track { margin:0 26px; height:5px; border-radius:3px; background:var(--ln); overflow:hidden; }
-.p-track i { display:block; width:33%; height:100%; border-radius:3px; background:linear-gradient(90deg,#2E6B5E,#82C9B0); }
-.p-tap { text-align:center; font-size:8px; color:var(--sc); font-weight:700; margin-top:9px; }
-
-/* القبلة */
-.p-status-chip { display:block; width:max-content; margin:2px auto 10px; font-size:8.5px; font-weight:800;
-  color:#F2EDE0; background:#2E6B5E; border-radius:50px; padding:4px 14px; }
-.p-compass { position:relative; width:170px; height:170px; margin:10px auto; border-radius:50%;
-  border:2px solid var(--ln); background:var(--card);
-  box-shadow:0 10px 26px rgba(23,37,31,.12), inset 0 0 0 8px rgba(130,201,176,.08); }
-.p-compass .needle { position:absolute; left:50%; top:50%; width:5px; height:64px;
-  transform:translate(-50%,-100%); transform-origin:bottom center; border-radius:3px;
-  background:linear-gradient(180deg, var(--gold), #D9B665); }
-.p-compass .needle::after { content:''; position:absolute; bottom:-7px; left:50%; transform:translateX(-50%);
-  width:13px; height:13px; border-radius:50%; background:var(--pc); opacity:.15; }
-.p-compass .deg { position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
-  font-size:9px; font-weight:900; color:var(--sc); }
-.p-compass .k { position:absolute; top:10px; left:50%; transform:translateX(-50%); width:22px; height:22px;
-  border-radius:6px; background:linear-gradient(180deg,#171F1B,#2A3833); border:1.5px solid var(--gold); }
-.p-compass .tick { position:absolute; background:var(--sc); opacity:.4; border-radius:1px; }
-
-/* الإعدادات */
-.p-row { display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--ln);
-  border-radius:13px; margin:0 10px 7px; padding:9px 10px; }
-.p-row .ri { width:26px; height:26px; flex:0 0 auto; border-radius:9px; display:flex; align-items:center; justify-content:center;
-  background:linear-gradient(160deg, rgba(130,201,176,.25), rgba(184,148,63,.18)); }
-.p-row .ri svg { width:13px; height:13px; color:#2E6B5E; }
-.p-row .t { flex:1; }
-.p-row .t b { display:block; font-size:9px; font-weight:800; }
-.p-row .t span { font-size:7.5px; color:var(--sc); font-weight:600; }
-.p-row .chev { font-size:10px; color:var(--sc); opacity:.6; }
-.p-dev { width:max-content; margin:12px auto 0; font-size:10px; font-weight:900; color:#20514A;
-  padding:6px 16px; border-radius:10px; background:linear-gradient(160deg,#BFE5D8,#E9E2CE);
-  border:1.5px solid #9ED3BE; }
-.s-night .p-dev { color:#CFE8DD; background:linear-gradient(160deg,#2E5D52,#173A31); border-color:#3E7A6B; }
-.p-ver { text-align:center; font-size:7.5px; color:var(--sc); font-weight:700; margin-top:4px; }
-
 </style>
 </head>
 <body id="top">
@@ -375,11 +180,6 @@ img { display:block; }
 <header class="nav-shell">
   <div class="wrap nav">
     <a class="brand" href="#top"><img src="icon.png" alt="أيقونة نور المسلم"><span>نور <b>المسلم</b></span></a>
-    <nav class="links">
-      <a href="#feat">المميزات</a>
-      <a href="#screens">الشاشات</a>
-      <a href="#dl">التحميل</a>
-    </nav>
     <div class="nav-side">
       <button id="themeBtn" class="icon-btn" type="button" aria-label="تبديل المظهر بين النهار والليل" title="تبديل المظهر"></button>
       <a class="btn btn-primary btn-sm js-dl" href="https://github.com/Sawan4Art/noor/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg>تحميل</a>
@@ -394,10 +194,9 @@ img { display:block; }
   <div class="wrap hero-in">
     <span class="verse reveal">﴿فَاذْكُرُونِي أَذْكُرْكُمْ﴾ — البقرة ١٥٢</span>
     <h1 class="reveal">نور <b>المسلم</b></h1>
-    <p class="lead reveal">مؤذن بمواقيت دقيقة، وأذكار من السنة الصحيحة، ومكتبة أحاديث بالبحث الأوفلاين، ومسبحة، وبوصلة قبلة — تطبيق أصلي بلغة كوتلن، نهارٌ وليل بلمسة واحدة.</p>
+    <p class="lead reveal">مؤذن بمواقيت دقيقة، وأذكار من السنة الصحيحة، ومكتبة أحاديث بالبحث الأوفلاين، ومسبحة، وبوصلة قبلة — تطبيق أندرويد أصلي، نهارٌ وليل بلمسة واحدة.</p>
     <div class="cta reveal">
-      <a class="btn btn-primary btn-big js-dl" href="https://github.com/Sawan4Art/noor/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg>تحميل أحدث إصدار — APK</a>
-      <a class="btn btn-ghost btn-big" href="#screens">شاهد التطبيق</a>
+      <a class="btn btn-primary btn-big js-dl" href="https://github.com/Sawan4Art/noor/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg>تحميل التطبيق — APK</a>
     </div>
     <div class="chips reveal">
       <span class="chip">✦ مجاني بلا إعلانات</span>
@@ -405,9 +204,11 @@ img { display:block; }
       <span class="chip">✦ أندرويد ٧ وأحدث</span>
       <span class="chip">✦ الإصدار <b class="js-ver">v1.78</b></span>
     </div>
-    <p class="dl-note reveal">التنزيل من الموقع مباشرةً — أجزاءٌ تُجمع في متصفحك وتُفحَص بالبصمة قبل الحفظ، بلا أي صفحةٍ وسيطة. لو فُتحت لك صفحة «التحقق بخطوتين» من جت هب فأنت مسجَّلٌ دخولًا بحسابٍ في المتصفح — حمّل من الأزرار هنا أو سجِّل الخروج من جت هب — <a class="js-gh" href="https://github.com/Sawan4Art/noor/releases/latest" target="_blank" rel="noopener">بديل: التحميل عبر جت هب</a></p>
+    <p class="dl-note reveal">التحميل مباشرٌ بضغطةٍ واحدة — الملف كبيرٌ (~<span class="js-size">١٣١</span> م.ب) فيستغرق التحضير دقيقةً أو اثنتين على النت ثم يُحفَظ تلقائياً في مجلد التنزيلات، وقد فُحِص بالبصمة قبل الحفظ. لو فُتحت صفحة «التحقق بخطوتين» من جت هب فأنت مسجَّلٌ دخولًا في المتصفح — حمّل من هنا أو سجِّل الخروج من جت هب — <a class="js-gh" href="https://github.com/Sawan4Art/noor/releases/latest" target="_blank" rel="noopener">بديل عبر جت هب</a></p>
   </div>
 </section>
+
+<!-- ═══════════ AD-SLOT-TOP: بعد قبول أدسنس ضع كود وحدة الإعلانات الأولى هنا ═══════════ -->
 
 <!-- ================= المميزات ================= -->
 <section id="feat" class="sec">
@@ -415,7 +216,6 @@ img { display:block; }
     <div class="sec-head reveal">
       <span class="eyebrow">لماذا نور المسلم؟</span>
       <h2>كل ما يحتاجه مسلمٌ يومه في مكانٍ واحد</h2>
-      <p>مؤذن بمواقيت دقيقة، أذكار من السنة الصحيحة، مكتبة أحاديث بالبحث الأوفلاين، مسبحة، وبوصلة قبلة — بلا إعلاناتٍ وبلا تعقيد.</p>
     </div>
     <div class="feat-grid">
       <div class="feat reveal"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></span><span>المواقيت</span></div>
@@ -428,159 +228,17 @@ img { display:block; }
   </div>
 </section>
 
-<!-- ================= الشاشات ================= -->
-<section id="screens" class="sec sec-alt">
-  <div class="wrap">
-    <div class="sec-head reveal">
-      <span class="eyebrow">جولة داخل التطبيق</span>
-      <h2>شاشات التطبيق</h2>
-      <p>اسحب يميناً أو شمالاً داخل الهاتف — أو استخدم الأسهم — لعرض باقي الشاشات</p>
-    </div>
-    <div class="viewer reveal">
-    <div class="rail" id="rail">
-<figure class="slide"><div class="phone"><div class="p-screen s-day">
-  <div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div>
-  <div class="p-dial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7"/></svg></div>
-  <div class="p-hero">
-    <div class="lbl">الصلاة القادمة</div>
-    <div class="name">المغرب</div>
-    <div class="time">٥:٠٨ م</div>
-    <div class="p-ring"><b>٠٢:٤٨:٤٦</b></div>
-    <div class="chips"><span>٢٢ جمادى الأولى ١٤٤٨ هـ</span><span>٢ نوفمبر ٢٠٢٦</span></div>
-    <div class="loc">ابو زعل البلد، الخانكة، القليوبية</div>
-  </div>
-  <div class="p-remind">
-    <span class="orb"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.2 14.2A8.6 8.6 0 1 1 9.8 3.8a7.1 7.1 0 1 0 10.4 10.4z"/></svg></span>
-    <span>«من صلى البردين دخل الجنة» — متفق عليه</span>
-  </div>
-  <div class="p-grid">
-    <div class="c"><b>الفجر</b><span>٤:٤٢ ص</span></div>
-    <div class="c"><b>الشروق</b><span>٦:١٠ ص</span></div>
-    <div class="c"><b>الظهر</b><span>١١:٣٩ ص</span></div>
-    <div class="c"><b>العصر</b><span>٢:٤٥ م</span></div>
-    <div class="c on"><b>المغرب</b><span>٥:٠٨ م</span></div>
-    <div class="c"><b>العشاء</b><span>٦:٢٧ م</span></div>
-  </div>
-  <div class="p-sadaqah">هذا العمل صدقة جارية لي و لأبي و أمي نسألكم صالح الدعاء</div>
-<div class="p-nav"><i class="on" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div></div></div><figcaption>المواقيت — نهاريًا</figcaption><div class="cap-sub">الصلاة القادمة والعدّاد والحلقة الذهبية</div></figure>
-<figure class="slide"><div class="phone"><div class="p-screen s-night">
-  <div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div>
-  <div class="p-dial"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.2 14.2A8.6 8.6 0 1 1 9.8 3.8a7.1 7.1 0 1 0 10.4 10.4z"/></svg></div>
-  <div class="p-hero">
-    <div class="lbl">الصلاة القادمة</div>
-    <div class="name">المغرب</div>
-    <div class="time">٥:٠٨ م</div>
-    <div class="p-ring"><b>٠٢:٤٨:٤٦</b></div>
-    <div class="chips"><span>٢٢ جمادى الأولى ١٤٤٨ هـ</span><span>٢ نوفمبر ٢٠٢٦</span></div>
-    <div class="loc">ابو زعل البلد، الخانكة، القليوبية</div>
-  </div>
-  <div class="p-remind">
-    <span class="orb"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.2 14.2A8.6 8.6 0 1 1 9.8 3.8a7.1 7.1 0 1 0 10.4 10.4z"/></svg></span>
-    <span>«من صلى البردين دخل الجنة» — متفق عليه</span>
-  </div>
-  <div class="p-grid">
-    <div class="c"><b>الفجر</b><span>٤:٤٢ ص</span></div>
-    <div class="c"><b>الشروق</b><span>٦:١٠ ص</span></div>
-    <div class="c"><b>الظهر</b><span>١١:٣٩ ص</span></div>
-    <div class="c"><b>العصر</b><span>٢:٤٥ م</span></div>
-    <div class="c on"><b>المغرب</b><span>٥:٠٨ م</span></div>
-    <div class="c"><b>العشاء</b><span>٦:٢٧ م</span></div>
-  </div>
-  <div class="p-sadaqah">هذا العمل صدقة جارية لي و لأبي و أمي نسألكم صالح الدعاء</div>
-<div class="p-nav"><i class="on" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div></div></div><figcaption>المواقيت — ليليًا</figcaption><div class="cap-sub">الوضع الليلي بلمسة واحدة</div></figure>
-<figure class="slide"><div class="phone">
-<div class="p-screen s-day">
-  <div style="text-align:center"><div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div></div><div style="text-align:center"><span class="p-title">الأذكار</span></div><div class="p-sub" style="text-align:center">ثلاثون قسماً — لكل قسمٍ صفحته وأذكاره الخاصة</div>
-  <div class="p-bigcard"><b>الصلاة على النبي</b><span>ذكرٌ مستقل — عدّك يُحفظ تلقائياً</span></div>
-  <div class="p-grid2">
-    <div class="g"><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7"/></svg></span><span><b>أذكار الصباح</b><span>٥ أذكار</span></span></div>
-    <div class="g"><span class="gi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.2 14.2A8.6 8.6 0 1 1 9.8 3.8a7.1 7.1 0 1 0 10.4 10.4z"/></svg></span><span><b>أذكار المساء</b><span>٥ أذكار</span></span></div>
-    <div class="g"><span class="gi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.2 14.2A8.6 8.6 0 1 1 9.8 3.8a7.1 7.1 0 1 0 10.4 10.4z"/></svg></span><span><b>أذكار النوم</b><span>٤ أذكار</span></span></div>
-    <div class="g"><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7"/></svg></span><span><b>أذكار الاستيقاظ</b><span>٣ أذكار</span></span></div>
-    <div class="g"><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></span><span><b>أذكار المسجد</b><span>٣ أذكار</span></span></div>
-    <div class="g"><span class="gi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7.4 7.4 0 0 0-7.4 7.4c0 5.5 7.4 12.6 7.4 12.6s7.4-7.1 7.4-12.6A7.4 7.4 0 0 0 12 2zm0 10a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4z"/></svg></span><span><b>أذكار الوضوء</b><span>٢ ذكر</span></span></div>
-  </div>
-  <div class="p-nav"><i class="" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="on" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div>
-</div>
-</div><figcaption>الأذكار</figcaption><div class="cap-sub">ثلاثون قسماً بأذكاره الصحيحة</div></figure>
-<figure class="slide"><div class="phone">
-<div class="p-screen s-day">
-  <div style="text-align:center"><div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div></div><div style="text-align:center"><span class="p-title">الأحاديث</span></div><div class="p-sub" style="text-align:center">عشرة كتب من السنة الشريفة أوفلاين</div>
-  <div class="p-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.4"/><path d="M20 20l-4.2-4.2"/></svg><span>ابحث برقم الحديث أو بكلمة من نصّه…</span></div>
-  <div class="p-chips"><i class="on">الكل</i><i>البخاري</i><i>مسلم</i><i>النسائي</i><i>★ المفضلة</i></div>
-  <div class="p-hint"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 5h2v2h-2zm0 4h2v6h-2z"/></svg><span>أرقام الأحاديث لكل كتابٍ على حِدة — اختر الكتاب من الشرائح ثم ابحث بالرقم</span></div>
-  <div class="p-hadith">
-    <span class="badge">صحيح البخاري · حديث ٧</span>
-    <p>إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى.</p>
-    <div class="row"><span>بادئ الوحي</span><span class="acts"><b class="star"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.3-5.7-3.1-5.7 3.1 1.2-6.3L2.8 9.5l6.4-.8z"/></svg></b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="18" cy="5.5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="18.5" r="2.6"/><path d="M8.3 10.8l7.4-4M8.3 13.2l7.4 4"/></svg></span></div>
-  </div>
-  <div class="p-hadith">
-    <span class="badge">صحيح مسلم · حديث ١٦</span>
-    <p>من حسن إسلام المرء تركه ما لا يعنيه.</p>
-    <div class="row"><span>فضل الإسلام</span><span class="acts"><b class="star"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.3-5.7-3.1-5.7 3.1 1.2-6.3L2.8 9.5l6.4-.8z"/></svg></b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="18" cy="5.5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="18.5" r="2.6"/><path d="M8.3 10.8l7.4-4M8.3 13.2l7.4 4"/></svg></span></div>
-  </div>
-  <div class="p-nav"><i class="" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="on" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div>
-</div>
-</div><figcaption>مكتبة الأحاديث</figcaption><div class="cap-sub">بحث أوفلاين برقم الحديث أو بكلمة من نصّه</div></figure>
-<figure class="slide"><div class="phone">
-<div class="p-screen s-day">
-  <div style="text-align:center"><div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div></div><div style="text-align:center"><span class="p-title">المسبحة</span></div><div class="p-sub" style="text-align:center">تسبيح ما بعد الصلاة — ٩٩ وتكميلة المائة</div>
-  <div class="p-dot"><b>٣٣</b><span>سبحان الله</span></div>
-  <div class="p-track"><i></i></div>
-  <div class="p-tap">اضغط على النقطة للتسبيح — ينتقل الذكر تلقائياً عند تمام ٣٣</div>
-  <div class="p-nav"><i class="" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="on" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div>
-</div>
-</div><figcaption>المسبحة</figcaption><div class="cap-sub">تسبيح ما بعد الصلاة بالترتيب السني</div></figure>
-<figure class="slide"><div class="phone">
-<div class="p-screen s-day">
-  <div style="text-align:center"><div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div></div><div style="text-align:center"><span class="p-title">بوصلة القبلة</span></div><div class="p-sub" style="text-align:center">وجه جهازك حتى يستقيم السهم لأعلى</div>
-  <span class="p-status-chip">أنت على القبلة ✓</span>
-  <div class="p-compass">
-    <span class="k"></span>
-    <span class="needle"></span>
-    <span class="deg">١٣٦°</span>
-  </div>
-  <div class="p-nav"><i class="" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="on" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div>
-</div>
-</div><figcaption>بوصلة القبلة</figcaption><div class="cap-sub">السهم يستقيم فتتناثر النقاط</div></figure>
-<figure class="slide"><div class="phone">
-<div class="p-screen s-day">
-  <div style="text-align:center"><div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div></div><div style="text-align:center"><span class="p-title">الإعدادات</span></div>
-  <div style="height:6px"></div>
-  <div class="p-row"><span class="ri"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7.4 7.4 0 0 0-7.4 7.4c0 5.5 7.4 12.6 7.4 12.6s7.4-7.1 7.4-12.6A7.4 7.4 0 0 0 12 2zm0 10a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4z"/></svg></span><span class="t"><b>الموقع</b><span>ابو زعل البلد، الخانكة، القليوبية</span></span><span class="chev">‹</span></div>
-  <div class="p-row"><span class="ri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 2.8V7M16 2.8V7M3.5 10.5h17"/></svg></span><span class="t"><b>طريقة حساب المواقيت</b><span>رابطة العالم الإسلامي</span></span><span class="chev">‹</span></div>
-  <div class="p-row"><span class="ri"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0 0 20c1.4 0 2.3-1 2.3-2.2 0-.6-.2-1-.6-1.4-.4-.4-.6-.9-.6-1.4 0-1.2 1-2.2 2.2-2.2h2.6A4.1 4.1 0 0 0 22 10.6C21.6 5.7 17.3 2 12 2zM6.5 12a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4zm3.5-4.5a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4zm5 0a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4zm3.5 4.5a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4z"/></svg></span><span class="t"><b>ألوان التطبيق</b><span>زمردي سالم</span></span><span class="chev">‹</span></div>
-  <div class="p-row"><span class="ri"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg></span><span class="t"><b>التحديثات</b><span>أنت على أحدث نسخة</span></span><span class="chev">‹</span></div>
-  <div class="p-dev">Yousef Sawan</div>
-  <div class="p-ver">الإصدار 1.77</div>
-  <div class="p-nav"><i class="" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="on" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div>
-</div>
-</div><figcaption>الإعدادات</figcaption><div class="cap-sub">الموقع والحساب والألوان والتحديثات</div></figure>
-    </div>
-    <div class="arrows">
-      <button id="nextBtn" aria-label="التالي">‹</button>
-      <button id="prevBtn" aria-label="السابق">›</button>
-    </div>
-    <div class="dots" id="dots"></div>
-    </div>
-  </div>
-</section>
-
 <!-- ================= التحميل ================= -->
-<section id="dl" class="sec">
-  <div class="aurora a1"></div>
+<section id="dl" class="sec sec-alt">
   <div class="wrap">
     <div class="dl-card reveal">
       <span class="eyebrow">تحميل مباشر</span>
       <h2>احمل نور المسلم الآن</h2>
-      <p class="sub">ملفٌّ واحدٌ موقَّعٌ يتثبَّت فوق كل النسخ السابقة مباشرةً — يُنزَّل من الموقع بلا صفحاتٍ وسيطة، ويُفحَص ببصمة SHA-256 قبل أن يُسلَّم لمتصفحك.</p>
+      <p class="sub">ملفٌّ واحدٌ موقَّعٌ يتثبَّت فوق كل النسخ السابقة مباشرةً — يُنزَّل من الموقع بلا صفحاتٍ وسيطة، ويُفحَص ببصمة SHA-256 قبل الحفظ.</p>
       <div class="cta">
         <a class="btn btn-primary btn-big js-dl" href="https://github.com/Sawan4Art/noor/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg>تحميل — APK</a>
       </div>
-      <div class="dl-progress" id="dlProgress">
-        <div class="bar"><i id="barFill"></i></div>
-        <div class="dl-status" id="dlStatus"></div>
-      </div>
+      <div class="dl-status" id="dlStatus"></div>
       <div class="dl-panel" id="dlPanel"></div>
       <div class="dl-meta">
         <span>الإصدار <b class="js-ver">v1.78</b></span>
@@ -596,8 +254,14 @@ img { display:block; }
   </div>
 </section>
 
-<!-- ================= الختام ================= -->
+<!-- ═══════════ AD-SLOT-BOTTOM: بعد قبول أدسنس ضع كود وحدة الإعلانات الثانية هنا ═══════════ -->
+
+<!-- ================= الختام والتذييل ================= -->
 <div class="end-bar">هذا التطبيق <b>صدقة جارية</b> على روح المرحوم بأذن الله — والد المالك، لا تنسوه من صالح الدعاء</div>
+<footer class="foot">
+  <a href="privacy.html">سياسة الخصوصية</a>
+  <span>نور المسلم © ٢٠٢٦</span>
+</footer>
 
 <script>
 /* ====== مبدّل المظهر — نهار/ليل بذاكرةٍ وتلقائيةٍ من النظام ====== */
@@ -653,72 +317,17 @@ img { display:block; }
   for (var j = 0; j < els.length; j++) io.observe(els[j]);
 })();
 
-/* ====== شريط الشاشات — أسهم ونقاط وسحبٌ بالقياس الهندسي (RTL آمن) ====== */
-(function () {
-  var rail = document.getElementById('rail');
-  if (!rail) return;
-  var dots = document.getElementById('dots');
-  var slides = Array.prototype.slice.call(rail.children);
-  var idx = 0;
-  slides.forEach(function (s, i) {
-    var d = document.createElement('i');
-    if (i === 0) d.className = 'on';
-    d.addEventListener('click', function () { goTo(i); });
-    dots.appendChild(d);
-  });
-  function center(el) { var r = el.getBoundingClientRect(); return r.left + r.width / 2; }
-  function mark(i) {
-    idx = i;
-    for (var k = 0; k < dots.children.length; k++) dots.children[k].className = k === i ? 'on' : '';
-  }
-  function goTo(i) {
-    i = Math.max(0, Math.min(slides.length - 1, i));
-    var el = slides[i];
-    var delta = center(el) - center(rail);
-    if (rail.scrollTo) rail.scrollTo({ left: rail.scrollLeft + delta, behavior: 'smooth' });
-    else rail.scrollLeft += delta;
-    mark(i);
-  }
-  document.getElementById('nextBtn').addEventListener('click', function () { goTo(idx + 1); });
-  document.getElementById('prevBtn').addEventListener('click', function () { goTo(idx - 1); });
-  // أقرب شاشةٍ لمركز الشريط أثناء التمرير الحر
-  var timer = null;
-  rail.addEventListener('scroll', function () {
-    if (timer) return;
-    timer = setTimeout(function () {
-      timer = null;
-      var best = 0, bestD = Infinity;
-      for (var i = 0; i < slides.length; i++) {
-        var d = Math.abs(center(slides[i]) - center(rail));
-        if (d < bestD) { bestD = d; best = i; }
-      }
-      mark(best);
-    }, 120);
-  }, { passive: true });
-  // السحب بالماوس/الإصبع
-  var down = null;
-  rail.addEventListener('pointerdown', function (e) { down = { x: e.clientX, sl: rail.scrollLeft }; });
-  window.addEventListener('pointerup', function () { down = null; rail.classList.remove('dragging'); });
-  rail.addEventListener('pointermove', function (e) {
-    if (!down) return;
-    if (Math.abs(e.clientX - down.x) > 6) rail.classList.add('dragging');
-    if (rail.classList.contains('dragging')) { rail.scrollLeft = down.sl - (e.clientX - down.x); }
-  });
-})();
-
-/* ====== محرك التنزيل — أجزاءٌ من CDN مجهولٍ لا بوابةَ دخولٍ فيه ======
- * درس بلاغ المالك «نسبةٌ وهميةٌ ثم صفحة جت هب»: التجميع القديم كان
- * يمسك ١٣١ م.ب في مخزنٍ واحدٍ فيقصف مع Samsung Browser في النهاية ويهبط
- * صامتاً على github.com — الجديد: قطعٌ صغيرةٌ تُعصَر فوراً في SHA-256
- * تدريجيٌّ نقيٌّ بالجافاسكربت وتُحفَظ في أجزاءِ Blob يُخزِّنها كروميوم
- * على القرص، مع إعادة محاولةٍ لكل جزءٍ — وفشلٌ يُعلَن في لوحةٍ صريحةٍ
- * بلا أي تحويلٍ صامتٍ أبداً */
+/* ====== محرك التنزيل المباشر — بلا عدّاداتٍ ولا نسبٍ مئوية ======
+ * درس بلاغ المالك «النسبة ملهاش لازمه بتعد على الفاضي»: الضغطة
+ * تبدأ التحضير فوراً وبلا أي أرقامٍ على الشاشة، والمتصفح نفسه يعرض
+ * شريط تنزيله المعتاد عند حفظ الملف — والفشل وحده يُعلَن في لوحةٍ
+ * صريحةٍ بلا أي تحويلٍ صامتٍ أبداً */
 (function () {
   'use strict';
   var REL = 'https://github.com/Sawan4Art/noor/releases';
   var meta = null;
   var running = false;
-  var got = 0, total = 0, partIdx = 0, partsCount = 0;
+  var got = 0, total = 0;
   var blobParts = null;
 
   /*SHA256-BEGIN*/
@@ -788,8 +397,7 @@ img { display:block; }
 
   function qsa(s) { return Array.prototype.slice.call(document.querySelectorAll(s)); }
   function qs(s) { return document.querySelector(s); }
-  function ar(n) { return String(n).replace(/[0-9]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'[d]; }); }
-  function mbText(b) { return ar(Math.round(b / 1048576)); }
+  function mbText(b) { return String(Math.round(b / 1048576)).replace(/[0-9]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'[d]; }); }
 
   // نسخة الموقع — نفس الأصل فمضمونة بلا حظر
   fetch('version.json', { cache: 'no-store' })
@@ -799,29 +407,14 @@ img { display:block; }
       meta = m;
       var v = 'v' + m.version;
       qsa('.js-ver').forEach(function (e) { e.textContent = v; });
-      qsa('.js-appver').forEach(function (e) { e.textContent = m.version; });
-      qsa('.js-size').forEach(function (e) { e.textContent = '~' + mbText(m.size) + ' م.ب'; });
+      qsa('.js-size').forEach(function (e) { e.textContent = mbText(m.size); });
       qsa('.js-gh').forEach(function (e) { e.href = REL + '/download/v' + m.version + '/' + m.apk; });
     })
     .catch(function () {});
 
-  function progressBox() { return qs('#dlProgress'); }
-  function barFill() { return qs('#barFill'); }
   function statusBox() { return qs('#dlStatus'); }
   function panelBox() { return qs('#dlPanel'); }
-
-  function showProgress(on) {
-    progressBox().className = 'dl-progress' + (on ? ' on' : '');
-    if (!on) barFill().style.width = '0%';
-  }
-  function setProgress() {
-    var pct = total ? Math.round((got / total) * 100) : 0;
-    barFill().style.width = pct + '%';
-    statusBox().innerHTML = 'جارٍ التنزيل — <b>' + ar(pct) + '٪</b> (' + mbText(got) + ' من ' + mbText(total) + ' م.ب) · الجزء ' + ar(partIdx) + ' من ' + ar(partsCount);
-  }
   function setStatus(html) { statusBox().innerHTML = html; }
-  function showPanel(html) { panelBox().innerHTML = html; panelBox().className = 'dl-panel on'; }
-  function hidePanel() { panelBox().className = 'dl-panel'; panelBox().innerHTML = ''; }
 
   function busy(on) {
     running = on;
@@ -836,7 +429,6 @@ img { display:block; }
   }
 
   function fail(msg) {
-    showProgress(false);
     setStatus('');
     showPanel(
       '<b>تعذّر إتمام التنزيل</b> — ' + msg +
@@ -844,12 +436,17 @@ img { display:block; }
       '<button type="button" class="btn btn-primary btn-sm" id="dlRetry">إعادة المحاولة</button>' +
       '<a class="btn btn-ghost btn-sm" href="' + ghDirect() + '" target="_blank" rel="noopener">رابط جت هب المباشر</a>' +
       '</div>' +
-      '<p class="tip">لو فُتحت لك صفحة «التحقق بخطوتين» من جت هب بعد الرابط المباشر فأنت مسجَّلٌ دخولًا في المتصفح — سجِّل الخروج من جت هب ثم جرّب الرابط، أو فعِّل التحقق بخطوتين من إعدادات حسابك فالجت هب يفرضه قريباً على الجميع.</p>'
+      '<p class="tip">لو فُتحت لك صفحة «التحقق بخطوتين» من جت هب بعد الرابط المباشر فأنت مسجَّلٌ دخولًا في المتصفح — سجِّل الخروج من جت هب ثم جرّب الرابط، أو فعِّل التحقق بخطوتين من إعدادات حسابك.</p>'
     );
     var retry = qs('#dlRetry');
     if (retry) retry.addEventListener('click', function () { hidePanel(); start(); });
+    // اللوحة في بطاقة التحميل — انزل إليها كي يراها من أي زرٍ ضغطها
+    var sec = qs('#dl');
+    if (sec && sec.scrollIntoView) { try { sec.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { sec.scrollIntoView(); } }
     busy(false);
   }
+  function showPanel(html) { panelBox().innerHTML = html; panelBox().className = 'dl-panel on'; }
+  function hidePanel() { panelBox().className = 'dl-panel'; panelBox().innerHTML = ''; }
 
   function fetchPart(url, tries) {
     return new Promise(function (resolve, reject) {
@@ -885,7 +482,7 @@ img { display:block; }
   }
 
   function saveFile() {
-    setStatus('جارٍ التجميع النهائي وحفظ الملف…');
+    setStatus('جارٍ الحفظ…');
     var blob = new Blob(blobParts, { type: 'application/vnd.android.package-archive' });
     blobParts = null;
     var url = URL.createObjectURL(blob);
@@ -896,8 +493,8 @@ img { display:block; }
     a.click();
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
-    setStatus('<b>تم التنزيل ✓</b> — الملف «' + meta.apk + '» يُحفَظ في مجلد التنزيلات، افتحه وثبّت التطبيق');
-    setTimeout(function () { showProgress(false); busy(false); }, 6000);
+    setStatus('<b>تم التنزيل ✓</b> — الملف «' + meta.apk + '» في مجلد التنزيلات، افتحه من شريط الإشعارات وثبّت التطبيق');
+    setTimeout(function () { setStatus(''); busy(false); }, 8000);
   }
 
   function start() {
@@ -905,31 +502,25 @@ img { display:block; }
     hidePanel();
     if (!meta) { fail('تعذّر قراءة نسخة الموقع — حدِّث الصفحة ثم جرّب من جديد، أو استخدم الرابط المباشر.'); return; }
     busy(true);
-    // الطاولة تحت نظر المستخدم — التقدم الحقيقي يظهر في بطاقة التحميل
-    var sec = qs('#dl');
-    if (sec && sec.scrollIntoView) { try { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { sec.scrollIntoView(); } }
-    got = 0; total = meta.size; partsCount = meta.parts.length; partIdx = 0;
+    setStatus('جارٍ التحضير… سيُحفَظ الملف تلقائياً عند اكتماله <span class="spin"></span>');
+    got = 0; total = meta.size;
     blobParts = [];
     var sha = SHA256.create();
-    showProgress(true);
-    setProgress();
     var chain = Promise.resolve();
     meta.parts.forEach(function (p) {
       chain = chain.then(function () {
-        partIdx++;
         return fetchPart(p.url, 2).then(function (r) {
           return pump(r, function (chunk) {
             SHA256.update(sha, chunk);
             blobParts.push(chunk);
             got += chunk.length;
-            setProgress();
           });
         });
       });
     });
     chain.then(function () {
       if (got !== total) throw new Error('size');
-      setStatus('جارٍ التحقق من بصمة SHA-256…');
+      setStatus('جارٍ التأكد من سلامة الملف… <span class="spin"></span>');
       var hex = SHA256.hex(sha);
       if (hex !== meta.sha256) throw new Error('sha');
       saveFile();
