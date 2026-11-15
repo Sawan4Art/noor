@@ -1,18 +1,18 @@
 {
-  "version": "1.77",
-  "code": 50077,
-  "apk": "noor-almuslim-v1.77.apk",
+  "version": "1.78",
+  "code": 50078,
+  "apk": "noor-almuslim-v1.78.apk",
   "size": 136565779,
-  "sha256": "c4be1b34caf1ddc4c881b9aad1a54720d194d79c714482ca4df117f1674a5498",
+  "sha256": "3dacd0f43c54a440ad3c03643fea2e1d65e06ce7fcdb9bf00b076a6911bd3aa0",
   "parts": [
     {
-      "url": "https://raw.githubusercontent.com/Sawan4Art/noor/site-assets/parts/noor-almuslim-1.77.part-00",
+      "url": "https://raw.githubusercontent.com/Sawan4Art/noor/site-assets/parts/noor-almuslim-1.78.part-00",
       "bytes": 94371840
     },
     {
-      "url": "https://raw.githubusercontent.com/Sawan4Art/noor/site-assets/parts/noor-almuslim-1.77.part-01",
+      "url": "https://raw.githubusercontent.com/Sawan4Art/noor/site-assets/parts/noor-almuslim-1.78.part-01",
       "bytes": 42193939
     }
   ],
-  "updated": "2026-11-15T13:46:15Z"
+  "updated": "2026-11-15T14:10:18Z"
 }
