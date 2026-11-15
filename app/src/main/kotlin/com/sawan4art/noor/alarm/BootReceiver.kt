@@ -29,6 +29,9 @@ class BootReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.Default).launch {
             try {
                 AlarmScheduler.reschedule(context)
+                // غفوة التنبيه المؤجَّل تعود بعد الإقلاع — حملُه في
+                // التفضيلات ومنبهاتُ الفحص تموت مع إعادة التشغيل
+                DeferredAlerts.resume(context)
                 // الويدجتات تُصحى مع الإقلاع — المواقيت من يومٍ جديد
                 WidgetUpdater.refreshAll(context)
                 // دورة التحديد التلقائي تعود مع الإقلاع إن كان مفعّلاً

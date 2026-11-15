@@ -481,9 +481,18 @@ class AlarmService : Service() {
                     setShowBadge(false)
                 },
             )
+            // القنوات لا تُعدَّل بعد إنشائها — القديمة كانت بلا setSound فصدرت
+            // صوت الإشعار الافتراضي، والمالك طلبت إشعارَ الشاشة صامتاً وقت
+            // المكالمات فتُحذف القديمة وتُعاد صامتةً بأولويةٍ تنبثق بلا صوت
+            nm.getNotificationChannel(NOTIFY_CHANNEL_ID)?.let { old ->
+                if (old.importance != NotificationManager.IMPORTANCE_HIGH || old.sound != null) {
+                    nm.deleteNotificationChannel(NOTIFY_CHANNEL_ID)
+                }
+            }
             nm.createNotificationChannel(
-                NotificationChannel(NOTIFY_CHANNEL_ID, "تنبيهات الصلاة", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    description = "تنبيهات صامتة عند تعذّر تشغيل صوت الأذان"
+                NotificationChannel(NOTIFY_CHANNEL_ID, "تنبيهات الصلاة", NotificationManager.IMPORTANCE_HIGH).apply {
+                    description = "تنبيهات صامتة على الشاشة — وقت المكالمات وتعذّر تشغيل الصوت"
+                    setSound(null, null)
                     enableVibration(true)
                 },
             )
@@ -494,8 +503,11 @@ class AlarmService : Service() {
             MuteManager.restore(context)
         }
 
-        /** إشعار هادئ عند تعذّر تشغيل الصوت — لا صلاة تفوت بلا أي ذكر */
-        fun postSilentPrayerNotice(context: Context, prayerName: String) {
+        /** إشعار صامت على الشاشة — عند تعذّر تشغيل الصوت أو وقت المكالمات
+         *  (بلاغ المالك 2026-11-15: «يكتفي فقط باشعار على الشاشه بانه حان
+         *  وقت الاذن») — قناةٌ بلا صوتٍ تنبثق بلا إزعاج، و[subtext] نصٌّ
+         *  إضافيّ كالمتبقي على الإقامة */
+        fun postSilentPrayerNotice(context: Context, prayerName: String, subtext: String? = null) {
             ensureChannels(context)
             runCatching {
                 val openPi = PendingIntent.getActivity(
@@ -507,10 +519,10 @@ class AlarmService : Service() {
                 val notification = NotificationCompat.Builder(context, NOTIFY_CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_stat_update)
                     .setContentTitle("حان الآن وقت $prayerName")
-                    .setContentText("حَيَّ عَلَى الصَّلَاة — تقبل الله طاعتكم")
+                    .setContentText(subtext?.takeIf { it.isNotBlank() } ?: "حَيَّ عَلَى الصَّلَاة — تقبل الله طاعتكم")
                     .setAutoCancel(true)
                     .setContentIntent(openPi)
-                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
                     .build()
                 val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
                 nm?.notify(4002, notification)

@@ -46,6 +46,18 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             return
         }
 
+        if (kind == "DEFERRED_RECHECK") {
+            // نبضة غفوة التنبيه المؤجَّل — المكالمة باقيةٌ أم انتهت؟
+            DeferredAlerts.onRecheck(context)
+            return
+        }
+
+        if (kind == "DEFERRED_RING") {
+            // لحظة الرنين بعد انتهاء المكالمة — أو غفوةٌ جديدة إن دخلت أخرى
+            DeferredAlerts.onRing(context)
+            return
+        }
+
         // أذان أو إقامة أو تنبيه — الصوت المختار وإعدادات الكتم لحظة الدقّ
         val prefs = runCatching {
             kotlinx.coroutines.runBlocking { SettingsRepository(context).adhanPrefsOnce() }
@@ -89,6 +101,58 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
                 "تنبيه: صلاة $prayerName قريبة"
             }
         } else ""
+
+        // بلاغ المالك (2026-11-15): أثناء المكالمة لا صوتاً للتنبيهات —
+        // الأذان والإقامة يكتفيان بإشعارٍ صامتٍ على الشاشة ولا يؤذن مرةً
+        // أخرى أبداً («اذا مضى وقت الاذان فهو مضى لا يؤذن مره اخرى»)،
+        // والتنبيهات الباقية تلقّ غفوةً فترنّ بعد انتهاء المكالمة بخمس ثوانٍ
+        val nowMillis = System.currentTimeMillis()
+        val alertClass = if (isReminder) {
+            CallAlertPolicy.AlertClass.GENERIC
+        } else {
+            CallAlertPolicy.AlertClass.PRAYER
+        }
+        when (CallAlertPolicy.decide(alertClass, CallGate.isInCall(context), nowMillis)) {
+            is CallAlertPolicy.Decision.SilentNotice -> {
+                // أذان/إقامة في مكالمة — إشعارٌ صامتٌ على الشاشة فقط،
+                // وللأذان الحامل للإقامة يُعرض المتبقي عليها
+                val iqamahAt = intent.getLongExtra(EXTRA_IQAMAH_AT, 0L)
+                val subtext = if (iqamahAt > 0) {
+                    CallAlertPolicy.remainingIqamahText(iqamahAt, nowMillis)
+                } else {
+                    null
+                }
+                val noticeName = if (isIqamah) "إقامة $prayerName" else prayerName
+                AlarmService.postSilentPrayerNotice(context, noticeName, subtext)
+                // نافذة الكتم إن كان هذا الحدث بدايتها — كتمٌ زمنيٌّ مستقلٌ عن الصوت
+                if (intent.getBooleanExtra(EXTRA_MUTE_START, false)) {
+                    MuteManager.apply(context, prefs?.muteMinutes ?: 10)
+                }
+                // الويدجتات تتبدل مع أذان كل صلاة — القادمة الجديدة تظهر فوراً (alpha56)
+                com.sawan4art.noor.widget.WidgetUpdater.refreshAll(context)
+                return
+            }
+            is CallAlertPolicy.Decision.Defer -> {
+                // تنبيهٌ عامّ في مكالمة — غفوة: الحملُ محفوظٌ والرنين بعد نهايتها بخمس ثوانٍ
+                val payload = org.json.JSONObject()
+                    .put(AlarmService.EXTRA_MODE, com.sawan4art.noor.domain.adhan.AdhanMode.canonical(mode))
+                    .put(AlarmService.EXTRA_PRAYER_NAME, prayerName)
+                    .put(AlarmService.EXTRA_SOUND_ID, soundId)
+                    .put(AlarmService.EXTRA_CUSTOM_PATH, customPath)
+                    .put(AlarmService.EXTRA_NOTE, reminderNote)
+                    .put(
+                        AlarmService.EXTRA_VIBRATE,
+                        prefs?.vibrateFor(isReminder, isIqamah) ?: true,
+                    )
+                    .put(AlarmService.EXTRA_MUTE_START, intent.getBooleanExtra(EXTRA_MUTE_START, false))
+                    .put(AlarmService.EXTRA_MUTE_MINUTES, prefs?.muteMinutes ?: 10)
+                    .put(AlarmService.EXTRA_MUTE_CANCEL_ON_UNLOCK, prefs?.muteCancelOnUnlock ?: true)
+                DeferredAlerts.defer(context, payload)
+                com.sawan4art.noor.widget.WidgetUpdater.refreshAll(context)
+                return
+            }
+            else -> Unit // لا مكالمة — مسار التشغيل العادي تحت
+        }
 
         val service = Intent(context, AlarmService::class.java)
             // الموحّد أولاً — الاسم القادم من العَلَم بحروفٍ كبيرة فلا
