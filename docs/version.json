@@ -2,5 +2,17 @@
   "version": "1.77",
   "code": 50077,
   "apk": "noor-almuslim-v1.77.apk",
-  "updated": "2026-11-14T19:33:05Z"
+  "size": 136565779,
+  "sha256": "c4be1b34caf1ddc4c881b9aad1a54720d194d79c714482ca4df117f1674a5498",
+  "parts": [
+    {
+      "url": "https://raw.githubusercontent.com/Sawan4Art/noor/site-assets/parts/noor-almuslim-1.77.part-00",
+      "bytes": 94371840
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Sawan4Art/noor/site-assets/parts/noor-almuslim-1.77.part-01",
+      "bytes": 42193939
+    }
+  ],
+  "updated": "2026-11-15T13:46:15Z"
 }

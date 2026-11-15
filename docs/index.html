@@ -59,6 +59,9 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
 .hero p.lead { max-width:56ch; margin:0 auto; font-size:15.5px; line-height:2; color:var(--mist); }
 .hero .cta { margin-top:26px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
 .hero .meta { margin-top:16px; font-size:12.5px; color:var(--mist2); font-weight:600; }
+.dl-note { margin-top:14px; font-size:12px; line-height:2; color:var(--mist2); max-width:600px; margin-inline:auto; }
+.dl-note a { color:var(--emerald-l); border-bottom:1px dashed rgba(130,201,176,.4); }
+.dl-note a:hover { color:var(--gold-l); }
 
 /* ===== المميزات — أسماء أيقونات التطبيق نفسها ===== */
 #feat { padding:34px 0 58px; }
@@ -301,6 +304,7 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
     <a class="btn btn-big js-dl" href="https://github.com/Sawan4Art/noor/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg>حمّل أحدث إصدار — APK</a>
   </div>
   <div class="meta">مجاني بلا إعلانات · يعمل أوفلاين · أندرويد ٧ وأحدث</div>
+  <p class="dl-note">التنزيل من الموقع مباشرةً بلا صفحاتٍ وسيطة — وإن ظهرت لك صفحة «التحقق بخطوتين» من جت هب فأنت مسجَّلٌ دخولًا بحسابٍ في المتصفح: حمّل من الأزرار هنا فيجي الملف من الموقع نفسه، أو سجِّل الخروج من جت هب ثم حمّل — <a class="js-gh" href="https://github.com/Sawan4Art/noor/releases/latest" target="_blank" rel="noopener">بديل: التحميل عبر جت هب</a></p>
 </section>
 
 <!-- ================= المميزات — أيقونات التطبيق نفسها ================= -->
@@ -449,15 +453,16 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
   <div class="wrap">
     <div class="dl-card">
       <h2>حمّل نور المسلم</h2>
-      <p class="sub">أحدث نسخة مباشرة من صفحة الإصدارات على GitHub</p>
+      <p class="sub">أحدث نسخة تُنزَّل من الموقع مباشرةً — بلا صفحاتٍ وسيطة ولا حساب</p>
       <div class="cta"><a class="btn btn-big js-dl" href="https://github.com/Sawan4Art/noor/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg>تحميل — APK</a></div>
       <div class="dl-meta">
         <span>الإصدار <b class="js-ver">v1.77</b></span>
-        <span>الحجم <b>~٢٥ م.ب</b></span>
+        <span>الحجم <b class="js-size">~١٣١ م.ب</b></span>
         <span>أندرويد <b>٧+</b></span>
       </div>
-      <div class="alpha-note">هذه نسخة <b>ألفا تجريبية</b> لإعادة البناء الكوتلنية — تُثبَّت جنباً إلى جنب مع أي نسخة سابقة، ولو وجدت أي ملاحظة يسعدنا رسالتك.</div>
+      <div class="alpha-note">ملفٌّ واحدٌ موقَّعٌ يتثبَّت فوق كل النسخ السابقة مباشرةً — ولو ظهرت صفحة «التحقق بخطوتين» من جت هب أثناء التحميل فحمّل من الأزرار هنا أو سجِّل الخروج من جت هب.</div>
       <div class="dl-links">
+        <a class="js-gh" href="https://github.com/Sawan4Art/noor/releases/latest" target="_blank" rel="noopener">حمّل مباشرةً عبر جت هب</a>
         <a href="https://github.com/Sawan4Art/noor/releases" target="_blank" rel="noopener">كل الإصدارات</a>
         <a href="mailto:yousefsawan940@gmail.com?subject=%D8%B4%D9%83%D8%A7%D9%88%D9%89%20%D9%88%D9%85%D9%82%D8%AA%D8%B1%D8%AD%D8%A7%D8%AA%20%D9%86%D9%88%D8%B1%20%D8%A7%D9%84%D9%85%D8%B3%D9%84%D9%85">شكاوى ومقترحات</a>
       </div>
@@ -469,45 +474,126 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
 <div class="end-bar">هذا التطبيق <b>صدقة جارية</b> على روح المرحوم بأذن الله — والد المالك، لا تنسوه من صالح الدعاء</div>
 
 <script>
-// رابط التحميل الحيّ — ثلاث طبقاتٍ لا تموت جميعاً معاً:
-// ١) طبقة الأمان الافتراضية: كل الأزرار تشير أصلاً لصفحة «آخر إصدار» — لا رابطاً ميتاً أبداً
-// ٢) نسخة الموقع version.json (يكتبها الـ workflow بعد كل نشرٍ على نفس الموقع —
-//    بلا حظرٍ ولا حدودِ طلباتٍ على شبكات الموبايل) → رابط الـ APK المباشر
-// ٣) واجهة جت هب الحيّة (أحدث أصلٍ للنسخة لكن شبكات المشتركين قد تحظرها بمعدل الطلبات) → تفوز إن جابت
+// التحميل من الموقع مباشرةً — الأجزاء تُجلب من raw.githubusercontent.com
+// (CDN مجهولٌ لا صفحةَ دخولٍ فيه ولا حظرَ للتحقق بخطوتين) وتُجمَّع في المتصفح
+// ويُتحقَّق منها ببصمة SHA-256 ثم يُنزَّل الملف كاملاً باسمه — وجت هب بديلاً فقط
 (function () {
   var REL = 'https://github.com/Sawan4Art/noor/releases';
-  function setDl(href) {
-    document.querySelectorAll('.js-dl').forEach(function (a) { a.href = href; });
-  }
-  function setVer(tag) {
-    document.querySelectorAll('.js-ver').forEach(function (e) { e.textContent = tag; });
-  }
-  // الطبقة الافتراضية فوراً — قبل أي شبكة
-  setDl(REL + '/latest');
+  var meta = null;
+  var busy = false;
 
-  // نسخة الموقع — نفس الأصل فمضمونة
+  function ar(n) { return String(n).replace(/[0-9]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'[d]; }); }
+
+  function setVer(tag) {
+    var els = document.querySelectorAll('.js-ver');
+    for (var i = 0; i < els.length; i++) els[i].textContent = tag;
+  }
+  function setGh(url) {
+    var els = document.querySelectorAll('.js-gh');
+    for (var i = 0; i < els.length; i++) els[i].href = url;
+  }
+
+  // نسخة الموقع — نفس الأصل فمضمونة بلا حظر
   fetch('version.json', { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (v) {
-      if (v && v.version && v.apk) {
-        setDl(REL + '/download/v' + v.version + '/' + v.apk);
-        setVer('v' + v.version);
-      }
+    .then(function (m) {
+      if (!m || !m.version || !m.parts) return;
+      meta = m;
+      setVer('v' + m.version);
+      setGh(REL + '/download/v' + m.version + '/' + m.apk);
+      var sizes = document.querySelectorAll('.js-size');
+      for (var i = 0; i < sizes.length; i++) sizes[i].textContent = '~' + ar(Math.round(m.size / 1048576)) + ' م.ب';
     })
     .catch(function () {});
 
-  // المصدر الحيّ من جت هب — يفوز إن جاب لأنه مصدر النشر الفعلي
-  // قائمة الإصدارات لا releases/latest — لأن الألفا القديمة «prerelease» كانت تتجاهلها
-  fetch('https://api.github.com/repos/Sawan4Art/noor/releases?per_page=1')
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (list) {
-      var rel = (list && list.length) ? list[0] : null;
-      if (!rel) return;
-      var asset = (rel.assets || []).find(function (a) { return a.name.endsWith('.apk'); });
-      if (rel.tag_name) setVer(rel.tag_name);
-      if (asset) setDl(asset.browser_download_url);
-    })
-    .catch(function () { /* محظور أو مقطوع — تبقى طبقة نسخة الموقع */ });
+  function restore(btn, html) {
+    btn.innerHTML = html;
+    var els = document.querySelectorAll('.js-dl');
+    for (var i = 0; i < els.length; i++) els[i].style.opacity = '';
+    busy = false;
+  }
+
+  function download(btn) {
+    // نسخة الموقع غير متاحة؟ البديل الافتراضي: صفحة آخر إصدارٍ لا تموت
+    if (!meta) { window.location.href = REL + '/latest'; return; }
+    if (busy) return;
+    busy = true;
+    var original = btn.innerHTML;
+    var els = document.querySelectorAll('.js-dl');
+    for (var i = 0; i < els.length; i++) { if (els[i] !== btn) els[i].style.opacity = '.4'; }
+
+    var total = meta.size;
+    var buf = new Uint8Array(total);
+    var done = 0;
+    function pct() { return ar(Math.round((done / total) * 100)); }
+
+    btn.textContent = 'جارٍ التنزيل… ' + pct() + '٪';
+
+    var chain = Promise.resolve();
+    meta.parts.forEach(function (p) {
+      chain = chain.then(function () {
+        return fetch(p.url, { cache: 'no-store' }).then(function (r) {
+          if (!r.ok) throw new Error('part-failed');
+          if (!r.body || !r.body.getReader) {
+            return r.arrayBuffer().then(function (ab) {
+              buf.set(new Uint8Array(ab), done);
+              done += ab.byteLength;
+              btn.textContent = 'جارٍ التنزيل… ' + pct() + '٪';
+            });
+          }
+          var reader = r.body.getReader();
+          var offset = done;
+          function step() {
+            return reader.read().then(function (chunk) {
+              if (chunk.done) { done = offset + p.bytes; btn.textContent = 'جارٍ التنزيل… ' + pct() + '٪'; return; }
+              buf.set(chunk.value, offset);
+              offset += chunk.value.length;
+              done = offset;
+              btn.textContent = 'جارٍ التنزيل… ' + pct() + '٪';
+              return step();
+            });
+          }
+          return step();
+        });
+      });
+    });
+
+    chain
+      .then(function () {
+        btn.textContent = 'جارٍ التحقق من الملف…';
+        if (!window.crypto || !crypto.subtle) throw new Error('no-crypto');
+        return crypto.subtle.digest('SHA-256', buf);
+      })
+      .then(function (hash) {
+        var hex = Array.prototype.map.call(new Uint8Array(hash), function (b) {
+          return ('0' + b.toString(16)).slice(-2);
+        }).join('');
+        if (hex !== meta.sha256) throw new Error('sha-mismatch');
+        var blob = new Blob([buf], { type: 'application/vnd.android.package-archive' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = meta.apk;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+        btn.textContent = 'تم التنزيل ✓';
+        setTimeout(function () { restore(btn, original); }, 4000);
+      })
+      .catch(function () {
+        // تعذّر من الموقع — جت هب مباشرةً (والصفحة توضّح بديل الخروج من جت هب)
+        restore(btn, original);
+        window.location.href = REL + '/download/v' + meta.version + '/' + meta.apk;
+      });
+  }
+
+  var els = document.querySelectorAll('.js-dl');
+  for (var i = 0; i < els.length; i++) {
+    (function (el) {
+      el.addEventListener('click', function (ev) { ev.preventDefault(); download(el); });
+    })(els[i]);
+  }
 })();
 
 // شريط الشاشات: أسهم + نقاط + سحب بالماوس
