@@ -24,7 +24,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-PART_BYTES = 90 * 1024 * 1024  # 94,371,840 — دون حد جت هب (١٠٠ م.ب) بهامش
+PART_BYTES = 48 * 1024 * 1024  # أجزاءٌ أصغر أوفى لمتانة الشبكات المحمولة: فشلٌ جزئيّ يعاد لجزءٍ صغيرٍ لا لكلفةٍ ثقيلة، والذاكرة أهدأ (درس بلاغ «نسبة وهمية ثم صفحة جت هب»)
 RAW_BASE = "https://raw.githubusercontent.com/Sawan4Art/noor/site-assets/parts"
 
 
