@@ -20,16 +20,21 @@ trap 'rm -rf "$OUT"' EXIT
 python3 "$(dirname "$0")/build_site_assets.py" "$VER" "$CODE" "$APK" "$OUT"
 
 # ١) أجزاء التحميل — كوميتٌ جذرٌ واحدٌ على الفرع المستقل
+# الهوية صريحةٌ هنا — checkout@v4 لا يضبط هويةَ الكاتب فcommit-tree
+# يموت بـ «empty ident name» (درس run 183)
 GIT_DIR_ABS="$(git rev-parse --absolute-git-dir)"
 cd "$OUT"
 export GIT_DIR="$GIT_DIR_ABS" GIT_WORK_TREE="$OUT" GIT_INDEX_FILE="$OUT.index"
 git read-tree --empty
 git update-index --add parts/*
 TREE="$(git write-tree)"
-COMMIT="$(git commit-tree "$TREE" -m "أصول تنزيل الموقع — أجزاء APK v${VER} للتحميل المباشر بلا بوابة جت هب")"
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+COMMIT="$(git -c user.name="noor-bot" -c user.email="actions@users.noreply.github.com" \
+  commit-tree "$TREE" -m "أصول تنزيل الموقع — أجزاء APK v${VER} للتحميل المباشر بلا بوابة جت هب")"
+# الدفع وما زال GIT_DIR حياً — الدفع من المجلد المؤقت بلا GIT_DIR موتٌ مؤكد
 git push origin "${COMMIT}:refs/heads/${BRANCH}" --force
 echo "نُشرت الأجزاء على ${BRANCH} (${COMMIT})"
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+cd "$GIT_DIR_ABS/.."
 
 [ "$MODE" = "parts-only" ] && exit 0
 
