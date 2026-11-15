@@ -3,103 +3,211 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#070D0B" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F7F5EE" media="(prefers-color-scheme: light)">
 <title>نور المسلم — مؤذن ومصحف وأذكار ومسبحة</title>
-<meta name="description" content="نور المسلم: مواقيت صلاة دقيقة، مسبحة، أذكار، مكتبة أحاديث بالبحث الأوفلاين، وبوصلة قبلة — تطبيق أصلي بلغة كوتلن. حمّل أحدث إصدار APK.">
+<meta name="description" content="نور المسلم: مواقيت صلاة دقيقة، مسبحة، أذكار، مكتبة أحاديث بالبحث الأوفلاين، وبوصلة قبلة — تطبيق أصلي بلغة كوتلن. حمّل أحدث إصدار APK من الموقع مباشرةً.">
 <meta property="og:title" content="نور المسلم — مؤذن ومصحف وأذكار ومسبحة">
 <meta property="og:description" content="مواقيت دقيقة، أذكار، أحاديث بالبحث الأوفلاين، مسبحة وقبلة — نهار وليل بلمسة واحدة.">
 <meta property="og:image" content="icon.png">
 <link rel="icon" type="image/png" href="icon.png">
+<script>
+/* المظهر قبل الرسم — بلا وميض: التخزين أولاً ثم تفضيل النظام */
+(function(){try{var t=localStorage.getItem('noor-theme');
+if(t!=='dark'&&t!=='light'){t=(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}
+document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+</script>
 <style>
-/* ===== الخطوط ===== */
+/* ============================================================
+   نور المسلم — موقع الإصدارات — تصميم ٢٠٢٦ المعاد بناؤه كلياً
+   نهاري/ليلي تلقائياً من المتصفح + مبدّلٌ يدويٌّ محفوظ
+   ============================================================ */
 @font-face { font-family:'Cairo'; src:url('fonts/Cairo.woff2') format('woff2'); font-weight:200 1000; font-display:swap; }
 @font-face { font-family:'Noto Naskh Arabic'; src:url('fonts/NotoNaskhArabic.woff2') format('woff2'); font-weight:400 700; font-display:swap; }
 
-/* ===== الأساس — تصميم بسيط هادئ بلون التطبيق ===== */
-:root {
-  --night:#0C1512; --night2:#121E1A; --night3:#18251F; --night-line:#24332C;
-  --cream:#F6F2E9; --cream2:#FDFBF5; --ink:#17251F; --ink2:#4A564F;
-  --emerald:#2E6B5E; --emerald-l:#82C9B0; --emerald-c:#BFE5D8;
-  --gold:#B8943F; --gold-l:#E2C67F; --gold-bg:#F1E2B9;
-  --mist:#B9CEC4; --mist2:#8FA39A;
-  --hero1:#1B3A32; --hero2:#0B1A16;
+/* ===== الرموز — الليل الافتراضي والنهار بتبديلٍ أو تلقائٍ ===== */
+:root{
+  --bg:#070D0B; --bg2:#0A1210; --card:#0D1714; --card2:#12201A;
+  --line:rgba(196,226,212,.10); --line2:rgba(196,226,212,.20);
+  --tx:#EAF0EB; --tx2:#A9BDAF; --tx3:#7E9188;
+  --em:#3FBF9A; --em2:#8EDCC0; --emdim:rgba(63,191,154,.13);
+  --gold:#E2C67F; --gold2:#F1DFA9; --goldg:linear-gradient(135deg,#F2D98F,#C9A24B);
+  --glow:rgba(201,162,75,.32);
+  --glass:rgba(9,16,13,.72);
+  --shadow:0 22px 55px rgba(0,0,0,.45);
+  --aur1:rgba(63,191,154,.16); --aur2:rgba(226,198,127,.12); --aur3:rgba(63,191,154,.09);
+  --err:#E8A18F; --errline:rgba(232,161,143,.35); --errbg:rgba(232,161,143,.07);
 }
+:root[data-theme="light"]{
+  --bg:#F7F5EE; --bg2:#EFEEE5; --card:#FFFFFF; --card2:#F7F6EF;
+  --line:rgba(23,42,34,.10); --line2:rgba(23,42,34,.22);
+  --tx:#152119; --tx2:#48594F; --tx3:#6E7F75;
+  --em:#128267; --em2:#0E6B54; --emdim:rgba(18,130,103,.10);
+  --gold:#A8842F; --gold2:#8A6C26; --goldg:linear-gradient(135deg,#DDBA62,#A8842F);
+  --glow:rgba(168,132,47,.30);
+  --glass:rgba(252,251,246,.82);
+  --shadow:0 18px 44px rgba(23,42,34,.12);
+  --aur1:rgba(18,130,103,.10); --aur2:rgba(168,132,47,.12); --aur3:rgba(18,130,103,.08);
+  --err:#B4543C; --errline:rgba(180,84,60,.35); --errbg:rgba(180,84,60,.06);
+}
+
 * { margin:0; padding:0; box-sizing:border-box; }
 html { scroll-behavior:smooth; }
-body { background:var(--night); color:#E4EAE5; font-family:'Cairo','Noto Naskh Arabic',sans-serif;
-  -webkit-font-smoothing:antialiased; }
+body { background:var(--bg); color:var(--tx); font-family:'Cairo','Noto Naskh Arabic',sans-serif;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden; transition:background .35s ease,color .35s ease; }
 .naskh { font-family:'Noto Naskh Arabic',serif; }
 a { color:inherit; text-decoration:none; }
-.wrap { width:min(920px, 92%); margin-inline:auto; }
+img { display:block; }
+.wrap { width:min(960px,92%); margin-inline:auto; }
+::selection { background:rgba(226,198,127,.35); }
 
-/* ===== الهيدر ===== */
-header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
-  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--night-line); }
-.nav { display:flex; align-items:center; gap:12px; height:60px; }
-.brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:18px; }
-.brand img { width:34px; height:34px; border-radius:10px; }
-.brand b { color:var(--gold-l); }
-.nav-side { margin-inline-start:auto; display:flex; align-items:center; gap:10px; }
-.ver-chip { font-size:12px; font-weight:700; color:var(--emerald-l); background:rgba(130,201,176,.1);
-  border:1px solid rgba(130,201,176,.25); padding:3px 10px; border-radius:50px; white-space:nowrap; }
-.btn { display:inline-flex; align-items:center; gap:8px; background:linear-gradient(180deg,#DCBA69,#B8943F);
-  color:#221904; font-weight:800; border-radius:50px; transition:.2s; }
-.btn:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(184,148,63,.4); }
-.btn-sm { font-size:13.5px; padding:7px 16px; }
-.btn-big { font-size:17px; padding:15px 34px; box-shadow:0 10px 30px rgba(184,148,63,.35), inset 0 1px 0 rgba(255,255,255,.5); }
-.btn-big:hover { box-shadow:0 14px 40px rgba(184,148,63,.5), inset 0 1px 0 rgba(255,255,255,.5); }
-.btn svg { width:17px; height:17px; }
-@media (max-width:520px) { .ver-chip { display:none; } }
+/* ===== الظلال القطبية — أضواءٌ ناعمةٌ بلا مرشحاتٍ ثقيلة ===== */
+.aurora { position:absolute; border-radius:50%; pointer-events:none; z-index:0; }
+.hero { position:relative; }
+.hero .a1 { width:640px; height:640px; top:-260px; inset-inline-start:-180px;
+  background:radial-gradient(closest-side, var(--aur1), transparent 72%); }
+.hero .a2 { width:560px; height:560px; top:-160px; inset-inline-end:-160px;
+  background:radial-gradient(closest-side, var(--aur2), transparent 72%); }
+#dl .a1 { width:520px; height:520px; top:-180px; inset-inline-end:-140px;
+  background:radial-gradient(closest-side, var(--aur3), transparent 72%); }
 
-/* ===== الهيرو — نص فقط، والشاشات في مكانها الواحد تحت ===== */
-.hero { text-align:center; padding:64px 0 52px; }
-.hero .verse { display:inline-block; font-size:17px; color:var(--emerald-l); font-weight:700;
-  border:1px solid rgba(130,201,176,.22); background:rgba(130,201,176,.06); padding:7px 18px; border-radius:50px; }
-.hero h1 { font-size:clamp(38px, 7vw, 60px); font-weight:900; line-height:1.2; margin:20px 0 8px; color:#F2EDE0; }
-.hero h1 b { color:var(--gold-l); }
-.hero p.lead { max-width:56ch; margin:0 auto; font-size:15.5px; line-height:2; color:var(--mist); }
-.hero .cta { margin-top:26px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
-.hero .meta { margin-top:16px; font-size:12.5px; color:var(--mist2); font-weight:600; }
-.dl-note { margin-top:14px; font-size:12px; line-height:2; color:var(--mist2); max-width:600px; margin-inline:auto; }
-.dl-note a { color:var(--emerald-l); border-bottom:1px dashed rgba(130,201,176,.4); }
-.dl-note a:hover { color:var(--gold-l); }
+/* ===== الهيدر الزجاجي ===== */
+.nav-shell { position:sticky; top:0; z-index:50; background:var(--glass);
+  backdrop-filter:blur(16px) saturate(1.4); -webkit-backdrop-filter:blur(16px) saturate(1.4);
+  border-bottom:1px solid var(--line); }
+.nav { display:flex; align-items:center; gap:14px; height:62px; }
+.brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:18px; z-index:2; }
+.brand img { width:34px; height:34px; border-radius:10px; box-shadow:0 4px 14px var(--glow); }
+.brand b { color:var(--gold); }
+.links { display:flex; gap:22px; margin-inline-start:14px; font-size:14px; font-weight:700; color:var(--tx2); }
+.links a { transition:.2s; padding:4px 2px; }
+.links a:hover { color:var(--gold2); }
+.nav-side { margin-inline-start:auto; display:flex; align-items:center; gap:10px; z-index:2; }
+.icon-btn { width:40px; height:40px; border-radius:13px; border:1px solid var(--line2);
+  background:var(--card); color:var(--gold); display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:.2s; }
+.icon-btn:hover { border-color:var(--gold); transform:translateY(-1px); }
+.icon-btn svg { width:19px; height:19px; }
+@media (max-width:760px){ .links { display:none; } }
 
-/* ===== المميزات — أسماء أيقونات التطبيق نفسها ===== */
-#feat { padding:34px 0 58px; }
-.feat-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; }
-.feat { background:var(--night2); border:1px solid var(--night-line); border-radius:18px;
-  padding:18px 8px 14px; text-align:center; transition:.2s; }
-.feat:hover { border-color:rgba(226,198,127,.4); transform:translateY(-3px); }
-.feat .ico { width:46px; height:46px; margin:0 auto 10px; border-radius:14px; display:flex;
+/* ===== الأزرار ===== */
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:9px;
+  font-family:inherit; font-weight:800; border-radius:999px; transition:.22s; cursor:pointer;
+  border:none; }
+.btn svg { width:18px; height:18px; flex:0 0 auto; }
+.btn-primary { background:var(--goldg); color:#221A05;
+  box-shadow:0 12px 34px var(--glow), inset 0 1px 0 rgba(255,255,255,.55); }
+.btn-primary:hover { transform:translateY(-2px);
+  box-shadow:0 18px 44px var(--glow), inset 0 1px 0 rgba(255,255,255,.55); }
+.btn-primary:active { transform:translateY(0); }
+.btn-ghost { border:1.5px solid var(--line2); color:var(--tx); background:transparent; }
+.btn-ghost:hover { border-color:var(--gold); color:var(--gold2); transform:translateY(-2px); }
+.btn-sm { font-size:13.5px; padding:9px 18px; }
+.btn-md { font-size:15px; padding:12px 24px; }
+.btn-big { font-size:17px; padding:16px 36px; }
+
+/* ===== الهيرو ===== */
+.hero { text-align:center; padding:84px 0 64px; overflow:hidden; }
+.hero-in { position:relative; z-index:1; }
+.verse { display:inline-block; font-size:17px; color:var(--em2); font-weight:700; font-family:'Noto Naskh Arabic',serif;
+  border:1px solid var(--line2); background:var(--emdim); padding:8px 20px; border-radius:999px; }
+.hero h1 { font-size:clamp(40px,8vw,66px); font-weight:900; line-height:1.25; margin:22px 0 10px; color:var(--tx); }
+.hero h1 b { background:var(--goldg); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.hero .lead { max-width:58ch; margin:0 auto; font-size:16px; line-height:2.1; color:var(--tx2); font-weight:500; }
+.hero .cta { margin-top:30px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+.chips { margin-top:24px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+.chip { font-size:12.5px; font-weight:700; color:var(--tx2); border:1px solid var(--line);
+  background:var(--card); padding:6px 14px; border-radius:999px; }
+.chip b { color:var(--gold); }
+.dl-note { margin:18px auto 0; max-width:620px; font-size:12.5px; line-height:2.1; color:var(--tx3); }
+.dl-note a { color:var(--em2); border-bottom:1px dashed rgba(63,191,154,.45); }
+.dl-note a:hover { color:var(--gold2); }
+
+/* ===== الأقسام ===== */
+.sec { padding:72px 0; position:relative; }
+.sec-alt { background:var(--bg2); border-block:1px solid var(--line); }
+.sec-head { text-align:center; margin-bottom:38px; }
+.eyebrow { display:inline-block; font-size:12.5px; font-weight:800; color:var(--em2);
+  background:var(--emdim); border:1px solid var(--line); padding:5px 16px; border-radius:999px; margin-bottom:14px; }
+.sec-head h2 { font-size:clamp(25px,4.4vw,36px); font-weight:900; color:var(--tx); line-height:1.4; }
+.sec-head p { margin-top:10px; font-size:14.5px; color:var(--tx2); max-width:60ch; margin-inline:auto; line-height:2; }
+
+/* ===== المميزات ===== */
+.feat-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:14px; }
+.feat { background:var(--card); border:1px solid var(--line); border-radius:20px;
+  padding:20px 8px 16px; text-align:center; transition:.25s; }
+.feat:hover { border-color:rgba(226,198,127,.45); transform:translateY(-4px); box-shadow:var(--shadow); }
+.feat .ico { width:50px; height:50px; margin:0 auto 12px; border-radius:16px; display:flex;
   align-items:center; justify-content:center;
-  background:linear-gradient(160deg, rgba(130,201,176,.16), rgba(184,148,63,.13));
-  border:1px solid rgba(130,201,176,.22); }
-.feat .ico svg { width:24px; height:24px; color:var(--gold-l); }
-.feat span { font-size:13.5px; font-weight:800; color:#EDE7D8; }
+  background:linear-gradient(160deg, var(--emdim), rgba(226,198,127,.12));
+  border:1px solid var(--line); }
+.feat .ico svg { width:25px; height:25px; color:var(--gold); }
+.feat span { font-size:13.5px; font-weight:800; color:var(--tx); }
 @media (max-width:760px) { .feat-grid { grid-template-columns:repeat(3,1fr); } }
 @media (max-width:420px) { .feat-grid { grid-template-columns:repeat(2,1fr); } }
 
-/* ===== الشاشات — مكان واحد: هاتف بأسحب يمين وشمال ===== */
-#screens { padding:56px 0 66px; background:linear-gradient(180deg, #0E1915, var(--night)); border-block:1px solid var(--night-line); }
-.sec-head { text-align:center; margin-bottom:30px; }
-.sec-head h2 { font-size:clamp(24px,4vw,32px); font-weight:900; color:#F2EDE0; }
-.sec-head p { margin-top:8px; font-size:14px; color:var(--mist2); }
+/* ===== الشاشات ===== */
 .viewer { position:relative; }
-.rail { display:flex; gap:22px; overflow-x:auto; scroll-snap-type:x mandatory; padding:10px 4% 24px;
+.rail { display:flex; gap:26px; overflow-x:auto; scroll-snap-type:x mandatory; padding:14px 4% 26px;
   scrollbar-width:none; cursor:grab; }
 .rail::-webkit-scrollbar { display:none; }
 .rail.dragging { cursor:grabbing; scroll-snap-type:none; }
 .slide { flex:0 0 auto; scroll-snap-align:center; text-align:center; }
-.slide figcaption { margin-top:12px; font-weight:800; font-size:14.5px; color:#EDE7D8; }
-.slide .cap-sub { font-size:11.5px; color:var(--mist2); font-weight:600; margin-top:1px; }
-.arrows { display:flex; justify-content:center; gap:12px; margin-top:2px; }
-.arrows button { width:44px; height:44px; border-radius:50%; border:1.5px solid rgba(130,201,176,.3);
-  background:var(--night2); color:var(--emerald-l); font-size:20px; cursor:pointer; transition:.2s; }
-.arrows button:hover { background:var(--emerald); color:#fff; }
-.dots { display:flex; justify-content:center; gap:7px; margin-top:14px; }
-.dots i { width:7px; height:7px; border-radius:50%; background:var(--night-line); transition:.2s; }
-.dots i.on { background:var(--gold-l); width:20px; border-radius:50px; }
+.slide figcaption { margin-top:14px; font-weight:800; font-size:15px; color:var(--tx); }
+.slide .cap-sub { font-size:12px; color:var(--tx3); font-weight:600; margin-top:2px; }
+.arrows { display:flex; justify-content:center; gap:12px; margin-top:6px; }
+.arrows button { width:46px; height:46px; border-radius:50%; border:1.5px solid var(--line2);
+  background:var(--card); color:var(--em2); font-size:20px; cursor:pointer; transition:.2s; font-family:inherit; }
+.arrows button:hover { background:var(--em); color:#fff; border-color:var(--em); }
+.dots { display:flex; justify-content:center; gap:8px; margin-top:16px; }
+.dots i { width:8px; height:8px; border-radius:999px; background:var(--line2); transition:.25s; cursor:pointer; }
+.dots i.on { background:var(--gold); width:24px; }
 
-/* ===== إطار الهاتف ===== */
+/* ===== ظهورٍ ناعم عند التمرير ===== */
+.reveal { opacity:0; transform:translateY(18px); transition:opacity .7s cubic-bezier(.2,.7,.3,1), transform .7s cubic-bezier(.2,.7,.3,1); }
+.reveal.in { opacity:1; transform:none; }
+@media (prefers-reduced-motion: reduce){
+  .reveal { opacity:1; transform:none; transition:none; }
+  html { scroll-behavior:auto; }
+}
+
+/* ===== بطاقة التحميل ===== */
+#dl { padding:76px 0 56px; }
+.dl-card { position:relative; overflow:hidden; background:var(--card); border:1px solid var(--line2);
+  border-radius:28px; padding:46px 26px 36px; text-align:center; box-shadow:var(--shadow); }
+.dl-card > * { position:relative; z-index:1; }
+.dl-card h2 { font-size:clamp(24px,3.6vw,32px); font-weight:900; color:var(--tx); margin-top:2px; }
+.dl-card .sub { color:var(--tx2); margin-top:10px; font-size:14.5px; line-height:2; max-width:56ch; margin-inline:auto; }
+.dl-card .cta { margin-top:26px; }
+.dl-progress { display:none; max-width:460px; margin:24px auto 0; }
+.dl-progress.on { display:block; }
+.bar { height:9px; border-radius:999px; background:var(--card2); border:1px solid var(--line); overflow:hidden; }
+.bar i { display:block; height:100%; width:0%; border-radius:999px;
+  background:linear-gradient(90deg, var(--em), var(--gold)); transition:width .3s ease; }
+.dl-status { margin-top:12px; font-size:13.5px; font-weight:700; color:var(--tx2); line-height:1.9; }
+.dl-status b { color:var(--em2); }
+.dl-panel { display:none; max-width:560px; margin:20px auto 0; text-align:start;
+  background:var(--errbg); border:1px solid var(--errline); border-radius:18px; padding:18px 20px;
+  font-size:13px; line-height:2.1; color:var(--tx2); }
+.dl-panel.on { display:block; }
+.dl-panel b { color:var(--err); }
+.dl-panel .row { display:flex; gap:12px; margin-top:14px; flex-wrap:wrap; }
+.dl-panel .tip { margin-top:12px; font-size:12px; color:var(--tx3); }
+.dl-meta { display:flex; flex-wrap:wrap; justify-content:center; gap:6px 22px; margin-top:22px;
+  font-size:13px; font-weight:700; color:var(--tx3); }
+.dl-meta b { color:var(--gold); }
+.dl-links { margin-top:20px; display:flex; justify-content:center; gap:22px; flex-wrap:wrap; font-size:13px; font-weight:700; }
+.dl-links a { color:var(--em2); border-bottom:1px dashed rgba(63,191,154,.4); padding-bottom:2px; transition:.2s; }
+.dl-links a:hover { color:var(--gold2); }
+
+/* ===== الختام ===== */
+.end-bar { background:var(--bg2); border-top:1px solid var(--line); padding:26px 16px 30px;
+  text-align:center; font-family:'Noto Naskh Arabic',serif; font-size:15px; color:var(--tx2); }
+.end-bar b { color:var(--gold); font-weight:700; }
+
+/* ===== عناصر شاشة الهاتف المرسومة — تُورَّث من التصميم السابق ===== */
+
 .phone { width:252px; margin:0 auto; border-radius:38px; border:8px solid #1B241F; background:#000;
   box-shadow:0 24px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(226,198,127,.15); overflow:hidden; position:relative; }
 .p-screen { position:relative; width:236px; height:512px; overflow:hidden; font-family:'Cairo','Noto Naskh Arabic',sans-serif; }
@@ -259,76 +367,78 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
 .s-night .p-dev { color:#CFE8DD; background:linear-gradient(160deg,#2E5D52,#173A31); border-color:#3E7A6B; }
 .p-ver { text-align:center; font-size:7.5px; color:var(--sc); font-weight:700; margin-top:4px; }
 
-/* ===== التحميل ===== */
-#dl { padding:56px 0 40px; }
-.dl-card { background:var(--night2); border:1px solid rgba(226,198,127,.22); border-radius:26px;
-  padding:42px 26px 34px; text-align:center; }
-.dl-card h2 { font-size:clamp(22px,3.4vw,30px); font-weight:900; color:#F2EDE0; }
-.dl-card .sub { color:var(--mist2); margin-top:8px; font-size:14px; }
-.dl-card .cta { margin-top:22px; }
-.dl-meta { display:flex; flex-wrap:wrap; justify-content:center; gap:6px 18px; margin-top:16px;
-  font-size:12.5px; font-weight:700; color:var(--mist2); }
-.dl-meta b { color:var(--gold-l); }
-.alpha-note { margin:22px auto 0; max-width:560px; font-size:12.5px; color:var(--mist2); line-height:1.9;
-  background:rgba(184,148,63,.07); border:1px dashed rgba(226,198,127,.3); border-radius:14px; padding:12px 16px; }
-.alpha-note b { color:var(--gold-l); }
-.dl-links { margin-top:18px; display:flex; justify-content:center; gap:20px; font-size:13px; font-weight:700; }
-.dl-links a { color:var(--emerald-l); border-bottom:1px dashed rgba(130,201,176,.4); padding-bottom:2px; }
-.dl-links a:hover { color:var(--gold-l); }
-
-/* ===== الختام ===== */
-.end-bar { background:#080F0C; border-top:1px solid rgba(226,198,127,.12); padding:22px 16px 26px;
-  text-align:center; font-family:'Noto Naskh Arabic',serif; font-size:14.5px; color:rgba(185,206,196,.8); }
-.end-bar b { color:var(--gold-l); font-weight:700; }
 </style>
 </head>
-<body>
+<body id="top">
 
 <!-- ================= الهيدر ================= -->
-<header>
+<header class="nav-shell">
   <div class="wrap nav">
-    <a class="brand" href="#"><img src="icon.png" alt="أيقونة نور المسلم"><span>نور <b>المسلم</b></span></a>
+    <a class="brand" href="#top"><img src="icon.png" alt="أيقونة نور المسلم"><span>نور <b>المسلم</b></span></a>
+    <nav class="links">
+      <a href="#feat">المميزات</a>
+      <a href="#screens">الشاشات</a>
+      <a href="#dl">التحميل</a>
+    </nav>
     <div class="nav-side">
-      <span class="ver-chip js-ver">v1.77</span>
-      <a class="btn btn-sm js-dl" href="https://github.com/Sawan4Art/noor/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg>تحميل APK</a>
+      <button id="themeBtn" class="icon-btn" type="button" aria-label="تبديل المظهر بين النهار والليل" title="تبديل المظهر"></button>
+      <a class="btn btn-primary btn-sm js-dl" href="https://github.com/Sawan4Art/noor/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg>تحميل</a>
     </div>
   </div>
 </header>
 
 <!-- ================= الهيرو ================= -->
-<section class="hero wrap">
-  <span class="verse naskh">﴿فَاذْكُرُونِي أَذْكُرْكُمْ﴾ — البقرة ١٥٢</span>
-  <h1>نور <b>المسلم</b></h1>
-  <p class="lead">مؤذن بمواقيت دقيقة، وأذكار من السنة الصحيحة، ومكتبة أحاديث بالبحث الأوفلاين، ومسبحة، وبوصلة قبلة — تطبيق أصلي بلغة كوتلن، نهارٌ وليل بلمسة واحدة.</p>
-  <div class="cta">
-    <a class="btn btn-big js-dl" href="https://github.com/Sawan4Art/noor/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg>حمّل أحدث إصدار — APK</a>
+<section class="hero">
+  <div class="aurora a1"></div>
+  <div class="aurora a2"></div>
+  <div class="wrap hero-in">
+    <span class="verse reveal">﴿فَاذْكُرُونِي أَذْكُرْكُمْ﴾ — البقرة ١٥٢</span>
+    <h1 class="reveal">نور <b>المسلم</b></h1>
+    <p class="lead reveal">مؤذن بمواقيت دقيقة، وأذكار من السنة الصحيحة، ومكتبة أحاديث بالبحث الأوفلاين، ومسبحة، وبوصلة قبلة — تطبيق أصلي بلغة كوتلن، نهارٌ وليل بلمسة واحدة.</p>
+    <div class="cta reveal">
+      <a class="btn btn-primary btn-big js-dl" href="https://github.com/Sawan4Art/noor/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg>تحميل أحدث إصدار — APK</a>
+      <a class="btn btn-ghost btn-big" href="#screens">شاهد التطبيق</a>
+    </div>
+    <div class="chips reveal">
+      <span class="chip">✦ مجاني بلا إعلانات</span>
+      <span class="chip">✦ يعمل أوفلاين</span>
+      <span class="chip">✦ أندرويد ٧ وأحدث</span>
+      <span class="chip">✦ الإصدار <b class="js-ver">v1.78</b></span>
+    </div>
+    <p class="dl-note reveal">التنزيل من الموقع مباشرةً — أجزاءٌ تُجمع في متصفحك وتُفحَص بالبصمة قبل الحفظ، بلا أي صفحةٍ وسيطة. لو فُتحت لك صفحة «التحقق بخطوتين» من جت هب فأنت مسجَّلٌ دخولًا بحسابٍ في المتصفح — حمّل من الأزرار هنا أو سجِّل الخروج من جت هب — <a class="js-gh" href="https://github.com/Sawan4Art/noor/releases/latest" target="_blank" rel="noopener">بديل: التحميل عبر جت هب</a></p>
   </div>
-  <div class="meta">مجاني بلا إعلانات · يعمل أوفلاين · أندرويد ٧ وأحدث</div>
-  <p class="dl-note">التنزيل من الموقع مباشرةً بلا صفحاتٍ وسيطة — وإن ظهرت لك صفحة «التحقق بخطوتين» من جت هب فأنت مسجَّلٌ دخولًا بحسابٍ في المتصفح: حمّل من الأزرار هنا فيجي الملف من الموقع نفسه، أو سجِّل الخروج من جت هب ثم حمّل — <a class="js-gh" href="https://github.com/Sawan4Art/noor/releases/latest" target="_blank" rel="noopener">بديل: التحميل عبر جت هب</a></p>
 </section>
 
-<!-- ================= المميزات — أيقونات التطبيق نفسها ================= -->
-<section id="feat">
+<!-- ================= المميزات ================= -->
+<section id="feat" class="sec">
   <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">لماذا نور المسلم؟</span>
+      <h2>كل ما يحتاجه مسلمٌ يومه في مكانٍ واحد</h2>
+      <p>مؤذن بمواقيت دقيقة، أذكار من السنة الصحيحة، مكتبة أحاديث بالبحث الأوفلاين، مسبحة، وبوصلة قبلة — بلا إعلاناتٍ وبلا تعقيد.</p>
+    </div>
     <div class="feat-grid">
-      <div class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></span><span>المواقيت</span></div>
-      <div class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></span><span>المسبحة</span></div>
-      <div class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></span><span>الأذكار</span></div>
-      <div class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></span><span>القبلة</span></div>
-      <div class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></span><span>الأحاديث</span></div>
-      <div class="feat"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></span><span>الإعدادات</span></div>
+      <div class="feat reveal"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></span><span>المواقيت</span></div>
+      <div class="feat reveal"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></span><span>المسبحة</span></div>
+      <div class="feat reveal"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></span><span>الأذكار</span></div>
+      <div class="feat reveal"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></span><span>القبلة</span></div>
+      <div class="feat reveal"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></span><span>الأحاديث</span></div>
+      <div class="feat reveal"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></span><span>الإعدادات</span></div>
     </div>
   </div>
 </section>
 
-<!-- ================= الشاشات — مكان واحد وإطار هاتف وسحب ================= -->
-<section id="screens">
-  <div class="sec-head wrap">
-    <h2>شاشات التطبيق</h2>
-    <p>اسحب يمين أو شمال داخل الهاتف — أو استخدم الأسهم — لعرض باقي الشاشات</p>
-  </div>
-  <div class="viewer wrap">
-    <div class="rail" id="rail"><figure class="slide"><div class="phone"><div class="p-screen s-day">
+<!-- ================= الشاشات ================= -->
+<section id="screens" class="sec sec-alt">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">جولة داخل التطبيق</span>
+      <h2>شاشات التطبيق</h2>
+      <p>اسحب يميناً أو شمالاً داخل الهاتف — أو استخدم الأسهم — لعرض باقي الشاشات</p>
+    </div>
+    <div class="viewer reveal">
+    <div class="rail" id="rail">
+<figure class="slide"><div class="phone"><div class="p-screen s-day">
   <div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div>
   <div class="p-dial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7"/></svg></div>
   <div class="p-hero">
@@ -352,7 +462,8 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
     <div class="c"><b>العشاء</b><span>٦:٢٧ م</span></div>
   </div>
   <div class="p-sadaqah">هذا العمل صدقة جارية لي و لأبي و أمي نسألكم صالح الدعاء</div>
-<div class="p-nav"><i class="on" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div></div></div><figcaption>المواقيت — نهاريًا</figcaption><div class="cap-sub">الصلاة القادمة والعدّاد والحلقة الذهبية</div></figure><figure class="slide"><div class="phone"><div class="p-screen s-night">
+<div class="p-nav"><i class="on" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div></div></div><figcaption>المواقيت — نهاريًا</figcaption><div class="cap-sub">الصلاة القادمة والعدّاد والحلقة الذهبية</div></figure>
+<figure class="slide"><div class="phone"><div class="p-screen s-night">
   <div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div>
   <div class="p-dial"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.2 14.2A8.6 8.6 0 1 1 9.8 3.8a7.1 7.1 0 1 0 10.4 10.4z"/></svg></div>
   <div class="p-hero">
@@ -376,7 +487,8 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
     <div class="c"><b>العشاء</b><span>٦:٢٧ م</span></div>
   </div>
   <div class="p-sadaqah">هذا العمل صدقة جارية لي و لأبي و أمي نسألكم صالح الدعاء</div>
-<div class="p-nav"><i class="on" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div></div></div><figcaption>المواقيت — ليليًا</figcaption><div class="cap-sub">الوضع الليلي بلمسة واحدة</div></figure><figure class="slide"><div class="phone">
+<div class="p-nav"><i class="on" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div></div></div><figcaption>المواقيت — ليليًا</figcaption><div class="cap-sub">الوضع الليلي بلمسة واحدة</div></figure>
+<figure class="slide"><div class="phone">
 <div class="p-screen s-day">
   <div style="text-align:center"><div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div></div><div style="text-align:center"><span class="p-title">الأذكار</span></div><div class="p-sub" style="text-align:center">ثلاثون قسماً — لكل قسمٍ صفحته وأذكاره الخاصة</div>
   <div class="p-bigcard"><b>الصلاة على النبي</b><span>ذكرٌ مستقل — عدّك يُحفظ تلقائياً</span></div>
@@ -390,7 +502,8 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
   </div>
   <div class="p-nav"><i class="" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="on" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div>
 </div>
-</div><figcaption>الأذكار</figcaption><div class="cap-sub">ثلاثون قسماً بأذكاره الصحيحة</div></figure><figure class="slide"><div class="phone">
+</div><figcaption>الأذكار</figcaption><div class="cap-sub">ثلاثون قسماً بأذكاره الصحيحة</div></figure>
+<figure class="slide"><div class="phone">
 <div class="p-screen s-day">
   <div style="text-align:center"><div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div></div><div style="text-align:center"><span class="p-title">الأحاديث</span></div><div class="p-sub" style="text-align:center">عشرة كتب من السنة الشريفة أوفلاين</div>
   <div class="p-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.4"/><path d="M20 20l-4.2-4.2"/></svg><span>ابحث برقم الحديث أو بكلمة من نصّه…</span></div>
@@ -408,7 +521,8 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
   </div>
   <div class="p-nav"><i class="" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="on" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div>
 </div>
-</div><figcaption>مكتبة الأحاديث</figcaption><div class="cap-sub">بحث أوفلاين برقم الحديث أو بكلمة من نصّه</div></figure><figure class="slide"><div class="phone">
+</div><figcaption>مكتبة الأحاديث</figcaption><div class="cap-sub">بحث أوفلاين برقم الحديث أو بكلمة من نصّه</div></figure>
+<figure class="slide"><div class="phone">
 <div class="p-screen s-day">
   <div style="text-align:center"><div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div></div><div style="text-align:center"><span class="p-title">المسبحة</span></div><div class="p-sub" style="text-align:center">تسبيح ما بعد الصلاة — ٩٩ وتكميلة المائة</div>
   <div class="p-dot"><b>٣٣</b><span>سبحان الله</span></div>
@@ -416,7 +530,8 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
   <div class="p-tap">اضغط على النقطة للتسبيح — ينتقل الذكر تلقائياً عند تمام ٣٣</div>
   <div class="p-nav"><i class="" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="on" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div>
 </div>
-</div><figcaption>المسبحة</figcaption><div class="cap-sub">تسبيح ما بعد الصلاة بالترتيب السني</div></figure><figure class="slide"><div class="phone">
+</div><figcaption>المسبحة</figcaption><div class="cap-sub">تسبيح ما بعد الصلاة بالترتيب السني</div></figure>
+<figure class="slide"><div class="phone">
 <div class="p-screen s-day">
   <div style="text-align:center"><div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div></div><div style="text-align:center"><span class="p-title">بوصلة القبلة</span></div><div class="p-sub" style="text-align:center">وجه جهازك حتى يستقيم السهم لأعلى</div>
   <span class="p-status-chip">أنت على القبلة ✓</span>
@@ -427,7 +542,8 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
   </div>
   <div class="p-nav"><i class="" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="on" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div>
 </div>
-</div><figcaption>بوصلة القبلة</figcaption><div class="cap-sub">السهم يستقيم فتتناثر النقاط</div></figure><figure class="slide"><div class="phone">
+</div><figcaption>بوصلة القبلة</figcaption><div class="cap-sub">السهم يستقيم فتتناثر النقاط</div></figure>
+<figure class="slide"><div class="phone">
 <div class="p-screen s-day">
   <div style="text-align:center"><div class="p-status"><span>٤:٢٩</span><span class="sys">▲ ▂ ▮</span></div></div><div style="text-align:center"><span class="p-title">الإعدادات</span></div>
   <div style="height:6px"></div>
@@ -439,30 +555,40 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
   <div class="p-ver">الإصدار 1.77</div>
   <div class="p-nav"><i class="" title="المواقيت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2"/></svg></i><i class="" title="المسبحة"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4.6" r="1.7"/><circle cx="17" cy="6.4" r="1.7"/><circle cx="19.4" cy="11.2" r="1.7"/><circle cx="17.6" cy="16.4" r="1.7"/><circle cx="13.2" cy="19.4" r="1.7"/><circle cx="8" cy="18.6" r="1.7"/><circle cx="4.9" cy="14.2" r="1.7"/><circle cx="5.6" cy="9" r="1.7"/><circle cx="9.2" cy="5.4" r="1.7"/></svg></i><i class="" title="الأذكار"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c1 4.9 4.1 8 9.4 9.4-5.3 1.4-8.4 4.5-9.4 9.4-1-4.9-4.1-8-9.4-9.4C7.9 10.6 11 7.5 12 2.6z"/></svg></i><i class="" title="القبلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="8.4"/><path d="M12 6.6l1.7 5.4-1.7 5.4-1.7-5.4z" fill="currentColor" stroke="none"/></svg></i><i class="" title="الأحاديث"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="14.6" width="16" height="4.2" rx="1.6"/><rect x="5.6" y="9.9" width="12.8" height="4.2" rx="1.6"/><rect x="7.2" y="5.2" width="9.6" height="4.2" rx="1.6"/></svg></i><i class="on" title="الإعدادات"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.3 7.3 0 0 0-1.73-1l-.38-2.65A.5.5 0 0 0 13.93 2h-4a.5.5 0 0 0-.5.42L9.06 5.07c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.46 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.6.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65a7.3 7.3 0 0 0 1.73-1l2.49 1c.21.09.47 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13zM11.93 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></i></div>
 </div>
-</div><figcaption>الإعدادات</figcaption><div class="cap-sub">الموقع والحساب والألوان والتحديثات</div></figure></div>
+</div><figcaption>الإعدادات</figcaption><div class="cap-sub">الموقع والحساب والألوان والتحديثات</div></figure>
+    </div>
+    <div class="arrows">
+      <button id="nextBtn" aria-label="التالي">‹</button>
+      <button id="prevBtn" aria-label="السابق">›</button>
+    </div>
+    <div class="dots" id="dots"></div>
+    </div>
   </div>
-  <div class="arrows">
-    <button id="nextBtn" aria-label="التالي">‹</button>
-    <button id="prevBtn" aria-label="السابق">›</button>
-  </div>
-  <div class="dots" id="dots"></div>
 </section>
 
 <!-- ================= التحميل ================= -->
-<section id="dl">
+<section id="dl" class="sec">
+  <div class="aurora a1"></div>
   <div class="wrap">
-    <div class="dl-card">
-      <h2>حمّل نور المسلم</h2>
-      <p class="sub">أحدث نسخة تُنزَّل من الموقع مباشرةً — بلا صفحاتٍ وسيطة ولا حساب</p>
-      <div class="cta"><a class="btn btn-big js-dl" href="https://github.com/Sawan4Art/noor/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg>تحميل — APK</a></div>
+    <div class="dl-card reveal">
+      <span class="eyebrow">تحميل مباشر</span>
+      <h2>احمل نور المسلم الآن</h2>
+      <p class="sub">ملفٌّ واحدٌ موقَّعٌ يتثبَّت فوق كل النسخ السابقة مباشرةً — يُنزَّل من الموقع بلا صفحاتٍ وسيطة، ويُفحَص ببصمة SHA-256 قبل أن يُسلَّم لمتصفحك.</p>
+      <div class="cta">
+        <a class="btn btn-primary btn-big js-dl" href="https://github.com/Sawan4Art/noor/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.1 3.6h1.8V12h-1.8zM6.9 11.2h10.2L12 16.9zM4.2 15.4h1.7v2.9h12.2v-2.9h1.7V20H4.2z"/></svg>تحميل — APK</a>
+      </div>
+      <div class="dl-progress" id="dlProgress">
+        <div class="bar"><i id="barFill"></i></div>
+        <div class="dl-status" id="dlStatus"></div>
+      </div>
+      <div class="dl-panel" id="dlPanel"></div>
       <div class="dl-meta">
-        <span>الإصدار <b class="js-ver">v1.77</b></span>
+        <span>الإصدار <b class="js-ver">v1.78</b></span>
         <span>الحجم <b class="js-size">~١٣١ م.ب</b></span>
         <span>أندرويد <b>٧+</b></span>
       </div>
-      <div class="alpha-note">ملفٌّ واحدٌ موقَّعٌ يتثبَّت فوق كل النسخ السابقة مباشرةً — ولو ظهرت صفحة «التحقق بخطوتين» من جت هب أثناء التحميل فحمّل من الأزرار هنا أو سجِّل الخروج من جت هب.</div>
       <div class="dl-links">
-        <a class="js-gh" href="https://github.com/Sawan4Art/noor/releases/latest" target="_blank" rel="noopener">حمّل مباشرةً عبر جت هب</a>
+        <a class="js-gh" href="https://github.com/Sawan4Art/noor/releases/latest" target="_blank" rel="noopener">تحميل مباشر عبر جت هب</a>
         <a href="https://github.com/Sawan4Art/noor/releases" target="_blank" rel="noopener">كل الإصدارات</a>
         <a href="mailto:yousefsawan940@gmail.com?subject=%D8%B4%D9%83%D8%A7%D9%88%D9%89%20%D9%88%D9%85%D9%82%D8%AA%D8%B1%D8%AD%D8%A7%D8%AA%20%D9%86%D9%88%D8%B1%20%D8%A7%D9%84%D9%85%D8%B3%D9%84%D9%85">شكاوى ومقترحات</a>
       </div>
@@ -474,181 +600,351 @@ header { position:sticky; top:0; z-index:50; background:rgba(12,21,18,.86);
 <div class="end-bar">هذا التطبيق <b>صدقة جارية</b> على روح المرحوم بأذن الله — والد المالك، لا تنسوه من صالح الدعاء</div>
 
 <script>
-// التحميل من الموقع مباشرةً — الأجزاء تُجلب من raw.githubusercontent.com
-// (CDN مجهولٌ لا صفحةَ دخولٍ فيه ولا حظرَ للتحقق بخطوتين) وتُجمَّع في المتصفح
-// ويُتحقَّق منها ببصمة SHA-256 ثم يُنزَّل الملف كاملاً باسمه — وجت هب بديلاً فقط
+/* ====== مبدّل المظهر — نهار/ليل بذاكرةٍ وتلقائيةٍ من النظام ====== */
 (function () {
+  var btn = document.getElementById('themeBtn');
+  var SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7"/></svg>';
+  var MOON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.2 14.2A8.6 8.6 0 1 1 9.8 3.8a7.1 7.1 0 1 0 10.4 10.4z"/></svg>';
+  function cur() { return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+  function paint() {
+    var dark = cur() === 'dark';
+    btn.innerHTML = dark ? SUN : MOON;
+    btn.title = dark ? 'حوّل إلى النهار' : 'حوّل إلى الليل';
+    var bg = dark ? '#070D0B' : '#F7F5EE';
+    var metas = document.querySelectorAll('meta[name="theme-color"]');
+    for (var i = 0; i < metas.length; i++) metas[i].setAttribute('content', bg);
+  }
+  if (btn) {
+    btn.addEventListener('click', function () {
+      var t = cur() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+      try { localStorage.setItem('noor-theme', t); } catch (e) {}
+      paint();
+    });
+    paint();
+  }
+  if (window.matchMedia) {
+    var mq = matchMedia('(prefers-color-scheme: light)');
+    var onSys = function () {
+      var stored = null;
+      try { stored = localStorage.getItem('noor-theme'); } catch (e) {}
+      if (stored !== 'dark' && stored !== 'light') {
+        document.documentElement.setAttribute('data-theme', mq.matches ? 'light' : 'dark');
+        if (btn) paint();
+      }
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onSys);
+    else if (mq.addListener) mq.addListener(onSys);
+  }
+})();
+
+/* ====== ظهورٍ ناعم عند التمرير ====== */
+(function () {
+  var els = document.querySelectorAll('.reveal');
+  if (!('IntersectionObserver' in window)) {
+    for (var i = 0; i < els.length; i++) els[i].classList.add('in');
+    return;
+  }
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+    });
+  }, { threshold: .12 });
+  for (var j = 0; j < els.length; j++) io.observe(els[j]);
+})();
+
+/* ====== شريط الشاشات — أسهم ونقاط وسحبٌ بالقياس الهندسي (RTL آمن) ====== */
+(function () {
+  var rail = document.getElementById('rail');
+  if (!rail) return;
+  var dots = document.getElementById('dots');
+  var slides = Array.prototype.slice.call(rail.children);
+  var idx = 0;
+  slides.forEach(function (s, i) {
+    var d = document.createElement('i');
+    if (i === 0) d.className = 'on';
+    d.addEventListener('click', function () { goTo(i); });
+    dots.appendChild(d);
+  });
+  function center(el) { var r = el.getBoundingClientRect(); return r.left + r.width / 2; }
+  function mark(i) {
+    idx = i;
+    for (var k = 0; k < dots.children.length; k++) dots.children[k].className = k === i ? 'on' : '';
+  }
+  function goTo(i) {
+    i = Math.max(0, Math.min(slides.length - 1, i));
+    var el = slides[i];
+    var delta = center(el) - center(rail);
+    if (rail.scrollTo) rail.scrollTo({ left: rail.scrollLeft + delta, behavior: 'smooth' });
+    else rail.scrollLeft += delta;
+    mark(i);
+  }
+  document.getElementById('nextBtn').addEventListener('click', function () { goTo(idx + 1); });
+  document.getElementById('prevBtn').addEventListener('click', function () { goTo(idx - 1); });
+  // أقرب شاشةٍ لمركز الشريط أثناء التمرير الحر
+  var timer = null;
+  rail.addEventListener('scroll', function () {
+    if (timer) return;
+    timer = setTimeout(function () {
+      timer = null;
+      var best = 0, bestD = Infinity;
+      for (var i = 0; i < slides.length; i++) {
+        var d = Math.abs(center(slides[i]) - center(rail));
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      mark(best);
+    }, 120);
+  }, { passive: true });
+  // السحب بالماوس/الإصبع
+  var down = null;
+  rail.addEventListener('pointerdown', function (e) { down = { x: e.clientX, sl: rail.scrollLeft }; });
+  window.addEventListener('pointerup', function () { down = null; rail.classList.remove('dragging'); });
+  rail.addEventListener('pointermove', function (e) {
+    if (!down) return;
+    if (Math.abs(e.clientX - down.x) > 6) rail.classList.add('dragging');
+    if (rail.classList.contains('dragging')) { rail.scrollLeft = down.sl - (e.clientX - down.x); }
+  });
+})();
+
+/* ====== محرك التنزيل — أجزاءٌ من CDN مجهولٍ لا بوابةَ دخولٍ فيه ======
+ * درس بلاغ المالك «نسبةٌ وهميةٌ ثم صفحة جت هب»: التجميع القديم كان
+ * يمسك ١٣١ م.ب في مخزنٍ واحدٍ فيقصف مع Samsung Browser في النهاية ويهبط
+ * صامتاً على github.com — الجديد: قطعٌ صغيرةٌ تُعصَر فوراً في SHA-256
+ * تدريجيٌّ نقيٌّ بالجافاسكربت وتُحفَظ في أجزاءِ Blob يُخزِّنها كروميوم
+ * على القرص، مع إعادة محاولةٍ لكل جزءٍ — وفشلٌ يُعلَن في لوحةٍ صريحةٍ
+ * بلا أي تحويلٍ صامتٍ أبداً */
+(function () {
+  'use strict';
   var REL = 'https://github.com/Sawan4Art/noor/releases';
   var meta = null;
-  var busy = false;
+  var running = false;
+  var got = 0, total = 0, partIdx = 0, partsCount = 0;
+  var blobParts = null;
 
+  /*SHA256-BEGIN*/
+  /* SHA-256 تدريجيٌّ نقيٌّ — FIPS 180-4 — يعمل على قطعٍ من أي حجمٍ
+     بلا مخزنٍ واحدٍ ضخمٍ ولا crypto.subtle (بعض متصفحات الأندرويد
+     القديمة تفشل على مدخلاتٍ ضخمة) */
+  var SHA256 = (function () {
+    var K = new Int32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+    var W = new Int32Array(64);
+    function create() {
+      return { h: new Int32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]), buf: new Uint8Array(64), bl: 0, len: 0 };
+    }
+    function block(st, bytes, off) {
+      var h = st.h, i, j, x, y, s0, s1;
+      for (i = 0; i < 16; i++) {
+        j = off + (i << 2);
+        W[i] = (bytes[j] << 24) | (bytes[j + 1] << 16) | (bytes[j + 2] << 8) | bytes[j + 3];
+      }
+      for (i = 16; i < 64; i++) {
+        x = W[i - 15]; y = W[i - 2];
+        s0 = ((x >>> 7) | (x << 25)) ^ ((x >>> 18) | (x << 14)) ^ (x >>> 3);
+        s1 = ((y >>> 17) | (y << 15)) ^ ((y >>> 19) | (y << 13)) ^ (y >>> 10);
+        W[i] = (W[i - 16] + s0 + W[i - 7] + s1) | 0;
+      }
+      var a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+      for (i = 0; i < 64; i++) {
+        var S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
+        var ch = (e & f) ^ (~e & g);
+        var t1 = (hh + S1 + ch + K[i] + W[i]) | 0;
+        var S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
+        var mj = (a & b) ^ (a & c) ^ (b & c);
+        var t0 = (S0 + mj) | 0;
+        hh = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t0) | 0;
+      }
+      h[0] = (h[0] + a) | 0; h[1] = (h[1] + b) | 0; h[2] = (h[2] + c) | 0; h[3] = (h[3] + d) | 0;
+      h[4] = (h[4] + e) | 0; h[5] = (h[5] + f) | 0; h[6] = (h[6] + g) | 0; h[7] = (h[7] + hh) | 0;
+    }
+    function update(st, u8) {
+      st.len += u8.length;
+      var pos = 0, len = u8.length;
+      if (st.bl > 0) {
+        var take = Math.min(64 - st.bl, len - pos);
+        st.buf.set(u8.subarray(pos, pos + take), st.bl);
+        st.bl += take; pos += take;
+        if (st.bl === 64) { block(st, st.buf, 0); st.bl = 0; }
+      }
+      while (len - pos >= 64) { block(st, u8, pos); pos += 64; }
+      if (len - pos > 0) { st.buf.set(u8.subarray(pos), st.bl); st.bl += len - pos; }
+    }
+    function hex(st) {
+      var bl = st.bl;
+      var tail = new Uint8Array(128);
+      tail.set(st.buf.subarray(0, bl), 0);
+      tail[bl] = 0x80;
+      var hi = Math.floor(st.len / 536870912), lo = (st.len % 536870912) * 8;
+      var lp = bl < 56 ? 56 : 120;
+      tail[lp] = (hi >>> 24) & 255; tail[lp + 1] = (hi >>> 16) & 255; tail[lp + 2] = (hi >>> 8) & 255; tail[lp + 3] = hi & 255;
+      tail[lp + 4] = (lo >>> 24) & 255; tail[lp + 5] = (lo >>> 16) & 255; tail[lp + 6] = (lo >>> 8) & 255; tail[lp + 7] = lo & 255;
+      if (bl < 56) block(st, tail, 0); else { block(st, tail, 0); block(st, tail, 64); }
+      var out = '';
+      for (var i = 0; i < 8; i++) out += ('00000000' + (st.h[i] >>> 0).toString(16)).slice(-8);
+      return out;
+    }
+    return { create: create, update: update, hex: hex };
+  })();
+  /*SHA256-END*/
+
+  function qsa(s) { return Array.prototype.slice.call(document.querySelectorAll(s)); }
+  function qs(s) { return document.querySelector(s); }
   function ar(n) { return String(n).replace(/[0-9]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'[d]; }); }
-
-  function setVer(tag) {
-    var els = document.querySelectorAll('.js-ver');
-    for (var i = 0; i < els.length; i++) els[i].textContent = tag;
-  }
-  function setGh(url) {
-    var els = document.querySelectorAll('.js-gh');
-    for (var i = 0; i < els.length; i++) els[i].href = url;
-  }
+  function mbText(b) { return ar(Math.round(b / 1048576)); }
 
   // نسخة الموقع — نفس الأصل فمضمونة بلا حظر
   fetch('version.json', { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (m) {
-      if (!m || !m.version || !m.parts) return;
+      if (!m || !m.version || !m.apk || !m.parts || !m.sha256 || !m.size) return;
       meta = m;
-      setVer('v' + m.version);
-      setGh(REL + '/download/v' + m.version + '/' + m.apk);
-      var sizes = document.querySelectorAll('.js-size');
-      for (var i = 0; i < sizes.length; i++) sizes[i].textContent = '~' + ar(Math.round(m.size / 1048576)) + ' م.ب';
+      var v = 'v' + m.version;
+      qsa('.js-ver').forEach(function (e) { e.textContent = v; });
+      qsa('.js-appver').forEach(function (e) { e.textContent = m.version; });
+      qsa('.js-size').forEach(function (e) { e.textContent = '~' + mbText(m.size) + ' م.ب'; });
+      qsa('.js-gh').forEach(function (e) { e.href = REL + '/download/v' + m.version + '/' + m.apk; });
     })
     .catch(function () {});
 
-  function restore(btn, html) {
-    btn.innerHTML = html;
-    var els = document.querySelectorAll('.js-dl');
-    for (var i = 0; i < els.length; i++) els[i].style.opacity = '';
-    busy = false;
+  function progressBox() { return qs('#dlProgress'); }
+  function barFill() { return qs('#barFill'); }
+  function statusBox() { return qs('#dlStatus'); }
+  function panelBox() { return qs('#dlPanel'); }
+
+  function showProgress(on) {
+    progressBox().className = 'dl-progress' + (on ? ' on' : '');
+    if (!on) barFill().style.width = '0%';
+  }
+  function setProgress() {
+    var pct = total ? Math.round((got / total) * 100) : 0;
+    barFill().style.width = pct + '%';
+    statusBox().innerHTML = 'جارٍ التنزيل — <b>' + ar(pct) + '٪</b> (' + mbText(got) + ' من ' + mbText(total) + ' م.ب) · الجزء ' + ar(partIdx) + ' من ' + ar(partsCount);
+  }
+  function setStatus(html) { statusBox().innerHTML = html; }
+  function showPanel(html) { panelBox().innerHTML = html; panelBox().className = 'dl-panel on'; }
+  function hidePanel() { panelBox().className = 'dl-panel'; panelBox().innerHTML = ''; }
+
+  function busy(on) {
+    running = on;
+    qsa('.js-dl').forEach(function (a) {
+      a.style.pointerEvents = on ? 'none' : '';
+      a.style.opacity = on ? '.55' : '';
+    });
   }
 
-  function download(btn) {
-    // نسخة الموقع غير متاحة؟ البديل الافتراضي: صفحة آخر إصدارٍ لا تموت
-    if (!meta) { window.location.href = REL + '/latest'; return; }
-    if (busy) return;
-    busy = true;
-    var original = btn.innerHTML;
-    var els = document.querySelectorAll('.js-dl');
-    for (var i = 0; i < els.length; i++) { if (els[i] !== btn) els[i].style.opacity = '.4'; }
+  function ghDirect() {
+    return meta ? REL + '/download/v' + meta.version + '/' + meta.apk : REL + '/latest';
+  }
 
-    var total = meta.size;
-    var buf = new Uint8Array(total);
-    var done = 0;
-    function pct() { return ar(Math.round((done / total) * 100)); }
+  function fail(msg) {
+    showProgress(false);
+    setStatus('');
+    showPanel(
+      '<b>تعذّر إتمام التنزيل</b> — ' + msg +
+      '<div class="row">' +
+      '<button type="button" class="btn btn-primary btn-sm" id="dlRetry">إعادة المحاولة</button>' +
+      '<a class="btn btn-ghost btn-sm" href="' + ghDirect() + '" target="_blank" rel="noopener">رابط جت هب المباشر</a>' +
+      '</div>' +
+      '<p class="tip">لو فُتحت لك صفحة «التحقق بخطوتين» من جت هب بعد الرابط المباشر فأنت مسجَّلٌ دخولًا في المتصفح — سجِّل الخروج من جت هب ثم جرّب الرابط، أو فعِّل التحقق بخطوتين من إعدادات حسابك فالجت هب يفرضه قريباً على الجميع.</p>'
+    );
+    var retry = qs('#dlRetry');
+    if (retry) retry.addEventListener('click', function () { hidePanel(); start(); });
+    busy(false);
+  }
 
-    btn.textContent = 'جارٍ التنزيل… ' + pct() + '٪';
+  function fetchPart(url, tries) {
+    return new Promise(function (resolve, reject) {
+      function attempt(left) {
+        fetch(url, { cache: 'no-store' }).then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          resolve(r);
+        }).catch(function () {
+          if (left > 0) setTimeout(function () { attempt(left - 1); }, 1500);
+          else reject(new Error('part'));
+        });
+      }
+      attempt(tries);
+    });
+  }
 
+  function pump(response, onChunk) {
+    return new Promise(function (resolve, reject) {
+      if (response.body && response.body.getReader) {
+        var reader = response.body.getReader();
+        function step() {
+          reader.read().then(function (res) {
+            if (res.done) { resolve(); return; }
+            onChunk(res.value);
+            step();
+          }).catch(reject);
+        }
+        step();
+      } else {
+        response.arrayBuffer().then(function (ab) { onChunk(new Uint8Array(ab)); resolve(); }, reject);
+      }
+    });
+  }
+
+  function saveFile() {
+    setStatus('جارٍ التجميع النهائي وحفظ الملف…');
+    var blob = new Blob(blobParts, { type: 'application/vnd.android.package-archive' });
+    blobParts = null;
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = meta.apk;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+    setStatus('<b>تم التنزيل ✓</b> — الملف «' + meta.apk + '» يُحفَظ في مجلد التنزيلات، افتحه وثبّت التطبيق');
+    setTimeout(function () { showProgress(false); busy(false); }, 6000);
+  }
+
+  function start() {
+    if (running) return;
+    hidePanel();
+    if (!meta) { fail('تعذّر قراءة نسخة الموقع — حدِّث الصفحة ثم جرّب من جديد، أو استخدم الرابط المباشر.'); return; }
+    busy(true);
+    // الطاولة تحت نظر المستخدم — التقدم الحقيقي يظهر في بطاقة التحميل
+    var sec = qs('#dl');
+    if (sec && sec.scrollIntoView) { try { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { sec.scrollIntoView(); } }
+    got = 0; total = meta.size; partsCount = meta.parts.length; partIdx = 0;
+    blobParts = [];
+    var sha = SHA256.create();
+    showProgress(true);
+    setProgress();
     var chain = Promise.resolve();
     meta.parts.forEach(function (p) {
       chain = chain.then(function () {
-        return fetch(p.url, { cache: 'no-store' }).then(function (r) {
-          if (!r.ok) throw new Error('part-failed');
-          if (!r.body || !r.body.getReader) {
-            return r.arrayBuffer().then(function (ab) {
-              buf.set(new Uint8Array(ab), done);
-              done += ab.byteLength;
-              btn.textContent = 'جارٍ التنزيل… ' + pct() + '٪';
-            });
-          }
-          var reader = r.body.getReader();
-          var offset = done;
-          function step() {
-            return reader.read().then(function (chunk) {
-              if (chunk.done) { done = offset + p.bytes; btn.textContent = 'جارٍ التنزيل… ' + pct() + '٪'; return; }
-              buf.set(chunk.value, offset);
-              offset += chunk.value.length;
-              done = offset;
-              btn.textContent = 'جارٍ التنزيل… ' + pct() + '٪';
-              return step();
-            });
-          }
-          return step();
+        partIdx++;
+        return fetchPart(p.url, 2).then(function (r) {
+          return pump(r, function (chunk) {
+            SHA256.update(sha, chunk);
+            blobParts.push(chunk);
+            got += chunk.length;
+            setProgress();
+          });
         });
       });
     });
-
-    chain
-      .then(function () {
-        btn.textContent = 'جارٍ التحقق من الملف…';
-        if (!window.crypto || !crypto.subtle) throw new Error('no-crypto');
-        return crypto.subtle.digest('SHA-256', buf);
-      })
-      .then(function (hash) {
-        var hex = Array.prototype.map.call(new Uint8Array(hash), function (b) {
-          return ('0' + b.toString(16)).slice(-2);
-        }).join('');
-        if (hex !== meta.sha256) throw new Error('sha-mismatch');
-        var blob = new Blob([buf], { type: 'application/vnd.android.package-archive' });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = meta.apk;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
-        btn.textContent = 'تم التنزيل ✓';
-        setTimeout(function () { restore(btn, original); }, 4000);
-      })
-      .catch(function () {
-        // تعذّر من الموقع — جت هب مباشرةً (والصفحة توضّح بديل الخروج من جت هب)
-        restore(btn, original);
-        window.location.href = REL + '/download/v' + meta.version + '/' + meta.apk;
-      });
+    chain.then(function () {
+      if (got !== total) throw new Error('size');
+      setStatus('جارٍ التحقق من بصمة SHA-256…');
+      var hex = SHA256.hex(sha);
+      if (hex !== meta.sha256) throw new Error('sha');
+      saveFile();
+    }).catch(function (e) {
+      var why = e && e.message === 'sha'
+        ? 'فحصُ البصمة لم يطابق — الملف تغيَّر في الطريق.'
+        : (e && e.message === 'size'
+          ? 'الحجم لم يكتمل كما يجب.'
+          : 'انقطع الاتصال بأحد الأجزاء بعد كل المحاولات.');
+      fail(why);
+    });
   }
 
-  var els = document.querySelectorAll('.js-dl');
-  for (var i = 0; i < els.length; i++) {
-    (function (el) {
-      el.addEventListener('click', function (ev) { ev.preventDefault(); download(el); });
-    })(els[i]);
-  }
-})();
-
-// شريط الشاشات: أسهم + نقاط + سحب بالماوس
-(function () {
-  var rail = document.getElementById('rail');
-  if (!rail) return;
-  var dots = document.getElementById('dots');
-  var count = rail.children.length;
-  for (var i = 0; i < count; i++) {
-    var d = document.createElement('i');
-    if (i === 0) d.className = 'on';
-    dots.appendChild(d);
-  }
-  // قياس هندسي بلا افتراضات عن إشارة scrollLeft في RTL
-  function center(el) { var r = el.getBoundingClientRect(); return r.left + r.width / 2; }
-  function goTo(idx) {
-    idx = Math.max(0, Math.min(count - 1, idx));
-    var sl = rail.children[idx];
-    if (!sl) return;
-    rail.scrollBy({ left: center(sl) - center(rail), behavior: 'smooth' });
-  }
-  function current() {
-    var mid = center(rail), best = 0, bd = 1e9;
-    for (var i = 0; i < count; i++) {
-      var d = Math.abs(center(rail.children[i]) - mid);
-      if (d < bd) { bd = d; best = i; }
-    }
-    return best;
-  }
-  // توسيط الشريحة الأولى عند التحميل — نقطة البداية للنقاط والأسهم
-  goTo(0);
-  rail.addEventListener('scroll', function () {
-    var idx = current();
-    var kids = dots.children;
-    for (var i = 0; i < kids.length; i++) kids[i].className = (i === idx ? 'on' : '');
-  }, { passive: true });
-  document.getElementById('nextBtn').addEventListener('click', function () { goTo(current() + 1); });
-  document.getElementById('prevBtn').addEventListener('click', function () { goTo(current() - 1); });
-  // سحب بالماوس على الحاسوب (اللمس يعمل أصلاً)
-  var down = false, startX = 0, startL = 0, moved = false;
-  rail.addEventListener('pointerdown', function (e) {
-    down = true; moved = false; startX = e.clientX; startL = rail.scrollLeft;
-    rail.classList.add('dragging');
-  });
-  window.addEventListener('pointermove', function (e) {
-    if (!down) return;
-    var dx = e.clientX - startX;
-    if (Math.abs(dx) > 6) moved = true;
-    rail.scrollLeft = startL - dx;
-  });
-  window.addEventListener('pointerup', function () {
-    if (!down) return;
-    down = false;
-    rail.classList.remove('dragging');
-    if (moved) goTo(current());
+  qsa('.js-dl').forEach(function (el) {
+    el.addEventListener('click', function (ev) { ev.preventDefault(); start(); });
   });
 })();
 </script>
