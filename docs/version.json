@@ -7,12 +7,16 @@
   "parts": [
     {
       "url": "https://raw.githubusercontent.com/Sawan4Art/noor/site-assets/parts/noor-almuslim-1.78.part-00",
-      "bytes": 94371840
+      "bytes": 50331648
     },
     {
       "url": "https://raw.githubusercontent.com/Sawan4Art/noor/site-assets/parts/noor-almuslim-1.78.part-01",
-      "bytes": 42193939
+      "bytes": 50331648
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Sawan4Art/noor/site-assets/parts/noor-almuslim-1.78.part-02",
+      "bytes": 35902483
     }
   ],
-  "updated": "2026-11-15T14:10:18Z"
+  "updated": "2026-11-15T23:03:06Z"
 }
