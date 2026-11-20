@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.AnnotatedString
@@ -356,17 +357,29 @@ private fun HeroCard(
                     modifier = Modifier.padding(bottom = 7.dp),
                 )
             }
-            // الحلقة السائلة تتكيف مع المساحة المتاحة — والعدّاد نفسه
-            // يعوم داخل النقطة السائلة فلا ينكمش ولا يخرج عن القطرة أبداً
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                // alpha45 — سقف الحلقة ٣٠٠←٤٥٠dp: النقطة تملأ ارتفاع
-                // الهيدر كله بعد ترتيب بطاقته من جديد (مره و نص كمان)
-                val side = minOf(maxHeight, maxWidth).coerceAtMost(450.dp)
+                // v1.79 (بلاغ المالك بلقطتي الشاشة: «حجم dpi في التطبيق بيتغير
+                // مع تغير حجم الشاشه في اعادادت الهاتف او من هاتف الى اخر
+                // حسب حجم الشاشه و ده غلط انا عايزه نفس الحجم في الصوره
+                // الاولى»): جانب الحلقة لم يعد يُشتق من المساحة المتاحة —
+                // بل من **كثافة الشاشة الحقيقية (xdpi)** عبر
+                // CountdownLiquidMath.sideForPhysicalDrop فتظل النقطة
+                // السائلة بنفس الحجم الفيزيائي (١٫٩ بوصة قُطراً) مهما غيّر
+                // المستخدم «حجم الشاشة» من إعدادات النظام أو انتقل لهاتفٍ
+                // آخر — والسقف يسهر على ألا يتجاوز المساحة أو حد alpha45
+                // (٤٥٠dp) في الهواتف الضيقة الاستثنائية.
+                val xdpi = LocalContext.current.resources.displayMetrics.xdpi
+                    .takeIf { it > 0f } ?: with(LocalDensity.current) { 1.dp.toPx() }
+                val side = minOf(
+                    CountdownLiquidMath.sideForPhysicalDrop(xdpi).dp,
+                    maxWidth,
+                    450.dp,
+                ).coerceAtLeast(120.dp)
                 // نسبة التقدم اللحظية — الماضي من الفترة ÷ كاملها بقيمة
                 // متصلة (لا أعداد صحيحة) كي يتحرك السائل مع كل ثانية:
                 // «اجعله يتقدم مع تقدم انتهاء الوقت» — يكتمل عند الأذان

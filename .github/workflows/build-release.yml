@@ -112,15 +112,6 @@ jobs:
           prerelease: false
           generate_release_notes: true
           body_path: release_body.md
-      - name: ملخص
-        run: |
-          echo "### ✅ بناء نور المسلم الكوتلني نجح" >> $GITHUB_STEP_SUMMARY
-          # على main بلا وسم يبني فحصاً فقط فلا APK إصدارٍ هنا — درس run 171
-          if [ -f app/build/outputs/apk/release/app-release.apk ]; then
-            du -h app/build/outputs/apk/release/app-release.apk
-          else
-            echo "بناء فحص على main — لا APK إصدارٍ في هذا المسار"
-          fi
 
       # قانون الإصدارات (أمر المالك 2026-11-13): آخر خمسة إصداراتٍ فقط —
       # القديم يُحذف تلقائياً بوسمه بعد كل إصدارٍ جديد، وممنوع تعطيل الخطوة
@@ -144,3 +135,12 @@ jobs:
           VER="${GITHUB_REF_NAME#v}"
           CODE=$(grep -oE 'versionCode *= *[0-9]+' app/build.gradle.kts | head -1 | grep -oE '[0-9]+')
           bash scripts/deploy_site_assets.sh "$VER" "$CODE" "noor-almuslim-${GITHUB_REF_NAME}.apk"
+      - name: ملخص
+        run: |
+          echo "### ✅ بناء نور المسلم الكوتلني نجح" >> $GITHUB_STEP_SUMMARY
+          # على main بلا وسم يبني فحصاً فقط فلا APK إصدارٍ هنا — درس run 171
+          if [ -f app/build/outputs/apk/release/app-release.apk ]; then
+            du -h app/build/outputs/apk/release/app-release.apk
+          else
+            echo "بناء فحص على main — لا APK إصدارٍ في هذا المسار"
+          fi

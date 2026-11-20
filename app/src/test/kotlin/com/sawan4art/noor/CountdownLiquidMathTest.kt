@@ -219,6 +219,75 @@ class CountdownLiquidMathTest {
             prev = s
         }
     }
+
+    // ===== الحجم الفيزيائي الثابت (v1.79 — بلاغ المالك بلقطتي الشاشة) =====
+
+    @Test
+    fun `قطر القطرة ثابت فيزيائياً بوحدة البوصة عبر كل الكثافات`() {
+        // «انا عايزه نفس الحجم في الصوره الاولى»: البوصة لا تكذب —
+        // القطر بالبوصة (dp ÷ xdpi) نفسه مهما اختلف الجهاز أو إعداد
+        // «حجم الشاشة» (الإعداد يغيّر معامل الـ dp لا الكثافة الحقيقية)
+        val expected = CountdownLiquidMath.dropDiameterInches(420f)
+        for (xdpi in listOf(160f, 240f, 320f, 420f, 480f, 560f)) {
+            val inches = CountdownLiquidMath.dropDiameterInches(xdpi)
+            assertEquals(
+                "xdpi=$xdpi: القطر الفيزيائي تغيّر ($inches ≠ $expected)",
+                expected,
+                inches,
+                0.01f,
+            )
+        }
+        // القطر المرجعي نفسه: ٤٣٦dp على ٤٢٠dpi (قياس صورة المالك الأولى)
+        assertEquals(436f, CountdownLiquidMath.dropDiameterDp(420f), 0.5f)
+    }
+
+    @Test
+    fun `كثافة الاسم المستعار لا تفسد الحجم الفيزيائي`() {
+        // الجهاز نفسه (xdpi حقيقي ٤٢٠) مع «تكبير حجم الشاشة» من الإعدادات
+        // يغيّر معامل الـ dp الظاهري — القطر الحقيقي من xdpi يظل ثابتاً
+        val realXdpi = 420f
+        val d1 = CountdownLiquidMath.dropDiameterDp(realXdpi)
+        val d2 = CountdownLiquidMath.dropDiameterDp(realXdpi)
+        assertEquals("نفس الجهاز أعطى قطرين مختلفين", d1, d2, 1e-3f)
+        // ولو أخطأ الجهاز وأعطى xdpi صفراً/سالباً — الأرضية تحمي الهندسة
+        assertTrue(CountdownLiquidMath.dropDiameterDp(0f) >= 120f)
+        assertTrue(CountdownLiquidMath.dropDiameterDp(-5f) >= 120f)
+    }
+
+    @Test
+    fun `هاتف المثال الأول يعطي القطر الصحيح من الصورة`() {
+        // كثافة الهاتف الأول ٤٢٠dpi: القطر المرجعي ٤٣٦dp (قياس الصورة)
+        assertEquals(436f, CountdownLiquidMath.dropDiameterDp(420f), 0.5f)
+        // وجانب الصندوق يحمل الشريط بهامشه فلا يكسر الشاشة أبداً
+        val side = CountdownLiquidMath.sideForPhysicalDrop(420f)
+        val stroke = 6f
+        val edgeGap = 1.5f
+        val track = CountdownLiquidMath.trackRadius(side, stroke / 2f + edgeGap)
+        assertTrue("الشريط يخرج عن الصندوق", track + stroke / 2f + edgeGap <= side / 2f + 1e-3f)
+        // والجانب في سقف alpha45 (٤٥٠dp) كما في صورة المالك
+        assertTrue("جانب ٤٢٠dpi تجاوز سقف alpha45", side <= 450f + 1e-3f)
+    }
+
+    @Test
+    fun `القطرة الفيزيائية تظل داخل شريطها في كل الكثافات`() {
+        for (xdpi in listOf(160f, 240f, 320f, 420f, 560f)) {
+            val side = CountdownLiquidMath.sideForPhysicalDrop(xdpi)
+            val stroke = 6f
+            val edgeGap = 1.5f
+            val track = CountdownLiquidMath.trackRadius(side, stroke / 2f + edgeGap)
+            val ringInner = track - stroke / 2f
+            val drop = CountdownLiquidMath.dropRadius(ringInner, 0f) /
+                CountdownLiquidMath.MAX_BLOB_EXTENT
+            assertTrue(
+                "xdpi=$xdpi: النقطة الفيزيائية تخرج عن الشريط",
+                drop * CountdownLiquidMath.MAX_BLOB_EXTENT <= ringInner + 1e-3f,
+            )
+            assertTrue(
+                "xdpi=$xdpi: الشريط يخرج عن الصندوق",
+                track + stroke / 2f <= side / 2f + 1e-3f,
+            )
+        }
+    }
 }
 
 // ===== حاكم تباين قوس الامتلاء — بلاغ المالك 2026-11-13 =====

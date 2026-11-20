@@ -11,7 +11,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
-import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
@@ -44,6 +43,17 @@ import java.io.File
  *   الكتم فوراً إن اختار المالك ذلك («اصوات الهاتف ترجع تشتغل تاني
  *   حتى لو لسه الوقت لم ينقضي»)، والاستعادة التلقائية بمنبه مستقل
  *   حتى لو قُتلت العملية.
+ * - **أثناء المكالمة** (بلاغ المالك v1.79: «انا عايز اثناء المكالمه
+ *   يتم ايقاف تشغيل كلا من الصوت او الاهتزاز علشان لا يتداخل صوت
+ *   الاذن او الاهتزاز مع المكالمه يكفي فقط اشعار مرئي بسيط و تذكير
+ *   بعد انتهاء المكالمه بانه مضى وقت الاذان»): إن كان الهاتف في
+ *   مكالمةٍ عند دقّ الأذان أو بدأت مكالمةٌ أثناء التشغيل، يُقطع الصوت
+ *   فوراً ويُستبدل بإشعارٍ مرئيٍّ بسيط («حان وقت الصلاة — سكتِناه
+ *   لأجل مكالمتك»)، وعند انتهاء المكالمة يأتي تذكيرٌ صامتٌ بأن وقت
+ *   الأذان قد مضى — الكشف بوضع الصوت AudioManager (MODE_IN_CALL /
+ *   MODE_IN_COMMUNICATION) بلا أي إذنٍ جديد (READ_PHONE_STATE ممنوع
+ *   بلا حاجة — الوضع يكفي ولا يقرأ رقمَ أحدٍ ولا حالة المكالمة
+ *   نفسها، فقط «هل جهاز الصوت مشغولٌ بمكالمةٍ الآن»).
  */
 class AlarmService : Service() {
 
@@ -65,6 +75,9 @@ class AlarmService : Service() {
     /** هل نحن الآن داخل نافذة الكتم (بعد انتهاء الصوت)؟ */
     private var inMuteWindow = false
 
+    /** اسم الصلاة الحالية — لإشعار المكالمة والتذكير بعدها */
+    private var currentPrayerName = "الصلاة"
+
     /** مستقبِل فتح قفل الشاشة — يلغي الكتم فوراً إن كان الاختيار مفعّلاً */
     private val unlockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -74,6 +87,131 @@ class AlarmService : Service() {
             endMuteWindow()
         }
     }
+
+    /* ============================ كشف المكالمة (v1.79) ============================ */
+
+    /**
+     * هل جهاز الصوت مشغولٌ بمكالمةٍ الآن؟ — عبر [CallGate] بوابةِ المكالمات
+     * المشتركة (وضع الصوت وحده بلا قراءة حالة الهاتف — بلا إذن
+     * READ_PHONE_STATE): وضعٌ غير MODE_NORMAL دليلُ مكالمةٍ حية،
+     * والفحص هنا للتغطية الثانية — «مكالمةٌ بدأت **أثناء** تشغيل الأذان»
+     * (التغطية الأولى للكشف لحظة الدقّ في AdhanAlarmReceiver عبر
+     * CallAlertPolicy)، فتُقطع فوراً بلا انتظار.
+     */
+    private fun inCallNow(): Boolean = CallGate.isInCall(this)
+
+    /**
+     * الإسكات لأجل مكالمةٍ بدأت: يقطع الصوت والاهتزاز فوراً («علشان لا
+     * يتداخل صوت الاذن او الاهتزاز مع المكالمه» — VibrationRinger.cancel
+     * يوقف الاهتزاز المستمر إن كان دائراً) ويستبدل إشعارَ الخدمة الأمامية
+     * بإشعارٍ مرئيٍّ بسيطٍ هادئٍ بلا صوتٍ ولا اهتزاز («يكفي فقط اشعار
+     * مرئي بسيط») — والخدمة تبقى حيةً بانتظار نهاية المكالمة لتذكير
+     * «مضى وقت الأذان»، ثم تكمل مسارها الطبيعي (نافذة الكتم إن كان هذا
+     * الحدث بدايتَها).
+     */
+    private fun silenceForCall(prayerName: String, mode: String) {
+        waitingCallEnd = true
+        VibrationRinger.cancel(this)
+        releasePlayer()
+        runCatching {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(NOTIFICATION_ID, buildCallNotice(prayerName, mode))
+        }
+        // عدّاد نهاية المكالمة — يوقظ التذكير عند انتهائها
+        handler.removeCallbacks(callWatch)
+        handler.postDelayed(callWatch, 1500)
+    }
+
+    /** إشعار المكالمة — مرئيٌّ بسيطٌ بلا صوتٍ ولا اهتزاز */
+    private fun buildCallNotice(prayerName: String, mode: String): Notification {
+        val openAppPi = PendingIntent.getActivity(
+            this,
+            3,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val title = if (mode == MODE_IQAMAH) "قد قامت الصلاة — $prayerName" else "حان الآن وقت $prayerName"
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_update)
+            .setContentTitle(title)
+            .setContentText("سكتِنا الأذان لأجل مكالمتك — سنذكّرك عند انتهائها إن شاء الله")
+            .setOngoing(true)
+            .setContentIntent(openAppPi)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setPriority(NotificationCompat.PRIORITY_LOW) // مرئيٌّ بسيط — لا صوت ولا اهتزاز
+            .setSilent(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .build()
+    }
+
+    /**
+     * انتهت المكالمة — التذكير الصامت بأن وقت الأذان قد مضى (بلاغ
+     * المالك: «تذكير بعد انتهاء المكالمه بانه مضى وقت الاذان»)، ثم
+     * إكمال المسار الطبيعي: نافذة الكتم إن كان الحدث بدايتَها وإلا
+     * تنتهي الخدمة.
+     */
+    private fun callEnded() {
+        waitingCallEnd = false
+        runCatching {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(CALL_REMINDER_ID, buildCallEndedReminder())
+        }
+        if (muteStartPending && !inMuteWindow) {
+            // مسار الإقامة الطبيعي — الكتم كما كان
+            finishPlayback()
+        } else {
+            stopSelf()
+        }
+    }
+
+    /** تذكير انتهاء المكالمة — صامتٌ يُرى ولا يُسمع */
+    private fun buildCallEndedReminder(): Notification {
+        val openAppPi = PendingIntent.getActivity(
+            this,
+            3,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        return NotificationCompat.Builder(this, NOTIFY_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_update)
+            .setContentTitle("مضى وقت ${currentPrayerName}")
+            .setContentText("انتهت مكالمتك وقد مضى وقت الأذان — تقبل الله طاعتكم")
+            .setAutoCancel(true)
+            .setContentIntent(openAppPi)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setSilent(true)
+            .build()
+    }
+
+    /** هل نحن في إسكاتِ مكالمةٍ ننتظر نهايتها؟ */
+    private var waitingCallEnd = false
+
+    /** عدّاد نهاية المكالمة — فحصٌ خفيفٌ كل ثانيةٍ ونصف بلا مستقبِل نظامٍ
+     *  يقرأ حالة أحد (وضع الصوت يكفي ولا يطلب إذنَ هاتفٍ جديد).
+     *  بطورين: أثناء التشغيل يراقب «بدأت مكالمةٌ؟» فيُسكت فوراً، وبعد
+     *  الإسكات يراقب «انتهت المكالمة؟» فيوقظ تذكيرَ «مضى وقت الأذان». */
+    private val callWatch = object : Runnable {
+        override fun run() {
+            if (!waitingCallEnd) return
+            if (player?.isPlaying == true) {
+                // طور المراقبة أثناء التشغيل — مكالمةٌ بدأت؟
+                if (inCallNow()) {
+                    silenceForCall(currentPrayerName, currentMode)
+                    return
+                }
+                handler.postDelayed(this, 1500)
+            } else if (inCallNow()) {
+                // طور الانتظار بعد الإسكات — انتهت المكالمة؟
+                handler.postDelayed(this, 1500)
+            } else {
+                callEnded()
+            }
+        }
+    }
+
+    /** وضع الحدث الحالي — لإشعار المكالمة وقت المراقبة */
+    private var currentMode = MODE_ADHAN
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -122,6 +260,8 @@ class AlarmService : Service() {
         muteCancelOnUnlock = intent?.getBooleanExtra(EXTRA_MUTE_CANCEL_ON_UNLOCK, true) ?: true
         inMuteWindow = false
         clearPlaybackEnded()
+        currentPrayerName = prayerName
+        currentMode = mode
 
         val started = runCatching {
             startInForeground(prayerName, mode)
@@ -135,6 +275,13 @@ class AlarmService : Service() {
         if (!started) return START_NOT_STICKY
 
         acquireWakeLock()
+
+        // v1.79 — مكالمةٌ حية عند دقّ الأذان: إسكاتٌ فوري («يكفي فقط
+        // اشعار مرئي بسيط») والخدمة تنتظر نهايتها لتذكير «مضى وقت الأذان»
+        if (inCallNow()) {
+            silenceForCall(prayerName, mode)
+            return START_NOT_STICKY
+        }
 
         val kind = if (mode == MODE_IQAMAH) AdhanSoundKind.IQAMAH else AdhanSoundKind.ADHAN
         play(kind, soundId, customPath)
@@ -319,6 +466,12 @@ class AlarmService : Service() {
             VibrationRinger.startLooping(this)
         }
 
+        // v1.79 — مراقبة بدء مكالمةٍ أثناء التشغيل («علشان لا يتداخل صوت
+        // الاذن او الاهتزاز مع المكالمه»): فحصٌ خفيفٌ كل ١٫٥ث — وإن بدأت
+        // مكالمةٌ أُسكت فوراً وحوّل العدّاد لطور انتظار النهاية للتذكير
+        handler.removeCallbacks(callWatch)
+        handler.postDelayed(callWatch, 1500)
+
         // أمان: نهاية التشغيل تلقائياً بعد الحد الأقصى مهما حدث —
         // وتنتهي بنفس مسار الانتهاء الطبيعي (نافذة الكتم إن كانت بدايته)
         val self = this
@@ -344,6 +497,7 @@ class AlarmService : Service() {
         }
         wakeLock?.let { w -> runCatching { if (w.isHeld) w.release() } }
         wakeLock = null
+        if (waitingCallEnd) return // إسكاتُ مكالمةٍ حي — العدّاد هو الوصي الآن
         if (muteStartPending && !inMuteWindow) {
             muteStartPending = false
             enterMuteWindow()
@@ -417,6 +571,7 @@ class AlarmService : Service() {
 
     override fun onDestroy() {
         releasePlayer()
+        handler.removeCallbacks(callWatch) // عدّاد المكالمة يرحل مع الخدمة
         if (inMuteWindow) {
             // قُتلت الخدمة من النظام — المستقبِل الديناميكي يرحل معها،
             // والاستعادة بمنبه MuteManager الاحتياطي في موعده مهما حدث
@@ -435,6 +590,7 @@ class AlarmService : Service() {
         private const val CHANNEL_ID = "noor_adhan_channel"
         private const val NOTIFY_CHANNEL_ID = "noor_notify_channel"
         private const val NOTIFICATION_ID = 4001
+        private const val CALL_REMINDER_ID = 4003
 
         const val EXTRA_MODE = "noor_extra_alarm_mode"
         const val EXTRA_PRAYER_NAME = "noor_extra_alarm_prayer_name"
