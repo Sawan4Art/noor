@@ -16,6 +16,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -190,13 +191,18 @@ object UpdateInstaller {
         val chunks = UpdateDownloadPlan.plan(total, PARALLEL_MIN_BYTES, MAX_CONNECTIONS)
         val parts = chunks.map { File(dir, "$PART_FILE.p${it.index}") }
         val written = AtomicLong(0L)
-        var lastReport = -1
+
+        // v1.80 — آخر نسبةٍ مُبلَّغة: ذرّية كي تُقرأ وتُكتب من خيوط القطع
+        // المتوازية كلها (أسوأ الحالات إبلاغٌ مكررٌ بنفس القيمة — غير
+        // مُزرٍ بجمال الشريط الحي) — بلاغ المالك: «شريط التحميل يضل على
+        // صفر حتى ينتهي التحميل فجأه»
+        val lastReport = AtomicInteger(-1)
 
         fun reportProgress() {
             if (total <= 0) return
             val pct = ((written.get() * 100) / total).toInt().coerceIn(0, 99)
-            if (pct != lastReport) {
-                lastReport = pct
+            if (pct != lastReport.get()) {
+                lastReport.set(pct)
                 onProgress(pct)
             }
         }
@@ -218,7 +224,9 @@ object UpdateInstaller {
                     val part = parts[chunk.index]
                     for (attempt in 1..CHUNK_ATTEMPTS) {
                         try {
-                            if (downloadChunk(url, chunk, part, written)) return@submit true
+                            if (downloadChunk(url, chunk, part, written, ::reportProgress)) {
+                                return@submit true
+                            }
                         } catch (_: Exception) {
                             // محاولة أخرى بعد مهلةٍ قصيرة — والقطعة مستأنفة من موجدها
                         }
@@ -233,12 +241,16 @@ object UpdateInstaller {
                     "تعذّر إتمام جزء من التنزيل — أعد المحاولة وسيكمل من حيث توقف",
                 )
             }
+            // v1.80 — لحظة الصفر قبل اللمّ: التنزيل اكتمل فعلاً (٩٩٪
+            // القصوى المعروضة) فيعرض الشريط امتلاءه قبل مرحلة تجميع
+            // القطع على القرص — بلاغ المالك: «شريط التحميل يضل على صفر
+            // حتى ينتهي التحميل فجأه»
+            onProgress(99)
         } finally {
             pool.shutdown()
             runCatching { pool.awaitTermination(10, TimeUnit.SECONDS) }
         }
 
-        reportProgress()
         // اللمّ: القطع بترتيبها في ملف التثبيت المؤقت
         val part = File(dir, PART_FILE)
         BufferedOutputStream(FileOutputStream(part)).use { out ->
@@ -256,12 +268,19 @@ object UpdateInstaller {
     /**
      * تنزيل قطعةٍ واحدة — من موجدها إن استُؤنفت (Range من الطول الحالي).
      * true اكتملت القطعة كاملةً بحجمها المطلوب.
+     *
+     * v1.80 — بلاغ المالك: «شريط التحميل الخاص بتحديث التطبيق يضل على
+     * صفر حتى ينتهي التحميل فجأه»: العدّاد كان يتراكم في [written] بلا
+     * إبلاغٍ داخل حلقة القراءة، فالآن كل قراءةٍ تحمل الإبلاغ معها —
+     * والفرقُ محسوبٌ رخيص (مقارنةُ نسبةٍ مع آخر قيمة) لا يُزحم خيوط
+     * القطع المتوازية.
      */
     private fun downloadChunk(
         url: String,
         chunk: UpdateDownloadPlan.Chunk,
         part: File,
         written: AtomicLong,
+        onProgress: () -> Unit,
     ): Boolean {
         part.parentFile?.mkdirs()
         var from = chunk.start + part.length()
@@ -293,6 +312,8 @@ object UpdateInstaller {
                                     out.write(buffer, 0, read)
                                     written.addAndGet(read.toLong())
                                     remaining -= read
+                                    // v1.80 — الإبلاغ الحي من داخل الحلقة نفسها
+                                    onProgress()
                                 }
                                 out.flush()
                             }

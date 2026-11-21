@@ -118,7 +118,10 @@ class QuranDownloadService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "quran_audio_downloads"
-        private const val NOTIFICATION_ID = 4101
+        // v1.80 — فك التعارض القديم مع أيقونة التشغيل السريع (كان كلاهما
+        // 4101 فأحدهما يستبدل الآخر في الشريط): التنزيل يأخذ 4110 خاصةً
+        // به، والأيقونة الدائمة تبقى في 4101 كما منذ v1.71
+        private const val NOTIFICATION_ID = 4110
         private const val EXTRA_RECITER = "reciter_id"
         private const val EXTRA_SURA = "sura"
         private const val EXTRA_COUNTS = "surah_counts"

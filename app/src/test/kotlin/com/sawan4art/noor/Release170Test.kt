@@ -7,6 +7,7 @@ import com.sawan4art.noor.widget.WidgetCustomization
 import com.sawan4art.noor.widget.WidgetPresets
 import org.json.JSONArray
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -94,6 +95,33 @@ class Release170Test {
         assertEquals("ولاية", ManualLocations.country("أمريكا")?.divisionLabel)
         assertEquals("إمارة", ManualLocations.country("الإمارات")?.divisionLabel)
         assertTrue(ManualLocations.country("دولة غير موجودة") == null)
+    }
+
+    // v1.80 — بلاغ المالك: «في التحديد اليدوي للموقع في بعض المدن و
+    // المحافظات في بعض الدول غير موجوده تأكد منهم جميعا»
+    @Test
+    fun `جزر القمر حاضرة بجزرها الثلاث المستقلة وبعاصمتها موروني`() {
+        val comoros = ManualLocations.country("جزر القمر")
+        assertNotNull("جزر القمر غير موجودة!", comoros)
+        assertEquals("جزيرة", comoros!!.divisionLabel)
+        // الجزر الثلاث المستقلة + مايوط (تسمية القسم الرسمية «جزيرة»)
+        assertEquals(4, comoros.divisions.size)
+        val grandeComore = comoros.divisions.first { it.name.startsWith("غراند كومور") }
+        assertTrue(grandeComore.cities.contains("موروني"))
+    }
+
+    @Test
+    fun `كل الدول العربية الاثنتين والعشرين حاضرة في القوائم`() {
+        // «في بعض الدول غير موجوده تأكد منهم جميعا» — الجامعة العربية
+        // كاملةً (٢٢) بلا غيابٍ واحد
+        val arabLeague = listOf(
+            "مصر", "السعودية", "الإمارات", "الكويت", "قطر", "البحرين", "عُمان",
+            "اليمن", "الأردن", "فلسطين", "لبنان", "سوريا", "العراق", "السودان",
+            "ليبيا", "تونس", "الجزائر", "المغرب", "موريتانيا", "الصومال",
+            "جيبوتي", "جزر القمر",
+        )
+        val missing = arabLeague.filter { ManualLocations.country(it) == null }
+        assertTrue("دول عربية غائبة: $missing", missing.isEmpty())
     }
 
     @Test

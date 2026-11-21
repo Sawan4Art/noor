@@ -189,294 +189,292 @@ fun AdhanSection(
         )
     }
 
-    if (adhan.enabled) {
-        SectionBlock(title = "صوت الأذان") {
+    SectionBlock(title = "صوت الأذان") {
+        VoiceList(
+            kind = AdhanSoundKind.ADHAN,
+            selectedId = adhan.adhanVoice,
+            customName = adhan.customAdhanName,
+            onPickBuiltin = { id ->
+                stopPreview()
+                actions.setAdhanVoice(id)
+            },
+            onPickCustom = {
+                pickingKind = AdhanSoundKind.ADHAN
+                audioPicker.launch(arrayOf("audio/*"))
+            },
+            onClearCustom = {
+                stopPreview()
+                actions.clearCustomSound(AdhanSoundKind.ADHAN)
+            },
+        )
+        Spacer(Modifier.height(10.dp))
+        PreviewButton(
+            label = if (previewing == AdhanSoundKind.ADHAN) "إيقاف المعاينة" else "معاينة صوت الأذان",
+            playing = previewing == AdhanSoundKind.ADHAN,
+            onClick = {
+                val customPath =
+                    if (adhan.adhanVoice == "custom") adhan.customAdhanPath else ""
+                togglePreview(AdhanSoundKind.ADHAN, adhan.adhanVoice, customPath)
+            },
+        )
+
+        // ===== اهتزاز أثناء الرنين — بلاغ المالك v1.71: «اضف ميزه
+        // الاهتزاز اثنار الرنين لكل الاصوات الصادره من التطبيق و يكون
+        // كل صوت قابل لتفعيل الميزه او ايقافها»
+        ToggleRow(
+            title = "الاهتزاز أثناء رنين الأذان",
+            subtitle = if (adhan.adhanVibrate) {
+                "الهاتف يهتز مع الأذان من بدايته حتى نهايته"
+            } else {
+                "مطفأ — الأذان يرن بلا اهتزاز"
+            },
+            checked = adhan.adhanVibrate,
+            onToggle = { actions.setAdhanVibrate(it) },
+        )
+
+        // ===== صوت لكل صلاة على حدة أو للكل (alpha61) =====
+        Spacer(Modifier.height(12.dp))
+        ToggleRow(
+            title = "صوت لكل صلاة على حدة",
+            subtitle = if (adhan.perPrayerVoices) {
+                "لكل صلاة أذانها الخاص — اختر صوت كل صلاة من قائمتها"
+            } else {
+                "مطفأ — صوت الأذان أعلاه يعمل لكل الصلوات الخمس"
+            },
+            checked = adhan.perPrayerVoices,
+            onToggle = { actions.setPerPrayerVoices(it) },
+        )
+        if (adhan.perPrayerVoices) {
+            Spacer(Modifier.height(6.dp))
+            for (key in PRAYER_KEYS) {
+                val selected = adhan.perPrayerAdhanVoices[key.name] ?: adhan.adhanVoice
+                VoiceMenuRow(
+                    label = prayerLabel(key),
+                    kind = AdhanSoundKind.ADHAN,
+                    selectedId = selected,
+                    customName = adhan.customAdhanName,
+                    onSelect = { id -> actions.setPrayerAdhanVoice(key, id) },
+                )
+            }
+        }
+    }
+
+    SectionBlock(title = "الإقامة") {
+        ToggleRow(
+            title = "أذان الإقامة",
+            subtitle = "«قد قامت الصلاة» — يشتغل بعد الأذان بالمدة المحددة لكل صلاة",
+            checked = adhan.iqamahEnabled,
+            onToggle = { actions.setIqamahEnabled(it) },
+        )
+        // اهتزاز أثناء رنين الإقامة — بلاغ المالك v1.71
+        ToggleRow(
+            title = "الاهتزاز أثناء رنين الإقامة",
+            subtitle = if (adhan.iqamahVibrate) {
+                "الهاتف يهتز مع الإقامة من بدايتها حتى نهايتها"
+            } else {
+                "مطفأ — الإقامة ترن بلا اهتزاز"
+            },
+            checked = adhan.iqamahVibrate,
+            onToggle = { actions.setIqamahVibrate(it) },
+        )
+        if (adhan.iqamahEnabled) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "الفاصل بين الأذان والإقامة — خانة لكل صلاة على حدة",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
+            // تحديث المالك 2026-11-06: «تحديد الوقت بين الاذان يكون
+            // خانه كتابه رقم مش اختيارات و يكون لكل صلاه على حده و
+            // الظبط الافتراضي كل الصلوات ١٠د ماعاد صلاه الفجر تكون ١٥ د»
+            GapInputRow(
+                label = "الفجر (افتراضي ١٥ دقيقة)",
+                minutes = adhan.gapFajrMinutes,
+                onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.FAJR, it) },
+            )
+            GapInputRow(
+                label = "الظهر (افتراضي ١٠ دقائق)",
+                minutes = adhan.gapDhuhrMinutes,
+                onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.DHUHR, it) },
+            )
+            GapInputRow(
+                label = "العصر (افتراضي ١٠ دقائق)",
+                minutes = adhan.gapAsrMinutes,
+                onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.ASR, it) },
+            )
+            GapInputRow(
+                label = "المغرب (افتراضي ١٠ دقائق)",
+                minutes = adhan.gapMaghribMinutes,
+                onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.MAGHRIB, it) },
+            )
+            GapInputRow(
+                label = "العشاء (افتراضي ١٠ دقائق)",
+                minutes = adhan.gapIshaMinutes,
+                onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.ISHA, it) },
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "صوت الإقامة",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(8.dp))
             VoiceList(
-                kind = AdhanSoundKind.ADHAN,
-                selectedId = adhan.adhanVoice,
-                customName = adhan.customAdhanName,
+                kind = AdhanSoundKind.IQAMAH,
+                selectedId = adhan.iqamahVoice,
+                customName = adhan.customIqamahName,
                 onPickBuiltin = { id ->
                     stopPreview()
-                    actions.setAdhanVoice(id)
+                    actions.setIqamahVoice(id)
                 },
                 onPickCustom = {
-                    pickingKind = AdhanSoundKind.ADHAN
+                    pickingKind = AdhanSoundKind.IQAMAH
                     audioPicker.launch(arrayOf("audio/*"))
                 },
                 onClearCustom = {
                     stopPreview()
-                    actions.clearCustomSound(AdhanSoundKind.ADHAN)
+                    actions.clearCustomSound(AdhanSoundKind.IQAMAH)
                 },
             )
             Spacer(Modifier.height(10.dp))
             PreviewButton(
-                label = if (previewing == AdhanSoundKind.ADHAN) "إيقاف المعاينة" else "معاينة صوت الأذان",
-                playing = previewing == AdhanSoundKind.ADHAN,
+                label = if (previewing == AdhanSoundKind.IQAMAH) "إيقاف المعاينة" else "معاينة صوت الإقامة",
+                playing = previewing == AdhanSoundKind.IQAMAH,
                 onClick = {
                     val customPath =
-                        if (adhan.adhanVoice == "custom") adhan.customAdhanPath else ""
-                    togglePreview(AdhanSoundKind.ADHAN, adhan.adhanVoice, customPath)
+                        if (adhan.iqamahVoice == "custom") adhan.customIqamahPath else ""
+                    togglePreview(AdhanSoundKind.IQAMAH, adhan.iqamahVoice, customPath)
                 },
             )
 
-            // ===== اهتزاز أثناء الرنين — بلاغ المالك v1.71: «اضف ميزه
-            // الاهتزاز اثنار الرنين لكل الاصوات الصادره من التطبيق و يكون
-            // كل صوت قابل لتفعيل الميزه او ايقافها»
-            ToggleRow(
-                title = "الاهتزاز أثناء رنين الأذان",
-                subtitle = if (adhan.adhanVibrate) {
-                    "الهاتف يهتز مع الأذان من بدايته حتى نهايته"
-                } else {
-                    "مطفأ — الأذان يرن بلا اهتزاز"
-                },
-                checked = adhan.adhanVibrate,
-                onToggle = { actions.setAdhanVibrate(it) },
-            )
-
-            // ===== صوت لكل صلاة على حدة أو للكل (alpha61) =====
-            Spacer(Modifier.height(12.dp))
-            ToggleRow(
-                title = "صوت لكل صلاة على حدة",
-                subtitle = if (adhan.perPrayerVoices) {
-                    "لكل صلاة أذانها الخاص — اختر صوت كل صلاة من قائمتها"
-                } else {
-                    "مطفأ — صوت الأذان أعلاه يعمل لكل الصلوات الخمس"
-                },
-                checked = adhan.perPrayerVoices,
-                onToggle = { actions.setPerPrayerVoices(it) },
-            )
+            // صوت الإقامة لكل صلاة — بنفس عقد صوت الأذان (alpha61)
             if (adhan.perPrayerVoices) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "صوت الإقامة لكل صلاة على حدة",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
                 Spacer(Modifier.height(6.dp))
                 for (key in PRAYER_KEYS) {
-                    val selected = adhan.perPrayerAdhanVoices[key.name] ?: adhan.adhanVoice
+                    val selected = adhan.perPrayerIqamahVoices[key.name] ?: adhan.iqamahVoice
                     VoiceMenuRow(
                         label = prayerLabel(key),
-                        kind = AdhanSoundKind.ADHAN,
+                        kind = AdhanSoundKind.IQAMAH,
                         selectedId = selected,
-                        customName = adhan.customAdhanName,
-                        onSelect = { id -> actions.setPrayerAdhanVoice(key, id) },
+                        customName = adhan.customIqamahName,
+                        onSelect = { id -> actions.setPrayerIqamahVoice(key, id) },
                     )
                 }
             }
         }
+    }
 
-        SectionBlock(title = "الإقامة") {
-            ToggleRow(
-                title = "أذان الإقامة",
-                subtitle = "«قد قامت الصلاة» — يشتغل بعد الأذان بالمدة المحددة لكل صلاة",
-                checked = adhan.iqamahEnabled,
-                onToggle = { actions.setIqamahEnabled(it) },
+    SectionBlock(title = "أذان يوم الجمعة") {
+        ToggleRow(
+            title = "الأذان مرتين ثم الإقامة",
+            subtitle = if (adhan.fridayDouble) {
+                "يوم الجمعة فقط: أذان أول ثم أذان ثانٍ ثم الإقامة — والباقي بأذان واحد"
+            } else {
+                "مطفأ — يوم الجمعة بأذان واحد كباقي الأيام"
+            },
+            checked = adhan.fridayDouble,
+            onToggle = { actions.setFridayDouble(it) },
+        )
+        if (adhan.fridayDouble) {
+            Spacer(Modifier.height(10.dp))
+            // الجمعة استثناء كما حدد المالك — فاصلاها خانتا كتابة مستقلتان
+            GapInputRow(
+                label = "بين الأذان الأول والثاني (افتراضي ١٠ دقائق)",
+                minutes = adhan.fridayAdhanGapMinutes,
+                onCommit = { actions.setFridayAdhanGapMinutes(it) },
             )
-            // اهتزاز أثناء رنين الإقامة — بلاغ المالك v1.71
-            ToggleRow(
-                title = "الاهتزاز أثناء رنين الإقامة",
-                subtitle = if (adhan.iqamahVibrate) {
-                    "الهاتف يهتز مع الإقامة من بدايتها حتى نهايتها"
-                } else {
-                    "مطفأ — الإقامة ترن بلا اهتزاز"
-                },
-                checked = adhan.iqamahVibrate,
-                onToggle = { actions.setIqamahVibrate(it) },
+            Spacer(Modifier.height(12.dp))
+            GapInputRow(
+                label = "بين الأذان الثاني والإقامة (افتراضي ٣٠ دقيقة)",
+                minutes = adhan.fridayIqamahGapMinutes,
+                onCommit = { actions.setFridayIqamahGapMinutes(it) },
             )
-            if (adhan.iqamahEnabled) {
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    text = "الفاصل بين الأذان والإقامة — خانة لكل صلاة على حدة",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(Modifier.height(4.dp))
-                // تحديث المالك 2026-11-06: «تحديد الوقت بين الاذان يكون
-                // خانه كتابه رقم مش اختيارات و يكون لكل صلاه على حده و
-                // الظبط الافتراضي كل الصلوات ١٠د ماعاد صلاه الفجر تكون ١٥ د»
-                GapInputRow(
-                    label = "الفجر (افتراضي ١٥ دقيقة)",
-                    minutes = adhan.gapFajrMinutes,
-                    onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.FAJR, it) },
-                )
-                GapInputRow(
-                    label = "الظهر (افتراضي ١٠ دقائق)",
-                    minutes = adhan.gapDhuhrMinutes,
-                    onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.DHUHR, it) },
-                )
-                GapInputRow(
-                    label = "العصر (افتراضي ١٠ دقائق)",
-                    minutes = adhan.gapAsrMinutes,
-                    onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.ASR, it) },
-                )
-                GapInputRow(
-                    label = "المغرب (افتراضي ١٠ دقائق)",
-                    minutes = adhan.gapMaghribMinutes,
-                    onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.MAGHRIB, it) },
-                )
-                GapInputRow(
-                    label = "العشاء (افتراضي ١٠ دقائق)",
-                    minutes = adhan.gapIshaMinutes,
-                    onCommit = { actions.setPrayerGapMinutes(PrayerTimeKey.ISHA, it) },
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = "صوت الإقامة",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(Modifier.height(8.dp))
-                VoiceList(
-                    kind = AdhanSoundKind.IQAMAH,
-                    selectedId = adhan.iqamahVoice,
-                    customName = adhan.customIqamahName,
-                    onPickBuiltin = { id ->
-                        stopPreview()
-                        actions.setIqamahVoice(id)
-                    },
-                    onPickCustom = {
-                        pickingKind = AdhanSoundKind.IQAMAH
-                        audioPicker.launch(arrayOf("audio/*"))
-                    },
-                    onClearCustom = {
-                        stopPreview()
-                        actions.clearCustomSound(AdhanSoundKind.IQAMAH)
-                    },
-                )
-                Spacer(Modifier.height(10.dp))
-                PreviewButton(
-                    label = if (previewing == AdhanSoundKind.IQAMAH) "إيقاف المعاينة" else "معاينة صوت الإقامة",
-                    playing = previewing == AdhanSoundKind.IQAMAH,
-                    onClick = {
-                        val customPath =
-                            if (adhan.iqamahVoice == "custom") adhan.customIqamahPath else ""
-                        togglePreview(AdhanSoundKind.IQAMAH, adhan.iqamahVoice, customPath)
-                    },
-                )
-
-                // صوت الإقامة لكل صلاة — بنفس عقد صوت الأذان (alpha61)
-                if (adhan.perPrayerVoices) {
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = "صوت الإقامة لكل صلاة على حدة",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    for (key in PRAYER_KEYS) {
-                        val selected = adhan.perPrayerIqamahVoices[key.name] ?: adhan.iqamahVoice
-                        VoiceMenuRow(
-                            label = prayerLabel(key),
-                            kind = AdhanSoundKind.IQAMAH,
-                            selectedId = selected,
-                            customName = adhan.customIqamahName,
-                            onSelect = { id -> actions.setPrayerIqamahVoice(key, id) },
-                        )
-                    }
-                }
-            }
         }
+    }
 
-        SectionBlock(title = "أذان يوم الجمعة") {
-            ToggleRow(
-                title = "الأذان مرتين ثم الإقامة",
-                subtitle = if (adhan.fridayDouble) {
-                    "يوم الجمعة فقط: أذان أول ثم أذان ثانٍ ثم الإقامة — والباقي بأذان واحد"
-                } else {
-                    "مطفأ — يوم الجمعة بأذان واحد كباقي الأيام"
-                },
-                checked = adhan.fridayDouble,
-                onToggle = { actions.setFridayDouble(it) },
-            )
-            if (adhan.fridayDouble) {
-                Spacer(Modifier.height(10.dp))
-                // الجمعة استثناء كما حدد المالك — فاصلاها خانتا كتابة مستقلتان
-                GapInputRow(
-                    label = "بين الأذان الأول والثاني (افتراضي ١٠ دقائق)",
-                    minutes = adhan.fridayAdhanGapMinutes,
-                    onCommit = { actions.setFridayAdhanGapMinutes(it) },
-                )
-                Spacer(Modifier.height(12.dp))
-                GapInputRow(
-                    label = "بين الأذان الثاني والإقامة (افتراضي ٣٠ دقيقة)",
-                    minutes = adhan.fridayIqamahGapMinutes,
-                    onCommit = { actions.setFridayIqamahGapMinutes(it) },
+    SectionBlock(title = "التنبيه قبل أو بعد الأذان") {
+        // alpha61 — بلاغ المالك: «عايز اضيف في الاعادات زر جديد خاص
+        // بالتنبيه قبل او بعد اذان اي صلاه ده يكون عباره عن منبه
+        // يتم تفعيله قبل او بعد الصلاه بوقت محدد لكل صلاه»
+        ToggleRow(
+            title = "تنبيه قبل أو بعد أذان الصلوات",
+            subtitle = if (adhan.reminderEnabled) {
+                "منبهٌ لكل صلاة بقاعدتها: قبل الأذان أو بعده بالدقائق المحددة — يعمل ولو الجهاز نائم"
+            } else {
+                "مطفأ — فعّله واختر لكل صلاة تنبيهها من قاعدتها"
+            },
+            checked = adhan.reminderEnabled,
+            onToggle = { actions.setReminderEnabled(it) },
+        )
+        // اهتزاز أثناء رنين التنبيه — بلاغ المالك v1.71
+        ToggleRow(
+            title = "الاهتزاز أثناء رنين التنبيه",
+            subtitle = if (adhan.reminderVibrate) {
+                "الهاتف يهتز مع صوت التنبيه من بدايته حتى نهايته"
+            } else {
+                "مطفأ — التنبيه يرن بلا اهتزاز"
+            },
+            checked = adhan.reminderVibrate,
+            onToggle = { actions.setReminderVibrate(it) },
+        )
+        if (adhan.reminderEnabled) {
+            Spacer(Modifier.height(6.dp))
+            for (key in PRAYER_KEYS) {
+                val rule = adhan.reminders[key.name]
+                ReminderRow(
+                    prayerLabel = prayerLabel(key),
+                    rule = rule,
+                    onSetRule = { actions.setPrayerReminder(key, it) },
                 )
             }
         }
+    }
 
-        SectionBlock(title = "التنبيه قبل أو بعد الأذان") {
-            // alpha61 — بلاغ المالك: «عايز اضيف في الاعادات زر جديد خاص
-            // بالتنبيه قبل او بعد اذان اي صلاه ده يكون عباره عن منبه
-            // يتم تفعيله قبل او بعد الصلاه بوقت محدد لكل صلاه»
-            ToggleRow(
-                title = "تنبيه قبل أو بعد أذان الصلوات",
-                subtitle = if (adhan.reminderEnabled) {
-                    "منبهٌ لكل صلاة بقاعدتها: قبل الأذان أو بعده بالدقائق المحددة — يعمل ولو الجهاز نائم"
-                } else {
-                    "مطفأ — فعّله واختر لكل صلاة تنبيهها من قاعدتها"
-                },
-                checked = adhan.reminderEnabled,
-                onToggle = { actions.setReminderEnabled(it) },
+    SectionBlock(title = "كتم أصوات الهاتف") {
+        ToggleRow(
+            title = "كتم الهاتف بعد الإقامة",
+            subtitle = if (adhan.muteEnabled) {
+                "يكتم الهاتف كله بعد انتهاء الإقامة ويرجع الصوت تلقائياً بعد المدة المحددة"
+            } else {
+                "مطفأ — اختياري لمن يريد سكوناً تاماً وقت الصلاة (وبعد الأذان لو الإقامة مطفأة)"
+            },
+            checked = adhan.muteEnabled,
+            onToggle = { actions.setMuteEnabled(it) },
+        )
+        if (adhan.muteEnabled) {
+            Spacer(Modifier.height(10.dp))
+            GapInputRow(
+                label = "بعد الإقامة بكم دقيقة يرجع الصوت؟ (افتراضي ١٠ دقائق)",
+                minutes = adhan.muteMinutes,
+                onCommit = { actions.setMuteMinutes(it) },
             )
-            // اهتزاز أثناء رنين التنبيه — بلاغ المالك v1.71
+            Spacer(Modifier.height(8.dp))
+            // الاختيار الجانبي بتوجيه المالك: يظهر فقط مع تفعيل الكتم —
+            // «يتم الغاء تفعيل كتم الاصوات عند فتح قفل الشاشه» حتى لو
+            // المدة المحددة لم تنقضِ بعد
             ToggleRow(
-                title = "الاهتزاز أثناء رنين التنبيه",
-                subtitle = if (adhan.reminderVibrate) {
-                    "الهاتف يهتز مع صوت التنبيه من بدايته حتى نهايته"
-                } else {
-                    "مطفأ — التنبيه يرن بلا اهتزاز"
-                },
-                checked = adhan.reminderVibrate,
-                onToggle = { actions.setReminderVibrate(it) },
+                title = "إلغاء الكتم عند فتح قفل الشاشة",
+                subtitle = "أول ما تفتح قفل هاتفك يرجع الصوت فوراً حتى لو المدة لم تنقضِ — مثال: حددت ١٥ دقيقة وخلصت صلاتك في ١٠ ففتحت هاتفك فيرجع الصوت في الحال",
+                checked = adhan.muteCancelOnUnlock,
+                onToggle = { actions.setMuteCancelOnUnlock(it) },
             )
-            if (adhan.reminderEnabled) {
-                Spacer(Modifier.height(6.dp))
-                for (key in PRAYER_KEYS) {
-                    val rule = adhan.reminders[key.name]
-                    ReminderRow(
-                        prayerLabel = prayerLabel(key),
-                        rule = rule,
-                        onSetRule = { actions.setPrayerReminder(key, it) },
-                    )
-                }
-            }
-        }
-
-        SectionBlock(title = "كتم أصوات الهاتف") {
-            ToggleRow(
-                title = "كتم الهاتف بعد الإقامة",
-                subtitle = if (adhan.muteEnabled) {
-                    "يكتم الهاتف كله بعد انتهاء الإقامة ويرجع الصوت تلقائياً بعد المدة المحددة"
-                } else {
-                    "مطفأ — اختياري لمن يريد سكوناً تاماً وقت الصلاة (وبعد الأذان لو الإقامة مطفأة)"
-                },
-                checked = adhan.muteEnabled,
-                onToggle = { actions.setMuteEnabled(it) },
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "لكتم كامل تحتاج منح إذن «عدم الإزعاج» للتطبيق — إن لم يُمنح يُكتم الهاتف بالوضع الصامت على أي حال.",
+                fontSize = 11.sp,
+                lineHeight = 17.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (adhan.muteEnabled) {
-                Spacer(Modifier.height(10.dp))
-                GapInputRow(
-                    label = "بعد الإقامة بكم دقيقة يرجع الصوت؟ (افتراضي ١٠ دقائق)",
-                    minutes = adhan.muteMinutes,
-                    onCommit = { actions.setMuteMinutes(it) },
-                )
-                Spacer(Modifier.height(8.dp))
-                // الاختيار الجانبي بتوجيه المالك: يظهر فقط مع تفعيل الكتم —
-                // «يتم الغاء تفعيل كتم الاصوات عند فتح قفل الشاشه» حتى لو
-                // المدة المحددة لم تنقضِ بعد
-                ToggleRow(
-                    title = "إلغاء الكتم عند فتح قفل الشاشة",
-                    subtitle = "أول ما تفتح قفل هاتفك يرجع الصوت فوراً حتى لو المدة لم تنقضِ — مثال: حددت ١٥ دقيقة وخلصت صلاتك في ١٠ ففتحت هاتفك فيرجع الصوت في الحال",
-                    checked = adhan.muteCancelOnUnlock,
-                    onToggle = { actions.setMuteCancelOnUnlock(it) },
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "لكتم كامل تحتاج منح إذن «عدم الإزعاج» للتطبيق — إن لم يُمنح يُكتم الهاتف بالوضع الصامت على أي حال.",
-                    fontSize = 11.sp,
-                    lineHeight = 17.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }

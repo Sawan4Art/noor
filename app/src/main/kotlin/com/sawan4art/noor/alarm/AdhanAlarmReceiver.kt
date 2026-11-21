@@ -46,6 +46,23 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             return
         }
 
+        if (kind == "QUICK_REFRESH") {
+            // v1.80 — تجديد عدّاد «الوقت المتبقي» بإشعار التشغيل السريع
+            // (بلاغ المالك: «اضف ايقونه داخل شريط الاشعارات لعرض الوقت
+            // المتبقي»): عند لحظة كل أذان يتدحرج العدّاد إلى الصلاة
+            // التالية بلا فتح التطبيق — بثٌّ خفيفٌ فوريٌّ من خيط
+            // المستقبِل، وإن كان المفتاح مطفأً يسقط التحديث صامتاً
+            runCatching {
+                val quickEnabled = kotlinx.coroutines.runBlocking {
+                    SettingsRepository(context).settingsOnce().quickNotification
+                }
+                if (quickEnabled) {
+                    com.sawan4art.noor.util.QuickLaunch.refreshFromSettings(context)
+                }
+            }
+            return
+        }
+
         if (kind == "DEFERRED_RECHECK") {
             // نبضة غفوة التنبيه المؤجَّل — المكالمة باقيةٌ أم انتهت؟
             DeferredAlerts.onRecheck(context)

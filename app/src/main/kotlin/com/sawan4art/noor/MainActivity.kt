@@ -274,12 +274,21 @@ class MainActivity : ComponentActivity() {
         // إشعار التشغيل السريع — يظهر مع كل إقلاعٍ إن كان مفتاحه مفعّلاً
         // (بلاغ المالك 2026-11-11: «ايقونه في شريط الاشعارات لتشغيل
         // سريع للتطبيق») ويُغلق إن طفأ المفتاح في مكانٍ آخر
+        // (v1.80 — بلاغ المالك: «اضف ايقونه داخل شريط الاشعارات لعرض
+        // الوقت المتبقي»): مع كل فتحٍ للتطبيق يُجدَّد عدّاد الإشعار
+        // بالصلاة القادمة الحية لحظتها)
         lifecycleScope.launch {
             runCatching {
                 val enabled = SettingsRepository(this@MainActivity)
                     .settingsOnce().quickNotification
                 if (enabled) {
-                    com.sawan4art.noor.util.QuickLaunchNotification.show(this@MainActivity)
+                    com.sawan4art.noor.util.QuickLaunchNotification.show(
+                        this@MainActivity,
+                        "",
+                        0L,
+                    )
+                    // تجديد العدّاد بالصلاة القادمة الفعلية من إعدادات الموقع
+                    com.sawan4art.noor.util.QuickLaunch.refreshFromSettings(this@MainActivity)
                 } else {
                     com.sawan4art.noor.util.QuickLaunchNotification.dismiss(this@MainActivity)
                 }

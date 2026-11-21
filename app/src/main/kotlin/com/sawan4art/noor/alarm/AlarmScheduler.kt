@@ -119,10 +119,54 @@ object AlarmScheduler {
             slot++
         }
 
+        // v1.80 — تجديد عدّاد «الوقت المتبقي» بإشعار التشغيل السريع
+        // عند كل أذانٍ قادم (بلاغ المالك: «اضف ايقونه داخل شريط
+        // الاشعارات لعرض الوقت المتبقي»): منبهٌ خفيفٌ عند لحظة كل أذان
+        // يتدحرج نص العدّاد إلى الصلاة التالية حتى لو التطبيق مقفول —
+        // رقمُه خارج نطاق الأحداث كي لا يُلغى بغيره
+        scheduleQuickRefresh(context, am, events)
+
         // التجديد اليومي قرب منتصف الليل: يعيد بناء الأحداث لل أيام القادمة
         var refresh = now.toLocalDate().plusDays(1).atTime(0, 7).atZone(zone)
         if (!refresh.isAfter(now)) refresh = refresh.plusDays(1)
         setExactSafely(am, refresh.toInstant().toEpochMilli(), buildRefreshPendingIntent(context))
+    }
+
+    /**
+     * منبهات تجديد عدّاد إشعار التشغيل السريع (v1.80) — عند لحظة كل
+     * أذانٍ في الخطة (أول حدثٍ لكل صلاة) يتدحرج العدّاد إلى الصلاة
+     * التالية. رقم الطلب 2800 خارج نطاق الأحداث (3000+) ونطاق التجديد
+     * اليومي (2900) كي لا يُلغى مع أيٍّ منهما.
+     */
+    private const val QUICK_REFRESH_REQUEST_CODE = 2800
+
+    private fun scheduleQuickRefresh(
+        context: Context,
+        am: AlarmManager,
+        events: List<com.sawan4art.noor.domain.adhan.AdhanEvent>,
+    ) {
+        runCatching {
+            // لحظة كل أذان (بلا إقامة ولا كتم) — ومنبهٌ واحدٌ يكفي بعدها:
+            // المستقبِل يعيد الحساب من الإعدادات فيجد الصلاة التالية
+            val adhanTimes = events
+                .filter { it.kind == AdhanEventKind.ADHAN }
+                .map { it.at.toInstant().toEpochMilli() }
+                .distinct()
+                .sorted()
+            for (at in adhanTimes) {
+                val pi = PendingIntent.getBroadcast(
+                    context,
+                    QUICK_REFRESH_REQUEST_CODE,
+                    Intent(context, AdhanAlarmReceiver::class.java).setAction(
+                        "com.sawan4art.noor.QUICK_REFRESH",
+                    ).putExtra(AdhanAlarmReceiver.EXTRA_KIND, "QUICK_REFRESH"),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                // منبه واحد قابلة للإلغاء بالنفس الرقم يُستبدل بآخر — فالجدولة
+                // تسلسلية والبث عند كل لحظة أذان يفعلها للصلاة التالية مباشرة
+                setExactSafely(am, at, pi)
+            }
+        }
     }
 
     /** إلغاء كل منبهات الأذان — النطاق كله وليس القديم فقط (درس النطاقات) */
@@ -136,6 +180,19 @@ object AlarmScheduler {
             buildEventPendingIntent(context, code, null)?.let { am.cancel(it) }
         }
         am.cancel(buildRefreshPendingIntent(context))
+        // منبهات تجديد عدّاد الإشعار (v1.80) — تلغى مع البقية
+        runCatching {
+            am.cancel(
+                PendingIntent.getBroadcast(
+                    context,
+                    QUICK_REFRESH_REQUEST_CODE,
+                    Intent(context, AdhanAlarmReceiver::class.java).setAction(
+                        "com.sawan4art.noor.QUICK_REFRESH",
+                    ),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
+        }
     }
 
     /** إعداد منبه دقيق — وبغير الإذن يعمل شبه دقيق (فرق ثوانٍ) بدل الانهيار */
