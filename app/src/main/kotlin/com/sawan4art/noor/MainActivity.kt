@@ -279,13 +279,9 @@ class MainActivity : ComponentActivity() {
         // الإشعار بالعدّاد الحي وتطلب إعادة رسم البلاطة
         lifecycleScope.launch {
             runCatching {
-                val enabled = SettingsRepository(this@MainActivity)
-                    .settingsOnce().quickNotification
-                if (enabled) {
-                    com.sawan4art.noor.util.QuickLaunch.refreshFromSettings(this@MainActivity)
-                } else {
-                    com.sawan4art.noor.util.QuickLaunchNotification.dismiss(this@MainActivity)
-                }
+                // refreshFromSettings مكتفيةٌ ذاتياً بمفتاحين مستقلين
+                // (v1.82): الإشعار يظهر ويُغلق بمفتاحه والبلاطة بمفتاحها
+                com.sawan4art.noor.util.QuickLaunch.refreshFromSettings(this@MainActivity)
             }
         }
     }

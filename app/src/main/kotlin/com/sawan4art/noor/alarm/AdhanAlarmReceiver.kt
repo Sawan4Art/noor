@@ -143,7 +143,13 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
                 AlarmService.postSilentPrayerNotice(context, noticeName, subtext)
                 // نافذة الكتم إن كان هذا الحدث بدايتها — كتمٌ زمنيٌّ مستقلٌ عن الصوت
                 if (intent.getBooleanExtra(EXTRA_MUTE_START, false)) {
-                    MuteManager.apply(context, prefs?.muteMinutes ?: 10)
+                    // المدة المخصصة من الحدث (الجمعة بعد الأذان الأول
+                    // تحمل مدتها الخاصة حتى ١٨٠ د — v1.82) وإن لم تُحمل
+                    // فالمدة العادية بعد الإقامة/الأذان
+                    val minutes = intent.getIntExtra(EXTRA_MUTE_MINUTES, 0)
+                        .takeIf { it > 0 }
+                        ?: prefs?.muteMinutes ?: 10
+                    MuteManager.apply(context, minutes)
                 }
                 // الويدجتات تتبدل مع أذان كل صلاة — القادمة الجديدة تظهر فوراً (alpha56)
                 com.sawan4art.noor.widget.WidgetUpdater.refreshAll(context)
@@ -162,7 +168,11 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
                         prefs?.vibrateFor(isReminder, isIqamah) ?: true,
                     )
                     .put(AlarmService.EXTRA_MUTE_START, intent.getBooleanExtra(EXTRA_MUTE_START, false))
-                    .put(AlarmService.EXTRA_MUTE_MINUTES, prefs?.muteMinutes ?: 10)
+                    .put(
+                        AlarmService.EXTRA_MUTE_MINUTES,
+                        intent.getIntExtra(EXTRA_MUTE_MINUTES, 0).takeIf { it > 0 }
+                            ?: prefs?.muteMinutes ?: 10,
+                    )
                     .put(AlarmService.EXTRA_MUTE_CANCEL_ON_UNLOCK, prefs?.muteCancelOnUnlock ?: true)
                 DeferredAlerts.defer(context, payload)
                 com.sawan4art.noor.widget.WidgetUpdater.refreshAll(context)
@@ -185,7 +195,11 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
                 prefs?.vibrateFor(isReminder, isIqamah) ?: true,
             )
             .putExtra(AlarmService.EXTRA_MUTE_START, intent.getBooleanExtra(EXTRA_MUTE_START, false))
-            .putExtra(AlarmService.EXTRA_MUTE_MINUTES, prefs?.muteMinutes ?: 10)
+            .putExtra(
+                AlarmService.EXTRA_MUTE_MINUTES,
+                intent.getIntExtra(EXTRA_MUTE_MINUTES, 0).takeIf { it > 0 }
+                    ?: prefs?.muteMinutes ?: 10,
+            )
             .putExtra(
                 AlarmService.EXTRA_MUTE_CANCEL_ON_UNLOCK,
                 prefs?.muteCancelOnUnlock ?: true,
@@ -211,6 +225,8 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
         const val EXTRA_PRAYER_KEY = "noor_extra_adhan_prayer_key"
         const val EXTRA_IQAMAH_AT = "noor_extra_adhan_iqamah_at"
         const val EXTRA_MUTE_START = "noor_extra_adhan_mute_start"
+        /** مدة الكتم المخصصة للحامل — صفرٌ يعني افتراضي الإعدادات (v1.82) */
+        const val EXTRA_MUTE_MINUTES = "noor_extra_adhan_mute_minutes"
         const val ACTION_REFRESH = "REFRESH"
     }
 }

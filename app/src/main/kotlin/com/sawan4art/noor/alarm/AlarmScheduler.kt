@@ -66,6 +66,8 @@ object AlarmScheduler {
             fridayAdhanGapMinutes = prefs.fridayAdhanGapMinutes,
             fridayIqamahGapMinutes = prefs.fridayIqamahGapMinutes,
             muteEnabled = prefs.muteEnabled,
+            muteMinutes = prefs.muteMinutes,
+            fridayMuteMinutes = prefs.fridayMuteMinutes,
         )
 
         // مواقيت اليوم + الغد + بعده — ثلاثة أيام تكفي حتى لو لم يُفتح التطبيق
@@ -227,6 +229,9 @@ object AlarmScheduler {
                 .putExtra(AdhanAlarmReceiver.EXTRA_PRAYER_KEY, event.prayerKey?.name ?: "")
                 .putExtra(AdhanAlarmReceiver.EXTRA_IQAMAH_AT, event.iqamahAt?.toInstant()?.toEpochMilli() ?: 0L)
                 .putExtra(AdhanAlarmReceiver.EXTRA_MUTE_START, event.startsMute)
+                // مدة الكتم المخصصة للحامل (الجمعة بعد الأذان الأول) —
+                // صفرٌ يعني افتراضي الإعدادات (v1.82)
+                .putExtra(AdhanAlarmReceiver.EXTRA_MUTE_MINUTES, event.muteMinutes)
         }
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         return PendingIntent.getBroadcast(context, requestCode, intent, flags)

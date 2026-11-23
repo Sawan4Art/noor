@@ -144,6 +144,8 @@ fun SettingsScreen(
     onSetReciter: (String) -> Unit,
     /** تغيير طبعة التفسير الافتراضية — قسم «التفاسير» (v1.81) */
     onSetTafsirEdition: (String) -> Unit,
+    /** بلاطة الإعدادات السريعة — مفتاحٌ مستقلٌّ عن الإشعار (v1.82) */
+    onSetQuickTile: (Boolean) -> Unit,
     /** زر خطبة الجمعة في الرئيسية مفعّل؟ — قسم «خطبة الجمعة» (alpha56) */
     khutbahEnabled: Boolean,
     /** تفعيل/إيقاف زر خطبة الجمعة */
@@ -195,7 +197,9 @@ fun SettingsScreen(
             SectionCard {
                 GeneralSection(
                     quickNotification = settings.quickNotification,
+                    quickTile = settings.quickTile,
                     onSetQuickNotification = onSetQuickNotification,
+                    onSetQuickTile = onSetQuickTile,
                 )
             }
         }
@@ -216,9 +220,54 @@ fun SettingsScreen(
             }
         }
         // صفحة الأذان والصوت — القسم الجديد: الأصوات والفواصل والجمعة والكتم
-        "adhan" -> SectionPage(title = "الأذان والصوت", onBack = { section = "home" }) {
+        // v1.82 (بلاغ المالك: «كل قسم في اقسام الاذان و الصوت يكون
+        // داخل صفحه لوحده لعدم التشتيت يعني اعاداد الاذان يكون مدمج
+        // معه الاذان و الاقامة») — خمس صفحاتٍ مستقلةٍ بدل صفحةٍ واحدة:
+        // إعدادات الأذان (التشغيل + الإقامة مدمجَين) وصوته والجمعة
+        // والتنبيه والكتم
+        "adhan" -> SectionPage(title = "إعدادات الأذان", onBack = { section = "home" }) {
             SectionCard {
-                AdhanSection(adhan = adhanPrefs, actions = adhanActions)
+                AdhanSection(
+                    adhan = adhanPrefs,
+                    actions = adhanActions,
+                    page = com.sawan4art.noor.ui.settings.adhan.AdhanPage.SETTINGS,
+                )
+            }
+        }
+        "adhan_voice" -> SectionPage(title = "صوت الأذان", onBack = { section = "home" }) {
+            SectionCard {
+                AdhanSection(
+                    adhan = adhanPrefs,
+                    actions = adhanActions,
+                    page = com.sawan4art.noor.ui.settings.adhan.AdhanPage.VOICE,
+                )
+            }
+        }
+        "friday" -> SectionPage(title = "أذان يوم الجمعة", onBack = { section = "home" }) {
+            SectionCard {
+                AdhanSection(
+                    adhan = adhanPrefs,
+                    actions = adhanActions,
+                    page = com.sawan4art.noor.ui.settings.adhan.AdhanPage.FRIDAY,
+                )
+            }
+        }
+        "reminder" -> SectionPage(title = "التنبيه قبل أو بعد الأذان", onBack = { section = "home" }) {
+            SectionCard {
+                AdhanSection(
+                    adhan = adhanPrefs,
+                    actions = adhanActions,
+                    page = com.sawan4art.noor.ui.settings.adhan.AdhanPage.REMINDER,
+                )
+            }
+        }
+        "mute" -> SectionPage(title = "كتم أصوات الهاتف", onBack = { section = "home" }) {
+            SectionCard {
+                AdhanSection(
+                    adhan = adhanPrefs,
+                    actions = adhanActions,
+                    page = com.sawan4art.noor.ui.settings.adhan.AdhanPage.MUTE,
+                )
             }
         }
         // alpha34: اللون الأساسي داخل صفحة الألوان بأمر المالك —
@@ -345,9 +394,33 @@ private fun SettingsHome(
         )
         SectionRow(
             icon = NoorIcons.Mosque,
-            title = "الأذان والصوت",
+            title = "إعدادات الأذان",
             summary = adhanSummary(adhanPrefs),
             onOpen = { onOpen("adhan") },
+        )
+        SectionRow(
+            icon = NoorIcons.QuranVoice,
+            title = "صوت الأذان",
+            summary = "نغمة الأذان والاهتزاز وصوتٌ لكل صلاةٍ على حدة",
+            onOpen = { onOpen("adhan_voice") },
+        )
+        SectionRow(
+            icon = NoorIcons.SunMoon,
+            title = "أذان يوم الجمعة",
+            summary = "الأذانان المزدوجان وفواصلهما والخطبة",
+            onOpen = { onOpen("friday") },
+        )
+        SectionRow(
+            icon = NoorIcons.StarOutline,
+            title = "التنبيه قبل أو بعد الأذان",
+            summary = "تنبيهٌ بصوتٍ لكل صلاةٍ قبل أذانها أو بعده",
+            onOpen = { onOpen("reminder") },
+        )
+        SectionRow(
+            icon = NoorIcons.Moon,
+            title = "كتم أصوات الهاتف",
+            summary = "كتمٌ تامٌّ وقت الصلاة — وبعد الأذان الأول في الجمعة حتى ٣ ساعات",
+            onOpen = { onOpen("mute") },
         )
         SectionRow(
             icon = NoorIcons.QuranVoice,
@@ -358,7 +431,7 @@ private fun SettingsHome(
         SectionRow(
             icon = NoorIcons.QuranTafsir,
             title = "التفاسير",
-            summary = "الميسر مضمّنٌ والجلالين والقرطبي وابن كثير والطبري والسعدي تُنزَّل من هنا",
+            summary = "الطبعات الست مدمجةٌ داخل التطبيق — اختر افتراضيتك من هنا",
             onOpen = { onOpen("tafasir") },
         )
         SectionRow(
@@ -912,42 +985,70 @@ private fun DropdownRow(
 @Composable
 private fun GeneralSection(
     quickNotification: Boolean,
+    quickTile: Boolean,
     onSetQuickNotification: (Boolean) -> Unit,
+    onSetQuickTile: (Boolean) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     Column {
-        SettingLabel("أيقونة التشغيل السريع")
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(scheme.primary.copy(alpha = 0.08f))
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = "الوقت المتبقي في شريط الإشعارات + بلاطة الإعدادات السريعة",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = scheme.onSurface,
-                )
-                Text(
-                    text = "إشعارٌ دائمٌ هادئٌ يعرض العدّاد حتى أذان الصلاة القادمة وبلاطةٌ في الشريط بعد السحب — ضغطةٌ على أيٍّ منهما تفتح التطبيق فوراً",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = scheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            Switch(
-                checked = quickNotification,
-                onCheckedChange = onSetQuickNotification,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = scheme.onPrimary,
-                    checkedTrackColor = scheme.primary,
-                ),
+        SettingLabel("التشغيل السريع")
+        // مفتاحان مستقلان تماماً (v1.82 بلاغ المالك: «اقدر افعل ميزه
+        // واحده بين الاثنين او كلاهما مع بعض»)
+        QuickToggleRow(
+            title = "إشعار الوقت المتبقي",
+            summary = "إشعارٌ دائمٌ هادئٌ في شريط الإشعارات يعرض العدّاد حتى أذان الصلاة القادمة — ضغطته تفتح التطبيق فوراً",
+            checked = quickNotification,
+            onChange = onSetQuickNotification,
+        )
+        Spacer(Modifier.height(10.dp))
+        QuickToggleRow(
+            title = "بلاطة الإعدادات السريعة",
+            summary = "بلاطةٌ في شريط الإشعارات بعد السحب تعرض الوقت المتبقي لحظة سحبها — ضغطتها تفتح التطبيق فوراً",
+            checked = quickTile,
+            onChange = onSetQuickTile,
+        )
+    }
+}
+
+/** صفُّ مفتاحٍ واحدٍ للتشغيل السريع */
+@Composable
+private fun QuickToggleRow(
+    title: String,
+    summary: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(scheme.primary.copy(alpha = 0.08f))
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = scheme.onSurface,
+            )
+            Text(
+                text = summary,
+                style = MaterialTheme.typography.labelSmall,
+                color = scheme.onSurfaceVariant,
             )
         }
+        Spacer(Modifier.width(10.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = scheme.onPrimary,
+                checkedTrackColor = scheme.primary,
+            ),
+        )
     }
 }
 

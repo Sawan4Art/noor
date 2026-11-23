@@ -39,6 +39,20 @@ object AdhanGaps {
     fun clampGap(minutes: Int): Int =
         minutes.coerceIn(GAP_MIN_MINUTES, GAP_MAX_MINUTES)
 
+    /** افتراضي مدة كتم الجمعة بعد الأذان الأول — ساعةٌ ونصف (v1.82) */
+    const val DEFAULT_FRIDAY_MUTE_MINUTES: Int = 90
+
+    /** أقصى مدة كتمٍ للجمعة — ثلاث ساعات كما حدد المالك (v1.82) */
+    const val FRIDAY_MUTE_MAX_MINUTES: Int = 180
+
+    /** حصر مدة كتم الجمعة داخل حدودها (١..١٨٠ دقيقة) */
+    fun clampFridayMute(minutes: Int): Int =
+        minutes.coerceIn(GAP_MIN_MINUTES, FRIDAY_MUTE_MAX_MINUTES)
+
+    /** صلاحية خانة مدة الكتم بحدٍّ أعلى مخصص (الجمعة حتى ١٨٠) */
+    fun isGapInputValid(minutes: Int?, max: Int = GAP_MAX_MINUTES): Boolean =
+        minutes != null && minutes in GAP_MIN_MINUTES..max
+
     /** هل النص المكتوب في خانة الفاصل صالح للحفظ كما هو */
     fun isGapInputValid(minutes: Int?): Boolean =
         minutes != null && minutes in GAP_MIN_MINUTES..GAP_MAX_MINUTES

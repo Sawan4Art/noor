@@ -183,6 +183,7 @@ private fun NoorRoot(
                     onSetAccent = viewModel::setAccent,
                     onSetPrimary = viewModel::setPrimary,
                     onSetQuickNotification = viewModel::setQuickNotification,
+                    onSetQuickTile = viewModel::setQuickTile,
                     onSetTafsirEdition = viewModel::setTafsirEdition,
                     onSetAutoLocation = viewModel::setAutoLocation,
                     onSetManualLocation = viewModel::setManualLocation,
@@ -300,6 +301,7 @@ private fun NoorRoot(
                             onSetAccent = viewModel::setAccent,
                             onSetPrimary = viewModel::setPrimary,
                             onSetQuickNotification = viewModel::setQuickNotification,
+                            onSetQuickTile = viewModel::setQuickTile,
                             onSetTafsirEdition = viewModel::setTafsirEdition,
                             onSetAutoLocation = viewModel::setAutoLocation,
                             onSetManualLocation = viewModel::setManualLocation,
@@ -481,6 +483,8 @@ private fun NoorBody(
     onSetPrimary: (String) -> Unit,
     /** إشعار التشغيل السريع — شريط الإشعارات (بلاغ 2026-11-11) */
     /** تغيير طبعة التفسير الافتراضية — قسم «التفاسير» (v1.81) */
+    /** بلاطة الإعدادات السريعة — مفتاحٌ مستقلٌّ عن الإشعار (v1.82) */
+    onSetQuickTile: (Boolean) -> Unit,
     onSetTafsirEdition: (String) -> Unit,
     onSetQuickNotification: (Boolean) -> Unit,
     /** التحديد التلقائي للموقع في الخلفية (بلاغ 2026-11-11) */
@@ -571,6 +575,7 @@ private fun NoorBody(
                         onDetectLocation = onDetectLocation,
                         onSetQuickNotification = onSetQuickNotification,
                         onSetTafsirEdition = onSetTafsirEdition,
+                        onSetQuickTile = onSetQuickTile,
                         onSetAutoLocation = onSetAutoLocation,
                         onSetManualLocation = onSetManualLocation,
                         onSetMethod = onSetMethod,

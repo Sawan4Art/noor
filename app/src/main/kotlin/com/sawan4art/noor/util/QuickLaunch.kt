@@ -58,24 +58,30 @@ object QuickLaunch {
             val settings = kotlinx.coroutines.runBlocking {
                 SettingsRepository(context).settingsOnce()
             }
-            val target = computeNextTarget(
-                latitude = settings.latitude,
-                longitude = settings.longitude,
-                zone = ZoneId.systemDefault(),
-                method = settings.method,
-                isHanafi = settings.isHanafi,
-                now = ZonedDateTime.now(ZoneId.systemDefault()),
-            )
-            if (target != null) {
-                QuickLaunchNotification.show(
-                    context,
-                    target.prayerName,
-                    target.atMillis,
+            // الإشعار الدائم — بمفتاحه المستقل (v1.82): يظهر ويُغلق
+            // بحسب الإعداد هنا فلا يعتمد على المتصلين
+            if (settings.quickNotification) {
+                val target = computeNextTarget(
+                    latitude = settings.latitude,
+                    longitude = settings.longitude,
+                    zone = ZoneId.systemDefault(),
+                    method = settings.method,
+                    isHanafi = settings.isHanafi,
+                    now = ZonedDateTime.now(ZoneId.systemDefault()),
                 )
+                if (target != null) {
+                    QuickLaunchNotification.show(
+                        context,
+                        target.prayerName,
+                        target.atMillis,
+                    )
+                }
+            } else {
+                QuickLaunchNotification.dismiss(context)
             }
-            // البلاطة السريعة (v1.81) — طلبُ إعادة رسمٍ من النظام يفزّع
-            // onStartListening فيحسب النص الحي لحظتها (بلاغ المالك:
-            // «Quick Settings Tile يكون داعم ليها»)
+            // البلاطة السريعة — مفتاحُها المستقلُّ الآخر؛ طلبُ إعادة
+            // الرسم يفزّع onStartListening فيقرأ quickTile فيصير
+            // نشطةً أو «غير متاحة» بلا تأثيرٍ من مفتاح الإشعار
             runCatching {
                 android.service.quicksettings.TileService.requestListeningState(
                     context,

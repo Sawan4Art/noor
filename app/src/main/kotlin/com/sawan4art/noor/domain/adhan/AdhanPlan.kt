@@ -23,6 +23,16 @@ data class AdhanPlanSettings(
     val fridayAdhanGapMinutes: Int = 10,
     val fridayIqamahGapMinutes: Int = 30,
     val muteEnabled: Boolean = false,
+    /** مدة الكتم العادية بعد الإقامة/الأذان (من إعدادات الكتم) */
+    val muteMinutes: Int = 10,
+    /**
+     * مدة كتم الجمعة بعد الأذان الأول بالدقائق — v1.82 (بلاغ المالك:
+     * «كل كتم الاصوات في يوم الجمعه لصلاه الجمعه يكون مخصص بعد الاذان
+     * الاول بمده يحددها المستخدم و افتراضي يكون ساعه ونص و قابله
+     * للتخصيص حتى ٣ ساعات») — مستقلةٌ عن مدة الكتم العادية بعد
+     * الإقامة لأن نافذة الجمعة الكاملة أطول.
+     */
+    val fridayMuteMinutes: Int = AdhanGaps.DEFAULT_FRIDAY_MUTE_MINUTES,
 ) {
     /** فاصل الصلاة المطلوبة — الفجر استثناء بـ١٥ والباقي بـ١٠ افتراضياً */
     fun gapFor(key: PrayerTimeKey): Int = when (key) {
@@ -85,6 +95,12 @@ data class AdhanEvent(
     val iqamahAt: ZonedDateTime? = null,
     /** يبدأ كتم أصوات الهاتف بعد انتهاء صوت هذا الحدث */
     val startsMute: Boolean = false,
+    /**
+     * مدة الكتم عند بدئه من هذا الحدث بالدقائق — صفرٌ يعني «افتراضي
+     * الإعدادات» (مدة الكتم العادية)؛ الجمعة تحمل مدتها المخصصة
+     * بعد الأذان الأول (v1.82).
+     */
+    val muteMinutes: Int = 0,
 )
 
 /**
@@ -120,11 +136,18 @@ object AdhanPlan {
         if (isFridayDhuhr && settings.fridayDouble) {
             val second = prayerTime.plusMinutes(settings.fridayAdhanGapMinutes.toLong())
             val iqamah = second.plusMinutes(settings.fridayIqamahGapMinutes.toLong())
+            // v1.82 (بلاغ المالك: «كل كتم الاصوات في يوم الجمعه لصلاه
+            // الجمعه يكون مخصص بعد الاذان الاول بمده يحددها المستخدم
+            // و افتراضي يكون ساعه ونص و قابله للتخصيص حتى ٣ ساعات») —
+            // الكتم عَلَمُه على **الأذان الأول** وحده بمُدته المخصصة،
+            // فتُغطي النافذة الخطبةَ والصلاة كلها ولا يُعاد كتمٌ بعده
             events += AdhanEvent(
                 kind = AdhanEventKind.ADHAN,
                 at = prayerTime,
                 prayerKey = key,
                 name = prayerName,
+                startsMute = settings.muteEnabled,
+                muteMinutes = settings.fridayMuteMinutes,
             )
             events += AdhanEvent(
                 kind = AdhanEventKind.ADHAN,
@@ -133,8 +156,6 @@ object AdhanPlan {
                 name = prayerName,
                 carriesIqamah = settings.iqamahEnabled,
                 iqamahAt = if (settings.iqamahEnabled) iqamah else null,
-                // بلا إقامة: الأذان الثاني هو آخر صوت قبل الصلاة — يبدأ الكتم
-                startsMute = settings.muteEnabled && !settings.iqamahEnabled,
             )
             if (settings.iqamahEnabled) {
                 events += AdhanEvent(
@@ -142,20 +163,26 @@ object AdhanPlan {
                     at = iqamah,
                     prayerKey = key,
                     name = prayerName,
-                    startsMute = settings.muteEnabled,
                 )
             }
             return events
         }
 
         // المسار العادي: أذان واحد (+ إقامة اختيارية بفاصل الصلاة نفسها)
+        // ويوم الجمعة بلا أذانٍ مزدوجٍ استثناءٌ كذلك: الكتم مخصصٌ بعد
+        // الأذان الأول (= الأذان الوحيد) بمُدته المخصصة لا بعد الإقامة
         events += AdhanEvent(
             kind = AdhanEventKind.ADHAN,
             at = prayerTime,
             prayerKey = key,
             name = prayerName,
         )
-        if (settings.iqamahEnabled) {
+        if (isFridayDhuhr && settings.muteEnabled) {
+            events[0] = events[0].copy(
+                startsMute = true,
+                muteMinutes = settings.fridayMuteMinutes,
+            )
+        } else if (settings.iqamahEnabled) {
             val iqamah = prayerTime.plusMinutes(settings.gapFor(key).toLong())
             events += AdhanEvent(
                 kind = AdhanEventKind.IQAMAH,
@@ -163,10 +190,15 @@ object AdhanPlan {
                 prayerKey = key,
                 name = prayerName,
                 startsMute = settings.muteEnabled,
+                muteMinutes = settings.muteMinutes,
             )
         } else if (settings.muteEnabled) {
             // بلا إقامة: الأذان هو آخر صوت — الكتم يبدأ بعد انتهائه
-            events[0] = events[0].copy(startsMute = true)
+            // بالمُدة العادية المحددة بعد الإقامة/الأذان
+            events[0] = events[0].copy(
+                startsMute = true,
+                muteMinutes = settings.muteMinutes,
+            )
         }
         return events
     }

@@ -221,7 +221,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     fun setOnboardingDone(done: Boolean) =
         viewModelScope.launch { repository.setOnboardingDone(done) }
 
-    /** إشعار الوقت المتبقي + البلاطة السريعة — يظهران ويُغلقان مع المفتاح */
+    /**
+     * إشعار الوقت المتبقي — مفتاحٌ مستقلٌّ عن البلاطة (v1.82 بلاغ
+     * المالك: «اقدر افعل ميزه واحده بين الاثنين او كلاهما مع بعض»)
+     */
     fun setQuickNotification(on: Boolean) = viewModelScope.launch {
         repository.setQuickNotification(on)
         val app = getApplication<Application>()
@@ -230,6 +233,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
         } else {
             com.sawan4art.noor.util.QuickLaunchNotification.dismiss(app)
         }
+    }
+
+    /** بلاطة الإعدادات السريعة — مفتاحُها المستقلُّ الآخر (v1.82) */
+    fun setQuickTile(on: Boolean) = viewModelScope.launch {
+        repository.setQuickTile(on)
+        // فزعُ إعادة الرسم يجعل البلاطة نشطةً أو «غير متاحة» فوراً
+        com.sawan4art.noor.util.QuickLaunch.refreshFromSettings(getApplication())
     }
 
     /** تغيير طبعة التفسير الافتراضية — قسم «التفاسير» (بلاغ v1.81) */
@@ -408,6 +418,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
 
     override fun setMuteMinutes(minutes: Int) {
         viewModelScope.launch { repository.setMuteMinutes(minutes) }
+    }
+
+    override fun setFridayMuteMinutes(minutes: Int) {
+        viewModelScope.launch { repository.setFridayMuteMinutes(minutes) }
     }
 
     override fun setMuteCancelOnUnlock(on: Boolean) {

@@ -1436,11 +1436,9 @@ private fun EditionSwitcher(
     edition: String,
     onPick: (String) -> Unit,
 ) {
-    val context = LocalContext.current
     val accent = MaterialTheme.colorScheme.primary
-    val available = com.sawan4art.noor.domain.tafsir.TafsirEditions.ALL.filter {
-        com.sawan4art.noor.data.tafsir.TafsirLibrary.isDownloaded(context, it.id)
-    }
+    // الطبعات الست كلها مدمجةٌ في الحزمة (v1.82) — المبدّل يعرضها دائماً
+    val available = com.sawan4art.noor.domain.tafsir.TafsirEditions.ALL
     androidx.compose.foundation.lazy.LazyRow(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp),

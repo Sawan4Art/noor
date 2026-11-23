@@ -57,8 +57,10 @@ class QuickLaunchTileService : TileService() {
     private fun renderTile() {
         runCatching {
             val qs = qsTile ?: return
+            // المفتاح المستقل للبلاطة (v1.82) — لا علاقة له بإشعار
+            // شريط الإشعارات؛ مطفأً تصير البلاطة «غير متاحة» لا تختفي
             val enabled = kotlinx.coroutines.runBlocking {
-                SettingsRepository(this@QuickLaunchTileService).settingsOnce().quickNotification
+                SettingsRepository(this@QuickLaunchTileService).settingsOnce().quickTile
             }
             if (!enabled) {
                 qs.setState(Tile.STATE_UNAVAILABLE)

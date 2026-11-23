@@ -58,6 +58,8 @@ data class AdhanPrefs(
     val fridayIqamahGapMinutes: Int = AdhanGaps.DEFAULT_FRIDAY_IQAMAH_GAP_MINUTES,
     val muteEnabled: Boolean = false,
     val muteMinutes: Int = 10,
+    /** مدة كتم الجمعة بعد الأذان الأول — افتراضي ٩٠ د حتى ١٨٠ (v1.82) */
+    val fridayMuteMinutes: Int = AdhanGaps.DEFAULT_FRIDAY_MUTE_MINUTES,
     /** إلغاء الكتم بمجرد فتح قفل الشاشة — اختيار جانبي يظهر مع الكتم فقط */
     val muteCancelOnUnlock: Boolean = true,
     val customAdhanPath: String = "",
@@ -225,6 +227,14 @@ data class NoorSettingsState(
      */
     val tafsirEdition: String = "ar.muyassar",
     /**
+     * **بلاطة الإعدادات السريعة** — v1.82 (بلاغ المالك: «عايز فصل
+     * بين تشغيل بلاطه الاعدادات السريعه و بين الاشعار الثابت بحيث
+     * اقدر افعل ميزه واحده بين الاثنين او كلاهما مع بعض») — مفتاحٌ
+     * مستقلٌّ تماماً عن [quickNotification]: البلاطة في شبكة الشريط
+     * بعد السحب، وكلٌّ منهما يعمل لوحده أو معاً.
+     */
+    val quickTile: Boolean = true,
+    /**
      * **تحديد الموقع تلقائياً في الخلفية** (بلاغ المالك 2026-11-11:
      * «زر تحديد الموقع تلقائى اذا تم تفعيله سيتم كل مره فيها فتح
      * الموقع و يوجد اتصال انترنت في الهاتف سواء فتحت التطبيق ام لا
@@ -267,6 +277,8 @@ class SettingsRepository(private val context: Context) {
         val QUICK_NOTIFICATION = booleanPreferencesKey("quick_notification")
         // طبعة التفسير الافتراضية (v1.81 — قسم التفاسير)
         val TAFSIR_EDITION = stringPreferencesKey("tafsir_edition")
+        // بلاطة الإعدادات السريعة — مفتاحٌ مستقلٌّ عن الإشعار (v1.82)
+        val QUICK_TILE = booleanPreferencesKey("quick_tile")
         val AUTO_LOCATION = booleanPreferencesKey("auto_location")
         val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check_at")
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
@@ -292,6 +304,8 @@ class SettingsRepository(private val context: Context) {
         val MUTE_ENABLED = booleanPreferencesKey("adhan_mute_enabled")
         val MUTE_MINUTES = intPreferencesKey("adhan_mute_minutes")
         val MUTE_CANCEL_ON_UNLOCK = booleanPreferencesKey("adhan_mute_cancel_on_unlock")
+        // مدة كتم الجمعة بعد الأذان الأول (v1.82 — افتراضي ٩٠ د حتى ٣ ساعات)
+        val FRIDAY_MUTE_MINUTES = intPreferencesKey("friday_mute_minutes")
         val CUSTOM_ADHAN_PATH = stringPreferencesKey("custom_adhan_path")
         val CUSTOM_ADHAN_NAME = stringPreferencesKey("custom_adhan_name")
         val CUSTOM_IQAMAH_PATH = stringPreferencesKey("custom_iqamah_path")
@@ -354,6 +368,7 @@ class SettingsRepository(private val context: Context) {
             onboardingDone = p[Keys.ONBOARDING_DONE] ?: false,
             quickNotification = p[Keys.QUICK_NOTIFICATION] ?: true,
             tafsirEdition = p[Keys.TAFSIR_EDITION] ?: "ar.muyassar",
+            quickTile = p[Keys.QUICK_TILE] ?: true,
             autoLocation = p[Keys.AUTO_LOCATION] ?: false,
         )
     }
@@ -384,6 +399,7 @@ class SettingsRepository(private val context: Context) {
             ),
             muteEnabled = p[Keys.MUTE_ENABLED] ?: false,
             muteMinutes = AdhanGaps.clampGap(p[Keys.MUTE_MINUTES] ?: 10),
+            fridayMuteMinutes = AdhanGaps.clampFridayMute(p[Keys.FRIDAY_MUTE_MINUTES] ?: AdhanGaps.DEFAULT_FRIDAY_MUTE_MINUTES),
             muteCancelOnUnlock = p[Keys.MUTE_CANCEL_ON_UNLOCK] ?: true,
             customAdhanPath = p[Keys.CUSTOM_ADHAN_PATH] ?: "",
             customAdhanName = p[Keys.CUSTOM_ADHAN_NAME] ?: "",
@@ -478,6 +494,11 @@ class SettingsRepository(private val context: Context) {
         context.noorDataStore.edit { it[Keys.MUTE_MINUTES] = AdhanGaps.clampGap(minutes) }
     }
 
+    /** مُدة كتم الجمعة بعد الأذان الأول — تُحصر في ١..١٨٠ دقيقة (v1.82) */
+    suspend fun setFridayMuteMinutes(minutes: Int) {
+        context.noorDataStore.edit { it[Keys.FRIDAY_MUTE_MINUTES] = AdhanGaps.clampFridayMute(minutes) }
+    }
+
     /** إلغاء الكتم عند فتح قفل الشاشة — اختيار جانبي مع تفعيل الكتم */
     suspend fun setMuteCancelOnUnlock(on: Boolean) {
         context.noorDataStore.edit { it[Keys.MUTE_CANCEL_ON_UNLOCK] = on }
@@ -535,6 +556,15 @@ class SettingsRepository(private val context: Context) {
     /** طبعة التفسير الافتراضية — قسم «التفاسير» (v1.81) */
     suspend fun setTafsirEdition(id: String) {
         context.noorDataStore.edit { it[Keys.TAFSIR_EDITION] = id }
+    }
+
+    /**
+     * بلاطة الإعدادات السريعة — مفتاحٌ مستقلٌّ عن الإشعار الدائم
+     * (v1.82 بلاغ المالك: «اقدر افعل ميزه واحده بين الاثنين او
+     * كلاهما مع بعض»)
+     */
+    suspend fun setQuickTile(on: Boolean) {
+        context.noorDataStore.edit { it[Keys.QUICK_TILE] = on }
     }
 
     /** التحديد التلقائي للموقع في الخلفية — عملٌ دوريٌّ بقيود الشبكة */

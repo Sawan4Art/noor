@@ -6,6 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -960,7 +962,11 @@ internal fun ColorPanelChipInline(
                 Text("اختر اللون", fontWeight = FontWeight.Bold, color = scheme.onSurface)
             },
             text = {
-                Column {
+                // عشرون لوناً الآن (لوحة الثيم كاملة) — تمريرٌ عموديٌّ
+                // كي لا يتجاوز الحوار الشاشة
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                ) {
                     // خيار التلقائي يُخفى في لوحات الأطراف — الإطار لونٌ صريحٌ أو بلا
                     if (!frameOnly) Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1053,7 +1059,7 @@ internal fun ColorPanelChipInline(
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    WIDGET_COLOR_PANEL.forEach { hex ->
+                    WIDGET_COLOR_PANEL.forEach { (name, hex) ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -1086,7 +1092,9 @@ internal fun ColorPanelChipInline(
                             )
                             Spacer(Modifier.width(10.dp))
                             Text(
-                                text = hex.uppercase(),
+                                // اسم اللون كما في قسم ألوان التطبيق —
+                                // لا أكواد خامٍ للمستخدم
+                                text = name,
                                 fontSize = 12.sp,
                                 color = scheme.onSurfaceVariant,
                             )
@@ -1103,8 +1111,15 @@ internal fun ColorPanelChipInline(
     }
 }
 
-/** ألوان لوحة الويدجت المنبثقة — نفس ألوان الخط الثمانية المعتمدة */
-private val WIDGET_COLOR_PANEL = listOf(
-    "#233029", "#F2EDE0", "#2FA48C", "#C98A3D",
-    "#B04A3A", "#5B6E9E", "#7A5B9E", "#4E7A4E",
-)
+/**
+ * لوحة الويدجت المنبثقة = **لوحة ألوان الثيم نفسها** — v1.82 (بلاغ
+ * المالك: «خلي اختيار الوان الويدجت تكون نفس لوحه الالوان الخاصه
+ * بثيم التطبيق») — الألوان العشرون بترتيب قسم «ألوان التطبيق»
+ * ودرجة النهار لكل لونٍ كما في رقاقات [AccentGrid]، بأسمائها
+ * العربية، وتُشتق من AccentPalette فلو اتسع الثيم توسعت معه.
+ */
+private val WIDGET_COLOR_PANEL: List<Pair<String, String>> =
+    com.sawan4art.noor.ui.theme.AccentPalette.All.map { accent ->
+        val rgb = 0xFFFFFF and accent.day.primary.toArgb()
+        accent.arabicName to String.format(java.util.Locale.US, "#%06X", rgb)
+    }

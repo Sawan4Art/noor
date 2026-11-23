@@ -72,6 +72,25 @@ import com.sawan4art.noor.domain.prayer.PrayerTimeKey
  */
 
 /** أزرار صفحة الأذان — ينفّذها مسؤول الواجهة الرئيسي */
+/**
+ * صفحات قسم الأذان — v1.82 (بلاغ المالك: «كل قسم في اقسام الاذان و
+ * الصوت يكون داخل صفحه لوحده لعدم التشتيت يعني اعاداد الاذان يكون
+ * مدمج معه الاذان و الاقامة») — كل صفحةٍ تُفتح من صفٍّ مستقلٍّ في
+ * الإعدادات، وصفحة «الإعدادات» تدمج التشغيل مع الإقامة كما حدد.
+ */
+enum class AdhanPage {
+    /** إعدادات الأذان — التشغيل + الإقامة مدمجَين */
+    SETTINGS,
+    /** صوت الأذان — النغمة والاهتزاز وكل صلاةٍ صوتها */
+    VOICE,
+    /** أذان الجمعة — الأذانان وفواصلهما */
+    FRIDAY,
+    /** التنبيه قبل أو بعد الأذان */
+    REMINDER,
+    /** كتم أصوات الهاتف */
+    MUTE,
+}
+
 interface AdhanActions {
     fun setAdhanEnabled(on: Boolean)
 
@@ -93,6 +112,9 @@ interface AdhanActions {
     fun setMuteEnabled(on: Boolean)
 
     fun setMuteMinutes(minutes: Int)
+
+    /** مدة كتم الجمعة بعد الأذان الأول (v1.82 — افتراضي ٩٠ د حتى ١٨٠) */
+    fun setFridayMuteMinutes(minutes: Int)
 
     fun setMuteCancelOnUnlock(on: Boolean)
 
@@ -129,6 +151,8 @@ interface AdhanActions {
 fun AdhanSection(
     adhan: AdhanPrefs,
     actions: AdhanActions,
+    /** أي صفحةٍ تُعرض من صفحات القسم — كل صفحةٍ كتلُها وحدها (v1.82) */
+    page: AdhanPage,
 ) {
     val context = LocalContext.current
     var previewing by remember { mutableStateOf<AdhanSoundKind?>(null) }
@@ -172,7 +196,7 @@ fun AdhanSection(
         previewing = if (AdhanSoundPlayer.isPlaying) kind else null
     }
 
-    SectionBlock(title = "تشغيل الأذان") {
+    if (page == AdhanPage.SETTINGS) SectionBlock(title = "تشغيل الأذان") {
         ToggleRow(
             title = "الأذان في وقت الصلوات",
             subtitle = if (adhan.enabled) {
@@ -189,7 +213,7 @@ fun AdhanSection(
         )
     }
 
-    SectionBlock(title = "صوت الأذان") {
+    if (page == AdhanPage.VOICE) SectionBlock(title = "صوت الأذان") {
         VoiceList(
             kind = AdhanSoundKind.ADHAN,
             selectedId = adhan.adhanVoice,
@@ -259,7 +283,7 @@ fun AdhanSection(
         }
     }
 
-    SectionBlock(title = "الإقامة") {
+    if (page == AdhanPage.SETTINGS) SectionBlock(title = "الإقامة") {
         ToggleRow(
             title = "أذان الإقامة",
             subtitle = "«قد قامت الصلاة» — يشتغل بعد الأذان بالمدة المحددة لكل صلاة",
@@ -374,7 +398,7 @@ fun AdhanSection(
         }
     }
 
-    SectionBlock(title = "أذان يوم الجمعة") {
+    if (page == AdhanPage.FRIDAY) SectionBlock(title = "أذان يوم الجمعة") {
         ToggleRow(
             title = "الأذان مرتين ثم الإقامة",
             subtitle = if (adhan.fridayDouble) {
@@ -402,7 +426,7 @@ fun AdhanSection(
         }
     }
 
-    SectionBlock(title = "التنبيه قبل أو بعد الأذان") {
+    if (page == AdhanPage.REMINDER) SectionBlock(title = "التنبيه قبل أو بعد الأذان") {
         // alpha61 — بلاغ المالك: «عايز اضيف في الاعادات زر جديد خاص
         // بالتنبيه قبل او بعد اذان اي صلاه ده يكون عباره عن منبه
         // يتم تفعيله قبل او بعد الصلاه بوقت محدد لكل صلاه»
@@ -440,7 +464,7 @@ fun AdhanSection(
         }
     }
 
-    SectionBlock(title = "كتم أصوات الهاتف") {
+    if (page == AdhanPage.MUTE) SectionBlock(title = "كتم أصوات الهاتف") {
         ToggleRow(
             title = "كتم الهاتف بعد الإقامة",
             subtitle = if (adhan.muteEnabled) {
@@ -457,6 +481,17 @@ fun AdhanSection(
                 label = "بعد الإقامة بكم دقيقة يرجع الصوت؟ (افتراضي ١٠ دقائق)",
                 minutes = adhan.muteMinutes,
                 onCommit = { actions.setMuteMinutes(it) },
+            )
+            Spacer(Modifier.height(10.dp))
+            // كتم الجمعة مخصصٌ بعد الأذان الأول بمُدته المستقلة (v1.82
+            // بلاغ المالك: «كل كتم الاصوات في يوم الجمعه لصلاه الجمعه
+            // يكون مخصص بعد الاذان الاول بمده يحددها المستخدم و افتراضي
+            // يكون ساعه ونص و قابله للتخصيص حتى ٣ ساعات») — حتى ١٨٠ د
+            GapInputRow(
+                label = "يوم الجمعة: الكتم يبدأ بعد الأذان الأول — بكم دقيقة يرجع الصوت؟ (افتراضي ٩٠ دقيقة — حتى ١٨٠)",
+                minutes = adhan.fridayMuteMinutes,
+                maxMinutes = AdhanGaps.FRIDAY_MUTE_MAX_MINUTES,
+                onCommit = { actions.setFridayMuteMinutes(it) },
             )
             Spacer(Modifier.height(8.dp))
             // الاختيار الجانبي بتوجيه المالك: يظهر فقط مع تفعيل الكتم —
@@ -689,6 +724,8 @@ internal fun GapInputRow(
     label: String,
     minutes: Int,
     onCommit: (Int) -> Unit,
+    /** الحد الأعلى — الجمعة تستأذن حتى ١٨٠ دقيقة (v1.82) */
+    maxMinutes: Int = AdhanGaps.GAP_MAX_MINUTES,
 ) {
     val scheme = MaterialTheme.colorScheme
     var text by remember { mutableStateOf(AdhanGaps.toArabicDigits(minutes)) }
@@ -698,7 +735,7 @@ internal fun GapInputRow(
         val parsed = AdhanGaps.parseMinutesInput(raw)
         when {
             parsed == null -> invalid = raw.isNotEmpty()
-            AdhanGaps.isGapInputValid(parsed) -> {
+            AdhanGaps.isGapInputValid(parsed, maxMinutes) -> {
                 invalid = false
                 if (parsed != minutes) onCommit(parsed)
             }

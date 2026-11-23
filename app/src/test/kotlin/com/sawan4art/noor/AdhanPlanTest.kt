@@ -177,7 +177,7 @@ class AdhanPlanTest {
     }
 
     @Test
-    fun `الجمعة بلا اقامة - الكتم يبدأ بعد الأذان الثاني`() {
+    fun `الجمعة بلا اقامة - الكتم مخصص بعد الأذان الأول بحسب بلاغ ١٨٢`() {
         val friday = nextFridayNoon()
         val settings = defaults.copy(iqamahEnabled = false, muteEnabled = true)
         val events = AdhanPlan.eventsForPrayer(PrayerTimeKey.DHUHR, "الجمعة", friday, settings)
@@ -185,8 +185,14 @@ class AdhanPlanTest {
         assertEquals(2, events.size)
         assertNull(events[1].iqamahAt)
         assertEquals(false, events[1].carriesIqamah)
-        assertEquals(false, events[0].startsMute) // الأذان الأول لا يكتم
-        assertEquals(true, events[1].startsMute) // الثاني هو آخر صوت
+        // v1.82 بلاغ المالك: «كل كتم الاصوات في يوم الجمعه يكون مخصص
+        // بعد الاذان الاول» — العَلَم والمدة المخصصة على الأول وحده
+        assertEquals(true, events[0].startsMute)
+        assertEquals(
+            com.sawan4art.noor.domain.adhan.AdhanGaps.DEFAULT_FRIDAY_MUTE_MINUTES,
+            events[0].muteMinutes,
+        )
+        assertEquals(false, events[1].startsMute) // الثاني لا يعيد الكتم
     }
 
     @Test
