@@ -272,6 +272,13 @@ fun MushafScreen(
     onSetHifz: (Int, List<Int>, Boolean) -> Unit,
     /** عودة للرئيسية عبر إيماءة الرجوع النظامية */
     onBack: () -> Unit,
+    /**
+     * تبليغ الغمر — v1.83 (بلاغ المالك: «شريط التنقل يختفي في صفحه
+     * المصحف فقط») — صحيحٌ في صفحة القراءة وكاذبٌ في قائمة السور
+     * فيختفي شريط التنقل في القراءة وحدها ويعود مع قائمة السور
+     * (الإيماءة الرجوع تفتح القائمة فيعود الشريط معها).
+     */
+    onImmersive: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -306,6 +313,8 @@ fun MushafScreen(
     // لوحة اختيار السورة تنبثق عند الدخول — توجيه المالك الحرفي: «اول ما
     // اضغط على ايقونه المصحف يظهر لي اختيار السوره»
     var chooserOpen by remember { mutableStateOf(true) }
+    // تبليغ شريط التنقل — القراءة بلا شريطٍ والقائمة به (v1.83)
+    LaunchedEffect(chooserOpen) { onImmersive(!chooserOpen) }
 
     // التحديد والمنغّلة وقائمتا التلاوة والحفظ ولوحة التفسير — فوق الصفحات.
     // **التحديد لا يُحذف أبداً** (بلاغ المالك 2026-11-11: «عند التحديد على
@@ -441,7 +450,10 @@ fun MushafScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surface)
-                .padding(bottom = NAV_BAR_CLEAR),
+                // الغمر (v1.83 بلاغ المالك: «عايز بقا تكون صفحه المصحف
+                // بكامل الشاشه») — صفحة القراءة تصل لحافة الشاشة السفلى
+                // وحين تظهر قائمة السور يعود الشريط فتُحجز مساحته
+                .padding(bottom = if (chooserOpen) NAV_BAR_CLEAR else 0.dp),
         ) { index ->
             MushafPage(
                 page = index + 1,
@@ -611,7 +623,8 @@ fun MushafScreen(
                 shadowElevation = 4.dp,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = NAV_BAR_CLEAR + 8.dp),
+                    // مع الغمر (بلا شريطٍ) يطفو قرب الحافة مباشرة
+                    .padding(bottom = if (chooserOpen) NAV_BAR_CLEAR + 8.dp else 14.dp),
             ) {
                 Text(
                     text = "جارٍ تجهيز صوت التلاوة — تُحفظ الآية بالجهاز فتردّ لحظياً بعدما",
@@ -620,6 +633,31 @@ fun MushafScreen(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                 )
             }
+        }
+
+        // رقم الصفحة — رقاقةٌ زجاجيةٌ رقيقةٌ أسفل الصفحة (v1.83 بلاغ
+        // المالك: «ازاله الاجزء الاصفر في اخر الصفحه الذي يحتوي على
+        // رقم الصفه و استبداله برقم الصفحه لاكن بشكل افضل») — بدل
+        // الشريط الأصفر المطبوع القُصّ من الصورة، الرقم الآن بلون
+        // الثيم وأرقامٍ عربيةٍ وتنزلق مع تقليب الصفحات لحظياً
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+            ),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = if (chooserOpen) NAV_BAR_CLEAR + 6.dp else 10.dp),
+        ) {
+            Text(
+                text = "صفحة ${MushafSurahs.arabicDigits(pagerState.currentPage + 1)}",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+            )
         }
 
         // لوحة اختيار السورة — تنبثق عند الدخول وعلى الصفحات كالضباب الخفيف
@@ -754,6 +792,8 @@ private fun MushafPage(
             cropX1 = crop?.second ?: MushafGeometry.REF_W,
             viewW = viewSize.width.toFloat(),
             viewH = viewSize.height.toFloat(),
+            // قصّ شريط رقم الصفحة الأصفر (v1.83) — والرقم رقاقةٌ زجاجية
+            cropY1 = MushafGeometry.cropY1(page),
         )
     }
 
@@ -901,7 +941,9 @@ private fun DrawScope.drawMushafPage(
     drawImage(
         image = bitmap,
         srcOffset = IntOffset(t.srcX0.roundToInt(), 0),
-        srcSize = IntSize((t.srcX1 - t.srcX0).roundToInt(), bitmap.height),
+        // الارتفاع يقصّ عند حد الإطار السفلي — الشريط الأصفر المطبوع
+        // خارج الرسم كلياً (v1.83) والرقم رقاقةٌ بلون الثيم
+        srcSize = IntSize((t.srcX1 - t.srcX0).roundToInt(), t.srcY1.roundToInt()),
         dstOffset = IntOffset(t.dstLeft.roundToInt(), t.dstTop.roundToInt()),
         dstSize = IntSize(t.dstWidth.roundToInt(), t.dstHeight.roundToInt()),
         filterQuality = FilterQuality.High,
@@ -2357,7 +2399,12 @@ private fun BottomSheet(
  * • **الفشل مهذب** — آيةٌ تالفةٌ تُتخطى والتسلسل يكمل، وثلاثٌ
  *   متتالية تقف برسالةٍ واضحة بدل حلقةٍ صامتة.
  */
-private object MushafPlayer {
+/**
+ * المحرك العام للتلاوة — v1.83 جعله عاماً لخدمة الإشعار التفاعلي
+ * [com.sawan4art.noor.audio.QuranAudioService] التي تعكس حالته وتحمل
+ * أزرارها إليه، وبقي المحرك وحده مالكَ الصوت بلا مصدرَين للحقيقة.
+ */
+object MushafPlayer {
 
     /** الآية الواحدة في قائمة التلاوة */
     data class Track(val sura: Int, val ayah: Int)
@@ -2403,6 +2450,17 @@ private object MushafPlayer {
     private var reciterId = ""
     private var appContext: Context? = null
 
+    /** اسم الشيخ الحالي للإشعار — نصٌّ فارغٌ بلا تلاوة */
+    val currentReciterId: String get() = reciterId
+
+    /**
+     * علامة الإيقاف المؤقت (v1.83) — المشغّل يبقى محمَّلاً بآيته
+     * وموضعه ويمضي التسلسل بعد الاستئناف؛ التدفق [state] يبقى
+     * صادقاً مع كل تغيير ليقرأه الإشعار.
+     */
+    @Volatile
+    private var paused = false
+
     private val lock = Any()
     private var current: MediaPlayer? = null
     private var next: MediaPlayer? = null
@@ -2436,6 +2494,7 @@ private object MushafPlayer {
             playingIndex = 0
             this.loop = loop
             consecutiveErrors = 0
+            paused = false
             val gen = ++generation
             _state.value = State(loading = true, track = tracks.first())
             _activeAyah.value = tracks.first()
@@ -2443,11 +2502,39 @@ private object MushafPlayer {
             // تدفئة توقيتات السورة في الذاكرة مبكراً — مزامنةٌ بلا أول انتظار
             scope.launch { runCatching { AyahTimings.suraTimings(ctx, sura) } }
             scope.launch { prepareAndRun(gen) }
+            // الإشعار التفاعلي الثابت (v1.83 بلاغ المالك) — يظهر من
+            // أول تشغيلٍ ويبقي الصوت حياً مع إغلاق التطبيق كله
+            com.sawan4art.noor.audio.QuranAudioService.start(ctx)
         }
     }
 
     fun stop() {
         synchronized(lock) { stopInternal() }
+        appContext?.let { com.sawan4art.noor.audio.QuranAudioService.stop(it) }
+    }
+
+    /**
+     * إيقاف مؤقت (v1.83) — المشغّل الحي يُجمَّد على موضعه والصوت
+     * يسكت، والإشعار يقلب زرَّه إلى «تشغيل». آمنٌ قبل اكتمال
+     * التحضير: علامةٌ تُحترم لحظة بدء الصوت الفعلي.
+     */
+    fun pause() {
+        synchronized(lock) {
+            paused = true
+            current?.let { p -> runCatching { p.pause() } }
+            _playing.value = false
+            _state.value = _state.value.copy(playing = false)
+        }
+    }
+
+    /** استئناف بعد الإيقاف المؤقت — من الموضع نفسه لا من البداية */
+    fun resume() {
+        synchronized(lock) {
+            paused = false
+            current?.let { p -> runCatching { p.start() } }
+            _playing.value = current != null
+            _state.value = _state.value.copy(playing = current != null, loading = current == null)
+        }
     }
 
     private fun stopInternal() {
@@ -2523,9 +2610,12 @@ private object MushafPlayer {
             }
             current = first
             val started = runCatching { first.start() }.isSuccess
+            // أُوقِف مؤقتاً أثناء التحضير؟ ابدأ ثم أجمِد فوراً —
+            // والموضع صفرٌ فيبدأ الاستئناف من أول الآية
+            if (started && paused) runCatching { first.pause() }
             consecutiveErrors = if (started) 0 else 1
-            _playing.value = started
-            _state.value = _state.value.copy(playing = started, loading = !started)
+            _playing.value = started && !paused
+            _state.value = _state.value.copy(playing = started && !paused, loading = !started)
             if (!started) {
                 runCatching { first.release() }
                 current = null

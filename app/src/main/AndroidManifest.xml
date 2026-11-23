@@ -169,6 +169,14 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
+        <!-- خدمة التلاوة بإشعارٍ تفاعليٍّ ثابتٍ — v1.83 بلاغ المالك:
+             «اشعار تفاعلي ثابت … قفل الصوت مع ايقاف التطبيق» -->
+        <service
+            android:name=".audio.QuranAudioService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
         <!--
           بلاطة «الوقت المتبقي» في الإعدادات السريعة — v1.81 (بلاغ
           المالك: «انا عايز ايقونه شريط اشعارات زي اللي موجودين في

@@ -79,12 +79,12 @@ import com.sawan4art.noor.domain.prayer.PrayerTimeKey
  * الإعدادات، وصفحة «الإعدادات» تدمج التشغيل مع الإقامة كما حدد.
  */
 enum class AdhanPage {
-    /** إعدادات الأذان — التشغيل + الإقامة مدمجَين */
+    /**
+     * إعدادات الأذان — التشغيل + الإقامة + صوت الأذان + أذان الجمعة
+     * في صفحةٍ واحدة (v1.83 بلاغ المالك: «اذان يوم الجمعه و صوت
+     * الاذان عايزهم داخل قسم اعدادات الاذان»).
+     */
     SETTINGS,
-    /** صوت الأذان — النغمة والاهتزاز وكل صلاةٍ صوتها */
-    VOICE,
-    /** أذان الجمعة — الأذانان وفواصلهما */
-    FRIDAY,
     /** التنبيه قبل أو بعد الأذان */
     REMINDER,
     /** كتم أصوات الهاتف */
@@ -213,7 +213,9 @@ fun AdhanSection(
         )
     }
 
-    if (page == AdhanPage.VOICE) SectionBlock(title = "صوت الأذان") {
+    // v1.83 (بلاغ المالك: «اذان يوم الجمعه و صوت الاذان عايزهم داخل
+    // قسم اعدادات الاذان») — الصوت والجمعة في صفحة الإعدادات نفسها
+    if (page == AdhanPage.SETTINGS) SectionBlock(title = "صوت الأذان") {
         VoiceList(
             kind = AdhanSoundKind.ADHAN,
             selectedId = adhan.adhanVoice,
@@ -398,7 +400,7 @@ fun AdhanSection(
         }
     }
 
-    if (page == AdhanPage.FRIDAY) SectionBlock(title = "أذان يوم الجمعة") {
+    if (page == AdhanPage.SETTINGS) SectionBlock(title = "أذان يوم الجمعة") {
         ToggleRow(
             title = "الأذان مرتين ثم الإقامة",
             subtitle = if (adhan.fridayDouble) {

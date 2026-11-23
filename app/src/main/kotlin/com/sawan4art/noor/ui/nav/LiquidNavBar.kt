@@ -91,6 +91,13 @@ fun LiquidNavScaffold(
     selectedTab: NoorTab,
     onSelectTab: (NoorTab) -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * إخفاء شريط التنقل كلياً — v1.83 (بلاغ المالك: «شريط التنقل
+     * يختفي في صفحه المصحف فقط و يظهر مره اخرى عند الرجوع بزرار
+     * الرجوع في الهاتف يظهر مع ظهور صفحه اختيار السوره») — المحتوى
+     * يملأ الشاشة كلها حين يخفى، ويعود الشريط بمجرد رفعه.
+     */
+    hideBar: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val contentLayer = rememberGraphicsLayer()
@@ -111,7 +118,7 @@ fun LiquidNavScaffold(
             content()
         }
 
-        LiquidNavBar(
+        if (!hideBar) LiquidNavBar(
             tabs = NoorTab.entries.toList(),
             selected = selectedTab,
             onSelect = onSelectTab,

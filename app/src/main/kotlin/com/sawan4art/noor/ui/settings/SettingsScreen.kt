@@ -234,24 +234,6 @@ fun SettingsScreen(
                 )
             }
         }
-        "adhan_voice" -> SectionPage(title = "صوت الأذان", onBack = { section = "home" }) {
-            SectionCard {
-                AdhanSection(
-                    adhan = adhanPrefs,
-                    actions = adhanActions,
-                    page = com.sawan4art.noor.ui.settings.adhan.AdhanPage.VOICE,
-                )
-            }
-        }
-        "friday" -> SectionPage(title = "أذان يوم الجمعة", onBack = { section = "home" }) {
-            SectionCard {
-                AdhanSection(
-                    adhan = adhanPrefs,
-                    actions = adhanActions,
-                    page = com.sawan4art.noor.ui.settings.adhan.AdhanPage.FRIDAY,
-                )
-            }
-        }
         "reminder" -> SectionPage(title = "التنبيه قبل أو بعد الأذان", onBack = { section = "home" }) {
             SectionCard {
                 AdhanSection(
@@ -397,18 +379,6 @@ private fun SettingsHome(
             title = "إعدادات الأذان",
             summary = adhanSummary(adhanPrefs),
             onOpen = { onOpen("adhan") },
-        )
-        SectionRow(
-            icon = NoorIcons.QuranVoice,
-            title = "صوت الأذان",
-            summary = "نغمة الأذان والاهتزاز وصوتٌ لكل صلاةٍ على حدة",
-            onOpen = { onOpen("adhan_voice") },
-        )
-        SectionRow(
-            icon = NoorIcons.SunMoon,
-            title = "أذان يوم الجمعة",
-            summary = "الأذانان المزدوجان وفواصلهما والخطبة",
-            onOpen = { onOpen("friday") },
         )
         SectionRow(
             icon = NoorIcons.StarOutline,

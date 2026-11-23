@@ -530,13 +530,22 @@ private fun NoorBody(
     onSetKhutbahIntroTemplate: (String) -> Unit,
     onSetKhutbahConclusionTemplate: (String) -> Unit,
 ) {
+    // الغمر داخل المصحف — تحدَّث من شاشة المصحف نفسها وتُطفأ عند
+    // تغيير التبويب كي لا يبقى الشريط مخفياً خارج القراءة
+    var mushafImmersive by remember { mutableStateOf(false) }
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
+        LaunchedEffect(tab) { if (tab != NoorTab.QURAN) mushafImmersive = false }
         LiquidNavScaffold(
             selectedTab = tab,
             onSelectTab = onTab,
+            // شريط التنقل يختفي في صفحة قراءة المصحف فقط (v1.83 بلاغ
+            // المالك: «شريط التنقل يختفي في صفحه المصحف فقط و يظهر مره
+            // اخرى عند الرجوع … مع ظهور صفحه اختيار السوره») والصفحة
+            // بكامل الشاشة من أولها إلى آخرها
+            hideBar = tab == NoorTab.QURAN && mushafImmersive,
         ) {
             // الانزلاق الاتجاهي: التبويب «الأبعد يمينًا» في RTL يعني انزلاقًا لليسار
             AnimatedContent(
@@ -618,6 +627,7 @@ private fun NoorBody(
                         onSetBookmark = onSetMushafBookmark,
                         onSetHifz = onSetMushafHifz,
                         onBack = { onTab(NoorTab.PRAYER) },
+                        onImmersive = { immersive -> mushafImmersive = immersive },
                     )
                 }
             }
