@@ -3,7 +3,7 @@
   "code": 50083,
   "apk": "noor-almuslim-v1.83.apk",
   "size": 156636393,
-  "sha256": "8b2df81f2b43d0c6c34970b7fac70d476c2a177c965f596bc25c19853b62bcd1",
+  "sha256": "1f1dffec5242d0956dbc38c76cae8f26f72b509d05f81c4e16aa71a7c38a4630",
   "parts": [
     {
       "url": "https://raw.githubusercontent.com/Sawan4Art/noor/site-assets/parts/noor-almuslim-1.83.part-00",
@@ -22,5 +22,5 @@
       "bytes": 5641449
     }
   ],
-  "updated": "2026-11-23T13:47:05Z"
+  "updated": "2026-11-23T13:47:30Z"
 }
