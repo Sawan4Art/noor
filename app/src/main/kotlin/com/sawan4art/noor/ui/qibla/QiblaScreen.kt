@@ -2,6 +2,7 @@ package com.sawan4art.noor.ui.qibla
 
 import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -44,6 +45,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.material3.Icon
+import com.sawan4art.noor.ui.icons.NoorIcons
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
@@ -167,6 +170,47 @@ fun QiblaScreen(
             }
         }
         Spacer(Modifier.height(4.dp))
+
+        if (state.sensorAvailable && state.needsCalibration) {
+            // تنبيه المعايرة — v1.84 (بلاغ المالك: «اضف تنبيه بضروره
+            // معايره البوصله في الهاتف عند عدم اتزان البوصله … لان
+            // البوصله تتغير في الاتجاه مع الوقت») — لافتةٌ دافئةٌ
+            // تعليميةٌ تشرح العلاج بالحركة على شكل ٨ وتظهر حين يلاحظ
+            // المستشعر عطلاً متصلاً (دقةً منخفضةً أو مجالاً شاذّاً)
+            Spacer(Modifier.height(6.dp))
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = scheme.tertiaryContainer,
+                contentColor = scheme.onTertiaryContainer,
+                border = BorderStroke(1.dp, scheme.tertiary.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                ) {
+                    Icon(
+                        imageVector = NoorIcons.Qibla,
+                        contentDescription = null,
+                        tint = scheme.tertiary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "البوصلة غير متزنة — تحتاج معايرة",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "حرّك الهاتف على شكل ٨ في الهواء عدة مرات " +
+                                "بعيداً عن المعادن والماجنتات، حتى يستقيم الاتجاه",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
+        }
 
         if (!state.sensorAvailable) {
             // الوضع اليدوي — جهاز بلا بوصلة: شدّ القرص بإصبعك

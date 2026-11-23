@@ -7,6 +7,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.lifecycle.AndroidViewModel
+import com.sawan4art.noor.domain.qibla.CompassCalibration
 import com.sawan4art.noor.domain.qibla.QiblaMath
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,8 @@ data class QiblaUiState(
     val heading: Float = 0f,
     val sensorAvailable: Boolean = true,
     val started: Boolean = false,
+    /** البوصلة غير متزنة — يظهر تنبيه المعايرة (v1.84 بلاغ المالك) */
+    val needsCalibration: Boolean = false,
 )
 
 /**
@@ -50,6 +53,10 @@ class QiblaViewModel(application: Application) : AndroidViewModel(application) {
     private val rotationMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
 
+    // متابعة المعايرة (v1.84) — علامتا العطل: دقة المستشعر وشدة
+    // المجال المغناطيسي، وهستيرesis CompassCalibration يمنع الوميض
+    private var calibTracker = CompassCalibration.Tracker()
+
     /**
      * الانحراف المغناطيسي للموقع (بالدرجات، شرقاً موجب) — يُحسب من
      * نموذج العالم الجيومغناطيسي عند بدء الشاشة بالإحداثيين الممرّرين
@@ -71,12 +78,46 @@ class QiblaViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 Sensor.TYPE_MAGNETIC_FIELD -> {
                     geomagnetic = event.values.clone()
+                    // شدة المجال لحظياً — علامة العطل الثانية: ماجنتُ
+                    // حقيبةٍ أو معدناً يرفعها أو يخفضها خارج نطاق الأرض
+                    stepCalibration(
+                        accuracy = lastMagneticAccuracy,
+                        normUT = CompassCalibration.fieldNormUT(
+                            event.values[0], event.values[1], event.values[2],
+                        ),
+                    )
                     consumeFallback()
                 }
             }
         }
 
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+            // نظام أندرويد يبلّغ بثقة الحسّاس بعد كل قراءة — غير
+            // الموثوق والمنخفض أول براهين انحراف البوصلة مع الوقت
+            // (v1.84 بلاغ المالك: «البوصله تتغير في الاتجاه مع الوقت»)
+            when (sensor?.type) {
+                Sensor.TYPE_MAGNETIC_FIELD -> {
+                    lastMagneticAccuracy = accuracy
+                    stepCalibration(accuracy = accuracy, normUT = null)
+                }
+                Sensor.TYPE_ROTATION_VECTOR -> stepCalibration(accuracy = accuracy, normUT = null)
+            }
+        }
+    }
+
+    /** آخر دقة مبلَّغةٍ للمغنطومتر — تُحفظ لتزويد قراءات الشدة بها */
+    @Volatile
+    private var lastMagneticAccuracy: Int = CompassCalibration.ACCURACY_MEDIUM
+
+    /**
+     * خطوة متابعة المعايرة بأحدث علامة — ورفع راية التنبيه بعد مهلٍّ
+     * أو إسقاطها بعد مهلٍّ صلاحٍ (هستيرesis بلا وميض).
+     */
+    private fun stepCalibration(accuracy: Int, normUT: Float?) {
+        val bad = CompassCalibration.isReadingBad(accuracy, normUT)
+        calibTracker = CompassCalibration.step(calibTracker, bad, System.currentTimeMillis())
+        val flagged = calibTracker.flagged
+        _state.update { cur -> if (cur.needsCalibration == flagged) cur else cur.copy(needsCalibration = flagged) }
     }
 
     /**
@@ -100,9 +141,18 @@ class QiblaViewModel(application: Application) : AndroidViewModel(application) {
         val magnetic = manager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
 
         val registered = when {
-            rotationVector != null -> manager.registerListener(
-                listener, rotationVector, SensorManager.SENSOR_DELAY_GAME,
-            )
+            rotationVector != null -> {
+                var ok = manager.registerListener(
+                    listener, rotationVector, SensorManager.SENSOR_DELAY_GAME,
+                )
+                // المغنطومتر يُسجَّل دوماً للمراقبة (دقةٌ وشدةُ مجالٍ
+                // لعلامات المعايرة) — والاتجاه يبقى لمتجه الدوران
+                // وحده: بلا gravity تُصْرف قراءاته احتياطياً بلا أثر
+                if (magnetic != null) {
+                    ok = manager.registerListener(listener, magnetic, SensorManager.SENSOR_DELAY_GAME) && ok
+                }
+                ok
+            }
             accelerometer != null && magnetic != null -> {
                 var ok = manager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_GAME)
                 ok = manager.registerListener(listener, magnetic, SensorManager.SENSOR_DELAY_GAME) && ok
@@ -112,7 +162,8 @@ class QiblaViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (registered) {
-            _state.update { it.copy(started = true, sensorAvailable = true) }
+            calibTracker = CompassCalibration.Tracker()
+            _state.update { it.copy(started = true, sensorAvailable = true, needsCalibration = false) }
         } else {
             markUnavailable()
         }

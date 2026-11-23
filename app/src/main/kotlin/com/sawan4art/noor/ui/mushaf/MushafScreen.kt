@@ -635,28 +635,30 @@ fun MushafScreen(
             }
         }
 
-        // رقم الصفحة — رقاقةٌ زجاجيةٌ رقيقةٌ أسفل الصفحة (v1.83 بلاغ
-        // المالك: «ازاله الاجزء الاصفر في اخر الصفحه الذي يحتوي على
-        // رقم الصفه و استبداله برقم الصفحه لاكن بشكل افضل») — بدل
-        // الشريط الأصفر المطبوع القُصّ من الصورة، الرقم الآن بلون
-        // الثيم وأرقامٍ عربيةٍ وتنزلق مع تقليب الصفحات لحظياً
+        // رقم الصفحة — رقاقةٌ مصغَّرةٌ في الهامش الأصفر العلوي (v1.84
+        // بلاغ المالك: «انقل رقم الصفحه في المصحف الى فوق و صغر حجم
+        // الهيدر الخاص برقم الصفحه ليناسب الجزء الاصفر الموجود في
+        // اعلى صفحات المصحف») — الهامش فوق الإطار المزخرف يقيسه
+        // الفحص البكسلي ٢٢-٣٠ بكسل صورةٍ (~١٥dp عرضاً) فالرقاقة
+        // labelSmall بحاشيةٍ شديدةِ الضغطٍ تقف فيه تماماً كأنها
+        // طبعةٌ من الطبعة نفسها، بأرقامٍ عربيةٍ تنزلق مع التقليب
         Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(9.dp),
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
             border = androidx.compose.foundation.BorderStroke(
                 1.dp,
                 MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
             ),
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = if (chooserOpen) NAV_BAR_CLEAR + 6.dp else 10.dp),
+                .align(Alignment.TopCenter)
+                .padding(top = if (chooserOpen) 8.dp else 6.dp),
         ) {
             Text(
                 text = "صفحة ${MushafSurahs.arabicDigits(pagerState.currentPage + 1)}",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 2.dp),
             )
         }
 
