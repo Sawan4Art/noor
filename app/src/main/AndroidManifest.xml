@@ -170,6 +170,25 @@
             android:foregroundServiceType="mediaPlayback" />
 
         <!--
+          بلاطة «الوقت المتبقي» في الإعدادات السريعة — v1.81 (بلاغ
+          المالك: «انا عايز ايقونه شريط اشعارات زي اللي موجودين في
+          الصوره مش مجرد اشعار ثابت الاشعار الثابت ده شيله Quick
+          Settings Tile يكون داعم ليها»): بلاطةٌ في شبكة الشريط بعد
+          السحب تعرض الوقت المتبقي لحظة العرض وضغطةٌ عليها تفتح
+          التطبيق، مرتبطةٌ بمفتاح أيقونة شريط الإشعارات نفسه.
+        -->
+        <service
+            android:name=".util.QuickLaunchTileService"
+            android:icon="@drawable/ic_stat_update"
+            android:label="نور المسلم"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!--
           خدمة تنزيل أصوات التلاوة (alpha57 — بلاغ المالك: «تحميل اصوات
           الشيوخ مش شغال»): خدمة أمامية بنوع dataSync تُبقي العملية حية
           ما دام تنزيلٌ جارٍ فلا يموت التنزيل بإغلاق التطبيق من الريسنتس

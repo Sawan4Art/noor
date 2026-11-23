@@ -218,6 +218,13 @@ data class NoorSettingsState(
      */
     val quickNotification: Boolean = true,
     /**
+     * **طبعة التفسير الافتراضية** — قسم «التفاسير» (بلاغ المالك v1.81:
+     * «اضف التفاسير التاليه … مع ابقاء التفسير الميسر مع امكانيه تغيير
+     * طبعه التفسير من الاعدادات») — معرّفٌ من TafsirEditions والميسر
+     * المضمّن افتراضيّاً، والصياغة تتحرى بمفتاحٍ قديمٍ فتعود للميسر.
+     */
+    val tafsirEdition: String = "ar.muyassar",
+    /**
      * **تحديد الموقع تلقائياً في الخلفية** (بلاغ المالك 2026-11-11:
      * «زر تحديد الموقع تلقائى اذا تم تفعيله سيتم كل مره فيها فتح
      * الموقع و يوجد اتصال انترنت في الهاتف سواء فتحت التطبيق ام لا
@@ -258,6 +265,8 @@ class SettingsRepository(private val context: Context) {
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         // إشعار التشغيل السريع والتحديد التلقائي في الخلفية (بلاغ 2026-11-11)
         val QUICK_NOTIFICATION = booleanPreferencesKey("quick_notification")
+        // طبعة التفسير الافتراضية (v1.81 — قسم التفاسير)
+        val TAFSIR_EDITION = stringPreferencesKey("tafsir_edition")
         val AUTO_LOCATION = booleanPreferencesKey("auto_location")
         val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check_at")
         val UPDATE_NOTIFIED = stringPreferencesKey("update_notified_tag")
@@ -344,6 +353,7 @@ class SettingsRepository(private val context: Context) {
             khutbahButtonEnabled = p[Keys.KHUTBAH_BUTTON_ENABLED] ?: true,
             onboardingDone = p[Keys.ONBOARDING_DONE] ?: false,
             quickNotification = p[Keys.QUICK_NOTIFICATION] ?: true,
+            tafsirEdition = p[Keys.TAFSIR_EDITION] ?: "ar.muyassar",
             autoLocation = p[Keys.AUTO_LOCATION] ?: false,
         )
     }
@@ -520,6 +530,11 @@ class SettingsRepository(private val context: Context) {
     /** إشعار التشغيل السريع — أيقونة شريط الإشعارات الدائمة (بلاغ 2026-11-11) */
     suspend fun setQuickNotification(on: Boolean) {
         context.noorDataStore.edit { it[Keys.QUICK_NOTIFICATION] = on }
+    }
+
+    /** طبعة التفسير الافتراضية — قسم «التفاسير» (v1.81) */
+    suspend fun setTafsirEdition(id: String) {
+        context.noorDataStore.edit { it[Keys.TAFSIR_EDITION] = id }
     }
 
     /** التحديد التلقائي للموقع في الخلفية — عملٌ دوريٌّ بقيود الشبكة */

@@ -183,6 +183,7 @@ private fun NoorRoot(
                     onSetAccent = viewModel::setAccent,
                     onSetPrimary = viewModel::setPrimary,
                     onSetQuickNotification = viewModel::setQuickNotification,
+                    onSetTafsirEdition = viewModel::setTafsirEdition,
                     onSetAutoLocation = viewModel::setAutoLocation,
                     onSetManualLocation = viewModel::setManualLocation,
                     adhanPrefs = adhanPrefs,
@@ -299,6 +300,7 @@ private fun NoorRoot(
                             onSetAccent = viewModel::setAccent,
                             onSetPrimary = viewModel::setPrimary,
                             onSetQuickNotification = viewModel::setQuickNotification,
+                            onSetTafsirEdition = viewModel::setTafsirEdition,
                             onSetAutoLocation = viewModel::setAutoLocation,
                             onSetManualLocation = viewModel::setManualLocation,
                             adhanPrefs = adhanPrefs,
@@ -478,6 +480,8 @@ private fun NoorBody(
     /** اللون الأساسي — نص فارغ يعني «الحالي» (يتبع لون التطبيق) */
     onSetPrimary: (String) -> Unit,
     /** إشعار التشغيل السريع — شريط الإشعارات (بلاغ 2026-11-11) */
+    /** تغيير طبعة التفسير الافتراضية — قسم «التفاسير» (v1.81) */
+    onSetTafsirEdition: (String) -> Unit,
     onSetQuickNotification: (Boolean) -> Unit,
     /** التحديد التلقائي للموقع في الخلفية (بلاغ 2026-11-11) */
     onSetAutoLocation: (Boolean) -> Unit,
@@ -566,6 +570,7 @@ private fun NoorBody(
                         locating = locating,
                         onDetectLocation = onDetectLocation,
                         onSetQuickNotification = onSetQuickNotification,
+                        onSetTafsirEdition = onSetTafsirEdition,
                         onSetAutoLocation = onSetAutoLocation,
                         onSetManualLocation = onSetManualLocation,
                         onSetMethod = onSetMethod,
@@ -596,6 +601,8 @@ private fun NoorBody(
                     )
                     NoorTab.QIBLA -> QiblaScreen(settings = uiState.settings)
                     NoorTab.QURAN -> MushafScreen(
+                        tafsirEdition = uiState.settings.tafsirEdition,
+                        onSetTafsirEdition = onSetTafsirEdition,
                         initialPage = uiState.settings.mushafPage,
                         bookmarkSura = uiState.settings.mushafBookmarkSura,
                         bookmarkAyah = uiState.settings.mushafBookmarkAyah,

@@ -248,6 +248,10 @@ private const val HIFZ_REPEATS = 3
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MushafScreen(
+    /** طبعة التفسير الافتراضية من قسم «التفاسير» (v1.81) */
+    tafsirEdition: String,
+    /** تغيير طبعة التفسير من لوحة التفسير نفسها — تُحفظ في الإعدادات */
+    onSetTafsirEdition: (String) -> Unit,
     /** آخر صفحة محفوظة (١..٦٠٤) — نقطة بداية المصحف */
     initialPage: Int,
     /** سورة العلامة المرجعية — صفر يعني لا علامة */
@@ -574,6 +578,8 @@ fun MushafScreen(
                 TafsirPanel(
                     selection = sel,
                     rootSize = rootSize,
+                    editionId = tafsirEdition,
+                    onSetEdition = onSetTafsirEdition,
                     onDismiss = { tafsirOpen = false },
                 )
             }
@@ -1297,21 +1303,30 @@ private fun PlayOptionRow(
 private fun TafsirPanel(
     selection: MushafSelection,
     rootSize: IntSize,
+    /** طبعة التفسير الحالية — من الإعدادات (v1.81 بلاغ المالك: قسم التفاسير) */
+    editionId: String,
+    /** اعتماد طبعةٍ من المبدِّل داخل اللوحة — تُحفظ للجلسات القادمة */
+    onSetEdition: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    // الطبعة الحالية تتبع الإعدادات حتى يبدّلها القارئ من هنا فتُحفظ
+    var edition by remember(editionId) { mutableStateOf(editionId) }
 
-    // محتوى المُدى: (الآية، نصها العثماني، تفسيرها) — قراءة واحدة خفيفة
+    // محتوى المُدى: (الآية، نصها العثماني، تفسيرها) — قراءةٌ خفيفة
+    // تُعاد عند تغيّر المُدى **أو الطبعة**
     var entries by remember(selection) {
         mutableStateOf<List<Triple<Int, String, String>>?>(null)
     }
-    LaunchedEffect(selection) {
+    LaunchedEffect(selection, edition) {
         entries = withContext(Dispatchers.IO) {
             val lo = selection.first
             val hi = selection.last
-            MushafDb.tafsirRange(context, selection.sura, lo, hi).map { (ayah, tafsir) ->
-                Triple(ayah, MushafDb.ayahText(context, selection.sura, ayah) ?: "", tafsir)
-            }
+            com.sawan4art.noor.data.tafsir.TafsirLibrary
+                .rangeFor(context, edition, selection.sura, lo, hi)
+                .map { (ayah, tafsir) ->
+                    Triple(ayah, MushafDb.ayahText(context, selection.sura, ayah) ?: "", tafsir)
+                }
         }
     }
 
@@ -1324,9 +1339,17 @@ private fun TafsirPanel(
         SheetHeader(
             icon = NoorIcons.QuranTafsir,
             accent = accent,
-            title = "التفسير الميسر",
+            title = com.sawan4art.noor.domain.tafsir.TafsirEditions.displayName(edition),
             subtitle = MushafSurahs.caption(selection),
             onClose = onDismiss,
+        )
+        // مبدّل الطبعة — صفُّ شرائحٍ للطبعات الجاهزة (المضمّنة والمنزَّلة)
+        EditionSwitcher(
+            edition = edition,
+            onPick = { picked ->
+                edition = picked
+                onSetEdition(picked)
+            },
         )
 
         val content = entries
@@ -1374,12 +1397,21 @@ private fun TafsirPanel(
                                 modifier = Modifier.padding(top = 8.dp),
                             )
                         }
-                        Text(
-                            text = tafsir,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.95f),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(top = 6.dp),
-                        )
+                        if (tafsir.isBlank()) {
+                            Text(
+                                text = "لم يفسِّر هذه الآية في هذه الطبعة — جرّب طبعةً أخرى من المبدّل أعلاه",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                        } else {
+                            Text(
+                                text = tafsir,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.95f),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                        }
                     }
                     Box(
                         modifier = Modifier
@@ -1392,6 +1424,45 @@ private fun TafsirPanel(
             }
         }
     }
+}
+
+/**
+ * مبدّل طبعة التفسير — صفُّ شرائحٍ أفقيٌّ للطبعات الجاهزة (المضمّنة
+ * والمنزَّلة فقط)، والشرائح الباهتة طبعاتٌ لم تُنزَّل بعد ففتحها
+ * ينقل القارئ إلى قسم «التفاسير» في الإعدادات (v1.81).
+ */
+@Composable
+private fun EditionSwitcher(
+    edition: String,
+    onPick: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val accent = MaterialTheme.colorScheme.primary
+    val available = com.sawan4art.noor.domain.tafsir.TafsirEditions.ALL.filter {
+        com.sawan4art.noor.data.tafsir.TafsirLibrary.isDownloaded(context, it.id)
+    }
+    androidx.compose.foundation.lazy.LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+    ) {
+        items(available) { ed ->
+            val selected = ed.id == edition
+            Text(
+                text = ed.arabicName,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (selected) MaterialTheme.colorScheme.onPrimary else accent,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (selected) accent else accent.copy(alpha = 0.12f),
+                    )
+                    .clickable { onPick(ed.id) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
+    }
+    Spacer(Modifier.height(6.dp))
 }
 
 /**

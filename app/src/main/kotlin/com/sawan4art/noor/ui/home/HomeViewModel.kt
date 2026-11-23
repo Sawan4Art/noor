@@ -221,15 +221,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), c
     fun setOnboardingDone(done: Boolean) =
         viewModelScope.launch { repository.setOnboardingDone(done) }
 
-    /** إشعار التشغيل السريع — يظهر ويُغلق مع المفتاح (بلاغ 2026-11-11) */
+    /** إشعار الوقت المتبقي + البلاطة السريعة — يظهران ويُغلقان مع المفتاح */
     fun setQuickNotification(on: Boolean) = viewModelScope.launch {
         repository.setQuickNotification(on)
         val app = getApplication<Application>()
         if (on) {
-            com.sawan4art.noor.util.QuickLaunchNotification.show(app)
+            com.sawan4art.noor.util.QuickLaunch.refreshFromSettings(app)
         } else {
             com.sawan4art.noor.util.QuickLaunchNotification.dismiss(app)
         }
+    }
+
+    /** تغيير طبعة التفسير الافتراضية — قسم «التفاسير» (بلاغ v1.81) */
+    fun setTafsirEdition(id: String) = viewModelScope.launch {
+        repository.setTafsirEdition(id)
     }
 
     /**

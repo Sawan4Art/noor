@@ -67,12 +67,55 @@ object QuickLaunch {
                 now = ZonedDateTime.now(ZoneId.systemDefault()),
             )
             if (target != null) {
-                QuickLaunchNotification.refresh(
+                QuickLaunchNotification.show(
                     context,
                     target.prayerName,
                     target.atMillis,
                 )
             }
+            // البلاطة السريعة (v1.81) — طلبُ إعادة رسمٍ من النظام يفزّع
+            // onStartListening فيحسب النص الحي لحظتها (بلاغ المالك:
+            // «Quick Settings Tile يكون داعم ليها»)
+            runCatching {
+                android.service.quicksettings.TileService.requestListeningState(
+                    context,
+                    android.content.ComponentName(context, QuickLaunchTileService::class.java),
+                )
+            }
         }
+    }
+
+    /**
+     * حساب الصلاة القادمة من الإعدادات المحفوظة — نسخة الحجب للتخدم
+     * من مستقبِلات البلاطة (runBlocking قصير: رياضياتٌ صرفة لا شبكة)
+     */
+    fun computeNextTargetBlocking(context: Context): NextTarget? {
+        val settings = kotlinx.coroutines.runBlocking {
+            SettingsRepository(context).settingsOnce()
+        }
+        return computeNextTarget(
+            latitude = settings.latitude,
+            longitude = settings.longitude,
+            zone = ZoneId.systemDefault(),
+            method = settings.method,
+            isHanafi = settings.isHanafi,
+            now = ZonedDateTime.now(ZoneId.systemDefault()),
+        )
+    }
+
+    /**
+     * نص سطر البلاطة — «متبقي حتى أذان العصر ٣:٢٤» نقيةٌ مع زمنِ
+     * الآن كي تُختبر عقودُه: اللحظة الماضية تعطي النص العام (والنظام
+     * يطلب الرسم لحظة السحب فلا يكاد يقع)، وفارغ الاسم كذلك، والبقية
+     * تُقطَّع للأسفل كأي عدّادٍ طبيعيٍّ ينتهي إلى ٠٠:٠٠:٠٠ عند الحدّ.
+     */
+    fun tileSubtitle(prayerName: String, atMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
+        if (prayerName.isBlank() || atMillis <= nowMillis) {
+            return "الوقت المتبقي — اضغط للفتح"
+        }
+        val remaining = com.sawan4art.noor.util.TimeFormat.remainingArabic(
+            ((atMillis - nowMillis) / 1000).toInt(),
+        )
+        return "متبقي حتى أذان $prayerName $remaining"
     }
 }

@@ -142,6 +142,8 @@ fun SettingsScreen(
     reciterId: String,
     /** تغيير الشيخ المختار — قسم «أصوات الشيخ» */
     onSetReciter: (String) -> Unit,
+    /** تغيير طبعة التفسير الافتراضية — قسم «التفاسير» (v1.81) */
+    onSetTafsirEdition: (String) -> Unit,
     /** زر خطبة الجمعة في الرئيسية مفعّل؟ — قسم «خطبة الجمعة» (alpha56) */
     khutbahEnabled: Boolean,
     /** تفعيل/إيقاف زر خطبة الجمعة */
@@ -236,6 +238,15 @@ fun SettingsScreen(
                 QuranVoicesSection(
                     reciterId = reciterId,
                     onSetReciter = onSetReciter,
+                )
+            }
+        }
+        // قسم التفاسير — الطبعات الست وتنزيلها واختيار الافتراضية (v1.81)
+        "tafasir" -> SectionPage(title = "التفاسير", onBack = { section = "home" }) {
+            SectionCard {
+                TafsirSection(
+                    currentEdition = settings.tafsirEdition,
+                    onSetTafsirEdition = onSetTafsirEdition,
                 )
             }
         }
@@ -343,6 +354,12 @@ private fun SettingsHome(
             title = "أصوات الشيخ",
             summary = reciterSummary(reciterId),
             onOpen = { onOpen("voices") },
+        )
+        SectionRow(
+            icon = NoorIcons.QuranTafsir,
+            title = "التفاسير",
+            summary = "الميسر مضمّنٌ والجلالين والقرطبي وابن كثير والطبري والسعدي تُنزَّل من هنا",
+            onOpen = { onOpen("tafasir") },
         )
         SectionRow(
             icon = NoorIcons.QuranBookmarkOutline,
@@ -910,13 +927,13 @@ private fun GeneralSection(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "أيقونة التطبيق خالصةً في شريط الإشعارات بلا نصٍّ",
+                    text = "الوقت المتبقي في شريط الإشعارات + بلاطة الإعدادات السريعة",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = scheme.onSurface,
                 )
                 Text(
-                    text = "أيقونةٌ دائمةٌ هادئةٌ — ضغطةٌ عليها تفتح التطبيق فوراً من أي مكان",
+                    text = "إشعارٌ دائمٌ هادئٌ يعرض العدّاد حتى أذان الصلاة القادمة وبلاطةٌ في الشريط بعد السحب — ضغطةٌ على أيٍّ منهما تفتح التطبيق فوراً",
                     style = MaterialTheme.typography.labelSmall,
                     color = scheme.onSurfaceVariant,
                 )

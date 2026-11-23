@@ -12,32 +12,24 @@ import com.sawan4art.noor.MainActivity
 import com.sawan4art.noor.R
 
 /**
- * أيقونة التشغيل السريع في شريط الإشعارات — بلاغ المالك 2026-11-11:
- * «عايز يكون للتطبيق ايقونه في شريط الاشعارات الخاص بالهاتف لتشغيل
- * سريع للتطبيق» ثم بلاغ v1.71: «الغي تفعيل اشعار التشغيل السريع و
- * استبدله بايقونه تكون موجوده في شريط الاشعارات نفسه».
+ * إشعار «الوقت المتبقي» الدائم في شريط الإشعارات — عقدٌ تطوّر ببلاغات
+ * المالك: v1.71 أيقونةٌ خالصة ثم v1.80 عدّادٌ تنازليٌّ حيٌّ ثم **v1.81
+ * (البلاغ الحالي): «انا عايز ايقونه شريط اشعارات زي اللي موجودين في
+ * الصوره مش مجرد اشعار ثابت الاشعار الثابت ده شيله Quick Settings
+ * Tile يكون داعم ليها»** — فأُلغي وضع الأيقونة الثابتة (بطاقة
+ * RemoteViews الخالصة) نهائيًا: الإشعار الآن دائمًا إشعارٌ عاديٌّ
+ * مختصرٌ مثل بقية التطبيقات — أيقونةٌ صغيرةٌ في شريط الحالة وعنوانه
+ * «متبقي حتى أذان العصر» مع عدّادٍ تنازليٍّ **حيٍّ** يحدّثه نظام
+ * التشغيل نفسه كل دقيقة (setUsesChronometer + setWhen مستقبلي — بلا
+ * خدمةٍ ولا استهلاك بطاريةٍ إطلاقاً)، ويدعمه [QuickLaunchTileService]
+ * بلاطةٌ في الإعدادات السريعة بنفس القيمة لحظة السحب.
  *
- * فالعقد هنا: بطاقةُ إشعارٍ دائمةٌ تظهر في شريط الإشعارات ما دام
- * مفتاحها مفعّلاً — ضغطةٌ عليها تفتح التطبيق فوراً من أينما كان
- * المستخدم، وهي «دائمة» (ongoing) فلا تُسحب من الشريط وتُغلق حين
- * يطفئها المالك من قسم «عام» في الإعدادات.
+ * يُضبط عند النشر ويُجدَّد عند كل تغيّرٍ للصلاة القادمة (فتح التطبيق/
+ * تغيّر الإعدادات/منبه QUICK_REFRESH عند كل أذان — عبر [QuickLaunch]
+ * .refreshFromSettings الذي يستدعي هذا بالصلاة القادمة الحية).
  *
- * **العدّاد التنازلي الحي (v1.80 — بلاغ المالك 2026-11-21): «اضف
- * ايقونه داخل شريط الاشعارات لعرض الوقت المتبقي و فتح التطبيق بشكل
- * سريع تنبيه ايقونه داخل ايقونات شريط الاشعارات»**: معرفة الصلاة
- * القادمة النصُّ الجانبي للإشعار «متبقي حتى أذان الفلان» مع عدّادٍ
- * تنازليٍّ **حيٍّ** يحدّث نفسه بنظام التشغيل كل دقيقة بلا خدمةٍ ولا
- * استهلاك بطارية — عبر خاصية النظام الأصلية [setUsesChronometer]
- * مع [setWhen] مستقبلي (chrono base): العدّاد يعدّ تنازلياً نحو
- * لحظة الأذان القادمة، ويُضبط عند النشر ويُجدَّد عند كل إعادة نشر
- * (الإقلاع وفتح التطبيق وتغيّر الإعدادات وتغيّر الصلاة القادمة عبر
- * [refresh] التي يستدعيها المجدول عند كل أذان). وبلا صلاةٍ قادمة
- * معروفة يظل الإشعار أيقونةَ التطبيق الخالصة (بلا نصٍّ ولا عنوان)
- * كما في v1.71.
- *
- * القناة هادئة (IMPORTANCE_MIN) فلا صوت ولا اهتزاز ولا بادج —
- * أيقونةٌ صامتةٌ للتشغيل السريع لا إزعاجاً، والإشعار نفسه صامتٌ
- * عند تحديثه (setOnlyAlertOnce) فلا يُسمع له طقطقة عند كل تجديد.
+ * القناة هادئة (IMPORTANCE_MIN) فلا صوت ولا اهتزاز ولا بادج،
+ * والإشعار صامتٌ عند تحديثه (setOnlyAlertOnce).
  */
 object QuickLaunchNotification {
 
@@ -45,20 +37,12 @@ object QuickLaunchNotification {
     const val NOTIFICATION_ID = 4101
 
     /**
-     * تظهر/تتجدد الإشعار الدائم — تُستدعى من إقلاع التطبيق إذا كان
-     * المفتاح مفعّلاً، ومن [refresh] عند تغيّر الصلاة القادمة.
-     *
-     * @param nextPrayerName اسم الصلاة القادمة («العصر»…) — فارغٌ
-     *        يعني إشعارَ الأيقونة الخالصة بلا عدّاد (لا مواقيت معروفة).
-     * @param nextPrayerAtMillis لحظة الأذان القادم بالمللي — عدّاد
-     *        الإشعار يعدّ تنازلياً نحوها؛ صفرٌ أو لحظةٌ ماضية تُسقط
-     *        العدّاد وترجع الأيقونة الخالصة.
+     * نشر/تجديد الإشعار الدائم — [nextPrayerName] و[nextPrayerAtMillis]
+     * إلزاميان من الصلاة القادمة الحية (احسبهما عبر [QuickLaunch]
+     * .computeNextTarget)؛ ولحظةٌ ماضيةٌ تُسقط العدّاد وتُبقي الإشعار
+     * بالعنوان العام كي لا يعرض عدّاداً على صفرٍ أبداً.
      */
-    fun show(
-        context: Context,
-        nextPrayerName: String = "",
-        nextPrayerAtMillis: Long = 0L,
-    ) {
+    fun show(context: Context, nextPrayerName: String, nextPrayerAtMillis: Long) {
         runCatching {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
                 ?: return
@@ -69,7 +53,7 @@ object QuickLaunchNotification {
                         "التشغيل السريع",
                         NotificationManager.IMPORTANCE_MIN,
                     ).apply {
-                        description = "أيقونة دائمة لفتح التطبيق بسرعة"
+                        description = "إشعار الوقت المتبقي حتى أذان الصلاة القادمة"
                         setShowBadge(false)
                     },
                 )
@@ -82,8 +66,14 @@ object QuickLaunchNotification {
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
+            val countdownValid = nextPrayerAtMillis > System.currentTimeMillis() &&
+                nextPrayerName.isNotBlank()
             val builder = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_update)
+                .setContentTitle(
+                    if (countdownValid) "متبقي حتى أذان $nextPrayerName"
+                    else "نور المسلم — التشغيل السريع",
+                )
                 .setContentIntent(open)
                 .setOngoing(true)
                 .setSilent(true)
@@ -92,47 +82,17 @@ object QuickLaunchNotification {
                 .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
                 .setShowWhen(false)
 
-            val countdownValid = nextPrayerAtMillis > System.currentTimeMillis() &&
-                nextPrayerName.isNotEmpty()
             if (countdownValid) {
-                // **العدّاد التنازلي الحي (v1.80)** — «ايقونه داخل شريط
-                // الاشعارات لعرض الوقت المتبقي»: نظام التشغيل نفسه
-                // يحدّث النص كل دقيقة (خاصية usesChronometer) بلا أي
-                // خدمةٍ أو مؤقتٍ من التطبيق — العدّاد يعدّ نحو لحظة
-                // الأذان القادمة (setWhen مستقبلي + setUsesChronometer)
-                // فتقرأ العين الوقت المتبقي حياً في الشريط دائماً،
-                // والنص الجانبي يسمّي الصلاة المنتظَرة
+                // **العدّاد التنازلي الحي** — نظام التشغيل يحدّث النص كل
+                // دقيقة (خاصية usesChronometer) بلا أي خدمةٍ أو مؤقتٍ
+                // من التطبيق — والعدّاد يعدّ نحو لحظة الأذان القادمة
                 builder
                     .setWhen(nextPrayerAtMillis)
                     .setUsesChronometer(true)
-                    .setSubText("متبقي حتى أذان $nextPrayerName")
-            } else {
-                // **أيقونةٌ خالصة** — بلاغ المالك v1.71: «الغي تفعيل
-                // اشعار التشغيل السريع و استبدله بايقونه تكون موجوده
-                // في شريط الاشعارات نفسه» — محتوى الإشعار كله صورةُ
-                // أيقونة التطبيق بلا نصٍّ ولا عنوانٍ، فتبدو بطاقةُ
-                // الإشعار في الشريط أيقونةً خالصةً ضغطةٌ عليها تفتح
-                // التطبيق
-                builder.setContent(
-                    android.widget.RemoteViews(
-                        context.packageName,
-                        R.layout.notification_quick_icon,
-                    ),
-                )
             }
 
             nm.notify(NOTIFICATION_ID, builder.build())
         }
-    }
-
-    /**
-     * تجديد نص العدّاد عند تغيّر الصلاة القادمة — يستدعيها المجدول
-     * (AlarmScheduler.reschedule) فيجدول منبهَ تجديدٍ عند لحظة كل أذانٍ
-     * قادم فيتدحرج النص إلى الصلاة التالية دون فتح التطبيق. بلا صلاةٍ
-     * قادمة معروفة يرجع الإشعار أيقونةً خالصة.
-     */
-    fun refresh(context: Context, nextPrayerName: String, nextPrayerAtMillis: Long) {
-        show(context, nextPrayerName, nextPrayerAtMillis)
     }
 
     /** تُغلق الإشعار — حين يطفئ المالك المفتاح من الإعدادات */
