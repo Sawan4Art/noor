@@ -530,7 +530,9 @@ object QuranAudioLibrary {
             // سرعة alpha62 — ناقل الضغعات: تنزيلٌ متوازٍ بالتقطيع
             // (أربعة اتصالات) باستئنافٍ حقيقي لكل قطعةٍ ومتابعة التحويلات
             // يدوياً — بدل اتصالٍ واحدٍ يموت في مهلته ويبدأ من الصفر.
-            if (!SurahZipFetch.fetch(QuranReciters.mirrorSurahUrl(reciter, sura), zip, onZipPct)) {
+            val zipUrl = QuranReciters.mirrorSurahUrl(reciter, sura)
+                ?: return false // لا أصلَ للشيخ على المرآة — طرقه الأخرى تكفيه
+            if (!SurahZipFetch.fetch(zipUrl, zip, onZipPct)) {
                 return false
             }
             var extracted = 0
@@ -565,13 +567,18 @@ object QuranAudioLibrary {
     /**
      * جلب آية واحدة — بترتيب المصادر بعد الدراسة الحية 2026-11-13
      * (بلاغ المالك: «ادرس كويس جدا طريق تنزيل و اصوات الشيوخ … الاصوات
-     * اللي بتنزل بتبقى بطيئه»):
+     * اللي بتنزل بتبقى بطيئه») ودراسة v1.85 (بلاغ المالك: «اصوات الشيوخ
+     * كلها تعمل و تقبل التنزيل الا الدوسري و القاطمي و البنا و الطبلاوي»):
      * ١) **CDN المكتبة المفتوحة ١٢٨kbps** — أسرع مصدرٍ في القياس الحي
-     *    وبنفس جودة مجلد الشيخ، لمن ثبت أن إصداره يخدم الجودة العالية
-     *    (المنشاوي والحصري وجبريل والعفاسي والمعيقلي).
-     * ٢) **everyayah** — الشامل لكل الشيوخ على شبكة Bunny للتوزيع.
-     * ٣) **CDN المكتبة ٦٤kbps** — أخف الطرق للشيخ صاحب الإصدار النظير.
-     * ٤) **ضغط المرآة** — أثقل الطرق: السورة كلها بضغطةٍ واحدة،
+     *    وبنفس جودة مجلد الشيخ، لمن ثبت أن إصداره يخدم الجودة العالية.
+     * ٢) **jsDelivr على فرع استضافة الآيات** — لمن لا طريقَ CDN له
+     *    إطلاقاً (الدوسري والقاطمي والبنا والطبلاوي — دراسة v1.85
+     *    أثبتت أن كل طريقهما السابق يمرّ ببنيةٍ تعجِز عن شبكتهما فالعطل
+     *    كله) — بنيةٌ سحابيةٌ عالميةٌ مستقلةٌ عن الجميع.
+     * ٣) **raw.githubusercontent** — الفرع نفسه على أصلٍ ثانٍ مستقلٍّ.
+     * ٤) **everyayah** — الشامل لكل الشيوخ على شبكة Bunny للتوزيع.
+     * ٥) **CDN المكتبة ٦٤kbps** — أخف الطرق للشيخ صاحب الإصدار النظير.
+     * ٦) **ضغط المرآة** — أثقل الطرق: السورة كلها بضغطةٍ واحدة،
      *    وممنوع في المرور الموازي ([allowZip] = false) كي لا يُنزّل
      *    الضغط لكل آيةٍ غائبةٍ منفردةً — فالضغط طورٌ مستقلٌ في المسار.
      * والتنزيل إلى ملف مؤقت ثم تسميته نهائياً بعد اكتماله.
@@ -593,13 +600,21 @@ object QuranAudioLibrary {
         QuranReciters.cdnAyahUrl(reciter, global)?.let { url ->
             if (downloadTo(url, target)) return true
         }
-        // (٢) everyayah — الشامل لكل الشيوخ
+        // (٢) jsDelivr على فرع الاستضافة — لمن لا طريقَ CDN إطلاقاً
+        QuranReciters.hostedAyahUrl(reciter, sura, ayah)?.let { url ->
+            if (downloadTo(url, target)) return true
+        }
+        // (٣) raw على الفرع نفسه — أصلٌ ثانٍ مستقلٌّ عن jsDelivr
+        QuranReciters.hostedAyahRawUrl(reciter, sura, ayah)?.let { url ->
+            if (downloadTo(url, target)) return true
+        }
+        // (٤) everyayah — الشامل لكل الشيوخ
         if (downloadTo(QuranReciters.ayahUrl(reciter, sura, ayah), target)) return true
-        // (٣) CDN ٦٤ — للشيخ صاحب الإصدار النظير
+        // (٥) CDN ٦٤ — للشيخ صاحب الإصدار النظير
         QuranReciters.fallbackUrl(reciter, global)?.let { url ->
             if (downloadTo(url, target)) return true
         }
-        // (٤) ضغط المرآة — الطريق الأخير الثقيل
+        // (٦) ضغط المرآة — الطريق الأخير الثقيل
         if (allowZip && downloadSurahZip(context, reciter, sura)) {
             return target.isFile && target.length() > 0L
         }

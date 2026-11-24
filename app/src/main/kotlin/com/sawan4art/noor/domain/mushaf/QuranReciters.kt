@@ -1,7 +1,20 @@
 package com.sawan4art.noor.domain.mushaf
 
 /**
- * شيوخ التلاوة — **عشرة شيخاً فقط بأمر المالك** (بلاغ 2026-11-13: «عايز
+ * شيوخ التلاوة — عشرةٌ بأمر المالك 2026-11-13 ثم **اثنا عشر بالمجودين**
+ * (v1.85 بلاغ المالك: «انا عايز اصوات تكون مجوده ان امكن مثل الشيخ
+ * المنشاوي و الحصري يعني الاصوات الموجوده مجوده ضيفها» — فأُضيف إصدارا
+ * **المجود** للمنشاوي ١٩٢kbps والحصري ٦٤kbps على everyayah مع نظيريهما
+ * على CDN: المنشاوي المجود ar.minshawimujawwad يخدم ٦٤ فقط قياساً حياً
+ * والحصري المجود ar.husarymujawwad يخدم ١٢٨ فأصبح طريقه الأول) وبلاغ
+ * الإصلاح نفسه: «اصوات الشيوخ كلها تعمل و تقبل التنزيل الا الدوسري و
+ * القاطمي و البنا و الطبلاوي» — والدراسة الحية أثبتت أن هؤلاء الأربعة
+ * وحدهم بلا أي إصدارٍ على islamic.network (٤٠٣ على كل النسبط) وأن
+ * everyayah وأصول المرآة سليمان من الشبكة الحرة فالعطل على نوعية شبكة
+ * المالك معهما — فلُقيتَ آياتُهم **استضافةً كاملةً على فروع المستودع**
+ * تخدمها شبكة jsDelivr العالمية (ayah-dossary وayah-qatami وayah-banna
+ * وayah-tablawy — انظر hostAyahBranch) فيصير لكل آيةٍ طريقٌ سحابيٌّ
+ * ثالثٌ مستقلٌّ تماماً. (بلاغ 2026-11-13: «عايز
  * فقط الاصوات التاليه هي اللي تبقى موجه في التطبيق و في المقابل عايز
  * اعلى جوده للصوت و اعلى سرعه تحميل للاصوات») — القائمة بأسمائهم
  * بترتيبه حرفياً، وكلُّ واحدٍ منهم على **أعلى جودةٍ متاحةٍ في المصادر
@@ -63,7 +76,14 @@ object QuranReciters {
     private val EGYPTIAN = listOf(
         Reciter("abdelbaset", "عبد الباسط عبد الصمد", "Abdul_Basit_Murattal_192kbps", "مصر", Origin.EGYPTIAN, "ar.abdulbasitmurattal"),
         Reciter("minshawi", "محمد صديق المنشاوي", "Minshawy_Murattal_128kbps", "مصر", Origin.EGYPTIAN, "ar.minshawi", cdnHighBitrate = true),
+        // المجود (v1.85 بلاغ المالك) — ١٩٢kbps أعلى جودةٍ له على everyayah
+        // ونظيره ar.minshawimujawwad على CDN يخدم ٦٤ فقط قياساً حياً
+        // (٤٠٣ على ١٢٨) فلا راية جودةٍ عاليةٍ له على CDN
+        Reciter("minshawi_mujawwad", "المنشاوي المجود", "Minshawy_Mujawwad_192kbps", "مصر", Origin.EGYPTIAN, "ar.minshawimujawwad"),
         Reciter("husary", "محمود خليل الحصري", "Husary_128kbps", "مصر", Origin.EGYPTIAN, "ar.husary", cdnHighBitrate = true),
+        // المجود (v1.85 بلاغ المالك) — مجلد everyayah ٦٤kbps ونظيره
+        // ar.husarymujawwad يخدم ١٢٨ قياساً حياً فصار طريقه الأول
+        Reciter("husary_mujawwad", "الحصري المجود", "Husary_Mujawwad_64kbps", "مصر", Origin.EGYPTIAN, "ar.husarymujawwad", cdnHighBitrate = true),
         // البنا: أعلى جودةٍ آيّة-آيّة موجودةٍ في كل المصادر المفتوحة هي
         // 32kbps — القياس الحي 2026-11-13 أثبت أن إصداره في مكتبة القرآن
         // المفتوحة (ar.mahmoudalialbanna) ميتٌ 403 على ١٢٨ و٦٤ و٣٢ جميعاً
@@ -158,29 +178,73 @@ object QuranReciters {
      */
     const val MIRROR_BASE_URL = "https://github.com/Sawan4Art/noor-audio/releases/download"
 
-    /** إصدار المرآة للقارئ — خريطة مثبَّتة تطابق ما هو مرفوع فعلاً */
-    fun mirrorRelease(reciter: Reciter): String = when (reciter.id) {
+    /** إصدار المرآة للقارئ — خريطة مثبَّتة تطابق ما هو مرفوع فعلاً،
+     *  والفراغ لمن لا أصولَ له على المرآة (المجودان الجديدان v1.85:
+     *  طريقُهما الأول CDN فالمرآة عنهما عبءٌ بلا أصل) */
+    fun mirrorRelease(reciter: Reciter): String? = when (reciter.id) {
         "abdelbaset", "minshawi", "husary", "al_banna", "tablaway" -> "audio-v1"
         "alafasy", "sudais", "muaiqly", "qatami" -> "audio-v2"
-        else -> "audio-v3"
+        "dossary" -> "audio-v3"
+        else -> null
     }
 
     /** اسم أصل السورة في المرآة — «Alafasy_128kbps-002.zip» */
     fun mirrorAssetName(folder: String, sura: Int): String =
         "%s-%03d.zip".format(folder, sura.coerceIn(1, 114))
 
-    /** رابط سورة الشيخ المضغوطة على المرآة — في إصداره الثابت */
-    fun mirrorSurahUrl(reciter: Reciter, sura: Int): String =
-        "$MIRROR_BASE_URL/${mirrorRelease(reciter)}/${mirrorAssetName(reciter.folder, sura)}"
+    /** رابط سورة الشيخ المضغوطة على المرآة — والفراغ لمن لا أصلَ له فيها */
+    fun mirrorSurahUrl(reciter: Reciter, sura: Int): String? =
+        mirrorRelease(reciter)?.let {
+            "$MIRROR_BASE_URL/$it/${mirrorAssetName(reciter.folder, sura)}"
+        }
 
-    /** عدد المصريين في القائمة — خمسة بأمر المالك 2026-11-13 */
-    const val EGYPTIAN_COUNT = 5
+    // ===== استضافة الآيات على فروع المستودع (v1.85 — إصلاح الأربعة) =====
+
+    /**
+     * **فرع استضافة الآيات** للقارئ من الأربعة الذين لا طريقَ CDN
+     * لهم على islamic.network إطلاقاً — أصولُ آياتهم كاملةٌ (٦٢٣٦ ملفاً
+     * sssaaa.mp3 مسطّحةً) رُفعت إلى فرعٍ لكل قارئٍ في هذا المستودع
+     * عبر workflow «استضافة الآيات» وتُخدم بشبكة jsDelivr العالمية
+     * ببنيةٍ سحابيةٍ مستقلةٍ عن everyayah وأصول الإصدارات معاً — فالعطل
+     * المبلغ (v1.85 بلاغ المالك: «الدوسري و القاطمي و البنا و الطبلاوي»)
+     * كان نقصَ طرقٍ لا نقصَ ملفات: كلُّ طريقٍ سابقٍ لهؤلاء كان يمرّ
+     * بنيةٍ لا تصلُه على شبكته فمات تشغيلُهم وتنزيلُهم معاً.
+     * والفراغ لمن لا فرعَ استضافةٍ له (البقية طرقُهم CDN أولاً).
+     */
+    fun hostAyahBranch(reciter: Reciter): String? = when (reciter.id) {
+        "dossary" -> "ayah-dossary"
+        "qatami" -> "ayah-qatami"
+        "al_banna" -> "ayah-banna"
+        "tablaway" -> "ayah-tablawy"
+        else -> null
+    }
+
+    /** أصل شبكة jsDelivr العالمية لفروع المستودع — بنيةٌ مستقلةٌ تماماً */
+    const val HOST_AYAH_BASE_URL = "https://cdn.jsdelivr.net/gh/Sawan4Art/noor-audio@"
+
+    /** رابط آية من فرع استضافة الآيات على jsDelivr — والفراغ لمن بلا فرع */
+    fun hostedAyahUrl(reciter: Reciter, sura: Int, ayah: Int): String? =
+        hostAyahBranch(reciter)?.let {
+            "$HOST_AYAH_BASE_URL$it/${reciter.folder}/${QuranAudioMath.ayahFileName(sura, ayah)}"
+        }
+
+    /** أصل raw.githubusercontent — الطريق الثاني المستقلّ للفرع نفسه */
+    const val HOST_AYAH_RAW_BASE_URL = "https://raw.githubusercontent.com/Sawan4Art/noor-audio/refs/heads"
+
+    /** رابط آية من فرع الاستضافة على raw — والفراغ لمن بلا فرع */
+    fun hostedAyahRawUrl(reciter: Reciter, sura: Int, ayah: Int): String? =
+        hostAyahBranch(reciter)?.let {
+            "$HOST_AYAH_RAW_BASE_URL/$it/${reciter.folder}/${QuranAudioMath.ayahFileName(sura, ayah)}"
+        }
+
+    /** عدد المصريين في القائمة — خمسة بأمر المالك 2026-11-13 ثم سبعة بالمجودين (v1.85) */
+    const val EGYPTIAN_COUNT = 7
 
     /** عدد غير المصريين — خمسة بالضبط */
     const val OTHER_COUNT = 5
 
-    /** المجموع الكلي — عشرة شيخاً بأمر المالك */
-    const val COUNT = 10
+    /** المجموع الكلي — عشرة شيخاً بأمر المالك ثم اثنا عشر بالمجودين (v1.85) */
+    const val COUNT = 12
 }
 
 /**

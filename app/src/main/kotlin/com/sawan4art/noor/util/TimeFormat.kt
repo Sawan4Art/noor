@@ -27,8 +27,17 @@ object TimeFormat {
             .format(PRAYER_TIME_FORMAT)
 
     /** ٠٣:٢٤:١٥ — أرقام هندية للعدّاد التنازلي */
-    fun remainingArabic(seconds: Int): String =
-        formatRemaining(seconds).map { ch ->
+    fun remainingArabic(seconds: Int): String = arabicDigits(formatRemaining(seconds))
+
+    /**
+     * **ضبط الأرقام الهندية قسراً** — عرف التطبيق كله أرقامٌ هندية،
+     * لكن أنظمة اللغة الحديثة (CLDR ٣٩+) جعلت الأساس الافتراضي لـ ar-EG
+     * لاتينياً فتختلف المخرجات بين الأجهزة بيئةَ التشغيل — فالضبطُ
+     * اليدوي يجعل النص ثابتاً «٧:٣٩ م» على كل جهازٍ وإصدارٍ (v1.85
+     * بلاطة الصلاة القادمة أظهر العلة).
+     */
+    fun arabicDigits(s: String): String =
+        s.map { ch ->
             val digit = ch.digitToIntOrNull()
             if (digit != null) ARABIC_INDIC[digit] else ch
         }.joinToString("")

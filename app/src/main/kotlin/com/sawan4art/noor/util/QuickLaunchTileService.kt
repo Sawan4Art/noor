@@ -11,7 +11,7 @@ import com.sawan4art.noor.data.SettingsRepository
  * ليها»).
  *
  * البلاطة في شبكة الإعدادات السريعة (داخل شريط الإشعارات بعد السحب):
- * عنوانها «نور المسلم» وسطرها الفرعي «متبقي حتى أذان العصر ٣:٢٤»
+ * عنوانها «نور المسلم» وسطرها الفرعي «أذان العصر ٤:١٥ م» — v1.85 (بلاغ المالك: وقتُ الصلاة القادمة نفسه بدل المتبقي)
  * محسوبةً لحظة سحب الشريط نفسها (onStartListening) ومن منبه تجديد
  * الأذان (QUICK_REFRESH عبر requestListeningState) — ضغطةٌ عليها
  * تفتح التطبيق فورًا. وإن كان مفتاح أيقونة شريط الإشعارات مطفأً من
@@ -71,10 +71,13 @@ class QuickLaunchTileService : TileService() {
                 QuickLaunch.computeNextTargetBlocking(this@QuickLaunchTileService)
             }
             if (target != null) {
-                qs.setSubtitle(QuickLaunch.tileSubtitle(target.prayerName, target.atMillis))
-                qs.contentDescription = "الوقت المتبقي حتى أذان ${target.prayerName} — ضغطة تفتح التطبيق"
+                // v1.85 بلاغ المالك: البلاطة تعرض وقت الصلاة القادمة
+                // نفسه لا المتبقي — ثابتٌ يُقرأ مرةً ويفهم مرةً
+                val sub = QuickLaunch.tileSubtitle(target.prayerName, target.atMillis)
+                qs.setSubtitle(sub)
+                qs.contentDescription = "$sub — ضغطة تفتح التطبيق"
             } else {
-                qs.setSubtitle("الوقت المتبقي")
+                qs.setSubtitle("وقت الصلاة القادمة")
             }
             qs.setState(Tile.STATE_ACTIVE)
             qs.updateTile()

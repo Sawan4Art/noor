@@ -110,18 +110,30 @@ object QuickLaunch {
     }
 
     /**
-     * نص سطر البلاطة — «متبقي حتى أذان العصر ٣:٢٤» نقيةٌ مع زمنِ
-     * الآن كي تُختبر عقودُه: اللحظة الماضية تعطي النص العام (والنظام
-     * يطلب الرسم لحظة السحب فلا يكاد يقع)، وفارغ الاسم كذلك، والبقية
-     * تُقطَّع للأسفل كأي عدّادٍ طبيعيٍّ ينتهي إلى ٠٠:٠٠:٠٠ عند الحدّ.
+     * نص سطر البلاطة — «أذان العصر ٤:١٥ م» — v1.85 (بلاغ المالك:
+     * «خلي بلاطه الاعدادات السريعه تعرض وقت الصلاه القادمه بدل عرض
+     * الوقت المتبقي») — نقيةٌ مع زمنِ
+     * الآن ومنطقةٍ زمنيةٍ ممرّرين كي تُختبر عقودُه: المتبقي تشوشه
+     * قراءته الحية (رقمٌ ينقص كل دقيقةٍ والبلاطة تُقرأ لحظةَ السحب)،
+     * أما وقت الأذان نفسه فثابتٌ يُقرأ مرةً ويفهم مرةً — وصيغته صيغة
+     * المواقيت نفسها بالأرقام العربية وقرابةُ العرض لأعلى الدقيقة
+     * (العرض المتأخر أسلم من المقدَّم — قاعدة alpha63 في
+     * TimeFormat.prayerTime). اللحظة الماضية أو فارغ الاسم يعطي النص
+     * العام (والنظام يطلب الرسم لحظة السحب فلا يكاد يقع).
      */
-    fun tileSubtitle(prayerName: String, atMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
+    fun tileSubtitle(
+        prayerName: String,
+        atMillis: Long,
+        @Suppress("UNUSED_PARAMETER") nowMillis: Long = System.currentTimeMillis(),
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): String {
         if (prayerName.isBlank() || atMillis <= nowMillis) {
-            return "الوقت المتبقي — اضغط للفتح"
+            return "وقت الصلاة القادمة — اضغط للفتح"
         }
-        val remaining = com.sawan4art.noor.util.TimeFormat.remainingArabic(
-            ((atMillis - nowMillis) / 1000).toInt(),
+        val time = TimeFormat.prayerTime(
+            java.time.Instant.ofEpochMilli(atMillis).atZone(zone),
         )
-        return "متبقي حتى أذان $prayerName $remaining"
+        // الأرقام الهندية قسراً — بيئات CLDR الحديثة تجعلها لاتينية
+        return "أذان $prayerName " + TimeFormat.arabicDigits(time)
     }
 }

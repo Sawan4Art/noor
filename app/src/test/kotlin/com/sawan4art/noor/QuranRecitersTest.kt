@@ -4,21 +4,24 @@ import com.sawan4art.noor.data.mushaf.QuranAudioLibrary
 import com.sawan4art.noor.domain.mushaf.QuranAudioMath
 import com.sawan4art.noor.domain.mushaf.QuranReciters
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * اختبارات شيوخ التلاوة — **عشرة بأمر المالك** (بلاغ 2026-11-13: «عايز
- * فقط الاصوات التاليه هي اللي تبقى موجه في التطبيق») بعد أن كانت
- * تسعة عشر — والعقد: أسماء الملفات الموحدة «٣ سورة + ٣ آية» وخريطة
- * إصدارات المرآة المثبّتة ومعرّفات المحذوفين تسير بأمانٍ للافتراضي.
+ * اختبارات شيوخ التلاوة — **اثنا عشر** (عشرةٌ بأمر المالك 2026-11-13
+ * «عايز فقط الاصوات التاليه…» ثم مجودا المنشاوي والحصري بأمره v1.85
+ * «انا عايز اصوات تكون مجوده ان امكن مثل الشيخ المنشاوي و الحصري يعني
+ * الاصوات الموجوده مجوده ضيفها») — والعقد: أسماء الملفات الموحدة
+ * «٣ سورة + ٣ آية» وخريطة إصدارات المرآة المثبّتة وفروع استضافة الآيات
+ * للأربعة ومعرّفات المحذوفين تسير بأمانٍ للافتراضي.
  */
 class QuranRecitersTest {
 
     @Test
-    fun `القائمة عشرة شيوخ بأمر المالك`() {
-        assertEquals(10, QuranReciters.COUNT)
-        assertEquals(10, QuranReciters.ALL.size)
+    fun `القائمة اثنا عشر شيخا — العشرة بالمجودين`() {
+        assertEquals(12, QuranReciters.COUNT)
+        assertEquals(12, QuranReciters.ALL.size)
         // المحذوفون الثلاثة عشر لا يظهرون أبداً بالمعرّف ولا بالاسم
         val removed = listOf(
             "mustafa_ismail", "sowaid", "hajjaj", "neana", "jibreel",
@@ -38,7 +41,8 @@ class QuranRecitersTest {
         // بلاغ المالك 2026-11-13 — القائمة بترتيبه حرفياً
         assertEquals(
             listOf(
-                "abdelbaset", "minshawi", "husary", "al_banna", "tablaway",
+                "abdelbaset", "minshawi", "minshawi_mujawwad", "husary",
+                "husary_mujawwad", "al_banna", "tablaway",
                 "qatami", "dossary", "sudais", "muaiqly", "alafasy",
             ),
             QuranReciters.ALL.map { it.id },
@@ -46,13 +50,14 @@ class QuranRecitersTest {
         for (name in listOf(
             "عبد الباسط", "المنشاوي", "الحصري", "البنا", "الطبلاوي",
             "القطامي", "الدوسري", "السديس", "المعيقلي", "العفاسي",
+            "المنشاوي المجود", "الحصري المجود",
         )) {
             assertTrue(QuranReciters.ALL.any { it.name.contains(name) })
         }
     }
 
     @Test
-    fun `خمسة مصريين وخمسة من غير المصريين`() {
+    fun `سبعة مصريين (الخمسة بالمجودين) وخمسة من غير المصريين`() {
         val egyptian = QuranReciters.ALL.filter { it.origin == QuranReciters.Origin.EGYPTIAN }
         val other = QuranReciters.ALL.filter { it.origin == QuranReciters.Origin.OTHER }
         assertEquals(QuranReciters.EGYPTIAN_COUNT, egyptian.size)
@@ -72,8 +77,8 @@ class QuranRecitersTest {
 
     @Test
     fun `المعرّفات والمجلدات فريدة`() {
-        assertEquals(10, QuranReciters.ALL.map { it.id }.toSet().size)
-        assertEquals(10, QuranReciters.ALL.map { it.folder }.toSet().size)
+        assertEquals(12, QuranReciters.ALL.map { it.id }.toSet().size)
+        assertEquals(12, QuranReciters.ALL.map { it.folder }.toSet().size)
         assertTrue(QuranReciters.ALL.all { it.id.isNotBlank() && it.folder.isNotBlank() })
         assertTrue(QuranReciters.ALL.all { !it.folder.contains(' ') || it.folder.contains("_") })
     }
@@ -154,6 +159,10 @@ class QuranRecitersTest {
         assertEquals("ar.husary", QuranReciters.byId("husary").fallbackEdition)
         assertEquals("ar.mahermuaiqly", QuranReciters.byId("muaiqly").fallbackEdition)
         assertEquals("ar.abdurrahmaansudais", QuranReciters.byId("sudais").fallbackEdition)
+        // والمجودان (v1.85): المنشاوي المجود يخدم ٦٤ فقط على CDN
+        // والحصري المجود يخدم ١٢٨ — قياساً حياً
+        assertEquals("ar.minshawimujawwad", QuranReciters.byId("minshawi_mujawwad").fallbackEdition)
+        assertEquals("ar.husarymujawwad", QuranReciters.byId("husary_mujawwad").fallbackEdition)
         // ومن لا نظير حيٍّ له إصداره null — القياس الحي 2026-11-13 أثبت
         // أن إصدارات البنا والطبلاوي والقطامي في المكتبة المفتوحة ميتة
         // 403 على كل الجودات (١٢٨ و٦٤ و٣٢) فلا احتياطَ لهم
@@ -193,6 +202,10 @@ class QuranRecitersTest {
         assertEquals("audio-v1", QuranReciters.mirrorRelease(QuranReciters.byId("al_banna")))
         assertEquals("audio-v2", QuranReciters.mirrorRelease(QuranReciters.byId("qatami")))
         assertEquals("audio-v3", QuranReciters.mirrorRelease(QuranReciters.byId("dossary")))
+        // والمجودان الجديدان بلا أصول مرآة إطلاقاً — CDN طريقهما الأول
+        assertEquals(null, QuranReciters.mirrorRelease(QuranReciters.byId("minshawi_mujawwad")))
+        assertEquals(null, QuranReciters.mirrorRelease(QuranReciters.byId("husary_mujawwad")))
+        assertEquals(null, QuranReciters.mirrorSurahUrl(QuranReciters.byId("minshawi_mujawwad"), 1))
         // وكل الشيوخ مجلداتهم بلا فراغات فأسماء الأصول روابط سليمة
         assertTrue(QuranReciters.ALL.all { !it.folder.contains(' ') })
     }
@@ -288,15 +301,62 @@ class QuranAudioRouteTest {
         for (id in listOf("abdelbaset", "sudais")) {
             assertEquals(null, QuranReciters.cdnAyahUrl(QuranReciters.byId(id), 262))
         }
-        // ومن لا إصدارٍ نظير حيّ له أصلاً فالـ null دائماً
-        for (id in listOf("al_banna", "tablaway", "qatami", "dossary")) {
+        // ومن لا إصدارٍ نظير حيّ له أصلاً فالـ null دائماً — والمنشاوي
+        // المجود إصداره حيٌّ على ٦٤ فقط فلا رايةَ جودةٍ عاليةٍ له
+        for (id in listOf("al_banna", "tablaway", "qatami", "dossary", "minshawi_mujawwad")) {
             assertEquals(null, QuranReciters.cdnAyahUrl(QuranReciters.byId(id), 262))
         }
     }
 
     @Test
-    fun `عدد أصحاب الجودة العالية أربعة بالضبط وكلهم أصحاب إصدار`() {
-        assertEquals(4, QuranReciters.ALL.count { it.cdnHighBitrate })
+    fun `استضافة الآيات للأربعة المعطوبين على فروع jsDelivr`() {
+        // بلاغ المالك: «الدوسري و القاطمي و البنا و الطبلاوي» — فرعٌ
+        // لكل واحدٍ بآياته الـ٦٢٣٦ تخدمها شبكة jsDelivr العالمية
+        val dossary = QuranReciters.byId("dossary")
+        assertEquals(
+            "https://cdn.jsdelivr.net/gh/Sawan4Art/noor-audio@ayah-dossary/" +
+                "Yasser_Ad-Dussary_128kbps/002255.mp3",
+            QuranReciters.hostedAyahUrl(dossary, 2, 255),
+        )
+        assertEquals(
+            "https://raw.githubusercontent.com/Sawan4Art/noor-audio/refs/heads/" +
+                "ayah-qatami/Nasser_Alqatami_128kbps/001001.mp3",
+            QuranReciters.hostedAyahRawUrl(QuranReciters.byId("qatami"), 1, 1),
+        )
+        assertEquals("ayah-banna", QuranReciters.hostAyahBranch(QuranReciters.byId("al_banna")))
+        assertEquals("ayah-tablawy", QuranReciters.hostAyahBranch(QuranReciters.byId("tablaway")))
+        // ومن لهم طريق CDN فالفراغ — طرقهم الأولى أسرع
+        for (id in listOf("abdelbaset", "minshawi", "husary", "alafasy", "sudais", "muaiqly")) {
+            assertEquals(null, QuranReciters.hostedAyahUrl(QuranReciters.byId(id), 2, 255))
+            assertEquals(null, QuranReciters.hostAyahBranch(QuranReciters.byId(id)))
+        }
+        // والمجودان كذلك — إصدارهما على CDN طريقة الأول
+        assertEquals(null, QuranReciters.hostAyahBranch(QuranReciters.byId("minshawi_mujawwad")))
+        assertEquals(null, QuranReciters.hostAyahBranch(QuranReciters.byId("husary_mujawwad")))
+    }
+
+    @Test
+    fun `المجودان حاضران بالمجلدات والإعدادات الصحيحة`() {
+        val m = QuranReciters.byId("minshawi_mujawwad")
+        assertEquals("Minshawy_Mujawwad_192kbps", m.folder)
+        assertEquals(QuranReciters.Origin.EGYPTIAN, m.origin)
+        assertEquals("مصر", m.country)
+        assertFalse(m.cdnHighBitrate) // ar.minshawimujawwad بلا ١٢٨ قياساً حياً
+        val h = QuranReciters.byId("husary_mujawwad")
+        assertEquals("Husary_Mujawwad_64kbps", h.folder)
+        assertTrue(h.cdnHighBitrate) // ar.husarymujawwad يخدم ١٢٨ قياساً حياً
+        // واسم الملف الموحد يجري عليهما كما على الجميع
+        assertEquals(
+            "https://everyayah.com/data/Minshawy_Mujawwad_192kbps/002255.mp3",
+            QuranReciters.ayahUrl(m, 2, 255),
+        )
+    }
+
+    @Test
+    fun `عدد أصحاب الجودة العالية خمسة بالضبط وكلهم أصحاب إصدار`() {
+        // خمسة حتى v1.84 ثم الحصري المجود (ar.husarymujawwad يخدم ١٢٨
+        // قياساً حياً) — فصاروا خمسة (v1.85)
+        assertEquals(5, QuranReciters.ALL.count { it.cdnHighBitrate })
         assertTrue(
             QuranReciters.ALL.filter { it.cdnHighBitrate }
                 .all { it.fallbackEdition != null },
@@ -318,7 +378,10 @@ class QuranAudioRouteTest {
             .filter { !QuranReciters.hasNoCdnPath(it) }
             .map { it.id }
         assertEquals(
-            listOf("abdelbaset", "minshawi", "husary", "sudais", "muaiqly", "alafasy"),
+            listOf(
+                "abdelbaset", "minshawi", "minshawi_mujawwad", "husary",
+                "husary_mujawwad", "sudais", "muaiqly", "alafasy",
+            ),
             withCdn,
         )
     }
